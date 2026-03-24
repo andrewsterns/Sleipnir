@@ -1,0 +1,46 @@
+[
+  {
+    "id": "E5_Cyber_Network_Defender",
+    "name": "Sergeant Cypher",
+    "rank": "E-5 (25D)",
+    "title": "Cyber Network Defender",
+    "quote": "It is challenging to keep from drowning in log data…",
+    "age": 32,
+    "education": "Bachelor’s degree",
+    "occupation": "Cyber Network Defender",
+    "location": "Deployed",
+    "duties": "Performs specialized computer network defense duties, including infrastructure support, incident response, auditing, and management. Detects and protects against unauthorized activity in the cyberspace domain and uses a variety of tools to analyze and respond to attacks.",
+    "wants": [
+      "Tools that alert him to real cyber threats, not false positives",
+      "A zero-trust network environment that will increase mission resiliency",
+      "New training and understanding to better protect the IF nodes"
+    ],
+    "frustrations": [
+      "It is impossible to keep up with the logging data",
+      "Exploits and techniques are changing every day",
+      "Hard to find and retain recruits with the critical skillset"
+    ]
+  },
+  {
+    "id": "E3_Patriot_Fire_Control_Operator",
+    "name": "Specialist Ramirez",
+    "rank": "E-3 (14E)",
+    "title": "Patriot Fire Control Enhanced Operator / Maintainer",
+    "quote": "When we have issues with the equipment, it falls on me to figure out what is wrong…",
+    "age": 20,
+    "education": "High School diploma",
+    "occupation": "Air Threat Defender",
+    "location": "Deployed",
+    "duties": "Responsible for operating and maintaining the five major parts of the Patriot Fire Control system. Acts quickly and with precision to identify, track, and engage those identified threats using one of the world’s most advanced interceptor missile systems capable of destroying enemy air threats at a moment’s notice.",
+    "wants": [
+      "My system is critical and must be as resilient as possible",
+      "I don't want to be a cyber defender, but I want their help if I am attacked",
+      "I need a simple way to be notified that I am under cyber attack"
+    ],
+    "frustrations": [
+      "Troubleshooting some of our typical problems is time consuming",
+      "Can’t tell the difference between a connection issue and a cyber attack",
+      "Already goes through a lot of training and procedures in current job"
+    ]
+  }
+]

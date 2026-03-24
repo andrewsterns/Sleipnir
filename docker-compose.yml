@@ -1,0 +1,14 @@
+services:
+  web:
+    container_name: sleipnir_web
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev -- --host

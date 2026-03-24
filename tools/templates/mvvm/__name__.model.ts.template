@@ -1,0 +1,7 @@
+// Template for MVVM Model
+
+export interface I{{name}}Model {
+  id: string;
+  name: string;
+  // Define fields based on research data
+}
