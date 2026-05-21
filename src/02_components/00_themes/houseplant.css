@@ -17,6 +17,7 @@
   --text-1: var(--hp-white);
   --text-2: var(--hp-12);
   --text-3: var(--hp-20);
+  --text-4 : var(--hp-40);
 
   --border-1: rgba(255, 255, 255, 0.12);
   --border-2: rgba(255, 255, 255, 0.24);
