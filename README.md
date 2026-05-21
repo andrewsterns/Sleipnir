@@ -1,4 +1,50 @@
+
 # Sleipnir Project
+
+## 🚀 First-Time Setup Instructions
+
+### Prerequisites
+- **Node.js** (v18+ recommended): https://nodejs.org/
+- **Docker Desktop**: https://www.docker.com/products/docker-desktop/
+- **Nx CLI** (global, optional but recommended):
+  ```sh
+  npm install -g nx
+  ```
+
+### 1. Clone the Repository
+```sh
+git clone <repo-url>
+cd Sleipnir
+```
+
+### 2. Install Dependencies
+```sh
+npm install
+```
+
+### 3. Start Docker (Required for all development)
+- Make sure Docker Desktop is running before any Nx or npm commands.
+- All Nx commands are run inside Docker containers for consistency.
+
+### 4. Run the App
+```sh
+npm run docker:up         # Start Docker containers
+npm run docker:nx serve   # Serve the app via Docker/Nx
+```
+
+### 5. Run Tests
+```sh
+npm run docker:test
+```
+
+### 6. Stop Docker Containers
+```sh
+npm run docker:down
+```
+
+---
+
+For more, see the Nx documentation: https://nx.dev/getting-started/intro
 
 Welcome to the Sleipnir project! This project is organized as an Nx monorepo for maximum collaborative efficiency, research-driven design, and clear planning workflows.
 

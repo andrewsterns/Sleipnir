@@ -5,7 +5,7 @@ import React, { useState } from 'react';
  * 
  * This is an experimental version of the Counter component.
  * It does not strictly follow the Atomic Design structure or MVVM yet.
- * Once the "vibe" is confirmed, it should be refactored into atoms/molecules/viewmodels.
+ * Once the "vibe" is confirmed, it should be refactored into atoms/02_molecules/viewmodels.
  */
 export const CounterPrototype: React.FC = () => {
   const [count, setCount] = useState(0);

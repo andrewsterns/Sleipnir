@@ -1,73 +1,141 @@
 import { useState } from 'react'
-import './App.css'
-import Prototypes from './03_prototypes/Prototypes'
-import DSM from './02_components/showcase/DSM.view'
+import { ThemeProvider } from './02_components/00_themes/ThemeProvider'
+import './02_components/00_themes/houseplant.css'
+import { Button } from './02_components/01_atoms/Button/Button'
+import { Frame } from './02_components/01_atoms/Frame/Frame'
+import { Logo } from './02_components/01_atoms/Logo/Logo'
+import { Typography } from './02_components/01_atoms/Typography/Typography'
+import DesignLibraryView from './02_components/DesignLibrary.view.tsx'
+import SingularPrototypeView from './03_prototypes/SingularPrototype.view.tsx'
 
-const TABS = [
-  { id: 'prototypes', label: 'Prototypes', component: <Prototypes />, icon: '🚀' },
-  { id: 'dsm', label: 'DSM', component: <DSM />, icon: '🎨' },
-]
+type WorkspaceMode = 'home' | 'prototype' | 'library'
+export type { Page } from './types'
 
-function App() {
-  const [activeTab, setActiveTab] = useState(TABS[0].id)
+function HomeMenu({ onSelect }: { onSelect: (mode: Exclude<WorkspaceMode, 'home'>) => void }) {
+  const menuItems = [
+    {
+      id: 'library' as const,
+      title: 'Component DSM',
+      description: 'Browse the shared Frame, atoms, and molecules library in a neutral catalog surface.',
+      tag: '01'
+    },
+    {
+      id: 'prototype' as const,
+      title: 'Prototype',
+      description: 'Open the single tactical prototype lane tuned to the reference layout.',
+      tag: '02'
+    }
+  ]
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top Navigation Bar */}
-      <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-900/20">
-            S
-          </div>
-          <h1 className="text-xl font-bold tracking-tighter uppercase">Sleipnir</h1>
-          <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">v0.1.0-alpha</span>
-        </div>
+    <Frame
+      layout="flex"
+      direction="column"
+      justify="center"
+      align="center"
+      height="100%"
+      padding={32}
+    >
+      <Frame layout="flex" direction="column" gap={28} width="100%" maxWidth={1120}>
+        <Frame layout="flex" direction="column" gap={18}>
+          <Logo className="w-[180px] text-[var(--text-0)]" />
+          <Frame layout="flex" direction="column" gap={10} maxWidth={760}>
+            <Typography variant="small" color="text-2" transform="uppercase" tracking="widest">
+              Sleipnir
+            </Typography>
+            <Typography variant="h2" weight="black" className="uppercase tracking-[0.08em]">
+              Component Library and Prototype Workspace
+            </Typography>
+            <Typography variant="p" color="text-2" className="max-w-2xl">
+              Choose the DSM library or open the singular prototype lane. Everything stays in the Houseplant visual system and uses the shared primitives.
+            </Typography>
+          </Frame>
+        </Frame>
 
-        <nav className="flex space-x-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center space-x-2 ${
-                activeTab === t.id
-                  ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-inner'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
-              }`}
+        <Frame layout="grid" className="grid gap-4 md:grid-cols-2">
+          {menuItems.map((item) => (
+            <Frame
+              key={item.id}
+              as="button"
+              variant="surface"
+              onClick={() => onSelect(item.id)}
+              padding={24}
+              layout="flex"
+              direction="column"
+              align="start"
+              gap={14}
+              className="text-left transition-transform hover:-translate-y-0.5"
             >
-              <span>{t.icon}</span>
-              <span>{t.label}</span>
-            </button>
+              <Typography variant="xs" color="text-2" className="font-mono tracking-[0.18em]">
+                {item.tag}
+              </Typography>
+              <Typography variant="h4" weight="black" className="uppercase tracking-[0.12em]">
+                {item.title}
+              </Typography>
+              <Typography variant="small" color="text-2">
+                {item.description}
+              </Typography>
+            </Frame>
           ))}
-        </nav>
+        </Frame>
+      </Frame>
+    </Frame>
+  )
+}
 
-        <div className="flex items-center space-x-4">
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Project</span>
-            <span className="text-xs font-mono text-blue-400">IBCS_MISSION_ALPHA</span>
-          </div>
-        </div>
-      </header>
+function App() {
+  const [mode, setMode] = useState<WorkspaceMode>('home')
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-auto bg-[radial-gradient(circle_at_50%_0%,rgba(30,58,138,0.1),transparent)]">
-        {TABS.find((t) => t.id === activeTab)?.component}
-      </main>
+  return (
+    <ThemeProvider theme="houseplant">
+      <Frame
+        height="100vh"
+        layout="flex"
+        direction="column"
+        background="var(--bg-1)"
+        className="text-[var(--text-1)]"
+        clipContent
+      >
+        {mode === 'home' ? (
+          <HomeMenu onSelect={setMode} />
+        ) : (
+          <>
+            <Frame
+              as="header"
+              height={72}
+              layout="flex"
+              align="center"
+              justify="between"
+              padding={{ x: 24 }}
+              border={{ bottom: { width: '1px', color: 'var(--border-1)' } }}
+              background="rgba(255,255,255,0.02)"
+            >
+              <Button variant="ghost" onClick={() => setMode('home')} className="px-0">
+                <Frame layout="flex" align="center" gap={12}>
+                  <Logo className="w-[120px] text-[var(--text-0)]" />
+                  <Frame layout="flex" direction="column" align="start">
+                    <Typography variant="small" color="text-2" transform="uppercase" tracking="widest">
+                      Sleipnir DSM
+                    </Typography>
+                    <Typography variant="h6" weight="bold" className="uppercase tracking-[0.12em]">
+                      {mode === 'prototype' ? 'Prototype' : 'Component Library'}
+                    </Typography>
+                  </Frame>
+                </Frame>
+              </Button>
 
-      {/* Footer Status Bar */}
-      <footer className="h-8 border-t border-slate-800 bg-slate-900 px-4 flex items-center justify-between text-[10px] text-slate-500 font-mono">
-        <div className="flex items-center space-x-4">
-          <span className="flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-            <span>SYSTEM_ONLINE</span>
-          </span>
-          <span>LATENCY: 24MS</span>
-        </div>
-        <div className="flex items-center space-x-4 uppercase tracking-widest">
-          <span>Agent-Optimized-Environment</span>
-          <span className="text-blue-500/50">#ResearchDriven</span>
-        </div>
-      </footer>
-    </div>
+              <Button variant="outline" size="sm" onClick={() => setMode('home')}>
+                Home Menu
+              </Button>
+            </Frame>
+
+            <Frame as="main" flexGrow={1} clipContent background="var(--bg-1)">
+              {mode === 'prototype' ? <SingularPrototypeView /> : <DesignLibraryView />}
+            </Frame>
+          </>
+        )}
+      </Frame>
+    </ThemeProvider>
   )
 }
 

@@ -22,20 +22,36 @@
   "targetDefaults": {
     "build": {
       "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": ["default", "^default"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "default",
+        "^default"
+      ]
     },
     "test": {
       "cache": true,
-      "inputs": ["default", "^default", "{workspaceRoot}/vitest.config.ts"]
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/vitest.config.ts"
+      ]
     },
     "lint": {
       "cache": true,
-      "inputs": ["default", "^default", "{workspaceRoot}/eslint.config.js"]
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/eslint.config.js"
+      ]
     }
   },
   "namedInputs": {
-    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
+    ],
     "sharedGlobals": []
   },
   "analytics": false
