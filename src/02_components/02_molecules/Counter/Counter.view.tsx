@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '../../01_atoms/Button/Button';
+import { Button } from '../Button/Button';
 import { useCounterViewModel } from './Counter.viewModel';
 import { cn } from '../../../utils/cn';
 import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';

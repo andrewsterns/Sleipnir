@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Frame } from '../02_components/01_atoms/Frame/Frame'
-import { Typography } from '../02_components/01_atoms/Typography/Typography'
+import { Text } from '../02_components/01_atoms/Text/Text'
 
 const notifications = [
   {
@@ -97,9 +97,9 @@ export default function SingularPrototypeView() {
         </Frame>
         <Frame layout="flex" direction="column" gap={12}>
           {['GROUP-1', 'ML', 'GROUND_UNIT', 'FIXED_WING', 'GROUP-2', 'JTIDS'].map((label) => (
-            <Typography key={label} variant="xs" color="text-2" className="tracking-[0.13em]">
+            <Text key={label} variant="xs" color="text-2" className="tracking-[0.13em]">
               {label}
-            </Typography>
+            </Text>
           ))}
         </Frame>
       </Frame>
@@ -163,9 +163,9 @@ export default function SingularPrototypeView() {
         ))}
 
         <Frame position="absolute" top="44%" left="56%" padding={{ x: 14, y: 6 }} border="1px solid var(--border-1)" background="rgba(7,10,15,0.8)">
-          <Typography variant="xs" className="tracking-[0.18em] text-[var(--text-0)]">
+          <Text variant="xs" className="tracking-[0.18em] text-[var(--text-0)]">
             NOTIFICATIONS
-          </Typography>
+          </Text>
         </Frame>
 
         <Frame as="button" position="absolute" top="58%" left="44%" padding={{ x: 14, y: 6 }} border="1px solid rgba(255,255,255,0.35)" background="rgba(255,255,255,0.04)" className="cursor-pointer uppercase tracking-[0.15em] text-[10px] text-[var(--text-0)]">
@@ -182,12 +182,12 @@ export default function SingularPrototypeView() {
 
       <Frame layout="flex" direction="column" gap={12} padding={16} background="linear-gradient(180deg, rgba(12, 12, 14, 0.98), rgba(9, 9, 11, 0.96))">
         <Frame padding={12} border="1px solid var(--border-1)" background="rgba(255,255,255,0.02)">
-          <Typography variant="h2" weight="black" className="leading-none tracking-[0.03em]">
+          <Text variant="h2" weight="black" className="leading-none tracking-[0.03em]">
             ML-2255
-          </Typography>
-          <Typography variant="xs" color="text-2" className="mt-2 tracking-[0.16em]">
+          </Text>
+          <Text variant="xs" color="text-2" className="mt-2 tracking-[0.16em]">
             Manual Control
-          </Typography>
+          </Text>
         </Frame>
 
         <Frame padding={12} border="1px solid var(--border-1)" background="rgba(255,255,255,0.02)" className="min-h-[180px]">
@@ -195,49 +195,49 @@ export default function SingularPrototypeView() {
         </Frame>
 
         <Frame padding={12} border="1px solid var(--border-1)" background="rgba(255,255,255,0.02)" layout="flex" direction="column" gap={10}>
-          <Typography variant="h6" weight="bold" className="uppercase tracking-[0.15em]">
+          <Text variant="h6" weight="bold" className="uppercase tracking-[0.15em]">
             Executive Summary
-          </Typography>
+          </Text>
           <Frame as="ul" layout="flex" direction="column" gap={10} className="list-none p-0 m-0">
             {notifications.map((item) => (
               <Frame as="li" key={item.id} layout="flex" direction="column" gap={2} padding={{ top: 8 }} border={{ top: { width: '1px', color: 'rgba(255,255,255,0.08)' } }}>
-                <Typography variant="xs" className="tracking-[0.08em] text-[var(--text-0)]">
+                <Text variant="xs" className="tracking-[0.08em] text-[var(--text-0)]">
                   {item.title}
-                </Typography>
-                <Typography variant="small" color="text-2">
+                </Text>
+                <Text variant="small" color="text-2">
                   {item.detail}
-                </Typography>
-                <Typography variant="small" color="text-2">
+                </Text>
+                <Text variant="small" color="text-2">
                   Recommended Action: {item.action}
-                </Typography>
-                <Typography variant="xs" color="text-3" className="tracking-[0.1em]">
+                </Text>
+                <Text variant="xs" color="text-3" className="tracking-[0.1em]">
                   {item.stamp}
-                </Typography>
+                </Text>
               </Frame>
             ))}
           </Frame>
         </Frame>
 
         <Frame padding={12} border="1px solid var(--border-1)" background="rgba(255,255,255,0.02)" layout="flex" direction="column" gap={10}>
-          <Typography variant="h6" weight="bold" className="uppercase tracking-[0.15em]">
+          <Text variant="h6" weight="bold" className="uppercase tracking-[0.15em]">
             AI Recommendation
-          </Typography>
-          <Typography variant="small" color="text-2">
+          </Text>
+          <Text variant="small" color="text-2">
             Focus command attention on E7 sector instability. Probability of escalation within next 15 minutes: 68%.
-          </Typography>
+          </Text>
           <Frame layout="flex" direction="column" gap={8}>
-            <Typography variant="xs" color="text-2" className="tracking-[0.16em]">
+            <Text variant="xs" color="text-2" className="tracking-[0.16em]">
               NEXT UPDATE IN: 00:02:00
-            </Typography>
+            </Text>
             <Frame height={7} border="1px solid var(--border-1)" background="rgba(255,255,255,0.04)">
               <Frame width="42%" height="100%" background="linear-gradient(90deg, rgba(255,255,255,0.55), rgba(255,255,255,0.95))" />
             </Frame>
           </Frame>
         </Frame>
 
-        <Typography variant="xs" color="text-2" className="mt-auto border-t border-[var(--border-1)] pt-3 tracking-[0.08em]">
+        <Text variant="xs" color="text-2" className="mt-auto border-t border-[var(--border-1)] pt-3 tracking-[0.08em]">
           find an asset...
-        </Typography>
+        </Text>
       </Frame>
     </Frame>
   )

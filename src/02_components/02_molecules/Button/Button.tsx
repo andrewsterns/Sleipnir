@@ -1,6 +1,6 @@
 import React from 'react';
-import { Frame, FrameProps } from '../Frame/Frame';
-import { Typography } from '../Typography/Typography';
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
+import { Text } from '../../01_atoms/Text/Text';
 
 export interface ButtonProps extends Omit<FrameProps, 'variant'> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'none';
@@ -44,7 +44,7 @@ export const Button = React.forwardRef<HTMLElement, ButtonProps>(
         layout="inline-flex"
         align="center"
         justify="center"
-        borderRadius="var(--radius-1)"
+        borderRadius="var(--radius-3, var(--radius-1, 6px))"
         padding={paddingMap[size]}
         transition="all"
         focusRing
@@ -58,9 +58,9 @@ export const Button = React.forwardRef<HTMLElement, ButtonProps>(
         {isLoading ? (
           <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
         ) : null}
-        <Typography variant={typographyVariant[size]} weight="medium" italic transform="uppercase" tracking="tight" leading="none">
+        <Text variant={typographyVariant[size]} weight="medium" italic transform="uppercase" tracking="tight" leading="none">
           {children}
-        </Typography>
+        </Text>
       </Frame>
     );
   }

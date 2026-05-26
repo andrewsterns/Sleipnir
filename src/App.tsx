@@ -1,11 +1,11 @@
 import { useState } from 'react'
+import './02_components/00_themes/default.css'
 import { ThemeProvider } from './02_components/00_themes/ThemeProvider'
-import './02_components/00_themes/houseplant.css'
-import { Button } from './02_components/01_atoms/Button/Button'
+import { Button } from './02_components/02_molecules/Button/Button.tsx'
 import { Frame } from './02_components/01_atoms/Frame/Frame'
 import { Logo } from './02_components/01_atoms/Logo/Logo'
-import { Typography } from './02_components/01_atoms/Typography/Typography'
-import DesignLibraryView from './02_components/DesignLibrary.view.tsx'
+import { Text } from './02_components/01_atoms/Text/Text.tsx'
+import DesignLibraryView from './02_components/DesignSystem/DesignLibrary.view.tsx'
 import SingularPrototypeView from './03_prototypes/SingularPrototype.view.tsx'
 
 type WorkspaceMode = 'home' | 'prototype' | 'library'
@@ -40,15 +40,15 @@ function HomeMenu({ onSelect }: { onSelect: (mode: Exclude<WorkspaceMode, 'home'
         <Frame layout="flex" direction="column" gap={18}>
           <Logo className="w-[180px] text-[var(--text-0)]" />
           <Frame layout="flex" direction="column" gap={10} maxWidth={760}>
-            <Typography variant="small" color="text-2" transform="uppercase" tracking="widest">
+            <Text variant="h1" weight="normal" color="text-0" className="font-brand uppercase tracking-[0.02em] leading-none text-[clamp(4rem,10vw,8rem)]">
               Sleipnir
-            </Typography>
-            <Typography variant="h2" weight="black" className="uppercase tracking-[0.08em]">
+            </Text>
+            <Text variant="h4" weight="bold" className="uppercase tracking-[0.08em]">
               Component Library and Prototype Workspace
-            </Typography>
-            <Typography variant="p" color="text-2" className="max-w-2xl">
+            </Text>
+            <Text variant="p" color="text-2" className="max-w-2xl">
               Choose the DSM library or open the singular prototype lane. Everything stays in the Houseplant visual system and uses the shared primitives.
-            </Typography>
+            </Text>
           </Frame>
         </Frame>
 
@@ -66,15 +66,15 @@ function HomeMenu({ onSelect }: { onSelect: (mode: Exclude<WorkspaceMode, 'home'
               gap={14}
               className="text-left transition-transform hover:-translate-y-0.5"
             >
-              <Typography variant="xs" color="text-2" className="font-mono tracking-[0.18em]">
+              <Text variant="xs" color="text-2" className="font-mono tracking-[0.18em]">
                 {item.tag}
-              </Typography>
-              <Typography variant="h4" weight="black" className="uppercase tracking-[0.12em]">
+              </Text>
+              <Text variant="h4" weight="black" className="uppercase tracking-[0.12em]">
                 {item.title}
-              </Typography>
-              <Typography variant="small" color="text-2">
+              </Text>
+              <Text variant="small" color="text-2">
                 {item.description}
-              </Typography>
+              </Text>
             </Frame>
           ))}
         </Frame>
@@ -87,7 +87,7 @@ function App() {
   const [mode, setMode] = useState<WorkspaceMode>('home')
 
   return (
-    <ThemeProvider theme="houseplant">
+    <ThemeProvider theme="default">
       <Frame
         height="100vh"
         layout="flex"
@@ -114,12 +114,12 @@ function App() {
                 <Frame layout="flex" align="center" gap={12}>
                   <Logo className="w-[120px] text-[var(--text-0)]" />
                   <Frame layout="flex" direction="column" align="start">
-                    <Typography variant="small" color="text-2" transform="uppercase" tracking="widest">
-                      Sleipnir DSM
-                    </Typography>
-                    <Typography variant="h6" weight="bold" className="uppercase tracking-[0.12em]">
+                    <Text variant="h4" weight="black" color="text-0" className="font-brand uppercase leading-none tracking-[0.04em]">
+                      Sleipnir
+                    </Text>
+                    <Text variant="h6" weight="medium" className="text-[var(--font-small)] uppercase tracking-[0.08em]">
                       {mode === 'prototype' ? 'Prototype' : 'Component Library'}
-                    </Typography>
+                    </Text>
                   </Frame>
                 </Frame>
               </Button>

@@ -47,6 +47,11 @@ export default defineConfig({
       }
     }
   ],
+  server: {
+    watch: {
+      ignored: ['**/.nx/**'],
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

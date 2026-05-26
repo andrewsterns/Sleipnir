@@ -1,0 +1,85 @@
+:root {
+	--color-white: #f6f8fc;
+	--color-black: #080b12;
+
+	--color-slate-0: #f8fafc;
+	--color-slate-1: #f1f5f9;
+	--color-slate-2: #e2e8f0;
+	--color-slate-3: #41464d;
+	--color-slate-4: #272b31;
+	--color-slate-5: #15171a;
+	--color-slate-6: #0e0f13;
+	--color-slate-7: #080b0f;
+
+	--color-grey-0: #f4f5f7;
+	--color-grey-1: #d9dde3;
+	--color-grey-2: #adb5bf;
+	--color-grey-3: #7e8896;
+	--color-grey-4: #525a66;
+	--color-grey-5: #2f3640;
+	--color-grey-6: #1b2129;
+	--color-grey-7: #0b0d11;
+
+	--color-tomato-0: #fff7f6;
+	--color-tomato-1: #ffe6e2;
+	--color-tomato-2: #ffccc4;
+	--color-tomato-3: #ffa89d;
+	--color-tomato-4: #ff8576;
+	--color-tomato-5: #ff6554;
+	--color-tomato-6: #e74c3c;
+	--color-tomato-7: #c0392b;
+
+	--color-blue-0: #f5f9ff;
+	--color-blue-1: #e6f0ff;
+	--color-blue-2: #cce0ff;
+	--color-blue-3: #a8c8ff;
+	--color-blue-4: #7da9ff;
+	--color-blue-5: #4f85ff;
+	--color-blue-6: #2d6cdf;
+	--color-blue-7: #1e4ea7;
+
+	--color-grass-0: #f5fff7;
+	--color-grass-1: #e6fbe9;
+	--color-grass-2: #cdf3d3;
+	--color-grass-3: #a8e6b2;
+	--color-grass-4: #7ed38f;
+	--color-grass-5: #59bb6f;
+	--color-grass-6: #3c8f55;
+	--color-grass-7: #2c6d42;
+
+	--color-gold-0: #fffbea;
+	--color-gold-1: #fff3c4;
+	--color-gold-2: #ffe58f;
+	--color-gold-3: #ffd666;
+	--color-gold-4: #ffc53d;
+	--color-gold-5: #faad14;
+	--color-gold-6: #d48806;
+	--color-gold-7: #ad6800;
+
+	--color-yellow-0: #fffef0;
+	--color-yellow-1: #fff9db;
+	--color-yellow-2: #fff3bf;
+	--color-yellow-3: #ffec99;
+	--color-yellow-4: #ffe066;
+	--color-yellow-5: #ffd43b;
+	--color-yellow-6: #fab005;
+	--color-yellow-7: #e67700;
+
+	--color-violet-0: #f8f5ff;
+	--color-violet-1: #efe5ff;
+	--color-violet-2: #e1ccff;
+	--color-violet-3: #cfa8ff;
+	--color-violet-4: #b77cff;
+	--color-violet-5: #9b59ff;
+	--color-violet-6: #7a3dd9;
+	--color-violet-7: #5b2ca6;
+
+	--color-cyan-0: #f2fdff;
+	--color-cyan-1: #dff9ff;
+	--color-cyan-2: #b8f1ff;
+	--color-cyan-3: #87e8ff;
+	--color-cyan-4: #53d8ff;
+	--color-cyan-5: #29c2f3;
+	--color-cyan-6: #1299c7;
+	--color-cyan-7: #0c7396;
+}
