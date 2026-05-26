@@ -1,6 +1,6 @@
 import React from 'react';
 import { Theme, applyTheme } from '../../00_themes';
-import { Dropdown } from '../../01_atoms/Dropdown/Dropdown.view';
+import { Dropdown } from '../../02_molecules/Dropdown/Dropdown.view';
 import { Logo } from '../../01_atoms/Logo/Logo';
 import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
 import { cn } from '../../../utils/cn';

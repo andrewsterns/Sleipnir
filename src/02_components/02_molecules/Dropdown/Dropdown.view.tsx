@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDropdownViewModel, DropdownOption } from './Dropdown.viewModel';
 import { cn } from '../../../utils/cn';
-import { Frame, FrameProps } from '../Frame/Frame';
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
 
 interface DropdownProps extends Omit<FrameProps, 'onChange' | 'variant'> {
   options: DropdownOption[];
@@ -53,7 +53,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, la
         justify="between"
         padding={{ x: 12, y: 8 }}
         variant={variant}
-        borderRadius="var(--radius-1)"
+        borderRadius="var(--radius-1, 6px)"
         className={cn(
           'w-full text-left transition-all active:scale-[0.98] italic font-bold uppercase tracking-tighter',
           'shadow-[4px_4px_0px_0px_var(--primary-3)]'
@@ -70,7 +70,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, la
           width="100%"
           margin={{ top: 4 }}
           variant="surface"
-          borderRadius="var(--radius-1)"
+          borderRadius="var(--radius-1, 6px)"
           className="overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 shadow-[4px_4px_0px_0px_var(--primary-3)]"
         >
           {options.map((option) => (

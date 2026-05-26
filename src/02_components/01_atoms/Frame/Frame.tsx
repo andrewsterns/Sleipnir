@@ -92,6 +92,7 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
   // Visuals
   fill?: string;
   background?: string;
+
   backgroundColor?: string;
   backgroundGradient?: string;
   backgroundImage?: string;

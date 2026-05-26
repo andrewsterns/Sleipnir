@@ -1,12 +1,12 @@
 import React from 'react';
 import { cn } from '../../../utils/cn';
 
-export type TypographyVariant = 
+export type TextVariant = 
   | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' 
   | 'p' | 'small' | 'xs' | 'link' | 'li';
 
-export interface TypographyProps extends React.HTMLAttributes<HTMLElement> {
-  variant?: TypographyVariant;
+export interface TextProps extends React.HTMLAttributes<HTMLElement> {
+  variant?: TextVariant;
   as?: React.ElementType;
   weight?: 'light' | 'normal' | 'medium' | 'bold' | 'black';
   italic?: boolean;
@@ -22,10 +22,10 @@ export interface TypographyProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 /**
- * Modular Typography Component
+ * Modular Text Component
  * Built on Host Grotesque with semantic scaling.
  */
-export const Typography: React.FC<TypographyProps> = ({
+export const Text: React.FC<TextProps> = ({
   variant = 'p',
   as,
   weight,
@@ -49,7 +49,7 @@ export const Typography: React.FC<TypographyProps> = ({
     (variant.startsWith('h') ? variant : 'p')
   ) as React.ElementType;
 
-  const variantClasses: Record<TypographyVariant, string> = {
+  const variantClasses: Record<TextVariant, string> = {
     h1: 'text-[var(--font-h1)] leading-[var(--leading-tight)] tracking-tighter',
     h2: 'text-[var(--font-h2)] leading-[var(--leading-tight)] tracking-tighter',
     h3: 'text-[var(--font-h3)] leading-[var(--leading-tight)] tracking-tight',

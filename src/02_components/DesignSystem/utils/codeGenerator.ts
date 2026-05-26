@@ -121,8 +121,8 @@ const generateJSXLines = (obj: CanvasObject, allObjects: CanvasObject[], depth: 
     if (obj.padding) props.push(`padding={${obj.padding}}`);
     if (obj.margin) props.push(`margin={${obj.margin}}`);
   } else if (obj.type === 'text') {
-    componentName = 'Typography';
-    imports.add("import { Typography } from '../01_atoms/Typography/Typography';");
+    componentName = 'Text';
+    imports.add("import { Text } from '../01_atoms/Text/Text';");
     if (obj.textVariant) props.push(`variant="${obj.textVariant}"`);
     const fillValue = obj.backgroundGradient || (obj.backgroundImage ? `url(${obj.backgroundImage})` : obj.color || 'transparent');
     props.push(`fill="${fillValue}"`);
@@ -152,7 +152,7 @@ const generateJSXLines = (obj: CanvasObject, allObjects: CanvasObject[], depth: 
     if (obj.type === 'text') {
       result.push({ text: `<${componentName}`, objectId: obj.id });
       props.forEach(p => result.push({ text: `${indent}  ${p}`, objectId: obj.id }));
-      result.push({ text: `${indent}>${obj.textContent || 'Typography Text'}</${componentName}>`, objectId: obj.id });
+      result.push({ text: `${indent}>${obj.textContent || 'Text content'}</${componentName}>`, objectId: obj.id });
       return result;
     }
     result.push({ text: `<${componentName}`, objectId: obj.id });
