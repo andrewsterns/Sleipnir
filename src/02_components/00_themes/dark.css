@@ -1,0 +1,111 @@
+@import './colors/colors.css';
+@import './fonts/fonts.css';
+
+/* ─── Dark theme ─────────────────────────────────────────────────────────────
+   Deep dark with cool-toned neutrals. Near-black backgrounds, high contrast text.
+   Shares the same token names as default so all Frame fill/stroke tokens work. */
+
+.theme-dark {
+  --bg-1: #0a0a0f;
+  --bg-2: #111118;
+  --bg-3: #1a1a24;
+  --bg-ide: #111118;
+  --bg-dark: #000000;
+
+  --text-0: #f5f5ff;
+  --text-1: #c8c8d8;
+  --text-2: #7878a0;
+  --text-3: #44445a;
+
+  --border-1: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.16);
+  --border-w: 1px;
+
+  --radius-0: 0;
+  --radius-1: .2rem;
+  --radius-2: .4rem;
+  --radius-3: .7rem;
+  --radius-4: 1rem;
+
+  --shadow-1: 0 14px 36px -18px rgba(0, 0, 0, 0.98);
+
+  --primary-1: var(--color-slate-1);
+  --primary-2: var(--color-slate-2);
+  --primary-3: var(--color-slate-3);
+  --primary-4: var(--color-slate-4);
+  --primary-5: var(--color-slate-5);
+  --primary-6: var(--color-slate-6);
+  --primary-7: var(--color-slate-7);
+
+  --secondary-1: #1e1e28;
+  --secondary-2: #28283a;
+  --secondary-3: #33334a;
+  --secondary-4: #3d3d58;
+  --secondary-5: #4a4a6a;
+  --secondary-6: #55557a;
+  --secondary-7: #60608a;
+
+  --accent-1: var(--color-blue-1);
+  --accent-2: var(--color-blue-2);
+  --accent-3: var(--color-blue-3);
+  --accent-4: var(--color-blue-4);
+  --accent-5: var(--color-blue-5);
+  --accent-6: var(--color-blue-6);
+  --accent-7: var(--color-blue-7);
+  --accent-glow: 0 0 18px color-mix(in srgb, var(--accent-4) 45%, transparent);
+
+  --warning-1: var(--color-gold-1);
+  --warning-2: var(--color-gold-2);
+  --warning-3: var(--color-gold-3);
+  --warning-4: var(--color-gold-4);
+  --warning-5: var(--color-gold-5);
+  --warning-6: var(--color-gold-6);
+  --warning-7: var(--color-gold-7);
+
+  --info-1: var(--color-cyan-1);
+  --info-2: var(--color-cyan-2);
+  --info-3: var(--color-cyan-3);
+  --info-4: var(--color-cyan-4);
+  --info-5: var(--color-cyan-5);
+  --info-6: var(--color-cyan-6);
+  --info-7: var(--color-cyan-7);
+
+  --danger-1: var(--color-tomato-1);
+  --danger-2: var(--color-tomato-2);
+  --danger-3: var(--color-tomato-3);
+  --danger-4: var(--color-tomato-4);
+  --danger-5: var(--color-tomato-5);
+  --danger-6: var(--color-tomato-6);
+  --danger-7: var(--color-tomato-7);
+
+  /* FONTS — same as default */
+  --font-body: 'Sometype Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
+  --font-mono: 'Sometype Mono', 'Space Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
+  --font-code: 'Sometype Mono', 'Space Mono', 'Oxygen Mono', 'Helvetica Neue', Helvetica, monospace;
+  --font-brand: 'Avoerock Demo', 'Bodoni Moda', serif;
+  --font-display: 'Helvetica Neue', Helvetica, sans-serif;
+
+  --font-h1: 5.5rem;
+  --font-h2: 2.4rem;
+  --font-h3: 1.85rem;
+  --font-h4: 1.35rem;
+  --font-h5: 1.25rem;
+  --font-h6: 1rem;
+  --font-p: 0.875rem;
+  --font-small: 0.75rem;
+  --font-xs: 0.65rem;
+
+  --leading-tight: .9;
+  --leading-normal: 1.5;
+  --leading-loose: 1.7;
+
+  --weight-light: 300;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
+  --weight-black: 700;
+
+  font-family: var(--font-body);
+  background-color: var(--bg-1);
+  color: var(--text-1);
+}

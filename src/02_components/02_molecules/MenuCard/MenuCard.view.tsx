@@ -1,44 +1,68 @@
-import React from 'react';
-import { cn } from '../../../utils/cn';
-import { Frame } from '../../01_atoms/Frame/Frame';
+import React from 'react'
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
+import { Text } from '../../01_atoms/Text/Text'
 
-interface MenuCardProps {
-  title: string;
-  icon?: React.ReactNode;
-  subtitle?: string;
-  onClick: () => void;
-  variant?: 'primary' | 'surface' | 'accent';
-  className?: string;
+export interface MenuCardProps extends Omit<FrameProps, 'variant'> {
+  title: string
+  icon?: React.ReactNode
+  subtitle?: string
+  /** Required — MenuCard is always interactive */
+  onClick: React.MouseEventHandler<HTMLElement>
+  variant?: 'primary' | 'surface' | 'accent'
 }
 
-export const MenuCard: React.FC<MenuCardProps> = ({ 
-  title, 
-  icon, 
-  subtitle, 
-  onClick, 
-  variant = 'primary',
-  className 
-}) => {
-  return (
-    <Frame
-      as="button"
-      onClick={onClick}
-      variant={variant}
-      layout="flex"
-      direction="column"
-      align="center"
-      justify="center"
-      gap={16}
-      padding={{ x: 40, y: 48 }}
-      borderRadius="var(--radius-1)"
-      className={cn(
-        'text-2xl font-black transition-all uppercase italic tracking-tighter active:scale-[0.98]',
-        className
-      )}
-    >
-      {icon && <span className={cn('text-4xl', variant === 'accent' ? 'text-5xl mb-2' : '')}>{icon}</span>}
+export const MenuCard = React.forwardRef<HTMLElement, MenuCardProps>((
+  {
+    // ── MenuCard-specific ─────────────────────────────────────────────────────
+    title,
+    icon,
+    subtitle,
+
+    // ── Frame defaults — callers can override any of these ───────────────────
+    as           = 'button',
+    variant      = 'primary',
+    flow         = 'vertical',
+    align        = 'center',
+    justify      = 'center',
+    gap          = 16,
+    padding      = { x: 40, y: 48 },
+    radius       = 'var(--radius-1)',
+    activeScale  = 0.98,
+    transition   = 'all',
+
+    // ── Everything else passes straight through to Frame ─────────────────────
+    ...frameProps
+  },
+  ref
+) => (
+  <Frame
+    as={as}
+    ref={ref}
+    variant={variant}
+    flow={flow}
+    align={align}
+    justify={justify}
+    gap={gap}
+    padding={padding}
+    radius={radius}
+    activeScale={activeScale}
+    transition={transition}
+    {...frameProps}
+  >
+    {icon && (
+      <Frame flow="horizontal" align="center" justify="center">
+        {icon}
+      </Frame>
+    )}
+    <Text variant="h4" weight="black" italic transform="uppercase" tracking="tight">
       {title}
-      {subtitle && <span className="text-xs font-mono opacity-70 tracking-widest mt-auto">{subtitle}</span>}
-    </Frame>
-  );
-};
+    </Text>
+    {subtitle && (
+      <Text variant="xs" tracking="widest" transform="uppercase" color="text-3">
+        {subtitle}
+      </Text>
+    )}
+  </Frame>
+))
+
+MenuCard.displayName = 'MenuCard'

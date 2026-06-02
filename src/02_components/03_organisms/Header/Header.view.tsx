@@ -1,24 +1,24 @@
-import React from 'react';
-import { Theme, applyTheme } from '../../00_themes';
-import { Dropdown } from '../../02_molecules/Dropdown/Dropdown.view';
-import { Logo } from '../../01_atoms/Logo/Logo';
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
-import { cn } from '../../../utils/cn';
+import React from 'react'
+import { Theme, applyTheme } from '../../00_themes'
+import { Dropdown } from '../../02_molecules/Dropdown/Dropdown.view'
+import { Logo } from '../../01_atoms/Logo/Logo'
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
+import { Text } from '../../01_atoms/Text/Text'
 
 interface HeaderProps extends FrameProps {
-  currentTheme?: Theme;
-  onThemeChange?: (theme: Theme) => void;
-  showThemeSelector?: boolean;
+  currentTheme?: Theme
+  onThemeChange?: (theme: Theme) => void
+  showThemeSelector?: boolean
 }
 
 const THEME_OPTIONS = [
-  { value: 'default', label: 'DEFAULT_VIBE' },
+  { value: 'default',    label: 'DEFAULT_VIBE' },
   { value: 'houseplant', label: 'HOUSEPLANT_LIGHT' },
-  { value: 'dark', label: 'NIGHT_OPERATIONS' },
-];
+  { value: 'dark',       label: 'NIGHT_OPERATIONS' },
+]
 
-export const Header: React.FC<HeaderProps> = ({ 
-  currentTheme = 'default', 
+export const Header: React.FC<HeaderProps> = ({
+  currentTheme = 'default',
   onThemeChange,
   showThemeSelector = false,
   className,
@@ -26,44 +26,66 @@ export const Header: React.FC<HeaderProps> = ({
   ...props
 }) => {
   const handleThemeChange = (val: string) => {
-    const nextTheme = val as Theme;
-    applyTheme(nextTheme);
-    if (onThemeChange) onThemeChange(nextTheme);
-  };
+    const next = val as Theme
+    applyTheme(next)
+    onThemeChange?.(next)
+  }
 
   return (
     <Frame
       as="header"
-      height={64}
-      layout="flex"
+      h={64}
+      flow="horizontal"
       align="center"
       justify="between"
       padding={{ x: 24 }}
       variant={variant}
-      background={variant === 'none' && !props.fill && !props.background ? "var(--bg-2)" : undefined}
-      border={{ bottom: { width: 'var(--border-w)', color: 'var(--border-1)' } }}
-      className={cn("sticky top-0 z-50 backdrop-blur-md transition-colors duration-500", className)}
+      fill={!props.fill ? { solid: 'bg-2' } : props.fill}
+      stroke={{ bottom: { color: 'border-1' } }}
+      sticky
+      y={0}
+      z={50}
+      effects={{ 'background-blur': 12 }}
+      transition="colors"
+      className={className}
       {...props}
     >
-      <div className="flex items-center space-x-4">
+      <Frame flow="horizontal" align="center" gap={16}>
         <Logo className="h-8 w-auto text-[var(--text-1)]" />
-        <span className="text-[10px] bg-[var(--text-1,white)] text-[var(--bg-1,black)] px-2 py-0.5 font-black uppercase tracking-widest">v0.1.0-alpha</span>
-      </div>
-      
-      <div className="flex items-center space-x-6">
+        <Frame
+          padding={{ x: 8, y: 2 }}
+          fill={{ solid: 'text-1' }}
+          radius={2}
+        >
+          <Text variant="xs" transform="uppercase" tracking="widest" color="text-0">
+            v0.1.0-alpha
+          </Text>
+        </Frame>
+      </Frame>
+
+      <Frame flow="horizontal" align="center" gap={24}>
         {showThemeSelector && (
-          <Dropdown 
-            options={THEME_OPTIONS} 
-            value={currentTheme} 
-            onChange={handleThemeChange} 
-            className="w-40"
+          <Dropdown
+            options={THEME_OPTIONS}
+            value={currentTheme}
+            onChange={handleThemeChange}
           />
         )}
-        <div className="flex flex-col items-end border-l-2 border-[var(--border-1)] pl-6">
-          <span className="text-[10px] font-black text-[var(--text-2,#d0c9c3)] uppercase tracking-[0.2em]">Active Project</span>
-          <span className="text-xs font-mono font-bold text-[var(--text-3,#ff073a)]">IBCS_MISSION_ALPHA</span>
-        </div>
-      </div>
+        <Frame
+          flow="vertical"
+          align="end"
+          stroke={{ left: { color: 'border-2', width: 2 } }}
+          padding={{ left: 24 }}
+          gap={2}
+        >
+          <Text variant="xs" transform="uppercase" tracking="widest" color="text-2">
+            Active Project
+          </Text>
+          <Text variant="xs" transform="uppercase" tracking="wide" color="accent">
+            IBCS_MISSION_ALPHA
+          </Text>
+        </Frame>
+      </Frame>
     </Frame>
-  );
-};
+  )
+}

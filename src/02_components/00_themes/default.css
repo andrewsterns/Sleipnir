@@ -75,11 +75,14 @@
   --danger-6: var(--color-tomato-6);
   --danger-7: var(--color-tomato-7);
 
-  --font-body: 'Oxygen Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
-  --font-mono: 'Oxygen Mono', 'Space Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
+
+  /* FONTS */
+
+  --font-body: 'Sometype Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
+  --font-mono: 'Sometype Mono', 'Space Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
   --font-code: 'Sometype Mono', 'Space Mono', 'Oxygen Mono', 'Helvetica Neue', Helvetica, monospace;
   --font-brand: 'Avoerock Demo', 'Bodoni Moda', serif;
-  --font-display: 'Doto', 'Inter', 'Helvetica Neue', Helvetica, sans-serif;
+  --font-display: 'Helvetica Neue', Helvetica, sans-serif;
 
   --font-h1: 5.5rem;
   --font-h2: 2.4rem;
@@ -89,13 +92,13 @@
   --font-h6: 1rem;
   --font-p: 0.875rem;
   --font-small: 0.75rem;
-  --font-xs: 0.625rem;
+  --font-xs: 0.65rem;
 
-  --leading-tight: 1.12;
+  --leading-tight: .9;
   --leading-normal: 1.5;
   --leading-loose: 1.7;
 
-  --weight-light: 400;
+  --weight-light: 300;
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold: 600;
@@ -168,10 +171,14 @@ body,
   line-height: var(--leading-normal);
 }
 
-.theme-default ul {
-  padding-left: 1.25rem;
-  margin: 0;
-  list-style: disc;
+/* Remove default ul padding and margin for design system */
+ul {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  list-style: none;
 }
 
 .theme-default .font-mono {

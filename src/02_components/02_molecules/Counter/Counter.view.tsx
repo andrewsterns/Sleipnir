@@ -1,43 +1,50 @@
-import React from 'react';
-import { Button } from '../Button/Button';
-import { useCounterViewModel } from './Counter.viewModel';
-import { cn } from '../../../utils/cn';
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
+import React from 'react'
+import { Button } from '../Button/Button'
+import { useCounterViewModel } from './Counter.viewModel'
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
+import { Text } from '../../01_atoms/Text/Text'
 
 interface CounterProps extends FrameProps {
-  initialValue?: number;
+  initialValue?: number
 }
 
-export const Counter: React.FC<CounterProps> = ({ initialValue = 0, className, variant = 'surface', ...props }) => {
-  const { count, increment, decrement, reset } = useCounterViewModel(initialValue);
+export const Counter: React.FC<CounterProps> = ({
+  initialValue = 0,
+  variant = 'surface',
+  className,
+  ...props
+}) => {
+  const { count, increment, decrement, reset } = useCounterViewModel(initialValue)
 
   return (
     <Frame
       variant={variant}
-      layout="flex"
-      direction="column"
+      flow="vertical"
       align="center"
       gap={16}
       padding={24}
-      borderRadius="var(--radius-1)"
-      className={cn('shadow-sm', className)}
+      radius="var(--radius-2)"
+      effects={{ 'drop-shadow': { y: 2, blur: 12, color: 'rgba(0,0,0,0.2)' } }}
+      className={className}
       {...props}
     >
-      <h3 className="text-lg font-black italic uppercase text-[var(--text-1)]">Atomic Counter</h3>
-      <div className="flex items-center gap-6">
+      <Text variant="h6" weight="black" italic transform="uppercase" color="text-1">
+        Atomic Counter
+      </Text>
+      <Frame flow="horizontal" align="center" gap={24}>
         <Button variant="outline" size="sm" onClick={decrement} disabled={count === 0}>
-          -
+          −
         </Button>
-        <span className="text-3xl font-black tabular-nums text-[var(--text-3)] w-12 text-center italic">
+        <Text variant="h3" weight="black" color="text-3">
           {count}
-        </span>
+        </Text>
         <Button variant="outline" size="sm" onClick={increment}>
           +
         </Button>
-      </div>
+      </Frame>
       <Button variant="ghost" size="sm" onClick={reset}>
         Reset
       </Button>
     </Frame>
-  );
-};
+  )
+}

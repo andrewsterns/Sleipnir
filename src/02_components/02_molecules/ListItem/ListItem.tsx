@@ -1,52 +1,78 @@
-import React from 'react';
-import { Frame } from '../../01_atoms/Frame/Frame';
-import { Text } from '../../01_atoms/Text/Text';
+import React, { useState } from 'react'
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
+import { Text } from '../../01_atoms/Text/Text'
 
-interface ListItemProps {
-  id: string;
-  title: string;
-  subtitle?: string;
-  isActive?: boolean;
-  isHighlighted?: boolean;
-  onClick?: (id: string) => void;
+export interface ListItemProps extends Omit<FrameProps, 'onClick'> {
+  id: string
+  title: string
+  subtitle?: string
+  isActive?: boolean
+  /** Soft highlight from an external source (e.g. hovering the name in the code panel) */
+  isHovered?: boolean
+  onClick?: (id: string) => void
 }
 
-export const ListItem: React.FC<ListItemProps> = ({
-  id,
-  title,
-  subtitle,
-  isActive = false,
-  isHighlighted = false,
-  onClick,
-}) => {
-  const isEmphasized = isActive || isHighlighted;
+export const ListItem = React.forwardRef<HTMLElement, ListItemProps>((
+  {
+    // ── ListItem-specific ─────────────────────────────────────────────────────
+    id,
+    title,
+    subtitle,
+    isActive  = false,
+    isHovered = false,
+    onClick,
+
+    // ── Frame defaults ────────────────────────────────────────────────────────
+    as = 'li',
+    w  = 'fill',
+
+    // ── Everything else passes straight through ───────────────────────────────
+    ...frameProps
+  },
+  ref
+) => {
+  const [mouseOver, setMouseOver] = useState(false)
+
+  const bg = isActive   ? 'primary-3'
+           : isHovered  ? 'primary-4'
+           : mouseOver  ? 'primary-5'
+           : 'transparent'
 
   return (
-    <Frame as="li" variant="none" className="list-none">
+    <Frame as={as} ref={ref} w={w} {...frameProps}>
       <Frame
         as="button"
-        type="button"
         onClick={() => onClick?.(id)}
-        variant="none"
-        padding={{ x: 12, y: 10 }}
-        layout="flex"
-        direction="column"
+        onHover={() => setMouseOver(true)}
+        onHoverEnd={() => setMouseOver(false)}
+        w="fill"
+        flow="vertical"
         align="start"
         gap={3}
-        borderRadius="var(--radius-1)"
-        border="1px solid var(--border-1)"
-        backgroundColor={isEmphasized ? 'var(--primary-3)' : 'transparent'}
-        className="w-full text-left transition-colors hover:bg-[var(--primary-5)]"
+        padding={{ x: 12, y: 10 }}
+        radius="var(--radius-1)"
+        fill={{ solid: bg }}
+        stroke={isHovered && !isActive ? { color: 'border-2' } : undefined}
+        transition="colors"
       >
-        <Text variant="small" weight={isActive ? 'bold' : 'normal'} color="text-0" className="uppercase tracking-[0.1em] leading-tight">
+        <Text
+          variant="xs"
+          weight={isActive ? 'bold' : 'normal'}
+          color={isActive ? 'text-0' : isHovered ? 'text-1' : 'text-2'}
+          transform="uppercase"
+          tracking="wide"
+          leading="tight"
+        >
           {title}
         </Text>
-        {subtitle ? (
-          <Text variant="xs" color="text-2" className="font-[var(--weight-normal)] tracking-[0.08em]">
+        {subtitle && (
+          <Text variant="xs" color="text-3" tracking="normal">
             {subtitle}
           </Text>
-        ) : null}
+        )}
       </Frame>
     </Frame>
-  );
-};
+  )
+})
+
+ListItem.displayName = 'ListItem'

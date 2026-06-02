@@ -1,92 +1,114 @@
-import React from 'react';
-import { useDropdownViewModel, DropdownOption } from './Dropdown.viewModel';
-import { cn } from '../../../utils/cn';
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
+import React from 'react'
+import { useDropdownViewModel, DropdownOption } from './Dropdown.viewModel'
+import { cn } from '../../../utils/cn'
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
 
-interface DropdownProps extends Omit<FrameProps, 'onChange' | 'variant'> {
-  options: DropdownOption[];
-  value?: string;
-  onChange?: (value: string) => void;
-  label?: string;
-  variant?: 'surface' | 'none';
+export interface DropdownProps extends Omit<FrameProps, 'onChange' | 'variant'> {
+  options: DropdownOption[]
+  value?: string
+  onChange?: (value: string) => void
+  label?: string
+  variant?: 'surface' | 'none'
 }
 
-export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, label, className, variant = 'surface', ...props }) => {
-  const { 
-    isOpen, 
-    selectedValue, 
-    selectedLabel, 
-    toggle, 
-    selectOption, 
-    dropdownRef 
-  } = useDropdownViewModel(options, value);
+export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
+  {
+    // ── Dropdown-specific ─────────────────────────────────────────────────────
+    options,
+    value,
+    onChange,
+    label,
+    variant = 'surface',
+
+    // ── Frame defaults ────────────────────────────────────────────────────────
+    flow   = 'freeform',   // children (menu) use absolute positioning
+    w      = 192,
+
+    // ── Everything else passes straight through ───────────────────────────────
+    className,
+    ...frameProps
+  },
+  ref
+) => {
+  const { isOpen, selectedValue, selectedLabel, toggle, selectOption, dropdownRef } =
+    useDropdownViewModel(options, value)
 
   const handleSelect = (val: string) => {
-    selectOption(val);
-    if (onChange) onChange(val);
-  };
+    selectOption(val)
+    onChange?.(val)
+  }
 
   return (
-    <Frame 
-      position="relative" 
-      layout="inline-block" 
-      className={cn('w-48 font-mono text-xs', className)} 
-      ref={dropdownRef as any}
-      {...props}
+    <Frame
+      ref={(node) => {
+        // forward both the consumer ref and the click-outside ref
+        if (typeof ref === 'function') ref(node)
+        else if (ref) (ref as React.MutableRefObject<HTMLElement | null>).current = node
+        ;(dropdownRef as React.MutableRefObject<HTMLElement | null>).current = node
+      }}
+      flow={flow}
+      w={w}
+      className={cn('font-mono text-xs', className)}
+      {...frameProps}
     >
       {label && (
-        <Frame 
-          as="label" 
-          layout="block" 
-          margin={{ bottom: 4 }} 
+        <Frame
+          as="label"
+          layout="block"
+          margin={{ bottom: 4 }}
           className="text-[var(--text-2)] font-black uppercase tracking-widest"
         >
           {label}
         </Frame>
       )}
-      
+
       <Frame
         as="button"
         onClick={toggle}
-        layout="flex"
+        flow="horizontal"
         align="center"
         justify="between"
         padding={{ x: 12, y: 8 }}
         variant={variant}
-        borderRadius="var(--radius-1, 6px)"
-        className={cn(
-          'w-full text-left transition-all active:scale-[0.98] italic font-bold uppercase tracking-tighter',
-          'shadow-[4px_4px_0px_0px_var(--primary-3)]'
-        )}
+        radius="var(--radius-1)"
+        w="fill"
+        effects={{ 'drop-shadow': { x: 4, y: 4, blur: 0, spread: 0, color: 'var(--primary-3)' } }}
+        activeScale={0.98}
+        transition="all"
+        className="italic font-bold uppercase tracking-tighter"
       >
         <span className="truncate">{selectedLabel}</span>
-        <span className={cn('transition-transform duration-200 text-[10px]', isOpen ? 'rotate-180' : 'rotate-0')}>▼</span>
+        <span className={cn('transition-transform duration-200 text-[10px]', isOpen ? 'rotate-180' : '')}>
+          ▼
+        </span>
       </Frame>
 
       {isOpen && (
         <Frame
-          position="absolute"
-          zIndex={50}
-          width="100%"
+          absolute
+          z={50}
+          w="fill"
           margin={{ top: 4 }}
           variant="surface"
-          borderRadius="var(--radius-1, 6px)"
-          className="overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 shadow-[4px_4px_0px_0px_var(--primary-3)]"
+          radius="var(--radius-1)"
+          clipContent
+          effects={{ 'drop-shadow': { x: 4, y: 4, blur: 0, spread: 0, color: 'var(--primary-3)' } }}
+          animate="fade-in"
+          animationDuration={150}
         >
           {options.map((option) => (
             <Frame
               as="button"
               key={option.value}
               onClick={() => handleSelect(option.value)}
-              width="100%"
-              layout="flex"
+              w="fill"
+              flow="horizontal"
               align="center"
               padding={{ x: 12, y: 8 }}
-              className={cn(
-                'text-left transition-colors border-b last:border-0 border-[var(--border-1)] uppercase italic tracking-tighter',
-                'hover:bg-[var(--bg-3)] text-[var(--text-1)]',
-                selectedValue === option.value && 'bg-[var(--bg-3)] font-black'
-              )}
+              stroke={{ bottom: { color: 'border-1' } }}
+              hoverFill="bg-3"
+              fill={{ solid: selectedValue === option.value ? 'bg-3' : 'transparent' }}
+              className="text-left uppercase italic tracking-tighter text-[var(--text-1)]"
             >
               {option.label}
             </Frame>
@@ -94,5 +116,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, la
         </Frame>
       )}
     </Frame>
-  );
-};
+  )
+})
+
+Dropdown.displayName = 'Dropdown'
