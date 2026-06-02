@@ -32,8 +32,8 @@ export const Counter: React.FC<CounterProps> = ({
         Atomic Counter
       </Text>
       <Frame flow="horizontal" align="center" gap={24}>
-        <Button variant="outline" size="sm" onClick={decrement} disabled={count === 0}>
-          −
+        <Button variant="outline" size="sm" onClick={decrement} disabled={count === 0} aria-label="decrement">
+   Minus
         </Button>
         <Text variant="h3" weight="black" color="text-3">
           {count}

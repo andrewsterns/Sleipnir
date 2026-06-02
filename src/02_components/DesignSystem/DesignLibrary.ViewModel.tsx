@@ -3,7 +3,6 @@ import { Text } from '../01_atoms/Text/Text'
 import { Frame as AtomFrame } from '../01_atoms/Frame/Frame'
 import { Icon } from '../01_atoms/Icon/Icon'
 import { Tooltip } from '../02_molecules/Tooltip/Tooltip'
-import { Counter } from '../02_molecules/Counter/Counter.view'
 import { MenuCard } from '../02_molecules/MenuCard/MenuCard.view'
 import { Dropdown } from '../02_molecules/Dropdown/Dropdown.view'
 import { ListItem } from '../02_molecules/ListItem/ListItem'
@@ -57,7 +56,6 @@ export const componentPreviewMap: Record<string, React.ReactNode> = {
       <Button variant="outline" size="sm">Hover me</Button>
     </Tooltip>
   ),
-  Counter: <Counter initialValue={3} />,
   MenuCard: (
     <AtomFrame flow="horizontal" gap={12}>
       <MenuCard title="Option A" onClick={() => {}} subtitle="Primary" variant="primary" />
@@ -257,26 +255,6 @@ type IconName =
   {content}
 </Frame>`,
 
-  Counter: `// Usage
-<Counter initialValue={0} variant="surface" />
-
-// Internal Frame
-<Frame
-  variant="surface"
-  flow="vertical"
-  align="center"
-  gap={16}
-  padding={24}
-  radius="var(--radius-2)"
-  effects={{ 'drop-shadow': { y: 2, blur: 12, color: 'rgba(0,0,0,0.2)' } }}
->
-  <Frame flow="horizontal" align="center" gap={24}>
-    <Button variant="outline" size="sm" onClick={decrement}>−</Button>
-    <Text variant="h3" weight="black">{count}</Text>
-    <Button variant="outline" size="sm" onClick={increment}>+</Button>
-  </Frame>
-</Frame>`,
-
   MenuCard: `// Usage
 <MenuCard
   title="Option"
@@ -370,7 +348,6 @@ export const componentsList: ComponentMeta[] = [
   { name: 'Logo',          path: '../01_atoms/Logo/Logo',                 type: 'atom'     },
   { name: 'Text',          path: '../01_atoms/Text/Text',                 type: 'atom'     },
   { name: 'Tooltip',       path: '../02_molecules/Tooltip/Tooltip',       type: 'molecule' },
-  { name: 'Counter',       path: '../02_molecules/Counter/Counter.view',  type: 'molecule' },
   { name: 'MenuCard',      path: '../02_molecules/MenuCard/MenuCard.view',type: 'molecule' },
   { name: 'Dropdown',      path: '../02_molecules/Dropdown/Dropdown.view',type: 'molecule' },
   { name: 'Button',        path: '../02_molecules/Button/Button',         type: 'molecule' },
