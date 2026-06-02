@@ -30,7 +30,7 @@ export const List: React.FC<ListProps> = ({
           title={item.title}
           subtitle={item.subtitle}
           isActive={activeId === item.id}
-          isHighlighted={highlightedId === item.id}
+          isHovered={highlightedId === item.id}
           onClick={onSelectItem}
         />
       ))}
