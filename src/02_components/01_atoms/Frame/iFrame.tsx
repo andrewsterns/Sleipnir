@@ -1,7 +1,5 @@
 import React from 'react';
 
-// ─── Fill ────────────────────────────────────────────────────────────────────
-
 export type FillType = 'solid' | 'gradient' | 'pattern' | 'image' | 'video';
 
 export interface FillProps {
@@ -26,6 +24,8 @@ export interface FillProps {
  *   fill={{ 'linear-gradient': '90deg, #000, #fff' }}
  *   fill={{ image: '/hero.png' }}
  *   fill={{ video: '/bg.mp4' }}
+ *   fill={{ lines: { angle: 135, spacing: 8, color: 'rgba(255,255,255,0.04)', width: 1 } }}
+ *   fill={[{ lines: { angle: 135, spacing: 8 } }, { solid: 'bg-2' }]}
  */
 export type FillProp =
   | { solid: string }
@@ -33,7 +33,21 @@ export type FillProp =
   | { 'radial-gradient': string }
   | { pattern: string }
   | { image: string }
-  | { video: string };
+  | { video: string }
+  | { lines: { angle?: number; spacing?: number; color?: string; width?: number } };
+
+// ─── Chamfer ─────────────────────────────────────────────────────────────────
+
+/**
+ * Chamfer (45° cut corner) size in pixels. A single number applies to all corners.
+ *
+ * @example
+ *   chamfer={8}
+ *   chamfer={{ topLeft: 12, bottomRight: 12 }}
+ */
+export type ChamferProp =
+  | number
+  | { topLeft?: number; topRight?: number; bottomRight?: number; bottomLeft?: number };
 
 // ─── Flow ────────────────────────────────────────────────────────────────────
 
@@ -57,11 +71,14 @@ export interface StrokeSideProps {
 
 /**
  * Figma-style stroke (border). Token colors auto-resolve.
+ * When `gradient` is provided, renders a gradient border using a wrapper element
+ * (works best combined with `chamfer`).
  *
  * @example
  *   stroke={{ color: 'border-1', width: 1 }}
  *   stroke={{ bottom: { color: 'border-1' } }}
  *   stroke="1px solid var(--border-1)"
+ *   stroke={{ gradient: '135deg, rgba(0,255,136,0.6), rgba(0,80,40,0.08)', width: 1 }}
  */
 export type StrokeProp =
   | string
@@ -69,6 +86,8 @@ export type StrokeProp =
       color?: string;
       width?: number | string;
       style?: 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
+      /** Gradient string for gradient border, e.g. '135deg, #0f0, #030'. Triggers wrapper render. */
+      gradient?: string;
       top?: boolean | StrokeSideProps;
       right?: boolean | StrokeSideProps;
       bottom?: boolean | StrokeSideProps;
@@ -240,12 +259,18 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
   size?: number | string;
 
   // ── Figma-native: Fill / Stroke / Radius ─────────────────────────────────
-  fill?: FillProp;
+  /** Single fill or array of layered fills (first = topmost). Supports solid, gradient, image, pattern, lines, video. */
+  fill?: FillProp | FillProp[];
   stroke?: StrokeProp;
   /** Corner radius. Prefer over borderRadius. */
   radius?: number | string | RadiusProps;
   /** border-radius: 9999px */
   round?: boolean;
+  /**
+   * Chamfer (45° cut corner) in pixels. Pair with stroke.gradient for a gradient border effect.
+   * @example chamfer={8}  chamfer={{ topLeft: 12, bottomRight: 12 }}
+   */
+  chamfer?: ChamferProp;
 
   // ── Figma-native: Effects ─────────────────────────────────────────────────
   /**

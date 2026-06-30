@@ -10,9 +10,9 @@ interface LeftRailingProps {
 
 export const LeftRailing = ({ activeComponent, hoveredCodeTarget, onSelectComponent }: LeftRailingProps) => {
   const sections = [
-    { title: 'Themes',    items: componentsList.filter(c => c.type === 'theme') },
     { title: 'Atoms',     items: componentsList.filter(c => c.type === 'atom') },
     { title: 'Molecules', items: componentsList.filter(c => c.type === 'molecule') },
+    { title: 'Organisms', items: componentsList.filter(c => c.type === 'organism') },
   ]
 
   return (

@@ -7,7 +7,7 @@ import { ComponentPreview } from './ComponentPreviewView'
 import { getComponentCode } from './DesignLibrary.ViewModel'
 
 export default function DesignLibraryView() {
-  const [activeComponent, setActiveComponent] = useState('Button')
+  const [activeComponent, setActiveComponent] = useState('Frame')
   const [hoveredCodeTarget, setHoveredCodeTarget] = useState<string | null>(null)
 
   const activeCode = getComponentCode(activeComponent)

@@ -3,7 +3,7 @@ import { cn } from '../../../utils/cn';
 import {
   FrameProps, FillProps, SpacingProp,
   AnimationType, RadiusProps, BorderProps,
-  DimensionProp, ShadowEffect,
+  DimensionProp, ShadowEffect, FillProp, ChamferProp,
 } from './iFrame';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -55,6 +55,53 @@ const shadowEffectToString = (s: ShadowEffect, inset = false): string => {
   return `${inset ? 'inset ' : ''}${x} ${y} ${blur} ${spread} ${color}`;
 };
 
+// ─── Chamfer ─────────────────────────────────────────────────────────────────
+
+/**
+ * Builds a CSS clip-path polygon string for chamfered (45°-cut) corners.
+ * All values are in pixels; `inset` shrinks each cut by that amount (used for inner layer).
+ */
+export const buildChamferClipPath = (chamfer: ChamferProp, inset: number = 0): string => {
+  const n = typeof chamfer === 'number'
+    ? { topLeft: chamfer, topRight: chamfer, bottomRight: chamfer, bottomLeft: chamfer }
+    : { topLeft: 0, topRight: 0, bottomRight: 0, bottomLeft: 0, ...chamfer };
+
+  const tl = Math.max(0, n.topLeft   - inset);
+  const tr = Math.max(0, n.topRight  - inset);
+  const br = Math.max(0, n.bottomRight - inset);
+  const bl = Math.max(0, n.bottomLeft - inset);
+
+  const a = (v: number) => v === 0 ? '0%'   : `${v}px`;
+  const c = (v: number) => v === 0 ? '100%' : `calc(100% - ${v}px)`;
+
+  return `polygon(${a(tl)} 0%, ${c(tr)} 0%, 100% ${a(tr)}, 100% ${c(br)}, ${c(br)} 100%, ${a(bl)} 100%, 0% ${c(bl)}, 0% ${a(tl)})`;
+};
+
+// ─── Multi-fill resolution ────────────────────────────────────────────────────
+
+/** Resolves a single FillProp to a CSS background-image layer string (for stacking). */
+const resolveFillLayer = (fill: FillProp): string => {
+  if ('solid' in fill) {
+    const color = resolveToken(fill.solid);
+    return `linear-gradient(${color}, ${color})`;
+  }
+  if ('linear-gradient' in fill) return `linear-gradient(${fill['linear-gradient']})`;
+  if ('radial-gradient' in fill) return `radial-gradient(${fill['radial-gradient']})`;
+  if ('image' in fill)   return `url(${fill.image})`;
+  if ('pattern' in fill) return `url(${fill.pattern})`;
+  if ('lines' in fill) {
+    const { angle = 135, spacing = 8, color = 'rgba(255,255,255,0.04)', width = 1 } = fill.lines;
+    return `repeating-linear-gradient(${angle}deg, ${color} 0, ${color} ${width}px, transparent ${width}px, transparent ${spacing}px)`;
+  }
+  return '';
+};
+
+/** Resolves an array of FillProps into stacked CSS background-image. First = topmost. */
+const resolveMultiFill = (fills: FillProp[]): React.CSSProperties => {
+  const layers = fills.map(resolveFillLayer).filter(Boolean);
+  return layers.length ? { backgroundImage: layers.join(', ') } : {};
+};
+
 // ─── Noise texture (SVG turbulence, rendered as child overlay) ───────────────
 
 const NOISE_DATA_URL =
@@ -104,6 +151,18 @@ const JUSTIFY_MAP: Record<string, string> = {
   between: 'space-between', around: 'space-around', evenly: 'space-evenly',
 };
 
+// CSS properties that belong on the outer wrapper when gradient stroke is used
+const OUTER_STYLE_KEYS = new Set([
+  'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'aspectRatio',
+  'flexGrow', 'flexShrink', 'flexBasis', 'alignSelf',
+  'gridColumn', 'gridRow',
+  'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+  'position', 'left', 'top', 'right', 'bottom', 'inset', 'zIndex',
+  'opacity', 'mixBlendMode', 'transform',
+  'transition', 'cursor', 'pointerEvents',
+  'animation', 'animationDuration', 'animationDelay', 'animationIterationCount',
+]);
+
 // ─── Keyframes ───────────────────────────────────────────────────────────────
 
 let _kfInjected = false;
@@ -135,8 +194,8 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
   // Figma-native: layout
   flow, w, h, minW, maxW, minH, maxH, size,
 
-  // Figma-native: fill / stroke / radius
-  fill, stroke, radius, round,
+  // Figma-native: fill / stroke / radius / chamfer
+  fill, stroke, radius, round, chamfer,
 
   // Figma-native: effects
   effects, opacity, clipContent, aspect, blendMode,
@@ -198,27 +257,45 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
   ...props
 }, ref) => {
 
-  // ── Resolve fill → fillProps ──────────────────────────────────────────────
+  // ── Resolve fill ─────────────────────────────────────────────────────────
+  // Multi-fill array: resolve to stacked backgroundImage CSS
+  const multiFillStyles = useMemo((): React.CSSProperties => {
+    if (fillProps || !fill) return {};
+    if (Array.isArray(fill)) return resolveMultiFill(fill as FillProp[]);
+    // Single fill: lines type needs special handling too
+    if ('lines' in (fill as FillProp)) return resolveMultiFill([fill as FillProp]);
+    return {};
+  }, [fill, fillProps]);
+
+  // Single-fill to FillProps (non-array, non-lines, backward compat)
   let computedFillProps: FillProps | undefined = fillProps;
-  if (!fillProps && fill) {
-    if ('solid' in fill)              computedFillProps = { type: 'solid',    color: resolveToken(fill.solid) };
-    else if ('linear-gradient' in fill) computedFillProps = { type: 'gradient', gradient: fill['linear-gradient'] };
-    else if ('radial-gradient' in fill) computedFillProps = { type: 'gradient', gradient: fill['radial-gradient'] };
-    else if ('pattern' in fill)       computedFillProps = { type: 'pattern',  patternUrl: fill.pattern };
-    else if ('image' in fill)         computedFillProps = { type: 'image',    imageUrl: fill.image };
-    else if ('video' in fill)         computedFillProps = { type: 'video',    videoUrl: fill.video };
+  if (!fillProps && fill && !Array.isArray(fill)) {
+    const f = fill as FillProp;
+    if ('solid' in f)                computedFillProps = { type: 'solid',    color: resolveToken(f.solid) };
+    else if ('linear-gradient' in f) computedFillProps = { type: 'gradient', gradient: f['linear-gradient'] };
+    else if ('radial-gradient' in f) computedFillProps = { type: 'gradient', gradient: f['radial-gradient'] };
+    else if ('pattern' in f)         computedFillProps = { type: 'pattern',  patternUrl: f.pattern };
+    else if ('image' in f)           computedFillProps = { type: 'image',    imageUrl: f.image };
+    else if ('video' in f)           computedFillProps = { type: 'video',    videoUrl: f.video };
+    // 'lines' handled by multiFillStyles above
   }
 
-  // ── Derive whether overlays are needed (needs position:relative) ──────────
+  // ── Gradient stroke detection ─────────────────────────────────────────────
+  const gradientStroke = stroke && typeof stroke === 'object' && !Array.isArray(stroke) && 'gradient' in stroke
+    ? stroke as { gradient: string; width?: number | string; [k: string]: any }
+    : null;
+  const strokeWidth = gradientStroke ? (Number(String(gradientStroke.width ?? 1).replace('px', '')) || 1) : 1;
+
+  // ── Derive whether overlays are needed ────────────────────────────────────
   const hasNoiseOverlay   = !!effects?.noise;
   const hasTextureOverlay = !!effects?.texture;
   const hasOverlay = hasNoiseOverlay || hasTextureOverlay || isLoading;
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const customStyles = useMemo((): React.CSSProperties => {
-    const s: React.CSSProperties = { ...style };
+    const s: React.CSSProperties = {};
 
-    // ── Flow / Display ────────────────────────────────────────────────────────
+    // ── Flow / Display ──────────────────────────────────────────────────────
     if (layout) {
       s.display = layout;
     } else if (flow === 'vertical' || flow === 'horizontal') {
@@ -226,9 +303,8 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     } else if (flow === 'grid') {
       s.display = 'grid';
     }
-    // freeform: no display override — just ensures position:relative below
 
-    // ── Flex direction ────────────────────────────────────────────────────────
+    // ── Flex direction ──────────────────────────────────────────────────────
     if (direction) {
       s.flexDirection = direction;
     } else if (flow === 'vertical') {
@@ -237,7 +313,7 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
       s.flexDirection = 'row';
     }
 
-    // ── Dimensions ────────────────────────────────────────────────────────────
+    // ── Dimensions ──────────────────────────────────────────────────────────
     if (size !== undefined) { s.width = formatValue(size); s.height = formatValue(size); }
     if (w !== undefined)          s.width     = resolveDim(w, 'x');
     else if (width !== undefined)  s.width    = formatValue(width);
@@ -254,7 +330,7 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
 
     if (aspect !== undefined) s.aspectRatio = String(aspect);
 
-    // ── Flex / Grid children props ────────────────────────────────────────────
+    // ── Flex / Grid children props ──────────────────────────────────────────
     if (align)   s.alignItems    = ALIGN_MAP[align];
     if (justify) s.justifyContent = JUSTIFY_MAP[justify];
     if (gap !== undefined) s.gap = formatValue(gap);
@@ -268,54 +344,58 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     if (resolvedBasis  !== undefined) s.flexBasis  = formatValue(resolvedBasis);
     if (selfAlign)                    s.alignSelf  = ALIGN_MAP[selfAlign] as React.CSSProperties['alignSelf'];
 
-    // ── Grid template ─────────────────────────────────────────────────────────
+    // ── Grid template ───────────────────────────────────────────────────────
     if (cols !== undefined)    s.gridTemplateColumns = resolveCols(cols);
     if (rows !== undefined)    s.gridTemplateRows    = resolveCols(rows);
     if (colSpan !== undefined) s.gridColumn = typeof colSpan === 'number' ? `span ${colSpan}` : colSpan;
     if (rowSpan !== undefined) s.gridRow    = typeof rowSpan === 'number' ? `span ${rowSpan}` : rowSpan;
 
-    // ── Spacing ───────────────────────────────────────────────────────────────
+    // ── Spacing ─────────────────────────────────────────────────────────────
     Object.assign(s, mapSpacing(padding, 'padding'));
     Object.assign(s, mapSpacing(margin, 'margin'));
 
-    // ── Fill ──────────────────────────────────────────────────────────────────
-    const fp = computedFillProps;
-    if (fp) {
-      switch (fp.type) {
-        case 'solid':
-          s.background = fp.color;
-          break;
-        case 'gradient':
-          s.background = fp.gradient;
-          break;
-        case 'pattern':
-          s.backgroundImage    = `url(${fp.patternUrl})`;
-          s.backgroundSize     = fp.size     || 'auto';
-          s.backgroundPosition = fp.position || 'center';
-          s.backgroundRepeat   = (fp.repeat  || 'repeat') as React.CSSProperties['backgroundRepeat'];
-          break;
-        case 'image':
-          s.backgroundImage    = `url(${fp.imageUrl})`;
-          s.backgroundSize     = fp.size     || 'cover';
-          s.backgroundPosition = fp.position || 'center';
-          s.backgroundRepeat   = (fp.repeat  || 'no-repeat') as React.CSSProperties['backgroundRepeat'];
-          break;
-      }
+    // ── Fill ────────────────────────────────────────────────────────────────
+    if (Object.keys(multiFillStyles).length > 0) {
+      Object.assign(s, multiFillStyles);
     } else {
-      if (fill && typeof fill === 'string') s.background = resolveToken(fill as string);
-      if (background)         s.background      = background;
-      if (backgroundColor)    s.backgroundColor = backgroundColor;
-      if (backgroundGradient) s.background      = backgroundGradient;
-      if (backgroundImage) {
-        s.backgroundImage    = `url(${backgroundImage})`;
-        s.backgroundSize     = backgroundSize     || 'cover';
-        s.backgroundPosition = backgroundPosition || 'center';
-        s.backgroundRepeat   = (backgroundRepeat  || 'no-repeat') as React.CSSProperties['backgroundRepeat'];
+      const fp = computedFillProps;
+      if (fp) {
+        switch (fp.type) {
+          case 'solid':
+            s.background = fp.color;
+            break;
+          case 'gradient':
+            s.background = fp.gradient;
+            break;
+          case 'pattern':
+            s.backgroundImage    = `url(${fp.patternUrl})`;
+            s.backgroundSize     = fp.size     || 'auto';
+            s.backgroundPosition = fp.position || 'center';
+            s.backgroundRepeat   = (fp.repeat  || 'repeat') as React.CSSProperties['backgroundRepeat'];
+            break;
+          case 'image':
+            s.backgroundImage    = `url(${fp.imageUrl})`;
+            s.backgroundSize     = fp.size     || 'cover';
+            s.backgroundPosition = fp.position || 'center';
+            s.backgroundRepeat   = (fp.repeat  || 'no-repeat') as React.CSSProperties['backgroundRepeat'];
+            break;
+        }
+      } else {
+        if (fill && typeof fill === 'string') s.background = resolveToken(fill as string);
+        if (background)         s.background      = background;
+        if (backgroundColor)    s.backgroundColor = backgroundColor;
+        if (backgroundGradient) s.background      = backgroundGradient;
+        if (backgroundImage) {
+          s.backgroundImage    = `url(${backgroundImage})`;
+          s.backgroundSize     = backgroundSize     || 'cover';
+          s.backgroundPosition = backgroundPosition || 'center';
+          s.backgroundRepeat   = (backgroundRepeat  || 'no-repeat') as React.CSSProperties['backgroundRepeat'];
+        }
       }
     }
 
-    // ── Stroke (wins over border) ─────────────────────────────────────────────
-    if (stroke !== undefined) {
+    // ── Stroke (skip if gradient — handled by wrapper) ───────────────────────
+    if (!gradientStroke && stroke !== undefined) {
       if (typeof stroke === 'string') {
         s.border = stroke;
       } else {
@@ -340,7 +420,7 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
           s.border = `${sw} ${ss} ${sc}`;
         }
       }
-    } else if (border !== undefined) {
+    } else if (!gradientStroke && border !== undefined) {
       if (typeof border === 'string') {
         s.border = border;
       } else {
@@ -369,28 +449,34 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     if (borderColor)  s.borderColor  = borderColor;
     if (borderStyle)  s.borderStyle  = borderStyle;
 
-    // ── Radius ────────────────────────────────────────────────────────────────
-    if (round) {
-      s.borderRadius = '9999px';
-    } else {
-      const rp = radius ?? borderRadius;
-      if (rp !== undefined) {
-        if (typeof rp === 'object') {
-          const br = rp as RadiusProps;
-          if (br.all)         s.borderRadius            = formatValue(br.all);
-          if (br.topLeft)     s.borderTopLeftRadius     = formatValue(br.topLeft);
-          if (br.topRight)    s.borderTopRightRadius    = formatValue(br.topRight);
-          if (br.bottomLeft)  s.borderBottomLeftRadius  = formatValue(br.bottomLeft);
-          if (br.bottomRight) s.borderBottomRightRadius = formatValue(br.bottomRight);
-        } else {
-          s.borderRadius = formatValue(rp as string | number);
+    // ── Radius ──────────────────────────────────────────────────────────────
+    if (!chamfer) {
+      if (round) {
+        s.borderRadius = '9999px';
+      } else {
+        const rp = radius ?? borderRadius;
+        if (rp !== undefined) {
+          if (typeof rp === 'object') {
+            const br = rp as RadiusProps;
+            if (br.all)         s.borderRadius            = formatValue(br.all);
+            if (br.topLeft)     s.borderTopLeftRadius     = formatValue(br.topLeft);
+            if (br.topRight)    s.borderTopRightRadius    = formatValue(br.topRight);
+            if (br.bottomLeft)  s.borderBottomLeftRadius  = formatValue(br.bottomLeft);
+            if (br.bottomRight) s.borderBottomRightRadius = formatValue(br.bottomRight);
+          } else {
+            s.borderRadius = formatValue(rp as string | number);
+          }
         }
       }
     }
 
-    // ── Effects ───────────────────────────────────────────────────────────────
+    // ── Chamfer clip-path (no gradient stroke — that's handled in render) ────
+    if (chamfer && !gradientStroke) {
+      s.clipPath = buildChamferClipPath(chamfer);
+    }
+
+    // ── Effects ─────────────────────────────────────────────────────────────
     if (effects) {
-      // Box shadows: drop-shadow + inner-shadow combined
       const shadowParts: string[] = [];
       if (effects['drop-shadow']) {
         const ds = Array.isArray(effects['drop-shadow']) ? effects['drop-shadow'] : [effects['drop-shadow']];
@@ -402,28 +488,24 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
       }
       if (shadowParts.length) s.boxShadow = shadowParts.join(', ');
 
-      // Layer blur (element + children)
       if (effects['layer-blur'] !== undefined) {
         s.filter = `blur(${effects['layer-blur']}px)`;
       } else if (blur !== undefined) {
         s.filter = `blur(${formatValue(blur)})`;
       }
 
-      // Glass: backdrop-blur + saturation + tint
       if (effects.glass) {
         const g = effects.glass === true ? {} : effects.glass;
         const glassBlur = g.blur ?? 16;
         const sat       = g.saturation ?? 180;
         s.backdropFilter = `blur(${glassBlur}px) saturate(${sat}%)`;
-        // Only set background if fill not already applied
-        if (!fp && !background && !backgroundColor) {
+        if (!computedFillProps && !background && !backgroundColor && !multiFillStyles.backgroundImage) {
           s.background = g.tint
             ? resolveToken(g.tint)
             : `rgba(255, 255, 255, ${g.opacity ?? 0.08})`;
         }
       }
 
-      // Background blur (overrides glass backdropFilter for blur value)
       if (effects['background-blur'] !== undefined) {
         const bbBlur = effects['background-blur'];
         const sat = effects.glass && effects.glass !== true ? (effects.glass.saturation ?? 180) : undefined;
@@ -432,21 +514,20 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
         s.backdropFilter = `blur(${formatValue(backdropBlur)})`;
       }
     } else {
-      // Legacy compat
       if (blur !== undefined)        s.filter         = `blur(${formatValue(blur)})`;
       if (backdropBlur !== undefined) s.backdropFilter = `blur(${formatValue(backdropBlur)})`;
     }
 
-    // ── Opacity ───────────────────────────────────────────────────────────────
+    // ── Opacity ─────────────────────────────────────────────────────────────
     if (opacity !== undefined) s.opacity = opacity;
 
     if (blendMode)  s.mixBlendMode = blendMode;
     if (rotation !== undefined) s.transform = `rotate(${typeof rotation === 'number' ? `${rotation}deg` : rotation})`;
 
-    // ── Clip ──────────────────────────────────────────────────────────────────
+    // ── Clip ────────────────────────────────────────────────────────────────
     if (clipContent) s.overflow = 'hidden';
 
-    // ── Positioning ───────────────────────────────────────────────────────────
+    // ── Positioning ─────────────────────────────────────────────────────────
     if (position) {
       s.position = position;
     } else if (absolute) {
@@ -456,7 +537,6 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     } else if (sticky) {
       s.position = 'sticky';
     } else if (flow === 'freeform' || hasOverlay) {
-      // freeform children are absolutely placed; overlays need a stacking context
       s.position = 'relative';
     }
 
@@ -471,14 +551,14 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     const resolvedZ = z ?? zIndex;
     if (resolvedZ !== undefined) s.zIndex = resolvedZ;
 
-    // ── Interaction ───────────────────────────────────────────────────────────
+    // ── Interaction ─────────────────────────────────────────────────────────
     if (transition)    s.transition    = TRANSITION_MAP[transition] ?? transition;
     if (cursor)        s.cursor        = cursor;
     if (pointerEvents) s.pointerEvents = pointerEvents;
     if (userSelect)    s.userSelect    = userSelect;
     if (textColor)     s.color         = textColor;
 
-    // ── Animation ─────────────────────────────────────────────────────────────
+    // ── Animation ───────────────────────────────────────────────────────────
     if (animate && animate !== 'none') {
       if (CUSTOM_ANIMS.has(animate)) {
         const dur  = animationDuration  !== undefined ? (typeof animationDuration  === 'number' ? `${animationDuration}ms`  : animationDuration)  : '300ms';
@@ -502,10 +582,10 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     grow, shrink, basis, selfAlign, flexGrow, flexShrink, flexBasis,
     cols, rows, colSpan, rowSpan,
     padding, margin,
-    computedFillProps, fill, background, backgroundColor, backgroundGradient,
+    multiFillStyles, computedFillProps, fill, background, backgroundColor, backgroundGradient,
     backgroundImage, backgroundSize, backgroundPosition, backgroundRepeat,
-    stroke, border, borderTop, borderRight, borderBottom, borderLeft, borderColor, borderStyle,
-    radius, borderRadius, round,
+    stroke, gradientStroke, border, borderTop, borderRight, borderBottom, borderLeft, borderColor, borderStyle,
+    radius, borderRadius, round, chamfer,
     effects, opacity, blendMode,
     blur, backdropBlur, rotation,
     clipContent,
@@ -513,10 +593,10 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     position, top, right, bottom, left, zIndex,
     transition, cursor, pointerEvents, userSelect, textColor,
     animate, animationDuration, animationDelay, animationIterations,
-    hasOverlay, isLoading, variant, style,
+    hasOverlay, isLoading,
   ]);
 
-  // ── Class names ───────────────────────────────────────────────────────────
+  // ── Class names ──────────────────────────────────────────────────────────
   const variantClasses = {
     none:      '',
     surface:   'bg-[var(--bg-2)] border-[var(--border-1)] border-solid text-[var(--text-1)]',
@@ -536,7 +616,7 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
   const themeClass   = theme ? `theme-${theme}` : '';
   const animateClass = animate && animate !== 'none' ? (TAILWIND_ANIM_MAP[animate] ?? '') : '';
 
-  // ── Refs & hotkeys ────────────────────────────────────────────────────────
+  // ── Refs & hotkeys ───────────────────────────────────────────────────────
   const internalRef = useRef<HTMLElement>(null);
   const combinedRef = useCallback((node: HTMLElement | null) => {
     (internalRef as React.MutableRefObject<HTMLElement | null>).current = node;
@@ -564,58 +644,38 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
     return () => document.removeEventListener('keydown', handle);
   }, [onHotkey]);
 
-  // ── Effect overlay helpers ────────────────────────────────────────────────
+  // ── Effect overlay helpers ───────────────────────────────────────────────
   const noiseOpacity = effects?.noise === true ? 0.08
     : typeof effects?.noise === 'object' ? (effects.noise.opacity ?? 0.08)
     : 0;
 
   const textureEffect = effects?.texture;
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  return (
-    <Component
-      ref={combinedRef}
-      style={customStyles}
-      className={cn(
-        variant !== 'none' && 'border',
-        variantClasses[variant],
-        themeClass,
-        stateClasses,
-        animateClass,
-        className
-      )}
-      disabled={disabled}
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      onContextMenu={onContextMenu}
-      onMouseEnter={onHover ?? onMouseEnter}
-      onMouseLeave={onHoverEnd ?? onMouseLeave}
-      onMouseDown={onMouseDown}
-      onMouseUp={onMouseUp}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}
-      onWheel={onZoom
-        ? (e: React.WheelEvent<HTMLElement>) => {
-            if (e.ctrlKey) { e.preventDefault(); onZoom(-e.deltaY / 100, e); }
-            else onWheel?.(e);
-          }
-        : onWheel}
-      {...props}
-    >
-      {/* Video fill background */}
-      {fillProps?.type === 'video' && fillProps.videoUrl && (
+  // ── Shared event handlers ────────────────────────────────────────────────
+  const eventHandlers = {
+    onClick, onDoubleClick, onContextMenu,
+    onMouseEnter: onHover ?? onMouseEnter,
+    onMouseLeave: onHoverEnd ?? onMouseLeave,
+    onMouseDown, onMouseUp,
+    onFocus, onBlur, onKeyDown, onKeyUp,
+    onWheel: onZoom
+      ? (e: React.WheelEvent<HTMLElement>) => {
+          if (e.ctrlKey) { e.preventDefault(); onZoom(-e.deltaY / 100, e); }
+          else onWheel?.(e);
+        }
+      : onWheel,
+  };
+
+  // ── Overlays (noise, texture, loading, video) ────────────────────────────
+  const overlays = (
+    <>
+      {computedFillProps?.type === 'video' && computedFillProps.videoUrl && (
         <video
-          src={fillProps.videoUrl}
+          src={computedFillProps.videoUrl}
           autoPlay loop muted playsInline
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}
         />
       )}
-
-      {children}
-
-      {/* Noise overlay — rendered above content but non-interactive */}
       {hasNoiseOverlay && (
         <div
           aria-hidden="true"
@@ -631,8 +691,6 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
           }}
         />
       )}
-
-      {/* Texture overlay */}
       {textureEffect && (
         <div
           aria-hidden="true"
@@ -648,8 +706,6 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
           }}
         />
       )}
-
-      {/* Loading overlay */}
       {isLoading && (
         <div
           aria-hidden="true"
@@ -667,6 +723,76 @@ export const Frame = forwardRef<HTMLElement, FrameProps>(({
           }} />
         </div>
       )}
+    </>
+  );
+
+  // ── Render: gradient stroke wrapper pattern ───────────────────────────────
+  if (gradientStroke) {
+    // Split customStyles: outer gets layout/positioning, inner gets content styles
+    const outerStyle: React.CSSProperties = {};
+    const innerStyle: React.CSSProperties = {};
+
+    for (const [key, val] of Object.entries(customStyles)) {
+      if (OUTER_STYLE_KEYS.has(key)) outerStyle[key as keyof React.CSSProperties] = val as any;
+      else innerStyle[key as keyof React.CSSProperties] = val as any;
+    }
+
+    // Outer: gradient fill + chamfer + grid so inner fills it
+    outerStyle.background = `linear-gradient(${gradientStroke.gradient})`;
+    outerStyle.display    = 'grid';
+    outerStyle.padding    = `${strokeWidth}px`;
+    if (chamfer) outerStyle.clipPath = buildChamferClipPath(chamfer);
+    if (!outerStyle.position) outerStyle.position = 'relative';
+
+    // Inner: content + inner chamfer (reduced by stroke width)
+    if (chamfer) innerStyle.clipPath = buildChamferClipPath(chamfer, strokeWidth);
+    if (hasOverlay && !innerStyle.position) innerStyle.position = 'relative';
+
+    return (
+      <div
+        ref={combinedRef as React.Ref<HTMLDivElement>}
+        style={outerStyle}
+        className={cn(themeClass)}
+      >
+        <Component
+          style={{ ...innerStyle, ...style }}
+          className={cn(
+            variant !== 'none' && 'border',
+            variantClasses[variant],
+            stateClasses,
+            animateClass,
+            className,
+          )}
+          disabled={disabled}
+          {...eventHandlers}
+          {...props}
+        >
+          {overlays}
+          {children}
+        </Component>
+      </div>
+    );
+  }
+
+  // ── Render: standard (no gradient stroke wrapper) ─────────────────────────
+  return (
+    <Component
+      ref={combinedRef}
+      style={{ ...customStyles, ...style }}
+      className={cn(
+        variant !== 'none' && 'border',
+        variantClasses[variant],
+        themeClass,
+        stateClasses,
+        animateClass,
+        className
+      )}
+      disabled={disabled}
+      {...eventHandlers}
+      {...props}
+    >
+      {overlays}
+      {children}
     </Component>
   );
 });
