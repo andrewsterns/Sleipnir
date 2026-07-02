@@ -30,7 +30,7 @@ const VARIANT_EXTRAS: Record<string, Partial<FrameProps>> = {
 }
 
 const SIZE_PADDING = {
-  sm: { x: '0.65rem', y: '0.275rem' },
+  sm: { x: '0.50rem', y: '0.5rem' },
   md: { x: '1rem',    y: '0.5rem'   },
   lg: { x: '1.5rem',  y: '0.75rem'  },
 } as const
