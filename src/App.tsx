@@ -9,7 +9,7 @@ import { Logo } from './02_components/01_atoms/Logo/Logo'
 import { Icon, type IconName } from './02_components/01_atoms/Icon/Icon'
 import { TacticalPanel } from './02_components/02_molecules/Panel'
 import DesignLibraryView from './02_components/DesignSystem/DesignLibrary.view'
-import { TacticalHUD } from './03_prototypes/TacticalHUD/TacticalHUD'
+import { PrototypeList } from './03_prototypes/PrototypeList'
 
 type WorkspaceMode = 'home' | 'library' | 'tactical' | 'research' | 'validation' | 'analytics'
 export type { Page } from './types'
@@ -111,7 +111,7 @@ const NAV_ITEMS: Array<{ id: Exclude<WorkspaceMode, 'home'>; tag: string; title:
     id: 'tactical',
     tag: '03',
     title: 'Prototypes',
-    description: 'Full-screen tactical prototype environment.',
+    description: 'Browse and launch experimental prototypes.',
     icon: 'player-play',
   },
   {
@@ -313,7 +313,7 @@ function App() {
         {mode === 'home' ? (
           <HomeMenu onSelect={setMode} />
         ) : mode === 'tactical' ? (
-          <TacticalHUD onHome={() => setMode('home')} />
+          <PrototypeList onHome={() => setMode('home')} />
         ) : mode === 'research' ? (
           <PlaceholderView title="Research" onHome={() => setMode('home')} />
         ) : mode === 'validation' ? (

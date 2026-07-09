@@ -17,6 +17,7 @@ import { StatusPanel } from '../../02_components/03_organisms/StatusPanel';
 import { TarsPanel } from '../../02_components/03_organisms/TarsPanel';
 import { ThreatAssessmentPanel } from '../../02_components/03_organisms/ThreatAssessmentPanel';
 import '../../02_components/00_themes/tactical.css';
+import { Button } from '../../02_components/02_molecules/Button/Button';
 
 // ── Unit data ─────────────────────────────────────────────────────────────────
 
@@ -371,28 +372,18 @@ const TopNav: React.FC<{ onHome?: () => void }> = ({ onHome }) => (
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-3)' }}>v3.1</span>
     </Frame>
     
-    <Frame flow="vertical" align="center" gap={20} height={111} width={222} fill={{solid: 'rgba(179, 48, 48, 0.9)' }} >
+    <Frame flow="vertical" align="center" gap={20} height={111} width={222} fill={{solid: 'rgba(14, 224, 95, 0.9)' }} >
       <Frame flow="horizontal" align="center" gap={12}>Hello Mark</Frame>
       <Frame flow="horizontal" align="center" gap={12}>Hello nate</Frame>
       <Frame flow="horizontal" align="center" gap={12}>Hello kenn</Frame>
       </Frame>
 
     <Frame flow="horizontal" align="center" gap={20}>
-      <button
-        onClick={onHome}
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          color: 'var(--text-2)',
-          fontSize: 9,
-          letterSpacing: '0.14em',
-          padding: '5px 14px',
-          cursor: 'pointer',
-          fontFamily: 'var(--font-mono)',
-        }}
+      <Button
+      onClick={onHome}
       >
         ← HOME
-      </button>
+      </Button>
       {['Tracks', 'Resources'].map(label => (
         <span
           key={label}
