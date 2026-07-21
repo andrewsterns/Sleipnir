@@ -1,9 +1,10 @@
 import React from 'react';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel';
-import type { TacticalVariant } from '../02_molecules/Panel';
+import { TacticalPanel } from '../02_molecules/Panel/Panel.view';
+import type { TacticalVariant } from '../02_molecules/Panel/Panel.view';
 import { BadgeStatus } from '../02_molecules/StatusBadge';
-import { UnitGlyph, UnitType } from '../01_atoms/Icon/Icon';
+import { UnitGlyph } from '../01_atoms/UnitGlyph/UnitGlyph';
+import type { UnitType } from '../01_atoms/UnitMarker/iUnitMarker';
 
 export interface UnitTypeRow {
   name: string;

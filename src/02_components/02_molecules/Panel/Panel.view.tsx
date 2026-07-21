@@ -1,5 +1,5 @@
 import React from 'react';
-import { Frame, FrameProps } from '../01_atoms/Frame/Frame';
+import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
 
 export type TacticalVariant = 'default' | 'warning' | 'critical' | 'tracking' | 'dim' | 'ghost';
 

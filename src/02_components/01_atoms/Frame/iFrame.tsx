@@ -16,25 +16,65 @@ export interface FillProps {
 }
 
 /**
+ * Per-fill layer controls, mirroring Figma's fill list.
+ *
+ * `opacity`   — Figma's per-fill opacity slider (0–1). Solid/lines layers apply
+ *               it to the color; gradient/image/pattern layers render as an
+ *               underlay div for true layer opacity (those always paint above
+ *               fully-opaque background layers, below children).
+ * `blendMode` — blends this layer against the fill layers below it
+ *               (CSS background-blend-mode). To blend the whole frame against
+ *               what's behind it, use the element-level `blendMode` prop.
+ * `visible`   — Figma's eye toggle. `false` removes the layer.
+ */
+export interface FillLayerOptions {
+  opacity?: number;
+  blendMode?: React.CSSProperties['mixBlendMode'];
+  visible?: boolean;
+}
+
+/**
+ * Image fill with Figma scale modes:
+ *   fill → cover · fit → contain · tile → repeat · crop → custom size/position
+ */
+export interface ImageFillOptions {
+  src: string;
+  mode?: 'fill' | 'fit' | 'crop' | 'tile';
+  /** CSS background-position. Default: center */
+  position?: string;
+  /** CSS background-size — pair with mode 'crop' (any value) or 'tile' (tile size). */
+  size?: string;
+}
+
+/**
  * Figma-style fill. Token strings (e.g. 'primary-3') auto-resolve to var(--primary-3).
+ * Every layer accepts Figma per-fill controls: opacity, blendMode, visible.
+ *
+ * Gradient types match Figma: linear, radial, angular (CSS conic-gradient),
+ * diamond (approximated with a closest-side radial — CSS has no diamond primitive).
  *
  * @example
  *   fill={{ solid: '#fff' }}
- *   fill={{ solid: 'primary-3' }}
+ *   fill={{ solid: 'primary-3', opacity: 0.5 }}
  *   fill={{ 'linear-gradient': '90deg, #000, #fff' }}
+ *   fill={{ 'angular-gradient': 'from 45deg, #0ff, #f0f, #0ff' }}
  *   fill={{ image: '/hero.png' }}
+ *   fill={{ image: { src: '/tile.png', mode: 'tile', size: '24px' } }}
  *   fill={{ video: '/bg.mp4' }}
  *   fill={{ lines: { angle: 135, spacing: 8, color: 'rgba(255,255,255,0.04)', width: 1 } }}
  *   fill={[{ lines: { angle: 135, spacing: 8 } }, { solid: 'bg-2' }]}
+ *   fill={[{ image: { src: '/hero.png' }, blendMode: 'luminosity' }, { solid: 'bg-2' }]}
  */
 export type FillProp =
-  | { solid: string }
-  | { 'linear-gradient': string }
-  | { 'radial-gradient': string }
-  | { pattern: string }
-  | { image: string }
-  | { video: string }
-  | { lines: { angle?: number; spacing?: number; color?: string; width?: number } };
+  | ({ solid: string } & FillLayerOptions)
+  | ({ 'linear-gradient': string } & FillLayerOptions)
+  | ({ 'radial-gradient': string } & FillLayerOptions)
+  | ({ 'angular-gradient': string } & FillLayerOptions)
+  | ({ 'diamond-gradient': string } & FillLayerOptions)
+  | ({ pattern: string } & FillLayerOptions)
+  | ({ image: string | ImageFillOptions } & FillLayerOptions)
+  | ({ video: string } & FillLayerOptions)
+  | ({ lines: { angle?: number; spacing?: number; color?: string; width?: number } } & FillLayerOptions);
 
 // ─── Chamfer ─────────────────────────────────────────────────────────────────
 
@@ -76,6 +116,7 @@ export interface StrokeSideProps {
  *
  * @example
  *   stroke={{ color: 'border-1', width: 1 }}
+ *   stroke={{ color: 'border-1', width: 2, position: 'outside' }}
  *   stroke={{ bottom: { color: 'border-1' } }}
  *   stroke="1px solid var(--border-1)"
  *   stroke={{ gradient: '135deg, rgba(0,255,136,0.6), rgba(0,80,40,0.08)', width: 1 }}
@@ -86,6 +127,13 @@ export type StrokeProp =
       color?: string;
       width?: number | string;
       style?: 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
+      /**
+       * Figma stroke position. Default: 'inside' (CSS border).
+       * 'outside' and 'center' render via CSS outline so they don't consume
+       * layout space — uniform strokes only (ignored when per-side or
+       * gradient strokes are used; outline does not follow chamfer clipping).
+       */
+      position?: 'inside' | 'center' | 'outside';
       /** Gradient string for gradient border, e.g. '135deg, #0f0, #030'. Triggers wrapper render. */
       gradient?: string;
       top?: boolean | StrokeSideProps;
@@ -241,7 +289,9 @@ export interface HotkeyConfig {
 
 // ─── FrameProps ──────────────────────────────────────────────────────────────
 
-export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
+// `translate` is omitted because the HTML global attribute ('yes'|'no') would
+// otherwise collide with Frame's Figma-style translate object.
+export interface FrameProps extends Omit<React.HTMLAttributes<HTMLElement>, 'translate'> {
   as?: React.ElementType;
 
   // ── Figma-native: Layout ─────────────────────────────────────────────────
@@ -259,7 +309,12 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
   size?: number | string;
 
   // ── Figma-native: Fill / Stroke / Radius ─────────────────────────────────
-  /** Single fill or array of layered fills (first = topmost). Supports solid, gradient, image, pattern, lines, video. */
+  /**
+   * Single fill or array of layered fills (first = topmost, Figma fill-list order).
+   * Types: solid, linear/radial/angular/diamond gradient, image (with scale
+   * modes fill/fit/crop/tile), pattern, lines, video.
+   * Each layer takes Figma per-fill controls: opacity, blendMode, visible.
+   */
   fill?: FillProp | FillProp[];
   stroke?: StrokeProp;
   /** Corner radius. Prefer over borderRadius. */
@@ -284,6 +339,12 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
 
   /** Clip children to frame bounds (overflow: hidden) */
   clipContent?: boolean;
+
+  /**
+   * Figma scroll behavior: overflow auto on the given axis.
+   * Combine with clipContent to clip the other axis.
+   */
+  scroll?: 'x' | 'y' | 'both';
 
   /** Aspect ratio — e.g. aspect={16/9} or aspect="16/9" */
   aspect?: number | string;
@@ -319,6 +380,8 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
   fixed?: boolean;
   /** position: sticky */
   sticky?: boolean;
+  /** position: relative (anchor for absolute children) */
+  relative?: boolean;
   /** left shorthand (for positioned frames) */
   x?: number | string;
   /** top shorthand (for positioned frames) */
@@ -327,6 +390,12 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
   inset?: boolean | number | string;
   /** z-index shorthand */
   z?: number;
+  /**
+   * CSS translate, composed with `rotation` into one transform.
+   * Numbers are px; strings pass through (e.g. '-50%').
+   * @example translate={{ x: '-50%', y: '-50%' }}  // center on x/y anchor
+   */
+  translate?: { x?: number | string; y?: number | string };
 
   // ── Layout (explicit display override) ────────────────────────────────────
   layout?: LayoutType;
@@ -403,7 +472,8 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
   zIndex?: number;
 
   // ── Theme / variant ───────────────────────────────────────────────────────
-  theme?: any;
+  /** Theme scope — renders as a `theme-<name>` class (e.g. 'tactical'). */
+  theme?: string;
   variant?: 'surface' | 'accent' | 'primary' | 'secondary' | 'none';
 
   // ── Interaction & states ──────────────────────────────────────────────────
@@ -412,8 +482,16 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
   pointerEvents?: 'none' | 'auto';
   userSelect?: 'none' | 'text' | 'all' | 'auto';
   textColor?: string;
-  hoverFill?: 'bg-1' | 'bg-2' | 'bg-3' | 'accent' | 'primary' | 'secondary';
+  /** Hover background. Preset token, or any color/token string (e.g. 'primary-5', 'rgba(0,255,136,0.06)'). */
+  hoverFill?: 'bg-1' | 'bg-2' | 'bg-3' | 'accent' | 'primary' | 'secondary' | (string & {});
+  /** Hover border color (token or CSS color). Pair with a base `stroke`. */
+  hoverStroke?: string;
+  /** Hover text color (token or CSS color). */
+  hoverTextColor?: string;
+  /** caret-color for `as="input"` / editable frames (token or CSS color). */
+  caretColor?: string;
   focusRing?: boolean;
+  /** Press feedback scale. Only 0.95 / 0.97 / 0.98 / 0.99 have class mappings; other values silently no-op. */
   activeScale?: number;
   disabledOpacity?: boolean;
   disabledPointerEvents?: boolean;
@@ -441,6 +519,13 @@ export interface FrameProps extends React.HTMLAttributes<HTMLElement> {
    * Passed straight through to the underlying DOM element via the `as` prop.
    */
   disabled?: boolean;
+
+  /**
+   * Raw CSS escape hatch — merges last, winning over all resolved props.
+   * Prefer fill / stroke / radius / effects / spacing / dimension props;
+   * lint warns when style={{}} is used on components.
+   */
+  style?: React.CSSProperties;
 
   className?: string;
   children?: React.ReactNode;

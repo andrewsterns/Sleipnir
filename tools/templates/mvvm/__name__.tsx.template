@@ -1,0 +1,15 @@
+import React, { forwardRef } from 'react';
+import { {{name}}Props } from './i{{name}}';
+import { use{{name}}ViewModel } from './{{name}}ViewModel';
+
+export const {{name}} = forwardRef<HTMLElement, {{name}}Props>((props, ref) => {
+  const {} = use{{name}}ViewModel(props);
+
+  return (
+    <div ref={ref as React.Ref<HTMLDivElement>}>
+      {/* Implement view here — rendering only, no logic */}
+    </div>
+  );
+});
+
+{{name}}.displayName = '{{name}}';

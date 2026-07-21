@@ -7,11 +7,11 @@ import { Text  } from '../01_atoms/Text/Text'
 import '../00_themes/tactical.css'
 
 // ── Atoms ─────────────────────────────────────────────────────────────────────
-import { UnitGlyph } from '../01_atoms/Icon/Icon'
+import { UnitGlyph } from '../01_atoms/UnitGlyph/UnitGlyph'
 
 // ── Molecules ─────────────────────────────────────────────────────────────────
 import { Button }           from '../02_molecules/Button/Button'
-import { TacticalPanel as Panel } from '../02_molecules/Panel'
+import { TacticalPanel as Panel } from '../02_molecules/Panel/Panel.view'
 import { StatusBadge }    from '../02_molecules/StatusBadge'
 import { ProgressBar }    from '../02_molecules/ProgressBar'
 import { SignalBar }      from '../02_molecules/SignalBar'
@@ -453,6 +453,16 @@ return (
   stroke={{ gradient: 'var(--stroke-default)', width: 1 }}
   chamfer={8}
   effects={{ 'background-blur': 6 }}
+/>
+
+// Figma fill types: angular/diamond gradients, image scale modes, per-fill controls
+<Frame
+  fill={[
+    { 'angular-gradient': 'from 45deg, #0ff, #f0f, #0ff', opacity: 0.35 },
+    { image: { src: '/hero.png', mode: 'fill' }, blendMode: 'luminosity' },
+    { solid: 'bg-2' },
+  ]}
+  stroke={{ color: 'border-1', width: 2, position: 'outside' }}
 />`,
 
   Text: `// Text — typography atom, wraps all font variants.
@@ -981,7 +991,7 @@ export const componentsList: ComponentMeta[] = [
   // Atoms — pure building blocks: layout, typography, icons
   { name: 'Frame',     path: '../01_atoms/Frame/Frame',  type: 'atom' },
   { name: 'Text',      path: '../01_atoms/Text/Text',    type: 'atom' },
-  { name: 'UnitGlyph', path: '../01_atoms/Icon/Icon',    type: 'atom' },
+  { name: 'UnitGlyph', path: '../01_atoms/UnitGlyph/UnitGlyph', type: 'atom' },
 
   // Molecules — compounds built from atoms
   { name: 'Button',          path: '../02_molecules/Button/Button',   type: 'molecule' },

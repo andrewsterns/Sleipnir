@@ -5,6 +5,7 @@ const [name, targetDir] = process.argv.slice(2);
 
 if (!name || !targetDir) {
   console.error('Usage: node generate-mvvm.mjs <Name> <target/path>');
+  console.error('Generates <Name>.tsx (view), <Name>ViewModel.tsx (hook), i<Name>.tsx (types) in <target/path>.');
   process.exit(1);
 }
 
