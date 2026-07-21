@@ -1,15 +1,11 @@
-import React, { createContext, useContext, useId, useRef, useState } from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
+import React, { createContext, useContext, useRef } from 'react';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TabsCtx as TabsCtxType, TabsRootProps, TabsListProps, TabProps, TabsPanelProps } from './iTabs';
+import { useTabsViewModel, handleTabsListKeyDown } from './TabsViewModel';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
-interface TabsCtx {
-  activeValue: string;
-  setActiveValue: (v: string) => void;
-  baseId: string;
-}
-
-const Ctx = createContext<TabsCtx | null>(null);
+const Ctx = createContext<TabsCtxType | null>(null);
 
 function useTabsCtx() {
   const c = useContext(Ctx);
@@ -19,15 +15,6 @@ function useTabsCtx() {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-export interface TabsRootProps {
-  defaultValue?: string;
-  value?: string;
-  onValueChange?: (value: string) => void;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Root: React.FC<TabsRootProps> = ({
   defaultValue = '',
   value,
@@ -36,13 +23,10 @@ const Root: React.FC<TabsRootProps> = ({
   style,
   className,
 }) => {
-  const [internal, setInternal] = useState(defaultValue);
-  const active = value ?? internal;
-  const setActive = (v: string) => { setInternal(v); onValueChange?.(v); };
-  const baseId = useId();
+  const { activeValue, setActiveValue, baseId } = useTabsViewModel({ defaultValue, value, onValueChange });
 
   return (
-    <Ctx.Provider value={{ activeValue: active, setActiveValue: setActive, baseId }}>
+    <Ctx.Provider value={{ activeValue, setActiveValue, baseId }}>
       <Frame flow="vertical" className={className} style={style}>
         {children}
       </Frame>
@@ -52,39 +36,15 @@ const Root: React.FC<TabsRootProps> = ({
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
-export interface TabsListProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const List: React.FC<TabsListProps> = ({ children, style, className }) => {
   const ref = useRef<HTMLDivElement>(null);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    const tabs = Array.from(
-      ref.current?.querySelectorAll<HTMLElement>('[role="tab"]:not([disabled])') ?? []
-    );
-    const idx = tabs.findIndex(t => t === document.activeElement);
-    if (idx === -1) return;
-
-    let next = idx;
-    if      (e.key === 'ArrowRight') { e.preventDefault(); next = (idx + 1) % tabs.length; }
-    else if (e.key === 'ArrowLeft')  { e.preventDefault(); next = (idx - 1 + tabs.length) % tabs.length; }
-    else if (e.key === 'Home')       { e.preventDefault(); next = 0; }
-    else if (e.key === 'End')        { e.preventDefault(); next = tabs.length - 1; }
-    else return;
-
-    tabs[next]?.focus();
-    tabs[next]?.click();
-  };
 
   return (
     <Frame
       ref={ref as React.RefObject<HTMLElement>}
       flow="horizontal"
       role="tablist"
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => handleTabsListKeyDown(ref as React.RefObject<HTMLElement>, e)}
       className={className}
       style={{
         borderBottom: '1px solid var(--border-1)',
@@ -101,14 +61,6 @@ const List: React.FC<TabsListProps> = ({ children, style, className }) => {
 };
 
 // ── Tab ───────────────────────────────────────────────────────────────────────
-
-export interface TabProps {
-  value: string;
-  children: React.ReactNode;
-  disabled?: boolean;
-  style?: React.CSSProperties;
-  className?: string;
-}
 
 const Tab: React.FC<TabProps> = ({ value, children, disabled = false, style, className }) => {
   const { activeValue, setActiveValue, baseId } = useTabsCtx();
@@ -151,13 +103,6 @@ const Tab: React.FC<TabProps> = ({ value, children, disabled = false, style, cla
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
-export interface TabsPanelProps {
-  value: string;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Panel: React.FC<TabsPanelProps> = ({ value, children, style, className }) => {
   const { activeValue, baseId } = useTabsCtx();
   if (activeValue !== value) return null;
@@ -179,3 +124,4 @@ const Panel: React.FC<TabsPanelProps> = ({ value, children, style, className }) 
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const Tabs = { Root, List, Tab, Panel };
+export type { TabsRootProps, TabsListProps, TabProps, TabsPanelProps } from './iTabs';

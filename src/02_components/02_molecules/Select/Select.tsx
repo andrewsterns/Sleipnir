@@ -1,24 +1,19 @@
-import React, { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from './Panel/Panel';
+import React, { createContext, useContext, useEffect } from 'react';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TacticalPanel } from '../Panel/Panel';
+import {
+  SelectCtx as SelectCtxType,
+  SelectRootProps,
+  SelectTriggerProps,
+  SelectContentProps,
+  SelectItemProps,
+  SelectLabelProps,
+} from './iSelect';
+import { useSelectViewModel, handleSelectTriggerKeyDown, handleSelectContentKeyDown } from './SelectViewModel';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
-interface RegisteredItem { value: string; label: string; disabled?: boolean }
-
-interface SelectCtx {
-  value: string;
-  onChange: (v: string) => void;
-  open: boolean;
-  setOpen: (o: boolean | ((prev: boolean) => boolean)) => void;
-  baseId: string;
-  items: RegisteredItem[];
-  registerItem: (item: RegisteredItem) => void;
-  focusedValue: string;
-  setFocusedValue: (v: string) => void;
-}
-
-const Ctx = createContext<SelectCtx | null>(null);
+const Ctx = createContext<SelectCtxType | null>(null);
 
 function useSelectCtx() {
   const c = useContext(Ctx);
@@ -28,15 +23,6 @@ function useSelectCtx() {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-export interface SelectRootProps {
-  value?: string;
-  defaultValue?: string;
-  onValueChange?: (value: string) => void;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Root: React.FC<SelectRootProps> = ({
   value,
   defaultValue = '',
@@ -45,42 +31,8 @@ const Root: React.FC<SelectRootProps> = ({
   style,
   className,
 }) => {
-  const [internal, setInternal]           = useState(defaultValue);
-  const [open, setOpen]                   = useState(false);
-  const [items, setItems]                 = useState<RegisteredItem[]>([]);
-  const [focusedValue, setFocusedValue]   = useState('');
-  const baseId  = useId();
-  const rootRef = useRef<HTMLElement>(null);
-
-  const controlled = value ?? internal;
-
-  const onChange = (v: string) => {
-    setInternal(v);
-    onValueChange?.(v);
-    setOpen(false);
-    setFocusedValue('');
-  };
-
-  const registerItem = React.useCallback((item: RegisteredItem) => {
-    setItems(prev => prev.find(i => i.value === item.value) ? prev : [...prev, item]);
-  }, []);
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // Escape closes
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open]);
+  const { value: controlled, onChange, open, setOpen, baseId, items, registerItem, focusedValue, setFocusedValue, rootRef } =
+    useSelectViewModel({ value, defaultValue, onValueChange });
 
   return (
     <Ctx.Provider value={{ value: controlled, onChange, open, setOpen, baseId, items, registerItem, focusedValue, setFocusedValue }}>
@@ -93,25 +45,9 @@ const Root: React.FC<SelectRootProps> = ({
 
 // ── Trigger ───────────────────────────────────────────────────────────────────
 
-export interface SelectTriggerProps {
-  placeholder?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Trigger: React.FC<SelectTriggerProps> = ({ placeholder = 'Select…', style, className }) => {
   const { value, open, setOpen, setFocusedValue, baseId, items } = useSelectCtx();
   const label = items.find(i => i.value === value)?.label ?? (value || placeholder);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      setOpen(true);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      setOpen(o => !o);
-    }
-  };
 
   return (
     <button
@@ -121,7 +57,7 @@ const Trigger: React.FC<SelectTriggerProps> = ({ placeholder = 'Select…', styl
       aria-controls={`${baseId}-content`}
       className={className}
       onClick={() => { setOpen(o => !o); setFocusedValue(''); }}
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => handleSelectTriggerKeyDown(e, setOpen)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -165,39 +101,9 @@ const Trigger: React.FC<SelectTriggerProps> = ({ placeholder = 'Select…', styl
 // ── Content ───────────────────────────────────────────────────────────────────
 // Always rendered (display:none when closed) so items can register labels on mount.
 
-export interface SelectContentProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Content: React.FC<SelectContentProps> = ({ children, style, className }) => {
   const { open, baseId, items, onChange, focusedValue, setFocusedValue } = useSelectCtx();
   const enabledItems = items.filter(i => !i.disabled);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const idx  = enabledItems.findIndex(i => i.value === focusedValue);
-      const next = enabledItems[(idx + 1) % enabledItems.length];
-      if (next) setFocusedValue(next.value);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      const idx  = enabledItems.findIndex(i => i.value === focusedValue);
-      const prev = enabledItems[(idx - 1 + enabledItems.length) % enabledItems.length];
-      if (prev) setFocusedValue(prev.value);
-    } else if (e.key === 'Enter' && focusedValue) {
-      e.preventDefault();
-      onChange(focusedValue);
-    } else if (e.key === 'Home') {
-      e.preventDefault();
-      if (enabledItems[0]) setFocusedValue(enabledItems[0].value);
-    } else if (e.key === 'End') {
-      e.preventDefault();
-      const last = enabledItems[enabledItems.length - 1];
-      if (last) setFocusedValue(last.value);
-    }
-  };
 
   return (
     <TacticalPanel
@@ -209,7 +115,8 @@ const Content: React.FC<SelectContentProps> = ({ children, style, className }) =
       gap={0}
       variant="default"
       chamfer={4}
-      onKeyDown={handleKeyDown as unknown as React.KeyboardEventHandler<HTMLElement>}
+      onKeyDown={((e: React.KeyboardEvent<HTMLElement>) =>
+        handleSelectContentKeyDown(e, enabledItems, focusedValue, setFocusedValue, onChange)) as unknown as React.KeyboardEventHandler<HTMLElement>}
       tabIndex={-1}
       className={className}
       style={{
@@ -231,12 +138,6 @@ const Content: React.FC<SelectContentProps> = ({ children, style, className }) =
 };
 
 // ── Item ──────────────────────────────────────────────────────────────────────
-
-export interface SelectItemProps {
-  value: string;
-  children: React.ReactNode;
-  disabled?: boolean;
-}
 
 const Item: React.FC<SelectItemProps> = ({ value, children, disabled = false }) => {
   const { value: selected, onChange, registerItem, baseId, focusedValue, setFocusedValue } = useSelectCtx();
@@ -289,8 +190,6 @@ const Separator: React.FC = () => (
 
 // ── Label ─────────────────────────────────────────────────────────────────────
 
-export interface SelectLabelProps { children: React.ReactNode }
-
 const Label: React.FC<SelectLabelProps> = ({ children }) => (
   <div
     aria-hidden="true"
@@ -310,3 +209,10 @@ const Label: React.FC<SelectLabelProps> = ({ children }) => (
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const Select = { Root, Trigger, Content, Item, Separator, Label };
+export type {
+  SelectRootProps,
+  SelectTriggerProps,
+  SelectContentProps,
+  SelectItemProps,
+  SelectLabelProps,
+} from './iSelect';

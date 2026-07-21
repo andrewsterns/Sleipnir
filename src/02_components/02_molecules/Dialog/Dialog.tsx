@@ -1,52 +1,22 @@
-import React, { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
+import React, { createContext, useContext, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from './Panel/Panel';
-import type { TacticalVariant } from './Panel/iPanel';
-
-// ── Focus trap ────────────────────────────────────────────────────────────────
-
-const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
-
-function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>, enabled: boolean) {
-  useEffect(() => {
-    if (!enabled || !containerRef.current) return;
-    const el = containerRef.current;
-
-    const arr   = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE));
-    const first = arr[0];
-    const last  = arr[arr.length - 1];
-    const prev  = document.activeElement as HTMLElement | null;
-
-    setTimeout(() => first?.focus(), 10);
-
-    const trap = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      if (e.shiftKey) {
-        if (document.activeElement === first || document.activeElement === el) {
-          e.preventDefault(); last?.focus();
-        }
-      } else {
-        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
-      }
-    };
-
-    el.addEventListener('keydown', trap);
-    return () => { el.removeEventListener('keydown', trap); prev?.focus(); };
-  }, [enabled, containerRef]);
-}
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TacticalPanel } from '../Panel/Panel';
+import {
+  DialogCtx as DialogCtxType,
+  DialogRootProps,
+  DialogTriggerProps,
+  DialogOverlayProps,
+  DialogContentProps,
+  DialogTitleProps,
+  DialogDescriptionProps,
+  DialogCloseProps,
+} from './iDialog';
+import { useDialogViewModel, useFocusTrap } from './DialogViewModel';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
-interface DialogCtx {
-  open:    boolean;
-  onOpen:  () => void;
-  onClose: () => void;
-  titleId: string;
-  descId:  string;
-}
-
-const Ctx = createContext<DialogCtx | null>(null);
+const Ctx = createContext<DialogCtxType | null>(null);
 
 function useDialogCtx() {
   const c = useContext(Ctx);
@@ -56,42 +26,17 @@ function useDialogCtx() {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-export interface DialogRootProps {
-  open?: boolean;
-  defaultOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  children: React.ReactNode;
-}
-
 const Root: React.FC<DialogRootProps> = ({ open, defaultOpen = false, onOpenChange, children }) => {
-  const [internal, setInternal] = useState(defaultOpen);
-  const isOpen = open ?? internal;
-  const baseId = useId();
-
-  const onOpen  = () => { setInternal(true);  onOpenChange?.(true); };
-  const onClose = () => { setInternal(false); onOpenChange?.(false); };
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [isOpen]);
+  const { isOpen, onOpen, onClose, titleId, descId } = useDialogViewModel({ open, defaultOpen, onOpenChange });
 
   return (
-    <Ctx.Provider value={{ open: isOpen, onOpen, onClose, titleId: `${baseId}-title`, descId: `${baseId}-desc` }}>
+    <Ctx.Provider value={{ open: isOpen, onOpen, onClose, titleId, descId }}>
       {children}
     </Ctx.Provider>
   );
 };
 
 // ── Trigger ───────────────────────────────────────────────────────────────────
-
-export interface DialogTriggerProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
 
 const Trigger: React.FC<DialogTriggerProps> = ({ children, style, className }) => {
   const { onOpen } = useDialogCtx();
@@ -117,8 +62,6 @@ const Portal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
 
-export interface DialogOverlayProps { style?: React.CSSProperties; className?: string }
-
 const Overlay: React.FC<DialogOverlayProps> = ({ style, className }) => {
   const { onClose } = useDialogCtx();
   return (
@@ -140,14 +83,6 @@ const Overlay: React.FC<DialogOverlayProps> = ({ style, className }) => {
 };
 
 // ── Content ───────────────────────────────────────────────────────────────────
-
-export interface DialogContentProps {
-  children: React.ReactNode;
-  variant?: TacticalVariant;
-  chamfer?: number;
-  style?: React.CSSProperties;
-  className?: string;
-}
 
 const Content: React.FC<DialogContentProps> = ({
   children,
@@ -193,12 +128,6 @@ const Content: React.FC<DialogContentProps> = ({
 
 // ── Title ─────────────────────────────────────────────────────────────────────
 
-export interface DialogTitleProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Title: React.FC<DialogTitleProps> = ({ children, style, className }) => {
   const { titleId } = useDialogCtx();
   return (
@@ -231,12 +160,6 @@ const Title: React.FC<DialogTitleProps> = ({ children, style, className }) => {
 
 // ── Description ───────────────────────────────────────────────────────────────
 
-export interface DialogDescriptionProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Description: React.FC<DialogDescriptionProps> = ({ children, style, className }) => {
   const { descId } = useDialogCtx();
   return (
@@ -259,13 +182,6 @@ const Description: React.FC<DialogDescriptionProps> = ({ children, style, classN
 };
 
 // ── Close ─────────────────────────────────────────────────────────────────────
-
-export interface DialogCloseProps {
-  children?: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-  'aria-label'?: string;
-}
 
 const Close: React.FC<DialogCloseProps> = ({ children, style, className, 'aria-label': ariaLabel }) => {
   const { onClose } = useDialogCtx();
@@ -302,3 +218,12 @@ const Close: React.FC<DialogCloseProps> = ({ children, style, className, 'aria-l
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const Dialog = { Root, Trigger, Portal, Overlay, Content, Title, Description, Close };
+export type {
+  DialogRootProps,
+  DialogTriggerProps,
+  DialogOverlayProps,
+  DialogContentProps,
+  DialogTitleProps,
+  DialogDescriptionProps,
+  DialogCloseProps,
+} from './iDialog';

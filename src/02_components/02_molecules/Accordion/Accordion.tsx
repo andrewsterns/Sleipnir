@@ -1,17 +1,18 @@
-import React, { createContext, useContext, useId, useState } from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
+import React, { createContext, useContext, useId } from 'react';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import {
+  AccordionCtx as AccordionCtxType,
+  ItemCtx as ItemCtxType,
+  AccordionRootProps,
+  AccordionItemProps,
+  AccordionTriggerProps,
+  AccordionContentProps,
+} from './iAccordion';
+import { useAccordionViewModel } from './AccordionViewModel';
 
 // ── Root context ──────────────────────────────────────────────────────────────
 
-type AccordionType = 'single' | 'multiple';
-
-interface AccordionCtx {
-  type: AccordionType;
-  value: string[];
-  toggle: (v: string) => void;
-}
-
-const Ctx = createContext<AccordionCtx | null>(null);
+const Ctx = createContext<AccordionCtxType | null>(null);
 
 function useAccordionCtx() {
   const c = useContext(Ctx);
@@ -21,14 +22,7 @@ function useAccordionCtx() {
 
 // ── Item context ──────────────────────────────────────────────────────────────
 
-interface ItemCtx {
-  value: string;
-  isOpen: boolean;
-  triggerId: string;
-  panelId: string;
-}
-
-const ItemCtx = createContext<ItemCtx | null>(null);
+const ItemCtx = createContext<ItemCtxType | null>(null);
 
 function useItemCtx() {
   const c = useContext(ItemCtx);
@@ -37,21 +31,6 @@ function useItemCtx() {
 }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
-
-export interface AccordionRootProps {
-  type?: AccordionType;
-  defaultValue?: string | string[];
-  value?: string | string[];
-  onValueChange?: (value: string[]) => void;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
-function normalize(v?: string | string[]): string[] {
-  if (v == null) return [];
-  return Array.isArray(v) ? v : [v];
-}
 
 const Root: React.FC<AccordionRootProps> = ({
   type = 'single',
@@ -62,16 +41,7 @@ const Root: React.FC<AccordionRootProps> = ({
   style,
   className,
 }) => {
-  const [internal, setInternal] = useState(() => normalize(defaultValue));
-  const controlled = value !== undefined ? normalize(value) : internal;
-
-  const toggle = (v: string) => {
-    const next = controlled.includes(v)
-      ? controlled.filter(x => x !== v)
-      : type === 'single' ? [v] : [...controlled, v];
-    setInternal(next);
-    onValueChange?.(next);
-  };
+  const { value: controlled, toggle } = useAccordionViewModel({ type, defaultValue, value, onValueChange });
 
   return (
     <Ctx.Provider value={{ type, value: controlled, toggle }}>
@@ -83,13 +53,6 @@ const Root: React.FC<AccordionRootProps> = ({
 };
 
 // ── Item ──────────────────────────────────────────────────────────────────────
-
-export interface AccordionItemProps {
-  value: string;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
 
 const Item: React.FC<AccordionItemProps> = ({ value, children, style, className }) => {
   const { value: active } = useAccordionCtx();
@@ -119,12 +82,6 @@ const Item: React.FC<AccordionItemProps> = ({ value, children, style, className 
 };
 
 // ── Trigger ───────────────────────────────────────────────────────────────────
-
-export interface AccordionTriggerProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
 
 const Trigger: React.FC<AccordionTriggerProps> = ({ children, style, className }) => {
   const { toggle } = useAccordionCtx();
@@ -181,12 +138,6 @@ const Trigger: React.FC<AccordionTriggerProps> = ({ children, style, className }
 
 // ── Content ───────────────────────────────────────────────────────────────────
 
-export interface AccordionContentProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 const Content: React.FC<AccordionContentProps> = ({ children, style, className }) => {
   const { isOpen, triggerId, panelId } = useItemCtx();
 
@@ -214,3 +165,4 @@ const Content: React.FC<AccordionContentProps> = ({ children, style, className }
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const Accordion = { Root, Item, Trigger, Content };
+export type { AccordionRootProps, AccordionItemProps, AccordionTriggerProps, AccordionContentProps } from './iAccordion';

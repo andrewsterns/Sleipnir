@@ -16,10 +16,10 @@ import { StatusBadge }    from '../02_molecules/StatusBadge/StatusBadge'
 import { ProgressBar }    from '../02_molecules/ProgressBar/ProgressBar'
 import { SignalBar }      from '../02_molecules/SignalBar/SignalBar'
 import { DataTag }        from '../02_molecules/DataTag/DataTag'
-import { Tabs }           from '../02_molecules/Tabs'
-import { Accordion }      from '../02_molecules/Accordion'
-import { Select }         from '../02_molecules/Select'
-import { Dialog }         from '../02_molecules/Dialog'
+import { Tabs }           from '../02_molecules/Tabs/Tabs'
+import { Accordion }      from '../02_molecules/Accordion/Accordion'
+import { Select }         from '../02_molecules/Select/Select'
+import { Dialog }         from '../02_molecules/Dialog/Dialog'
 import { CommandOverlay } from '../02_molecules/CommandOverlay'
 import type { OverlayMessage } from '../02_molecules/CommandOverlay'
 import { DataReadout }      from '../02_molecules/DataReadout/DataReadout'
@@ -1002,10 +1002,10 @@ export const componentsList: ComponentMeta[] = [
   { name: 'DataTag',         path: '../02_molecules/DataTag/DataTag',          type: 'molecule' },
   { name: 'DataReadout',     path: '../02_molecules/DataReadout/DataReadout',      type: 'molecule' },
   { name: 'NotificationFeed',path: '../02_molecules/NotificationFeed/NotificationFeed', type: 'molecule' },
-  { name: 'Tabs',            path: '../02_molecules/Tabs',             type: 'molecule' },
-  { name: 'Accordion',       path: '../02_molecules/Accordion',        type: 'molecule' },
-  { name: 'Select',          path: '../02_molecules/Select',           type: 'molecule' },
-  { name: 'Dialog',          path: '../02_molecules/Dialog',           type: 'molecule' },
+  { name: 'Tabs',            path: '../02_molecules/Tabs/Tabs',             type: 'molecule' },
+  { name: 'Accordion',       path: '../02_molecules/Accordion/Accordion',        type: 'molecule' },
+  { name: 'Select',          path: '../02_molecules/Select/Select',           type: 'molecule' },
+  { name: 'Dialog',          path: '../02_molecules/Dialog/Dialog',           type: 'molecule' },
   { name: 'CommandOverlay',  path: '../02_molecules/CommandOverlay',   type: 'molecule' },
 
   // Organisms — domain-specific compositions of molecules
