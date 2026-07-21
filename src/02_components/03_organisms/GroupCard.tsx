@@ -1,8 +1,8 @@
 import React from 'react';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel/Panel.view';
-import type { TacticalVariant } from '../02_molecules/Panel/Panel.view';
-import { BadgeStatus } from '../02_molecules/StatusBadge';
+import { TacticalPanel } from '../02_molecules/Panel/Panel';
+import type { TacticalVariant } from '../02_molecules/Panel/iPanel';
+import { BadgeStatus } from '../02_molecules/StatusBadge/StatusBadge';
 import { UnitGlyph } from '../01_atoms/UnitGlyph/UnitGlyph';
 import type { UnitType } from '../01_atoms/UnitMarker/iUnitMarker';
 

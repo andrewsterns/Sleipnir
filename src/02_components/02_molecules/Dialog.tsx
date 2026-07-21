@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from './Panel';
-import type { TacticalVariant } from './Panel';
+import { TacticalPanel } from './Panel/Panel';
+import type { TacticalVariant } from './Panel/iPanel';
 
 // ── Focus trap ────────────────────────────────────────────────────────────────
 
@@ -200,7 +200,7 @@ export interface DialogTitleProps {
 }
 
 const Title: React.FC<DialogTitleProps> = ({ children, style, className }) => {
-  const { titleId, onClose } = useDialogCtx();
+  const { titleId } = useDialogCtx();
   return (
     <Frame
       flow="horizontal"

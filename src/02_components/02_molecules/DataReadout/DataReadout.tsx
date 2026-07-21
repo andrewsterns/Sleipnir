@@ -1,8 +1,8 @@
 import React from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from './Panel';
-import type { TacticalVariant } from './Panel';
-import { DataTag } from './DataTag';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TacticalPanel } from '../Panel/Panel';
+import type { TacticalVariant } from '../Panel/iPanel';
+import { DataTag } from '../DataTag/DataTag';
 
 export interface DataReadoutItem {
   label: string;

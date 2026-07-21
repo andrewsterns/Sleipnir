@@ -1,5 +1,5 @@
 import React from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
+import { Frame } from '../../01_atoms/Frame/Frame';
 
 export type BadgeStatus = 'operational' | 'warning' | 'critical' | 'nominal' | 'tracking' | 'acquired' | 'damage' | 'from';
 

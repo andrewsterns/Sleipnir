@@ -1,7 +1,7 @@
 import React from 'react';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { StatusBadge } from '../02_molecules/StatusBadge';
-import { ProgressBar } from '../02_molecules/ProgressBar';
+import { StatusBadge } from '../02_molecules/StatusBadge/StatusBadge';
+import { ProgressBar } from '../02_molecules/ProgressBar/ProgressBar';
 import { GroupCard, GroupCardProps } from './GroupCard';
 import { ThreatRow, ThreatRowProps } from './ThreatRow';
 

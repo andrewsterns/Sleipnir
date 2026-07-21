@@ -1,7 +1,5 @@
-import React from 'react';
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame';
-
-export type TacticalVariant = 'default' | 'warning' | 'critical' | 'tracking' | 'dim' | 'ghost';
+import { FrameProps } from '../../01_atoms/Frame/Frame';
+import { TacticalPanelProps, TacticalVariant } from './iPanel';
 
 const STROKE_GRADIENT: Record<TacticalVariant, string> = {
   default:  'var(--stroke-default)',
@@ -22,22 +20,13 @@ const FILL_BG: Record<TacticalVariant, string> = {
   ghost:    'rgba(4,9,16,0.04)',
 };
 
-export interface TacticalPanelProps extends Omit<FrameProps, 'variant'> {
-  variant?: TacticalVariant;
-  chamfer?: number;
-  noLines?: boolean;
-}
-
-export const TacticalPanel = React.forwardRef<HTMLElement, TacticalPanelProps>(({
+export function usePanelViewModel({
   variant = 'default',
-  chamfer = 8,
   noLines = false,
   fill,
   stroke,
   effects,
-  children,
-  ...props
-}, ref) => {
+}: TacticalPanelProps) {
   const bg = FILL_BG[variant];
   const resolvedFill = fill ?? (noLines
     ? [{ solid: bg }]
@@ -50,22 +39,9 @@ export const TacticalPanel = React.forwardRef<HTMLElement, TacticalPanelProps>((
   const resolvedStroke = stroke ?? { gradient: STROKE_GRADIENT[variant], width: 1 };
   const resolvedEffects = effects ?? { 'background-blur': 6 };
 
-  return (
-    <Frame
-      ref={ref}
-      fill={resolvedFill as FrameProps['fill']}
-      stroke={resolvedStroke}
-      chamfer={chamfer}
-      effects={resolvedEffects}
-      {...props}
-    >
-      {children}
-    </Frame>
-  );
-});
-
-TacticalPanel.displayName = 'TacticalPanel';
-
-// Named alias for direct import as Panel
-export { TacticalPanel as Panel };
-export type { TacticalPanelProps as PanelProps };
+  return {
+    resolvedFill: resolvedFill as FrameProps['fill'],
+    resolvedStroke,
+    resolvedEffects,
+  };
+}

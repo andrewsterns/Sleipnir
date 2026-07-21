@@ -1,7 +1,7 @@
 import React from 'react';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel';
-import { StatusBadge } from '../02_molecules/StatusBadge';
+import { TacticalPanel } from '../02_molecules/Panel/Panel';
+import { StatusBadge } from '../02_molecules/StatusBadge/StatusBadge';
 import { AlertEntry, AlertEntryProps } from './AlertEntry';
 
 export interface AssetMonitorProps {
@@ -43,7 +43,7 @@ export const TarsPanel: React.FC<TarsPanelProps> = ({
         align="center"
         justify="between"
         padding={{ x: 10, y: 6 }}
-        style={{ borderBottom: '1px solid var(--border-1)' }}
+        stroke={{ bottom: { color: 'border-1' } }}
       >
         <Frame flow="horizontal" align="center" gap={6}>
           <span style={{
@@ -73,16 +73,18 @@ export const TarsPanel: React.FC<TarsPanelProps> = ({
         </span>
       </Frame>
 
-      <Frame flow="horizontal" grow style={{ minHeight: 0 }}>
+      <Frame flow="horizontal" grow minH={0}>
         {/* Object/Network log */}
         <Frame
           flow="vertical"
           gap={0}
-          style={{ flex: 1, borderRight: '1px solid var(--border-1)' }}
+          grow
+          basis={0}
+          stroke={{ right: { color: 'border-1' } }}
         >
           <Frame
             padding={{ x: 8, y: 5 }}
-            style={{ borderBottom: '1px solid var(--border-1)' }}
+            stroke={{ bottom: { color: 'border-1' } }}
           >
             <span style={{
               fontFamily: 'var(--font-mono)',
@@ -97,7 +99,9 @@ export const TarsPanel: React.FC<TarsPanelProps> = ({
             flow="vertical"
             gap={1}
             padding={{ x: 0, y: 4 }}
-            style={{ overflowY: 'auto', flex: 1 }}
+            scroll="y"
+            grow
+            basis={0}
           >
             {logs.map((log, i) => (
               <AlertEntry key={i} {...log} />
@@ -109,7 +113,7 @@ export const TarsPanel: React.FC<TarsPanelProps> = ({
             align="center"
             gap={8}
             padding={{ x: 8, y: 5 }}
-            style={{ borderTop: '1px solid var(--border-1)' }}
+            stroke={{ top: { color: 'border-1' } }}
           >
             <span style={{
               fontFamily: 'var(--font-mono)',
@@ -135,7 +139,8 @@ export const TarsPanel: React.FC<TarsPanelProps> = ({
             flow="vertical"
             gap={8}
             padding={{ x: 10, y: 8 }}
-            style={{ width: 140, flexShrink: 0 }}
+            w={140}
+            shrink={0}
           >
             <span style={{
               fontFamily: 'var(--font-mono)',
@@ -148,14 +153,12 @@ export const TarsPanel: React.FC<TarsPanelProps> = ({
 
             {/* Aircraft silhouette placeholder */}
             <Frame
-              style={{
-                height: 70,
-                background: 'rgba(0,255,136,0.04)',
-                border: '1px solid var(--border-1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              flow="horizontal"
+              align="center"
+              justify="center"
+              h={70}
+              fill={{ solid: 'rgba(0,255,136,0.04)' }}
+              stroke={{ color: 'border-1' }}
             >
               <svg width="60" height="40" viewBox="0 0 60 40" fill="none">
                 {/* Simple aircraft silhouette */}

@@ -1,8 +1,9 @@
 import React from 'react'
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
+import { Card, CardProps } from '../../02_molecules/Card/Card'
+import { Frame } from '../../01_atoms/Frame/Frame'
 import { Text } from '../../01_atoms/Text/Text'
 
-export interface MenuCardProps extends Omit<FrameProps, 'variant'> {
+export interface MenuCardProps extends Omit<CardProps, 'variant'> {
   title: string
   icon?: React.ReactNode
   subtitle?: string
@@ -18,36 +19,34 @@ export const MenuCard = React.forwardRef<HTMLElement, MenuCardProps>((
     icon,
     subtitle,
 
-    // ── Frame defaults — callers can override any of these ───────────────────
+    // ── Card defaults — callers can override any of these ────────────────────
     as           = 'button',
     variant      = 'primary',
-    flow         = 'vertical',
     align        = 'center',
     justify      = 'center',
-    gap          = 16,
     padding      = { x: 40, y: 48 },
     radius       = 'var(--radius-1)',
+    effects      = {},
     activeScale  = 0.98,
     transition   = 'all',
 
-    // ── Everything else passes straight through to Frame ─────────────────────
-    ...frameProps
+    // ── Everything else passes straight through to Card/Frame ────────────────
+    ...cardProps
   },
   ref
 ) => (
-  <Frame
+  <Card
     as={as}
     ref={ref}
     variant={variant}
-    flow={flow}
     align={align}
     justify={justify}
-    gap={gap}
     padding={padding}
     radius={radius}
+    effects={effects}
     activeScale={activeScale}
     transition={transition}
-    {...frameProps}
+    {...cardProps}
   >
     {icon && (
       <Frame flow="horizontal" align="center" justify="center">
@@ -62,7 +61,7 @@ export const MenuCard = React.forwardRef<HTMLElement, MenuCardProps>((
         {subtitle}
       </Text>
     )}
-  </Frame>
+  </Card>
 ))
 
 MenuCard.displayName = 'MenuCard'

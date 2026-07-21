@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel';
-import { StatusBadge } from '../02_molecules/StatusBadge';
+import { TacticalPanel } from '../02_molecules/Panel/Panel';
+import { StatusBadge } from '../02_molecules/StatusBadge/StatusBadge';
 import { FixedWingViewer } from './FixedWingViewer';
-import { DataReadout } from '../02_molecules/DataReadout';
+import { DataReadout } from '../02_molecules/DataReadout/DataReadout';
 import type { UnitDetail } from './UnitDetailPanel';
 
 export interface GroupDetailPanelProps {

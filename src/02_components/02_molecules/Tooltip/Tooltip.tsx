@@ -19,7 +19,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <span
+    <Frame
       className={cn('relative inline-flex', className)}
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
@@ -49,6 +49,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
           {content}
         </Frame>
       )}
-    </span>
+    </Frame>
   )
 }

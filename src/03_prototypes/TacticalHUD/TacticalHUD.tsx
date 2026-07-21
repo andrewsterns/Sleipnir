@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Frame } from '../../02_components/01_atoms/Frame/Frame';
-import { TacticalPanel } from '../../02_components/02_molecules/Panel';
-import { StatusBadge } from '../../02_components/02_molecules/StatusBadge';
-import { SignalBar } from '../../02_components/02_molecules/SignalBar';
+import { TacticalPanel } from '../../02_components/02_molecules/Panel/Panel';
+import { StatusBadge } from '../../02_components/02_molecules/StatusBadge/StatusBadge';
+import { SignalBar } from '../../02_components/02_molecules/SignalBar/SignalBar';
 import { GlobeMap } from '../../02_components/03_organisms/GlobeMap';
 import type { GlobeUnit } from '../../02_components/03_organisms/GlobeMap';
-import { DataReadout } from '../../02_components/02_molecules/DataReadout';
-import { NotificationFeed } from '../../02_components/02_molecules/NotificationFeed';
-import type { Notification } from '../../02_components/02_molecules/NotificationFeed';
+import { DataReadout } from '../../02_components/02_molecules/DataReadout/DataReadout';
+import { NotificationFeed } from '../../02_components/02_molecules/NotificationFeed/NotificationFeed';
+import type { Notification } from '../../02_components/02_molecules/NotificationFeed/NotificationFeed';
 import { UnitDetailPanel } from '../../02_components/03_organisms/UnitDetailPanel';
 import type { UnitDetail } from '../../02_components/03_organisms/UnitDetailPanel';
 import { CommandOverlay } from '../../02_components/02_molecules/CommandOverlay';
@@ -359,11 +359,9 @@ const TopNav: React.FC<{ onHome?: () => void }> = ({ onHome }) => (
     justify="between"
     padding={{ x: 14, y: 0 }}
     height={136}
-    style={{
-      background: 'rgba(3,8,14,0.97)',
-      borderBottom: '1px solid var(--border-1)',
-      flexShrink: 0,
-    }}
+    shrink={0}
+    fill={{ solid: 'rgba(3,8,14,0.97)' }}
+    stroke={{ bottom: { color: 'border-1' } }}
   >
     <Frame flow="horizontal" align="center" gap={16}>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: 'var(--text-1)', letterSpacing: '0.10em' }}>
@@ -418,12 +416,10 @@ const BottomBar: React.FC<{
     align="center"
     justify="between"
     padding={{ x: 14, y: 0 }}
-    style={{
-      height: 26,
-      background: 'rgba(3,8,14,0.98)',
-      borderTop: '1px solid var(--border-1)',
-      flexShrink: 0,
-    }}
+    h={26}
+    shrink={0}
+    fill={{ solid: 'rgba(3,8,14,0.98)' }}
+    stroke={{ top: { color: 'border-1' } }}
   >
     <Frame flow="horizontal" align="center" gap={12}>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-3)' }}>
@@ -468,13 +464,13 @@ const BottomBar: React.FC<{
 // ── Predictive trajectory ─────────────────────────────────────────────────────
 
 const PredictiveTrajectoryPanel: React.FC = () => (
-  <TacticalPanel flow="vertical" gap={0} chamfer={8} variant="tracking" style={{ flex: 1, minWidth: 180 }}>
-    <Frame padding={{ x: 10, y: 6 }} style={{ borderBottom: '1px solid var(--border-1)' }}>
+  <TacticalPanel flow="vertical" gap={0} chamfer={8} variant="tracking" grow basis={0} minW={180}>
+    <Frame padding={{ x: 10, y: 6 }} stroke={{ bottom: { color: 'border-1' } }}>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em', color: 'var(--text-3)' }}>
         ✦ PREDICTIVE TRAJECTORY
       </span>
     </Frame>
-    <Frame style={{ flex: 1, position: 'relative', minHeight: 100 }}>
+    <Frame grow basis={0} relative minH={100}>
       <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
         <defs>
           <linearGradient id="traj-grad" x1="0" y1="0" x2="1" y2="0">
@@ -487,7 +483,7 @@ const PredictiveTrajectoryPanel: React.FC = () => (
         <circle cx="160" cy="60" r="8" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
       </svg>
     </Frame>
-    <Frame padding={{ x: 10, y: 8 }} style={{ borderTop: '1px solid var(--border-1)' }}>
+    <Frame padding={{ x: 10, y: 8 }} stroke={{ top: { color: 'border-1' } }}>
       <DataReadout cols={3} gap={12} data={[
         { label: 'ETA', value: '00:63:31', valueColor: 'var(--critical)' },
         { label: 'ALT', value: '0.3772', unit: 'M' },
@@ -533,23 +529,19 @@ export const TacticalHUD: React.FC<{ onHome?: () => void }> = ({ onHome }) => {
       flow="vertical"
       w="screen"
       h="screen"
-      style={{
-        background: 'var(--bg-1)',
-        color: 'var(--text-1)',
-        overflow: 'hidden',
-        fontFamily: 'var(--font-mono)',
-      }}
+      fill={{ solid: 'bg-1' }}
+      textColor="var(--text-1)"
+      clipContent
+      // eslint-disable-next-line no-restricted-syntax -- inherited font has no Frame prop
+      style={{ fontFamily: 'var(--font-mono)' }}
     >
       <TopNav onHome={onHome} />
 
       {/* Main content — vertical column so TARS row can sit below */}
-      <Frame flow="vertical" grow style={{ minHeight: 0, overflow: 'hidden' }}>
+      <Frame flow="vertical" grow minH={0} clipContent>
 
         {/* Globe area — fills all remaining height; left panel overlays it absolutely */}
-        <Frame grow style={{
-          position: 'relative',
-          background: 'radial-gradient(ellipse at 50% 50%, rgba(6,14,28,0.8) 0%, rgba(3,8,14,1) 100%)',
-        }}>
+        <Frame grow relative fill={{ 'radial-gradient': 'ellipse at 50% 50%, rgba(6,14,28,0.8) 0%, rgba(3,8,14,1) 100%' }}>
           {/* Globe canvas — fills entire area */}
           <GlobeMap
             units={UNITS}
@@ -562,17 +554,15 @@ export const TacticalHUD: React.FC<{ onHome?: () => void }> = ({ onHome }) => {
           {/* LEFT PANEL — absolute overlay, fully transparent so globe shows through */}
           <Frame
             flow="vertical"
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 260,
-              zIndex: 10,
-            }}
+            absolute
+            x={0}
+            y={0}
+            bottom={0}
+            w={260}
+            z={10}
           >
             {/* Unit list — scrollable, no visible scrollbar */}
-            <Frame grow className="no-scrollbar" style={{ overflowY: 'auto', minHeight: 0 }}>
+            <Frame grow className="no-scrollbar" scroll="y" minH={0}>
               <StatusPanel
                 groups={GROUPS}
                 threats={THREATS_GROUPS}
@@ -595,7 +585,8 @@ export const TacticalHUD: React.FC<{ onHome?: () => void }> = ({ onHome }) => {
                   padding={{ x: 14, y: 9 }}
                   variant="ghost"
                   chamfer={6}
-                  style={{ width: '100%', cursor: 'pointer' }}
+                  w="fill"
+                  cursor="pointer"
                 >
                   <Frame flow="horizontal" align="center" gap={8}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-3)', letterSpacing: '0.12em' }}>
@@ -650,12 +641,10 @@ export const TacticalHUD: React.FC<{ onHome?: () => void }> = ({ onHome }) => {
             flow="horizontal"
             gap={8}
             padding={8}
-            style={{
-              height: 240,
-              flexShrink: 0,
-              borderTop: '1px solid var(--border-1)',
-              background: 'rgba(3,8,14,0.05)',
-            }}
+            h={240}
+            shrink={0}
+            stroke={{ top: { color: 'border-1' } }}
+            fill={{ solid: 'rgba(3,8,14,0.05)' }}
           >
             <TarsPanel
               logs={TARS_LOGS}

@@ -8,9 +8,9 @@ import React, {
 } from 'react';
 import ReactDOM from 'react-dom';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from './Panel';
+import { TacticalPanel } from './Panel/Panel';
 import { StreamText } from '../01_atoms/StreamText/StreamText';
-import type { DataReadoutItem } from './DataReadout';
+import type { DataReadoutItem } from './DataReadout/DataReadout';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ const ACTION_BORDER: Record<NonNullable<OverlayAction['variant']>, string> = {
 };
 
 const ActionRow: React.FC<{ actions: OverlayAction[] }> = ({ actions }) => (
-  <Frame flow="horizontal" gap={6} style={{ marginTop: 8 }}>
+  <Frame flow="horizontal" gap={6} margin={{ top: 8 }}>
     {actions.map((a, i) => {
       const v = a.variant ?? 'default';
       return (
@@ -148,15 +148,13 @@ const ActionRow: React.FC<{ actions: OverlayAction[] }> = ({ actions }) => (
 
 const DataBlock: React.FC<{ items: DataReadoutItem[] }> = ({ items }) => (
   <Frame
-    style={{
-      marginTop: 8,
-      padding: '8px 10px',
-      background: 'rgba(255,255,255,0.025)',
-      border: '1px solid var(--border-1)',
-      display: 'grid',
-      gridTemplateColumns: 'repeat(4, 1fr)',
-      gap: '6px 12px',
-    }}
+    flow="grid"
+    cols={4}
+    gap="6px 12px"
+    margin={{ top: 8 }}
+    padding={{ x: 10, y: 8 }}
+    fill={{ solid: 'rgba(255,255,255,0.025)' }}
+    stroke={{ color: 'border-1' }}
   >
     {items.map((item, i) => (
       <Frame key={i} flow="vertical" gap={2}>
@@ -178,7 +176,7 @@ const MessageRow: React.FC<{ message: OverlayMessage }> = ({ message }) => {
 
   if (message.role === 'system') {
     return (
-      <Frame flow="vertical" gap={0} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <Frame flow="vertical" gap={0} padding={{ y: 8 }} stroke={{ bottom: { color: 'rgba(255,255,255,0.05)' } }}>
         {message.priority && (
           <span style={{
             fontFamily: 'var(--font-mono)',
@@ -202,7 +200,7 @@ const MessageRow: React.FC<{ message: OverlayMessage }> = ({ message }) => {
 
   if (message.role === 'user') {
     return (
-      <Frame flow="horizontal" gap={8} align="baseline" style={{ padding: '5px 0' }}>
+      <Frame flow="horizontal" gap={8} align="baseline" padding={{ y: 5 }}>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-3)', flexShrink: 0 }}>›</span>
         <span style={{
           fontFamily: 'var(--font-mono)',
@@ -219,7 +217,7 @@ const MessageRow: React.FC<{ message: OverlayMessage }> = ({ message }) => {
 
   // tars role
   return (
-    <Frame flow="vertical" style={{ padding: '6px 0' }}>
+    <Frame flow="vertical" padding={{ y: 6 }}>
       <Frame flow="horizontal" gap={8} align="baseline">
         <span style={{
           fontFamily: 'var(--font-mono)',
@@ -260,7 +258,9 @@ const Trigger: React.FC<{ children: React.ReactNode; className?: string; style?:
       as="span"
       onClick={onOpen}
       className={className}
-      style={{ display: 'inline-flex', cursor: 'pointer', ...style }}
+      layout="inline-flex"
+      cursor="pointer"
+      style={style}
     >
       {children}
     </Frame>
@@ -302,16 +302,14 @@ const Window: React.FC<{
     variant="default"
     chamfer={12}
     className={className}
-    style={{
-      position: 'fixed',
-      top: '5vh',
-      left: '5vw',
-      width: '90vw',
-      height: '90vh',
-      zIndex: 201,
-      overflow: 'hidden',
-      ...style,
-    }}
+    fixed
+    y="5vh"
+    x="5vw"
+    w="90vw"
+    h="90vh"
+    z={201}
+    clipContent
+    style={style}
   >
     {children}
   </TacticalPanel>
@@ -328,7 +326,9 @@ const Header: React.FC<{ title?: string; style?: React.CSSProperties }> = ({
       align="center"
       justify="between"
       padding={{ x: 16, y: 10 }}
-      style={{ borderBottom: '1px solid var(--border-1)', flexShrink: 0, ...style }}
+      stroke={{ bottom: { color: 'border-1' } }}
+      shrink={0}
+      style={style}
     >
       <Frame flow="horizontal" align="center" gap={10}>
         <span style={{
@@ -391,22 +391,20 @@ const Feed: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     <Frame
       flow="vertical"
       grow
-      style={{
-        overflowY: 'auto',
-        scrollbarWidth: 'none',
-        padding: '0 16px',
-        minHeight: 0,
-        ...style,
-      }}
+      scroll="y"
+      className="no-scrollbar"
+      padding={{ x: 16 }}
+      minH={0}
+      style={style}
     >
       {systemMsgs.length > 0 && (
-        <Frame flow="vertical" style={{ paddingTop: 14 }}>
+        <Frame flow="vertical" padding={{ top: 14 }}>
           {systemMsgs.map(m => <MessageRow key={m.id} message={m} />)}
         </Frame>
       )}
 
       {systemMsgs.length > 0 && thread.length > 0 && (
-        <Frame flow="horizontal" align="center" gap={10} style={{ padding: '10px 0' }}>
+        <Frame flow="horizontal" align="center" gap={10} padding={{ y: 10 }}>
           <div style={{ flex: 1, height: 1, background: 'var(--border-1)' }} />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-3)', letterSpacing: '0.14em' }}>
             THREAD
@@ -416,13 +414,13 @@ const Feed: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
       )}
 
       {thread.length > 0 && (
-        <Frame flow="vertical" gap={0} style={{ paddingBottom: 14 }}>
+        <Frame flow="vertical" gap={0} padding={{ bottom: 14 }}>
           {thread.map(m => <MessageRow key={m.id} message={m} />)}
         </Frame>
       )}
 
       {systemMsgs.length === 0 && thread.length === 0 && (
-        <Frame flow="vertical" align="center" justify="center" grow style={{ minHeight: 80 }}>
+        <Frame flow="vertical" align="center" justify="center" grow minH={80}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-3)', letterSpacing: '0.10em' }}>
             NO ACTIVE ADVISORIES
           </span>
@@ -475,7 +473,8 @@ const Input: React.FC = () => {
       align="center"
       gap={8}
       padding={{ x: 16, y: 10 }}
-      style={{ borderTop: '1px solid var(--border-1)', flexShrink: 0 }}
+      stroke={{ top: { color: 'border-1' } }}
+      shrink={0}
     >
       <span style={{
         fontFamily: 'var(--font-mono)',

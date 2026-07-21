@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from './Panel';
+import { TacticalPanel } from './Panel/Panel';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 

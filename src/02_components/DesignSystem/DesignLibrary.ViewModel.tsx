@@ -11,19 +11,19 @@ import { UnitGlyph } from '../01_atoms/UnitGlyph/UnitGlyph'
 
 // ── Molecules ─────────────────────────────────────────────────────────────────
 import { Button }           from '../02_molecules/Button/Button'
-import { TacticalPanel as Panel } from '../02_molecules/Panel/Panel.view'
-import { StatusBadge }    from '../02_molecules/StatusBadge'
-import { ProgressBar }    from '../02_molecules/ProgressBar'
-import { SignalBar }      from '../02_molecules/SignalBar'
-import { DataTag }        from '../02_molecules/DataTag'
+import { TacticalPanel as Panel } from '../02_molecules/Panel/Panel'
+import { StatusBadge }    from '../02_molecules/StatusBadge/StatusBadge'
+import { ProgressBar }    from '../02_molecules/ProgressBar/ProgressBar'
+import { SignalBar }      from '../02_molecules/SignalBar/SignalBar'
+import { DataTag }        from '../02_molecules/DataTag/DataTag'
 import { Tabs }           from '../02_molecules/Tabs'
 import { Accordion }      from '../02_molecules/Accordion'
 import { Select }         from '../02_molecules/Select'
 import { Dialog }         from '../02_molecules/Dialog'
 import { CommandOverlay } from '../02_molecules/CommandOverlay'
 import type { OverlayMessage } from '../02_molecules/CommandOverlay'
-import { DataReadout }      from '../02_molecules/DataReadout'
-import { NotificationFeed } from '../02_molecules/NotificationFeed'
+import { DataReadout }      from '../02_molecules/DataReadout/DataReadout'
+import { NotificationFeed } from '../02_molecules/NotificationFeed/NotificationFeed'
 
 // ── Organisms ─────────────────────────────────────────────────────────────────
 import { GroupCard }   from '../03_organisms/GroupCard'
@@ -996,12 +996,12 @@ export const componentsList: ComponentMeta[] = [
   // Molecules — compounds built from atoms
   { name: 'Button',          path: '../02_molecules/Button/Button',   type: 'molecule' },
   { name: 'Panel',           path: '../02_molecules/Panel',           type: 'molecule' },
-  { name: 'StatusBadge',     path: '../02_molecules/StatusBadge',     type: 'molecule' },
-  { name: 'ProgressBar',     path: '../02_molecules/ProgressBar',     type: 'molecule' },
-  { name: 'SignalBar',       path: '../02_molecules/SignalBar',        type: 'molecule' },
-  { name: 'DataTag',         path: '../02_molecules/DataTag',          type: 'molecule' },
-  { name: 'DataReadout',     path: '../02_molecules/DataReadout',      type: 'molecule' },
-  { name: 'NotificationFeed',path: '../02_molecules/NotificationFeed', type: 'molecule' },
+  { name: 'StatusBadge',     path: '../02_molecules/StatusBadge/StatusBadge',     type: 'molecule' },
+  { name: 'ProgressBar',     path: '../02_molecules/ProgressBar/ProgressBar',     type: 'molecule' },
+  { name: 'SignalBar',       path: '../02_molecules/SignalBar/SignalBar',        type: 'molecule' },
+  { name: 'DataTag',         path: '../02_molecules/DataTag/DataTag',          type: 'molecule' },
+  { name: 'DataReadout',     path: '../02_molecules/DataReadout/DataReadout',      type: 'molecule' },
+  { name: 'NotificationFeed',path: '../02_molecules/NotificationFeed/NotificationFeed', type: 'molecule' },
   { name: 'Tabs',            path: '../02_molecules/Tabs',             type: 'molecule' },
   { name: 'Accordion',       path: '../02_molecules/Accordion',        type: 'molecule' },
   { name: 'Select',          path: '../02_molecules/Select',           type: 'molecule' },

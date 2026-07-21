@@ -1,6 +1,6 @@
 import React from 'react';
 import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel';
+import { TacticalPanel } from '../02_molecules/Panel/Panel';
 import { ConfidenceBar } from './ConfidenceBar';
 
 export interface ThreatAssessmentItem {

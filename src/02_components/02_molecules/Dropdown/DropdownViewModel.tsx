@@ -1,9 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-
-export interface DropdownOption {
-  value: string;
-  label: string;
-}
+import { DropdownOption } from './iDropdown';
 
 export const useDropdownViewModel = (options: DropdownOption[], initialValue?: string) => {
   const [isOpen, setIsOpen] = useState(false);

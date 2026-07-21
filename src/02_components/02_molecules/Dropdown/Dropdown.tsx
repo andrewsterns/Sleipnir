@@ -1,15 +1,8 @@
 import React from 'react'
-import { useDropdownViewModel, DropdownOption } from './Dropdown.viewModel'
+import { useDropdownViewModel } from './DropdownViewModel'
+import { DropdownProps } from './iDropdown'
 import { cn } from '../../../utils/cn'
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
-
-export interface DropdownProps extends Omit<FrameProps, 'onChange' | 'variant'> {
-  options: DropdownOption[]
-  value?: string
-  onChange?: (value: string) => void
-  label?: string
-  variant?: 'surface' | 'none'
-}
+import { Frame } from '../../01_atoms/Frame/Frame'
 
 export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
   {
