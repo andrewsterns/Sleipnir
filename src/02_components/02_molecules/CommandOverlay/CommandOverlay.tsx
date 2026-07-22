@@ -1,53 +1,21 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from './Panel/Panel';
-import { StreamText } from '../01_atoms/StreamText/StreamText';
-import type { DataReadoutItem } from './DataReadout/DataReadout';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type OverlayRole = 'system' | 'user' | 'tars';
-export type OverlayPriority = 'critical' | 'warning' | 'suggested';
-
-export interface OverlayAction {
-  label: string;
-  variant?: 'confirm' | 'danger' | 'default';
-  onClick: () => void;
-}
-
-export interface OverlayMessage {
-  id: string;
-  role: OverlayRole;
-  text: string;
-  streaming?: boolean;
-  priority?: OverlayPriority;
-  data?: DataReadoutItem[];
-  actions?: OverlayAction[];
-  ts: Date;
-}
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TacticalPanel } from '../Panel/Panel';
+import { StreamText } from '../../01_atoms/StreamText/StreamText';
+import type { DataReadoutItem } from '../DataReadout/DataReadout';
+import { OverlayCtx as OverlayCtxType, OverlayAction, OverlayMessage, CommandOverlayRootProps } from './iCommandOverlay';
+import {
+  ACTION_BG,
+  ACTION_BORDER,
+  PRIORITY_COLOR,
+  PRIORITY_STARS,
+  useCommandOverlayViewModel,
+} from './CommandOverlayViewModel';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
-interface OverlayCtx {
-  open: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  messages: OverlayMessage[];
-  addMessage: (msg: Omit<OverlayMessage, 'id' | 'ts'>) => void;
-  updateMessage: (id: string, patch: Partial<OverlayMessage>) => void;
-  send: (text: string) => void;
-  isStreaming: boolean;
-}
-
-const Ctx = createContext<OverlayCtx | null>(null);
+const Ctx = createContext<OverlayCtxType | null>(null);
 
 function useCtx() {
   const c = useContext(Ctx);
@@ -55,63 +23,7 @@ function useCtx() {
   return c;
 }
 
-// ── ID generator ──────────────────────────────────────────────────────────────
-
-let _uid = 0;
-const uid = () => `tars-${++_uid}`;
-
-// ── Demo responses ─────────────────────────────────────────────────────────────
-
-const DEMO: Array<{ text: string; data?: DataReadoutItem[]; actions?: OverlayAction[] }> = [
-  {
-    text: 'GROUP-1 nominal. 3 of 3 units active and within operational envelope.',
-    data: [
-      { label: 'ALT',  value: '12,400', unit: 'ft'   },
-      { label: 'SPD',  value: '0.62',   unit: 'MACH' },
-      { label: 'FUEL', value: '61%' },
-      { label: 'HDG',  value: '247°' },
-    ],
-  },
-  {
-    text: 'Intercept vector calculated. HDG 112°, ETA 4min. Authorization required before commit.',
-    actions: [
-      { label: 'EXECUTE', variant: 'confirm', onClick: () => {} },
-      { label: 'REVIEW',  onClick: () => {} },
-      { label: 'ABORT',   variant: 'danger',  onClick: () => {} },
-    ],
-  },
-  { text: 'RED-3 SAM radar lock confirmed at grid E7. XR-231 within threat envelope. Recommend evasive vector 270°.' },
-  { text: 'Sensor coverage 70%. Blind spot confirmed NE quadrant. UAS-4 repositioning — ETA 2min.' },
-  { text: 'COMMS LOSS ALPHA-3. Last ping 02:14:33Z. Fallback relay initiated. Awaiting handshake.' },
-];
-
-// ── Priority label ────────────────────────────────────────────────────────────
-
-const PRIORITY_STARS: Record<OverlayPriority, string> = {
-  critical:  '★ ★ ★',
-  warning:   '★ ★',
-  suggested: '★',
-};
-
-const PRIORITY_COLOR: Record<OverlayPriority, string> = {
-  critical:  'var(--critical)',
-  warning:   'var(--warn)',
-  suggested: 'var(--text-2)',
-};
-
 // ── Action buttons ────────────────────────────────────────────────────────────
-
-const ACTION_BG: Record<NonNullable<OverlayAction['variant']>, string> = {
-  confirm: 'rgba(255,255,255,0.08)',
-  danger:  'rgba(255,48,48,0.10)',
-  default: 'transparent',
-};
-
-const ACTION_BORDER: Record<NonNullable<OverlayAction['variant']>, string> = {
-  confirm: 'rgba(255,255,255,0.22)',
-  danger:  'rgba(255,48,48,0.32)',
-  default: 'var(--border-1)',
-};
 
 const ActionRow: React.FC<{ actions: OverlayAction[] }> = ({ actions }) => (
   <Frame flow="horizontal" gap={6} margin={{ top: 8 }}>
@@ -527,15 +439,6 @@ const Input: React.FC = () => {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-export interface CommandOverlayRootProps {
-  open?: boolean;
-  defaultOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  initialMessages?: OverlayMessage[];
-  onSubmit?: (text: string, respond: (msg: Omit<OverlayMessage, 'id' | 'ts'>) => void) => void;
-  children: React.ReactNode;
-}
-
 const Root: React.FC<CommandOverlayRootProps> = ({
   open: controlledOpen,
   defaultOpen = false,
@@ -544,54 +447,8 @@ const Root: React.FC<CommandOverlayRootProps> = ({
   onSubmit,
   children,
 }) => {
-  const [internalOpen, setInternalOpen] = useState(defaultOpen);
-  const [messages, setMessages] = useState<OverlayMessage[]>(
-    initialMessages.map(m => ({ ...m, id: m.id ?? uid() })),
-  );
-
-  const open = controlledOpen ?? internalOpen;
-  const isStreaming = messages.some(m => m.streaming);
-
-  const onOpen  = () => { setInternalOpen(true);  onOpenChange?.(true);  };
-  const onClose = () => { setInternalOpen(false); onOpenChange?.(false); };
-
-  const addMessage = useCallback((msg: Omit<OverlayMessage, 'id' | 'ts'>) => {
-    setMessages(prev => [...prev, { ...msg, id: uid(), ts: new Date() }]);
-  }, []);
-
-  const updateMessage = useCallback((id: string, patch: Partial<OverlayMessage>) => {
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m));
-  }, []);
-
-  const send = useCallback((text: string) => {
-    setMessages(prev => [...prev, { id: uid(), role: 'user', text, ts: new Date() }]);
-
-    if (onSubmit) {
-      onSubmit(text, (msg) => {
-        setMessages(prev => [...prev, { ...msg, id: uid(), ts: new Date(), streaming: true }]);
-      });
-    } else {
-      const pick = DEMO[Math.floor(Math.random() * DEMO.length)];
-      setTimeout(() => {
-        setMessages(prev => [...prev, {
-          id: uid(),
-          role: 'tars',
-          text: pick.text,
-          streaming: true,
-          data: pick.data,
-          actions: pick.actions,
-          ts: new Date(),
-        }]);
-      }, 320);
-    }
-  }, [onSubmit]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open]);
+  const { open, onOpen, onClose, messages, addMessage, updateMessage, send, isStreaming } =
+    useCommandOverlayViewModel({ open: controlledOpen, defaultOpen, onOpenChange, initialMessages, onSubmit });
 
   return (
     <Ctx.Provider value={{ open, onOpen, onClose, messages, addMessage, updateMessage, send, isStreaming }}>
@@ -612,3 +469,11 @@ export const CommandOverlay = {
   Feed,
   Input,
 };
+
+export type {
+  OverlayRole,
+  OverlayPriority,
+  OverlayAction,
+  OverlayMessage,
+  CommandOverlayRootProps,
+} from './iCommandOverlay';

@@ -1,16 +1,8 @@
-import React, { useState } from 'react'
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
+import React from 'react'
+import { Frame } from '../../01_atoms/Frame/Frame'
 import { Text } from '../../01_atoms/Text/Text'
-
-export interface ListItemProps extends Omit<FrameProps, 'onClick'> {
-  id: string
-  title: string
-  subtitle?: string
-  isActive?: boolean
-  /** Soft highlight from an external source (e.g. hovering the name in the code panel) */
-  isHovered?: boolean
-  onClick?: (id: string) => void
-}
+import { ListItemProps } from './iListItem'
+import { useListItemViewModel } from './ListItemViewModel'
 
 export const ListItem = React.forwardRef<HTMLElement, ListItemProps>((
   {
@@ -31,20 +23,15 @@ export const ListItem = React.forwardRef<HTMLElement, ListItemProps>((
   },
   ref
 ) => {
-  const [mouseOver, setMouseOver] = useState(false)
-
-  const bg = isActive   ? 'primary-3'
-           : isHovered  ? 'primary-4'
-           : mouseOver  ? 'primary-5'
-           : 'transparent'
+  const { bg, onHover, onHoverEnd } = useListItemViewModel({ isActive, isHovered })
 
   return (
     <Frame as={as} ref={ref} w={w} {...frameProps}>
       <Frame
         as="button"
         onClick={() => onClick?.(id)}
-        onHover={() => setMouseOver(true)}
-        onHoverEnd={() => setMouseOver(false)}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
         w="fill"
         flow="vertical"
         align="start"

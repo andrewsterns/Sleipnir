@@ -10,8 +10,8 @@ import { NotificationFeed } from '../../02_components/02_molecules/NotificationF
 import type { Notification } from '../../02_components/02_molecules/NotificationFeed/NotificationFeed';
 import { UnitDetailPanel } from '../../02_components/03_organisms/UnitDetailPanel';
 import type { UnitDetail } from '../../02_components/03_organisms/UnitDetailPanel';
-import { CommandOverlay } from '../../02_components/02_molecules/CommandOverlay';
-import type { OverlayMessage } from '../../02_components/02_molecules/CommandOverlay';
+import { CommandOverlay } from '../../02_components/02_molecules/CommandOverlay/CommandOverlay';
+import type { OverlayMessage } from '../../02_components/02_molecules/CommandOverlay/CommandOverlay';
 import { GroupDetailPanel } from '../../02_components/03_organisms/GroupDetailPanel';
 import { StatusPanel } from '../../02_components/03_organisms/StatusPanel';
 import { TarsPanel } from '../../02_components/03_organisms/TarsPanel';

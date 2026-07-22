@@ -20,8 +20,8 @@ import { Tabs }           from '../02_molecules/Tabs/Tabs'
 import { Accordion }      from '../02_molecules/Accordion/Accordion'
 import { Select }         from '../02_molecules/Select/Select'
 import { Dialog }         from '../02_molecules/Dialog/Dialog'
-import { CommandOverlay } from '../02_molecules/CommandOverlay'
-import type { OverlayMessage } from '../02_molecules/CommandOverlay'
+import { CommandOverlay } from '../02_molecules/CommandOverlay/CommandOverlay'
+import type { OverlayMessage } from '../02_molecules/CommandOverlay/CommandOverlay'
 import { DataReadout }      from '../02_molecules/DataReadout/DataReadout'
 import { NotificationFeed } from '../02_molecules/NotificationFeed/NotificationFeed'
 
@@ -1006,7 +1006,7 @@ export const componentsList: ComponentMeta[] = [
   { name: 'Accordion',       path: '../02_molecules/Accordion/Accordion',        type: 'molecule' },
   { name: 'Select',          path: '../02_molecules/Select/Select',           type: 'molecule' },
   { name: 'Dialog',          path: '../02_molecules/Dialog/Dialog',           type: 'molecule' },
-  { name: 'CommandOverlay',  path: '../02_molecules/CommandOverlay',   type: 'molecule' },
+  { name: 'CommandOverlay',  path: '../02_molecules/CommandOverlay/CommandOverlay',   type: 'molecule' },
 
   // Organisms — domain-specific compositions of molecules
   { name: 'GroupCard',   path: '../03_organisms/GroupCard',   type: 'organism' },
