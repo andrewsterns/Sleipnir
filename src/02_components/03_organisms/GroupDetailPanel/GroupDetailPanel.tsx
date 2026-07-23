@@ -1,18 +1,11 @@
-import React, { useState } from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel/Panel';
-import { StatusBadge } from '../02_molecules/StatusBadge/StatusBadge';
-import { FixedWingViewer } from './FixedWingViewer';
-import { DataReadout } from '../02_molecules/DataReadout/DataReadout';
-import type { UnitDetail } from './UnitDetailPanel';
-
-export interface GroupDetailPanelProps {
-  groupName: string;
-  units: UnitDetail[];
-  onClose: () => void;
-  style?: React.CSSProperties;
-  className?: string;
-}
+import React from 'react';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TacticalPanel } from '../../02_molecules/Panel/Panel';
+import { StatusBadge } from '../../02_molecules/StatusBadge/StatusBadge';
+import { FixedWingViewer } from '../FixedWingViewer/FixedWingViewer';
+import { DataReadout } from '../../02_molecules/DataReadout/DataReadout';
+import { GroupDetailPanelProps } from './iGroupDetailPanel';
+import { useGroupDetailPanelViewModel } from './GroupDetailPanelViewModel';
 
 const TYPE_LABEL: Record<string, string> = {
   'fixed-wing': 'Fixed Wing',
@@ -28,11 +21,8 @@ export const GroupDetailPanel: React.FC<GroupDetailPanelProps> = ({
   style,
   className,
 }) => {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const unit = units[activeIdx];
+  const { activeIdx, setActiveIdx, unit, isActiveUnit } = useGroupDetailPanelViewModel({ units });
   if (!unit) return null;
-
-  const isActiveUnit = unit.status === 'tracking' || unit.status === 'operational' || unit.status === 'nominal' || unit.status === 'acquired';
 
   return (
     <TacticalPanel

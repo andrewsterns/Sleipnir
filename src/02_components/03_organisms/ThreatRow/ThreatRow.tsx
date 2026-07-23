@@ -1,6 +1,6 @@
 import React from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { StatusBadge, BadgeStatus } from '../02_molecules/StatusBadge/StatusBadge';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { StatusBadge, BadgeStatus } from '../../02_molecules/StatusBadge/StatusBadge';
 
 export interface ThreatRowProps {
   id: string;

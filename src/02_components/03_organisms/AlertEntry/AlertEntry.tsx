@@ -1,5 +1,5 @@
 import React from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
+import { Frame } from '../../01_atoms/Frame/Frame';
 
 export type AlertPriority = 'low' | 'med' | 'high';
 

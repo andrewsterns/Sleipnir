@@ -1,8 +1,8 @@
 import React from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel/Panel';
-import { StatusBadge } from '../02_molecules/StatusBadge/StatusBadge';
-import { AlertEntry, AlertEntryProps } from './AlertEntry';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TacticalPanel } from '../../02_molecules/Panel/Panel';
+import { StatusBadge } from '../../02_molecules/StatusBadge/StatusBadge';
+import { AlertEntry, AlertEntryProps } from '../AlertEntry/AlertEntry';
 
 export interface AssetMonitorProps {
   callsign: string;

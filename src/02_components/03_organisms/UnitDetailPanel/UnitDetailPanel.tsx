@@ -1,9 +1,9 @@
 import React from 'react';
-import { Frame } from '../01_atoms/Frame/Frame';
-import { TacticalPanel } from '../02_molecules/Panel/Panel';
-import { StatusBadge, BadgeStatus } from '../02_molecules/StatusBadge/StatusBadge';
-import { FixedWingViewer } from './FixedWingViewer';
-import { DataReadout, DataReadoutItem } from '../02_molecules/DataReadout/DataReadout';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { TacticalPanel } from '../../02_molecules/Panel/Panel';
+import { StatusBadge, BadgeStatus } from '../../02_molecules/StatusBadge/StatusBadge';
+import { FixedWingViewer } from '../FixedWingViewer/FixedWingViewer';
+import { DataReadout, DataReadoutItem } from '../../02_molecules/DataReadout/DataReadout';
 
 export type UnitDetailType = 'fixed-wing' | 'ground' | 'drone' | 'naval';
 
