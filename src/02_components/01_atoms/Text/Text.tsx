@@ -1,22 +1,30 @@
 import React from 'react';
 import { cn } from '../../../utils/cn';
+import { resolveToken } from '../Frame/FrameViewModel';
 
-export type TextVariant = 
-  | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' 
+export type TextVariant =
+  | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
   | 'p' | 'small' | 'xs' | 'link' | 'li';
 
 export interface TextProps extends React.HTMLAttributes<HTMLElement> {
   variant?: TextVariant;
   as?: React.ElementType;
-  weight?: 'light' | 'normal' | 'medium' | 'bold' | 'black';
+  /** Exact font size (px number or CSS string). Wins over the variant scale. */
+  size?: number | string;
+  /** Render in the mono/terminal font (var(--font-mono)). */
+  mono?: boolean;
+  weight?: 'light' | 'normal' | 'medium' | 'semibold' | 'bold' | 'black';
   italic?: boolean;
-  color?: 'text-0' | 'text-1' | 'text-2' | 'text-3' | 'accent' | 'inherit';
+  /** Preset token, or any color token / CSS color (e.g. 'scan', 'var(--critical)', '#fff'). */
+  color?: 'text-0' | 'text-1' | 'text-2' | 'text-3' | 'accent' | 'inherit' | (string & {});
   align?: 'left' | 'center' | 'right' | 'justify';
   noWrap?: boolean;
   underline?: boolean;
   transform?: 'uppercase' | 'lowercase' | 'capitalize' | 'normal-case';
-  tracking?: 'tighter' | 'tight' | 'normal' | 'wide' | 'wider' | 'widest';
-  leading?: 'none' | 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose';
+  /** Preset, or any CSS letter-spacing value (e.g. '0.14em'). */
+  tracking?: 'tighter' | 'tight' | 'normal' | 'wide' | 'wider' | 'widest' | (string & {});
+  /** Preset, or any CSS line-height value (e.g. '16px', 1.4). */
+  leading?: 'none' | 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose' | (string & {});
   children: React.ReactNode;
   href?: string; // For link variant
 }
@@ -28,6 +36,8 @@ export interface TextProps extends React.HTMLAttributes<HTMLElement> {
 export const Text: React.FC<TextProps> = ({
   variant = 'p',
   as,
+  size,
+  mono = false,
   weight,
   italic = false,
   color = 'inherit',
@@ -40,6 +50,7 @@ export const Text: React.FC<TextProps> = ({
   children,
   className,
   href,
+  style,
   ...props
 }) => {
   // Determine the HTML element to use
@@ -63,15 +74,16 @@ export const Text: React.FC<TextProps> = ({
     li: 'text-[var(--font-p)] leading-[var(--leading-normal)] list-disc ml-4',
   };
 
-  const weightClasses = {
+  const weightClasses: Record<NonNullable<TextProps['weight']>, string> = {
     light: 'font-[var(--weight-light)]',
     normal: 'font-[var(--weight-normal)]',
     medium: 'font-[var(--weight-medium)]',
+    semibold: 'font-semibold', // no --weight-semibold theme token; static 600
     bold: 'font-[var(--weight-bold)]',
     black: 'font-[var(--weight-black)]', // Host Grotesque black often looks better italicized in this theme
   };
 
-  const colorClasses = {
+  const colorClasses: Record<string, string> = {
     'text-0': 'text-[var(--text-0)]',
     'text-1': 'text-[var(--text-1)]',
     'text-2': 'text-[var(--text-2)]',
@@ -87,7 +99,7 @@ export const Text: React.FC<TextProps> = ({
     justify: 'text-justify',
   };
 
-  const trackingClasses = {
+  const trackingClasses: Record<string, string> = {
     tighter: 'tracking-tighter',
     tight:   'tracking-tight',
     normal:  'tracking-normal',
@@ -96,7 +108,7 @@ export const Text: React.FC<TextProps> = ({
     widest:  'tracking-widest',
   };
 
-  const leadingClasses = {
+  const leadingClasses: Record<string, string> = {
     none:    'leading-none',
     tight:   'leading-tight',
     snug:    'leading-snug',
@@ -109,6 +121,16 @@ export const Text: React.FC<TextProps> = ({
   const defaultWeight = weight || (
     variant.startsWith('h') ? (variant === 'h1' || variant === 'h2' ? 'black' : 'bold') : 'normal'
   );
+
+  // Non-preset values resolve to inline CSS (Tailwind JIT can't see runtime
+  // classes); presets keep their static class path. Caller style wins last.
+  const computedStyle: React.CSSProperties = {};
+  if (size !== undefined) computedStyle.fontSize = size;
+  if (mono) computedStyle.fontFamily = 'var(--font-mono)';
+  if (!(color in colorClasses)) computedStyle.color = resolveToken(color);
+  if (tracking && !(tracking in trackingClasses)) computedStyle.letterSpacing = tracking;
+  if (leading && !(leading in leadingClasses)) computedStyle.lineHeight = leading;
+  const mergedStyle = { ...computedStyle, ...style };
 
   return (
     <Component
@@ -125,6 +147,7 @@ export const Text: React.FC<TextProps> = ({
         leading && leadingClasses[leading],
         className
       )}
+      style={mergedStyle}
       {...(href ? { href } : {})}
       {...props}
     >

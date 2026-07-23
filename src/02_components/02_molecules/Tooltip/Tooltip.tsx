@@ -1,14 +1,8 @@
-import React, { useState } from 'react'
-import { Frame, FrameProps } from '../../01_atoms/Frame/Frame'
+import React from 'react'
+import { Frame } from '../../01_atoms/Frame/Frame'
 import { cn } from '../../../utils/cn'
-
-export interface TooltipProps {
-  content: React.ReactNode
-  children: React.ReactNode
-  className?: string
-  /** Override any Frame prop on the tooltip panel */
-  panelProps?: Partial<FrameProps>
-}
+import { TooltipProps } from './iTooltip'
+import { useTooltipViewModel } from './TooltipViewModel'
 
 export const Tooltip: React.FC<TooltipProps> = ({
   content,
@@ -16,13 +10,13 @@ export const Tooltip: React.FC<TooltipProps> = ({
   className,
   panelProps,
 }) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const { isOpen, open, close } = useTooltipViewModel()
 
   return (
-    <span
+    <Frame
       className={cn('relative inline-flex', className)}
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
+      onMouseEnter={open}
+      onMouseLeave={close}
     >
       {children}
       {isOpen && (
@@ -49,6 +43,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
           {content}
         </Frame>
       )}
-    </span>
+    </Frame>
   )
 }

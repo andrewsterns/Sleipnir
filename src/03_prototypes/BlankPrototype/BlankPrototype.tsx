@@ -40,6 +40,9 @@ export const BlankPrototype: React.FC<{ onHome?: () => void }> = ({ onHome }) =>
       </button>
     </Frame>
 
+    {/* This is Nate's edits */}
+    <Frame flow='horizontal' w="220" h="36" fill={{ solid: '#c94a4a' }} >This is some text</Frame>
+
     {/* Empty canvas — build here */}
     <Frame grow flow="vertical" align="center" justify="center" gap={8}>
       <span style={{ fontSize: 10, letterSpacing: '0.18em', color: 'var(--text-3)', ...MONO }}>

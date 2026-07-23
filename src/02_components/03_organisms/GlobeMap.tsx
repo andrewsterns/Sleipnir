@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import type { UnitAffiliation, UnitType } from '../01_atoms/Icon/Icon';
+import type { UnitAffiliation, UnitType } from '../01_atoms/UnitMarker/iUnitMarker';
 
 export interface GlobeUnit {
   id: string;

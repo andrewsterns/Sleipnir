@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Frame } from '../02_components/01_atoms/Frame/Frame';
 import { Icon, type IconName } from '../02_components/01_atoms/Icon/Icon';
-import { TacticalPanel } from '../02_components/02_molecules/Panel';
+import { TacticalPanel } from '../02_components/02_molecules/Panel/Panel';
 import { TacticalHUD } from './TacticalHUD/TacticalHUD';
 import { BlankPrototype } from './BlankPrototype/BlankPrototype';
 import '../02_components/00_themes/tactical.css';
