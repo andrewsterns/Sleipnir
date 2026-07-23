@@ -26,8 +26,8 @@ import { DataReadout }      from '../02_molecules/DataReadout/DataReadout'
 import { NotificationFeed } from '../02_molecules/NotificationFeed/NotificationFeed'
 
 // ── Organisms ─────────────────────────────────────────────────────────────────
-import { GroupCard }   from '../03_organisms/GroupCard'
-import { StatusPanel } from '../03_organisms/StatusPanel'
+import { GroupCard }   from '../03_organisms/GroupCard/GroupCard'
+import { StatusPanel } from '../03_organisms/StatusPanel/StatusPanel'
 
 // ── Theme wrapper ─────────────────────────────────────────────────────────────
 // All tactical previews get dark theme + centering
@@ -1009,8 +1009,8 @@ export const componentsList: ComponentMeta[] = [
   { name: 'CommandOverlay',  path: '../02_molecules/CommandOverlay/CommandOverlay',   type: 'molecule' },
 
   // Organisms — domain-specific compositions of molecules
-  { name: 'GroupCard',   path: '../03_organisms/GroupCard',   type: 'organism' },
-  { name: 'StatusPanel', path: '../03_organisms/StatusPanel', type: 'organism' },
+  { name: 'GroupCard',   path: '../03_organisms/GroupCard/GroupCard',   type: 'organism' },
+  { name: 'StatusPanel', path: '../03_organisms/StatusPanel/StatusPanel', type: 'organism' },
 ]
 
 export function getComponentNamesByType(type: ComponentMeta['type']): string[] {

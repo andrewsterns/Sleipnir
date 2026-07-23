@@ -7,7 +7,7 @@ import { ThemeProvider } from './02_components/00_themes/ThemeProvider'
 import { Frame } from './02_components/01_atoms/Frame/Frame'
 import { Logo } from './02_components/01_atoms/Logo/Logo'
 import { Icon, type IconName } from './02_components/01_atoms/Icon/Icon'
-import { TacticalPanel } from './02_components/02_molecules/Panel'
+import { TacticalPanel } from './02_components/02_molecules/Panel/Panel'
 import DesignLibraryView from './02_components/DesignSystem/DesignLibrary.view'
 import { PrototypeList } from './03_prototypes/PrototypeList'
 
@@ -165,7 +165,7 @@ function HomeMenu({ onSelect }: { onSelect: (mode: Exclude<WorkspaceMode, 'home'
         {/* Hero */}
         <Frame flow="horizontal" justify="between" align="center" w="fill">
           <Frame flow="vertical" gap={14}>
-            <Logo className="w-[140px]" style={{ color: 'var(--text-1)' }} />
+            <Logo className="w-[140px] text-[var(--text-1)]" />
             <Frame flow="vertical" gap={4}>
               <span style={{ fontSize: 13, letterSpacing: '0.10em', color: 'var(--text-1)', lineHeight: 1.5, ...MONO }}>
                 THE WORKSPACE, UNIFIED.
@@ -194,7 +194,9 @@ function HomeMenu({ onSelect }: { onSelect: (mode: Exclude<WorkspaceMode, 'home'
               padding={20}
               gap={14}
               align="start"
-              style={{ cursor: 'pointer', width: '100%', textAlign: 'left' }}
+              cursor="pointer"
+              w="fill"
+              className="text-left"
               onClick={() => onSelect(item.id)}
             >
               <Frame flow="horizontal" align="center" justify="between" w="fill">
@@ -247,20 +249,20 @@ function HomeMenu({ onSelect }: { onSelect: (mode: Exclude<WorkspaceMode, 'home'
                 </Frame>
               ))}
             </Frame>
-            <Frame grow style={{ minWidth: 0, paddingLeft: 20 }}>
+            <Frame grow minW={0} padding={{ left: 20 }}>
               <ActivityBars />
             </Frame>
           </Frame>
 
           <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.07)', margin: '0 28px' }} />
 
-          <Frame flow="vertical" gap={6} style={{ minWidth: 210 }}>
+          <Frame flow="vertical" gap={6} minW={210}>
             {['EVERY TOOL.', 'ONE FLOW.', 'ZERO CONTEXT SWITCH.'].map((line) => (
               <span key={line} style={{ fontSize: 12, letterSpacing: '0.10em', color: 'var(--text-1)', lineHeight: 1.5, ...MONO }}>
                 {line}
               </span>
             ))}
-            <Frame flow="horizontal" justify="end" style={{ marginTop: 6 }}>
+            <Frame flow="horizontal" justify="end" margin={{ top: 6 }}>
               <span style={{ fontSize: 18, color: 'var(--text-3)', ...MONO }}>+</span>
             </Frame>
           </Frame>

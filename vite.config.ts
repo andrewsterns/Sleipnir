@@ -34,10 +34,10 @@ export default defineConfig({
                 res.setHeader('Content-Type', 'application/json');
                 res.statusCode = 200;
                 res.end(JSON.stringify({ success: true, path: basePath }));
-              } catch (e: any) {
+              } catch (e) {
                 res.setHeader('Content-Type', 'application/json');
                 res.statusCode = 500;
-                res.end(JSON.stringify({ success: false, error: e.message }));
+                res.end(JSON.stringify({ success: false, error: e instanceof Error ? e.message : String(e) }));
               }
             });
             return;

@@ -27,12 +27,6 @@
     },
     "lint": {
       "command": "eslint ."
-    },
-    "storybook": {
-      "command": "storybook dev -p 6006"
-    },
-    "build-storybook": {
-      "command": "storybook build"
     }
   }
 }
