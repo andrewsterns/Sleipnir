@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   variant = 'none',
   ...props
 }) => {
-  const handleThemeChange = (val: string) => {
+  const handleThemeChange = (val: string | string[]) => {
     const next = val as Theme
     applyTheme(next)
     onThemeChange?.(next)

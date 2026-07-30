@@ -1,14 +1,15 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
+import { Frame } from '../../01_atoms/Frame/Frame';
 import { {{name}}Props } from './i{{name}}';
 import { use{{name}}ViewModel } from './{{name}}ViewModel';
 
 export const {{name}} = forwardRef<HTMLElement, {{name}}Props>((props, ref) => {
-  const {} = use{{name}}ViewModel(props);
+  use{{name}}ViewModel(props);
 
   return (
-    <div ref={ref as React.Ref<HTMLDivElement>}>
+    <Frame ref={ref} flow="vertical">
       {/* Implement view here — rendering only, no logic */}
-    </div>
+    </Frame>
   );
 });
 

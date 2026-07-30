@@ -23,6 +23,16 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // Matches tsc's own noUnusedParameters convention (already treats a
+      // leading underscore as "intentionally unused") — scaffolded
+      // ViewModels take props before they're wired up to anything.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      // Scaffolded prop interfaces start empty ("// Define props here") until
+      // filled in — that's a valid, temporary state, not a real lint issue.
+      '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'always' }],
       // Design system: components should use Frame props (fill, stroke, radius,
       // effects, padding, w/h, ...) instead of the raw style={{}} escape hatch.
       // Only object literals are flagged; forwarding a style prop (style={style})

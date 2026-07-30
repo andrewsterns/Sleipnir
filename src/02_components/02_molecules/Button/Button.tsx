@@ -30,8 +30,8 @@ const VARIANT_EXTRAS: Record<string, Partial<FrameProps>> = {
 }
 
 const SIZE_PADDING = {
-  sm: { x: '0.65rem', y: '0.275rem' },
-  md: { x: '1rem',    y: '0.5rem'   },
+  sm: { x: '0.65rem', y: '0.975rem' },
+  md: { x: '1rem',    y: '1.95rem'   },
   lg: { x: '1.5rem',  y: '0.75rem'  },
 } as const
 
@@ -86,7 +86,7 @@ export const Button = React.forwardRef<HTMLElement, ButtonProps>((
     {...frameProps}
   >
     {isLoading && (
-      <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+      <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
     )}
     <Text
       variant={SIZE_TEXT[size]}

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "start": "vite",
@@ -18,16 +19,39 @@
     "test:run": "vitest run",
     "preview": "vite preview",
     "generate:mvvm": "node tools/generate-mvvm.mjs",
+    "generate:graph": "node tools/generate-graph.mjs",
+    "electron:dev": "concurrently -k \"npm:dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run build && electron-builder",
     "prepare": "husky"
   },
   "dependencies": {
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-go": "^6.0.1",
+    "@codemirror/lang-html": "^6.4.11",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.5.1",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/lang-rust": "^6.0.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/lsp-client": "^6.2.5",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.7",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.1",
+    "codemirror": "^6.0.2",
+    "d3-force-3d": "^3.0.6",
+    "node-pty": "^1.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.5.0",
-    "three": "^0.169.0"
+    "three": "^0.169.0",
+    "vscode-jsonrpc": "^9.0.1",
+    "vscode-languageserver-protocol": "^3.18.2",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
@@ -47,6 +71,10 @@
     "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.4",
+    "cross-env": "^10.1.0",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
@@ -60,8 +88,10 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.11.0",
+    "typescript-language-server": "^5.3.0",
     "vite": "^5.4.10",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "wait-on": "^9.1.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -72,5 +102,28 @@
       "prettier --write"
     ]
   },
-  "nx": {}
+  "nx": {},
+  "build": {
+    "appId": "com.sleipnir.app",
+    "productName": "Sleipnir",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "tools/sleipnir-backend.mjs",
+      "tools/generate-graph.mjs",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
 }

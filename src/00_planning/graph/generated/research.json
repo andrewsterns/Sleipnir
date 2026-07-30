@@ -1,0 +1,69 @@
+{
+  "nodes": [
+    {
+      "id": "01_research/analytics/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/analytics/README.md",
+      "type": "doc"
+    },
+    {
+      "id": "01_research/demographics/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/demographics/README.md",
+      "type": "doc"
+    },
+    {
+      "id": "01_research/personas/E3_Patriot_Fire_Control_Operator.md",
+      "label": "E3_Patriot_Fire_Control_Operator",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/personas/E3_Patriot_Fire_Control_Operator.md",
+      "type": "doc"
+    },
+    {
+      "id": "01_research/personas/E5_Cyber_Network_Defender.md",
+      "label": "E5_Cyber_Network_Defender",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/personas/E5_Cyber_Network_Defender.md",
+      "type": "doc"
+    },
+    {
+      "id": "01_research/personas/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/personas/README.md",
+      "type": "doc"
+    },
+    {
+      "id": "01_research/proposals/IBCS_Research_Proposal_Revised.md",
+      "label": "IBCS_Research_Proposal_Revised",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/proposals/IBCS_Research_Proposal_Revised.md",
+      "type": "doc"
+    },
+    {
+      "id": "01_research/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/README.md",
+      "type": "doc"
+    },
+    {
+      "id": "01_research/test-documentation/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "research",
+      "filePath": "src/01_research/test-documentation/README.md",
+      "type": "doc"
+    }
+  ],
+  "edges": []
+}

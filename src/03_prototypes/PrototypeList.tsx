@@ -1,20 +1,41 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Frame } from '../02_components/01_atoms/Frame/Frame';
-import { Icon, type IconName } from '../02_components/01_atoms/Icon/Icon';
-import { TacticalPanel } from '../02_components/02_molecules/Panel/Panel';
+import { CodeEditorView } from '../02_components/DesignSystem/CodeEditorView';
+import { PrototypeRail } from '../02_components/03_organisms/PrototypeRail/PrototypeRail';
+import type { PrototypeEntry, PrototypeSelection } from '../02_components/03_organisms/PrototypeRail/iPrototypeRail';
+import { getGraphForMap } from '../00_planning/graph/combine';
+import { readFile } from '../00_planning/api/sleipnirApi';
 import { TacticalHUD } from './TacticalHUD/TacticalHUD';
 import { BlankPrototype } from './BlankPrototype/BlankPrototype';
 import '../02_components/00_themes/tactical.css';
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' };
 
-interface PrototypeEntry {
-  id: string;
-  tag: string;
-  title: string;
-  description: string;
-  icon: IconName;
-  render: (onBack: () => void) => React.ReactNode;
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+// Same drag-to-resize handle as DesignLibrary.view.tsx's LeftRailing divider.
+function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ flexShrink: 0, position: 'relative', cursor: 'col-resize', width: 8 }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: 0,
+          bottom: 0,
+          width: 1,
+          background: hover ? 'rgba(255,255,255,0.28)' : 'var(--border-1)',
+          transition: 'background 80ms',
+        }}
+      />
+    </div>
+  );
 }
 
 const PROTOTYPES: PrototypeEntry[] = [
@@ -37,21 +58,66 @@ const PROTOTYPES: PrototypeEntry[] = [
 ];
 
 export const PrototypeList: React.FC<{ onHome?: () => void }> = ({ onHome }) => {
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const active = PROTOTYPES.find((p) => p.id === activeId);
+  const [selection, setSelection] = useState<PrototypeSelection | null>(null);
+  const [code, setCode] = useState('// Loading source…');
+  const [railWidth, setRailWidth] = useState(240);
+  const dragRef = useRef<{ dragging: boolean; start: number; startSize: number }>({ dragging: false, start: 0, startSize: 0 });
 
-  if (active) {
-    return <>{active.render(() => setActiveId(null))}</>;
+  const startDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { dragging: true, start: e.clientX, startSize: railWidth };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      if (!dragRef.current.dragging) return;
+      setRailWidth(clamp(dragRef.current.startSize + (e.clientX - dragRef.current.start), 180, 900));
+    };
+    const stopDrag = () => {
+      if (!dragRef.current.dragging) return;
+      dragRef.current.dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', stopDrag);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', stopDrag);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
+  // Real scaffolded files under 03_prototypes, distinct from PROTOTYPES above
+  // (a curated, hand-registered showcase with live render() callbacks).
+  // n.map === 'prototypes' excludes DSM nodes pulled in cross-map via
+  // generate-graph.mjs's "borrows" merge (those keep map: 'dsm').
+  const prototypeNodes = useMemo(
+    () => getGraphForMap('prototypes').nodes.filter((n) => n.map === 'prototypes' && n.kind === 'built'),
+    [],
+  );
+
+  const activeCurated = selection?.kind === 'curated' ? PROTOTYPES.find((p) => p.id === selection.id) : undefined;
+
+  React.useEffect(() => {
+    if (selection?.kind !== 'scaffolded') return;
+    let cancelled = false;
+    setCode('// Loading source…');
+    readFile(selection.node.filePath ?? '')
+      .then(({ content }) => { if (!cancelled) setCode(content); })
+      .catch((e) => { if (!cancelled) setCode(`// Failed to load source: ${e instanceof Error ? e.message : String(e)}`); });
+    return () => { cancelled = true; };
+  }, [selection]);
+
+  if (activeCurated) {
+    return <>{activeCurated.render(() => setSelection(null))}</>;
   }
 
   return (
-    <Frame
-      theme="tactical"
-      h="fill"
-      flow="vertical"
-      fill={{ solid: 'var(--bg-1)' }}
-      style={MONO}
-    >
+    <Frame theme="tactical" h="fill" flow="vertical" fill={{ solid: 'var(--bg-1)' }} style={MONO}>
       {/* Top status bar */}
       <Frame
         flow="horizontal"
@@ -80,46 +146,44 @@ export const PrototypeList: React.FC<{ onHome?: () => void }> = ({ onHome }) => 
         </button>
       </Frame>
 
-      {/* Prototype list */}
-      <Frame flow="vertical" grow padding={{ x: 32, y: 24 }} gap={12}>
-        <span style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--text-3)', ...MONO }}>
-          {PROTOTYPES.length} PROTOTYPES REGISTERED
-        </span>
+      {/* Rail + main content */}
+      <Frame flow="horizontal" grow minH={0}>
+        <PrototypeRail
+          curated={PROTOTYPES}
+          scaffolded={prototypeNodes}
+          activeSelection={selection}
+          onSelect={setSelection}
+          width={railWidth}
+        />
 
-        {PROTOTYPES.map((item) => (
-          <TacticalPanel
-            key={item.id}
-            as="button"
-            variant="default"
-            chamfer={6}
-            flow="horizontal"
-            align="center"
-            padding={{ x: 20, y: 16 }}
-            gap={20}
-            style={{ cursor: 'pointer', width: '100%', textAlign: 'left' }}
-            onClick={() => setActiveId(item.id)}
-          >
-            <span style={{ color: 'var(--text-1)', opacity: 0.75, display: 'flex' }}>
-              <Icon name={item.icon} size={28} />
-            </span>
+        <ResizeHandle onMouseDown={startDrag} />
 
-            <Frame flow="vertical" gap={4} grow>
-              <Frame flow="horizontal" align="center" gap={10}>
-                <span style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--text-2)', ...MONO }}>
-                  {item.tag}
-                </span>
-                <span style={{ fontSize: 12, letterSpacing: '0.12em', color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
-                  {item.title.toUpperCase()}
+        <Frame flow="vertical" grow minH={0} minW={0} stroke={{ left: { color: 'rgba(255,255,255,0.07)' } }}>
+          {selection?.kind === 'scaffolded' ? (
+            <>
+              <Frame
+                flow="horizontal"
+                align="center"
+                justify="between"
+                padding={{ x: 16, y: 10 }}
+                stroke={{ bottom: { color: 'rgba(255,255,255,0.07)' } }}
+              >
+                <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
+                  {selection.node.filePath}
                 </span>
               </Frame>
-              <span style={{ fontSize: 10, letterSpacing: '0.07em', color: 'var(--text-2)', lineHeight: 1.65, ...MONO }}>
-                {item.description.toUpperCase()}
+              <Frame grow minH={0}>
+                <CodeEditorView path={selection.node.filePath ?? ''} value={code} readOnly />
+              </Frame>
+            </>
+          ) : (
+            <Frame flow="vertical" align="center" justify="center" grow>
+              <span style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.08em', ...MONO }}>
+                Select a prototype
               </span>
             </Frame>
-
-            <span style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.06em', ...MONO }}>{'>'}_</span>
-          </TacticalPanel>
-        ))}
+          )}
+        </Frame>
       </Frame>
     </Frame>
   );

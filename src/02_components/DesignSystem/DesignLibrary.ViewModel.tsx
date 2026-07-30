@@ -2,6 +2,8 @@
 import React from 'react'
 import { Frame } from '../01_atoms/Frame/Frame'
 import { Text  } from '../01_atoms/Text/Text'
+import { getGraphForMap } from '../../00_planning/graph/combine'
+import type { GraphNode } from '../../00_planning/graph/types'
 
 // ── Tactical theme ────────────────────────────────────────────────────────────
 import '../00_themes/tactical.css'
@@ -24,6 +26,7 @@ import { CommandOverlay } from '../02_molecules/CommandOverlay/CommandOverlay'
 import type { OverlayMessage } from '../02_molecules/CommandOverlay/CommandOverlay'
 import { DataReadout }      from '../02_molecules/DataReadout/DataReadout'
 import { NotificationFeed } from '../02_molecules/NotificationFeed/NotificationFeed'
+import { Dropdown }         from '../02_molecules/Dropdown/Dropdown'
 
 // ── Organisms ─────────────────────────────────────────────────────────────────
 import { GroupCard }   from '../03_organisms/GroupCard/GroupCard'
@@ -328,6 +331,29 @@ export const componentPreviewMap: Record<string, React.ReactNode> = {
 
   Dialog: <DialogPreview />,
   CommandOverlay: <CommandOverlayPreview />,
+
+  Dropdown: (
+    <T row pad={24}>
+      <Dropdown
+        label="Unit"
+        options={[
+          { value: 'xr231', label: 'XR-231' },
+          { value: 'uas4', label: 'UAS-4' },
+          { value: 'red1', label: 'RED-1' },
+        ]}
+      />
+      <Dropdown
+        label="Filters"
+        multiple
+        value={['atom', 'molecule']}
+        options={[
+          { value: 'atom', label: 'Atoms' },
+          { value: 'molecule', label: 'Molecules' },
+          { value: 'organism', label: 'Organisms' },
+        ]}
+      />
+    </T>
+  ),
 
   // ── Molecules ──────────────────────────────────────────────────────────────
   DataReadout: (
@@ -895,6 +921,33 @@ return (
   </CommandOverlay.Root>
 )`,
 
+  Dropdown: `// Dropdown = Frame<button> trigger + portaled Frame menu (escapes ScrollWindow clipping).
+
+return (
+  <Dropdown
+    label="Unit"
+    options={[
+      { value: 'xr231', label: 'XR-231' },
+      { value: 'uas4', label: 'UAS-4' },
+    ]}
+    value={selected}
+    onChange={setSelected}
+  />
+)
+
+// Multi-select: menu stays open across picks, each row gets a ☑/☐ glyph.
+<Dropdown
+  multiple
+  value={activeIds}
+  onChange={setActiveIds}
+  options={filterOptions}
+  trigger={<Icon name="filter" size={13} />}
+/>
+
+// The menu portals into the nearest .theme-* ancestor (not document.body) so
+// it keeps inheriting that scope's CSS custom properties, and so it can
+// visually escape an ancestor ScrollWindow's overflow clipping.`,
+
   // ── Organisms — return molecule + atom combos ────────────────────────────────
 
   GroupCard: `// GroupCard = TacticalPanel > Frame header + unit rows with UnitGlyph atoms.
@@ -980,6 +1033,10 @@ export function getComponentCode(name: string): string {
 }
 
 // ─── Component registry ───────────────────────────────────────────────────────
+// Node = Component: the registry below is derived from the same DSM graph
+// Planning reads (see 00_planning/graph/combine.ts), not a separately
+// hand-maintained list. Anything scaffolded through Planning's "+" flow shows
+// up here the moment the graph is regenerated — no manual registration.
 
 export interface ComponentMeta {
   name: string
@@ -987,36 +1044,27 @@ export interface ComponentMeta {
   type: 'atom' | 'molecule' | 'organism'
 }
 
-export const componentsList: ComponentMeta[] = [
-  // Atoms — pure building blocks: layout, typography, icons
-  { name: 'Frame',     path: '../01_atoms/Frame/Frame',  type: 'atom' },
-  { name: 'Text',      path: '../01_atoms/Text/Text',    type: 'atom' },
-  { name: 'UnitGlyph', path: '../01_atoms/UnitGlyph/UnitGlyph', type: 'atom' },
+const LIBRARY_TYPES = new Set(['atom', 'molecule', 'organism'])
 
-  // Molecules — compounds built from atoms
-  { name: 'Button',          path: '../02_molecules/Button/Button',   type: 'molecule' },
-  { name: 'Panel',           path: '../02_molecules/Panel',           type: 'molecule' },
-  { name: 'StatusBadge',     path: '../02_molecules/StatusBadge/StatusBadge',     type: 'molecule' },
-  { name: 'ProgressBar',     path: '../02_molecules/ProgressBar/ProgressBar',     type: 'molecule' },
-  { name: 'SignalBar',       path: '../02_molecules/SignalBar/SignalBar',        type: 'molecule' },
-  { name: 'DataTag',         path: '../02_molecules/DataTag/DataTag',          type: 'molecule' },
-  { name: 'DataReadout',     path: '../02_molecules/DataReadout/DataReadout',      type: 'molecule' },
-  { name: 'NotificationFeed',path: '../02_molecules/NotificationFeed/NotificationFeed', type: 'molecule' },
-  { name: 'Tabs',            path: '../02_molecules/Tabs/Tabs',             type: 'molecule' },
-  { name: 'Accordion',       path: '../02_molecules/Accordion/Accordion',        type: 'molecule' },
-  { name: 'Select',          path: '../02_molecules/Select/Select',           type: 'molecule' },
-  { name: 'Dialog',          path: '../02_molecules/Dialog/Dialog',           type: 'molecule' },
-  { name: 'CommandOverlay',  path: '../02_molecules/CommandOverlay/CommandOverlay',   type: 'molecule' },
-
-  // Organisms — domain-specific compositions of molecules
-  { name: 'GroupCard',   path: '../03_organisms/GroupCard/GroupCard',   type: 'organism' },
-  { name: 'StatusPanel', path: '../03_organisms/StatusPanel/StatusPanel', type: 'organism' },
-]
-
-export function getComponentNamesByType(type: ComponentMeta['type']): string[] {
-  return componentsList.filter(c => c.type === type).map(c => c.name)
+// Excludes ViewModel/interface files so each real component appears once —
+// same convention Planning's scaffold flow uses to find a node's main file.
+function isMainComponentNode(id: string): boolean {
+  const segments = id.split('/')
+  const base = segments[segments.length - 1]
+  const folder = segments.length >= 2 ? segments[segments.length - 2] : base
+  if (/ViewModel$/i.test(base)) return false
+  if (base === `i${folder}`) return false
+  return true
 }
 
-export function getComponentMetaByName(name: string): ComponentMeta | undefined {
-  return componentsList.find(c => c.name === name)
+export function buildComponentsList(nodes: GraphNode[]): ComponentMeta[] {
+  return nodes
+    .filter((n) => n.kind === 'built' && n.type && LIBRARY_TYPES.has(n.type) && isMainComponentNode(n.id))
+    .map((n) => ({
+      name: n.label,
+      path: `${n.id}.tsx`,
+      type: n.type as ComponentMeta['type'],
+    }))
 }
+
+export const componentsList: ComponentMeta[] = buildComponentsList(getGraphForMap('dsm').nodes)

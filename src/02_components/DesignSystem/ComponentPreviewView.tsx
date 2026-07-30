@@ -16,14 +16,12 @@ export const ComponentPreview = ({ activeComponent }: ComponentPreviewProps) => 
       align="center"
       justify="center"
       w="fill"
-      h={220}
-      minH={120}
+      h="fill"
       fill={{ solid: 'bg-1' }}
-      stroke={{ bottom: { color: 'border-1' } }}
       clipContent
     >
       {getComponentPreview(activeComponent) ?? (
-        <Text variant="small" color="text-2">No preview available</Text>
+        <Text variant="small" color="text-2" mono>No preview available</Text>
       )}
     </Frame>
   )

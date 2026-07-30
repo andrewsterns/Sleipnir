@@ -1,17 +1,30 @@
 .theme-tactical {
   /* ── Backgrounds ─────────────────────────────────────────────────────── */
-  --bg-1: rgba(4, 9, 16, 0.97);
-  --bg-2: rgba(6, 14, 24, 0.90);
-  --bg-3: rgba(10, 20, 34, 0.78);
+  --bg-1: rgba(8, 8, 8, 0.97);
+  --bg-2: rgba(15, 15, 15, 0.90);
+  --bg-3: rgba(24, 24, 24, 0.78);
 
   /* ── Text (white-primary) ────────────────────────────────────────────── */
-  --text-1: #dce8f0;           /* near-white, slight blue tint */
-  --text-2: #7a92a8;           /* secondary grey-blue */
-  --text-3: #3a4f62;           /* tertiary / dim labels */
+  --text-1: #e8e8e8;           /* near-white, neutral */
+  --text-2: #9a9a9a;           /* secondary grey */
+  --text-3: #4a4a4a;           /* tertiary / dim labels */
 
   /* ── Borders ─────────────────────────────────────────────────────────── */
   --border-1: rgba(255, 255, 255, 0.07);
   --border-2: rgba(255, 255, 255, 0.16);
+
+  /* ── Button/Frame variant surfaces ───────────────────────────────────────
+     Left undefined before, so variant="primary"/"secondary"/"accent" fell
+     through to whatever ancestor theme was active (usually theme-default's
+     light slate/blue ramp) and rendered as a near-white box. Defined here as
+     translucent dark washes consistent with tactical's own bg layering. */
+  --primary-1:   rgba(255, 255, 255, 0.06);
+  --primary-2:   #e8e8e8;
+  --primary-3:   rgba(255, 255, 255, 0.16);
+  --secondary-1: rgba(255, 255, 255, 0.03);
+  --secondary-2: #9a9a9a;
+  --secondary-3: rgba(255, 255, 255, 0.10);
+  --accent-1:    rgba(232, 232, 232, 0.14);
 
   /* ── Status accent palette — white spectrum only ─────────────────────── */
   --scan:           #dce8f0;           /* operational / nominal: near-white */

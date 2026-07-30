@@ -22,5 +22,14 @@ html, body, #root {
 body {
   display: flex;
   min-width: 320px;
-  background: black; 
+  background: black;
+}
+
+.scroll-window--no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-window--no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

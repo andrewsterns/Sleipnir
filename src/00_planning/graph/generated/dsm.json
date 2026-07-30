@@ -1,0 +1,2167 @@
+{
+  "nodes": [
+    {
+      "id": "02_components/00_themes/colors/colors.css",
+      "label": "colors",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/colors/colors.css",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/dark.css",
+      "label": "dark",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/dark.css",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-bottom-center.svg",
+      "label": "column-icon-align-box-bottom-center",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-bottom-center.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-bottom-left.svg",
+      "label": "column-icon-align-box-bottom-left",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-bottom-left.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-bottom-right.svg",
+      "label": "column-icon-align-box-bottom-right",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-bottom-right.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-center-middle.svg",
+      "label": "column-icon-align-box-center-middle",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-center-middle.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-right-middle-1.svg",
+      "label": "column-icon-align-box-right-middle-1",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-right-middle-1.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-right-middle.svg",
+      "label": "column-icon-align-box-right-middle",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-right-middle.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-top-center.svg",
+      "label": "column-icon-align-box-top-center",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-top-center.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-top-left.svg",
+      "label": "column-icon-align-box-top-left",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-top-left.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/column-icon-align-box-top-right.svg",
+      "label": "column-icon-align-box-top-right",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/column-icon-align-box-top-right.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-center-bottom.svg",
+      "label": "row-icon-align-box-center-bottom",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-center-bottom.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-center-middle.svg",
+      "label": "row-icon-align-box-center-middle",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-center-middle.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-center-top.svg",
+      "label": "row-icon-align-box-center-top",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-center-top.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-left-bottom.svg",
+      "label": "row-icon-align-box-left-bottom",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-left-bottom.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-left-middle.svg",
+      "label": "row-icon-align-box-left-middle",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-left-middle.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-left-top.svg",
+      "label": "row-icon-align-box-left-top",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-left-top.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-right-bottom.svg",
+      "label": "row-icon-align-box-right-bottom",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-right-bottom.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-right-middle.svg",
+      "label": "row-icon-align-box-right-middle",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-right-middle.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/row-icon-align-box-right-top.svg",
+      "label": "row-icon-align-box-right-top",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/row-icon-align-box-right-top.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/tabler-icon-click.svg",
+      "label": "tabler-icon-click",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/tabler-icon-click.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/tabler-icon-components.svg",
+      "label": "tabler-icon-components",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/tabler-icon-components.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/tabler-icon-frame.svg",
+      "label": "tabler-icon-frame",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/tabler-icon-frame.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/tabler-icon-git-merge.svg",
+      "label": "tabler-icon-git-merge",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/tabler-icon-git-merge.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/tabler-icon-player-play.svg",
+      "label": "tabler-icon-player-play",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/tabler-icon-player-play.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default-icons/tabler-icon-research.svg",
+      "label": "tabler-icon-research",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default-icons/tabler-icon-research.svg",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/default.css",
+      "label": "default",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/default.css",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/fonts/fonts.css",
+      "label": "fonts",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/fonts/fonts.css",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/houseplant.css",
+      "label": "houseplant",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/houseplant.css",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/index",
+      "label": "index",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/index.ts",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/README.md",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/tactical.css",
+      "label": "tactical",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/tactical.css",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/00_themes/ThemeProvider",
+      "label": "ThemeProvider",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/00_themes/ThemeProvider.tsx",
+      "type": "theme"
+    },
+    {
+      "id": "02_components/01_atoms/Frame/Frame",
+      "label": "Frame",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/Frame/Frame.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/Frame/FrameViewModel",
+      "label": "FrameViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/Frame/FrameViewModel.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/Frame/iFrame",
+      "label": "iFrame",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/Frame/iFrame.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/Icon/Icon",
+      "label": "Icon",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/Icon/Icon.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/Logo/Logo",
+      "label": "Logo",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/Logo/Logo.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/NewAtom/iNewAtom",
+      "label": "iNewAtom",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/NewAtom/iNewAtom.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/NewAtom/NewAtom",
+      "label": "NewAtom",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/NewAtom/NewAtom.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/NewAtom/NewAtomViewModel",
+      "label": "NewAtomViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/NewAtom/NewAtomViewModel.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/RankingSystem/iRankingSystem",
+      "label": "iRankingSystem",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/RankingSystem/iRankingSystem.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/RankingSystem/RankingSystem",
+      "label": "RankingSystem",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/RankingSystem/RankingSystem.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/RankingSystem/RankingSystemViewModel",
+      "label": "RankingSystemViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/RankingSystem/RankingSystemViewModel.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/StreamText/iStreamText",
+      "label": "iStreamText",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/StreamText/iStreamText.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/StreamText/StreamText",
+      "label": "StreamText",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/StreamText/StreamText.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/StreamText/StreamTextViewModel",
+      "label": "StreamTextViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/StreamText/StreamTextViewModel.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/Text/Text",
+      "label": "Text",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/Text/Text.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/UnitGlyph/UnitGlyph",
+      "label": "UnitGlyph",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/UnitGlyph/UnitGlyph.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/UnitMarker/iUnitMarker",
+      "label": "iUnitMarker",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/UnitMarker/iUnitMarker.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/UnitMarker/UnitMarker",
+      "label": "UnitMarker",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/UnitMarker/UnitMarker.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/01_atoms/UnitMarker/UnitMarkerViewModel",
+      "label": "UnitMarkerViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/01_atoms/UnitMarker/UnitMarkerViewModel.tsx",
+      "type": "atom"
+    },
+    {
+      "id": "02_components/02_molecules/Accordion/Accordion",
+      "label": "Accordion",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Accordion/Accordion.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Accordion/AccordionViewModel",
+      "label": "AccordionViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Accordion/AccordionViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Accordion/iAccordion",
+      "label": "iAccordion",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Accordion/iAccordion.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Button/Button",
+      "label": "Button",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Button/Button.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Card/Card",
+      "label": "Card",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Card/Card.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Chip/Chip",
+      "label": "Chip",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Chip/Chip.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "label": "CommandOverlay",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/CommandOverlay/CommandOverlay.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/CommandOverlay/CommandOverlayViewModel",
+      "label": "CommandOverlayViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/CommandOverlay/CommandOverlayViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/CommandOverlay/iCommandOverlay",
+      "label": "iCommandOverlay",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/CommandOverlay/iCommandOverlay.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/DataReadout/DataReadout",
+      "label": "DataReadout",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/DataReadout/DataReadout.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/DataTag/DataTag",
+      "label": "DataTag",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/DataTag/DataTag.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Dialog/Dialog",
+      "label": "Dialog",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Dialog/Dialog.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Dialog/DialogViewModel",
+      "label": "DialogViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Dialog/DialogViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Dialog/iDialog",
+      "label": "iDialog",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Dialog/iDialog.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Dropdown/Dropdown",
+      "label": "Dropdown",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Dropdown/Dropdown.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Dropdown/DropdownViewModel",
+      "label": "DropdownViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Dropdown/DropdownViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Dropdown/iDropdown",
+      "label": "iDropdown",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Dropdown/iDropdown.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/GroupBySwitcher/GroupBySwitcher",
+      "label": "GroupBySwitcher",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/GroupBySwitcher/GroupBySwitcher.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/GroupBySwitcher/GroupBySwitcherViewModel",
+      "label": "GroupBySwitcherViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/GroupBySwitcher/GroupBySwitcherViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/GroupBySwitcher/iGroupBySwitcher",
+      "label": "iGroupBySwitcher",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/GroupBySwitcher/iGroupBySwitcher.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/ListItem/iListItem",
+      "label": "iListItem",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/ListItem/iListItem.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/ListItem/ListItem",
+      "label": "ListItem",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/ListItem/ListItem.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/ListItem/ListItemViewModel",
+      "label": "ListItemViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/ListItem/ListItemViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/NotificationFeed/NotificationFeed",
+      "label": "NotificationFeed",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/NotificationFeed/NotificationFeed.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Panel/iPanel",
+      "label": "iPanel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Panel/iPanel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Panel/Panel",
+      "label": "Panel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Panel/Panel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Panel/PanelViewModel",
+      "label": "PanelViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Panel/PanelViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/ProgressBar/ProgressBar",
+      "label": "ProgressBar",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/ProgressBar/ProgressBar.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/ScrollWindow/iScrollWindow",
+      "label": "iScrollWindow",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/ScrollWindow/iScrollWindow.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/ScrollWindow/ScrollWindow",
+      "label": "ScrollWindow",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/ScrollWindow/ScrollWindow.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/ScrollWindow/ScrollWindowViewModel",
+      "label": "ScrollWindowViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/ScrollWindow/ScrollWindowViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Search/iSearch",
+      "label": "iSearch",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Search/iSearch.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Search/Search",
+      "label": "Search",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Search/Search.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Search/SearchViewModel",
+      "label": "SearchViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Search/SearchViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Select/iSelect",
+      "label": "iSelect",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Select/iSelect.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Select/Select",
+      "label": "Select",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Select/Select.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Select/SelectViewModel",
+      "label": "SelectViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Select/SelectViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/SignalBar/SignalBar",
+      "label": "SignalBar",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/SignalBar/SignalBar.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "label": "StatusBadge",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/StatusBadge/StatusBadge.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Tabs/iTabs",
+      "label": "iTabs",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Tabs/iTabs.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Tabs/Tabs",
+      "label": "Tabs",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Tabs/Tabs.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Tabs/TabsViewModel",
+      "label": "TabsViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Tabs/TabsViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Tooltip/iTooltip",
+      "label": "iTooltip",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Tooltip/iTooltip.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Tooltip/Tooltip",
+      "label": "Tooltip",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Tooltip/Tooltip.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/02_molecules/Tooltip/TooltipViewModel",
+      "label": "TooltipViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/02_molecules/Tooltip/TooltipViewModel.tsx",
+      "type": "molecule"
+    },
+    {
+      "id": "02_components/03_organisms/AlertEntry/AlertEntry",
+      "label": "AlertEntry",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/AlertEntry/AlertEntry.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/ConfidenceBar/ConfidenceBar",
+      "label": "ConfidenceBar",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/ConfidenceBar/ConfidenceBar.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/Counter/Counter.view",
+      "label": "Counter.view",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/Counter/Counter.view.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/Counter/Counter.viewModel",
+      "label": "Counter.viewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/Counter/Counter.viewModel.ts",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/FixedWingViewer/FixedWingViewer",
+      "label": "FixedWingViewer",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/FixedWingViewer/FixedWingViewer.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/FixedWingViewer/FixedWingViewerViewModel",
+      "label": "FixedWingViewerViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/FixedWingViewer/FixedWingViewerViewModel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/FixedWingViewer/iFixedWingViewer",
+      "label": "iFixedWingViewer",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/FixedWingViewer/iFixedWingViewer.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/Footer/Footer.view",
+      "label": "Footer.view",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/Footer/Footer.view.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/GlobeMap",
+      "label": "GlobeMap",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/GlobeMap.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/GroupCard/GroupCard",
+      "label": "GroupCard",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/GroupCard/GroupCard.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "label": "GroupDetailPanel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/GroupDetailPanel/GroupDetailPanel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanelViewModel",
+      "label": "GroupDetailPanelViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/GroupDetailPanel/GroupDetailPanelViewModel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/GroupDetailPanel/iGroupDetailPanel",
+      "label": "iGroupDetailPanel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/GroupDetailPanel/iGroupDetailPanel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/Header/Header.view",
+      "label": "Header.view",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/Header/Header.view.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/List/List",
+      "label": "List",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/List/List.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/MenuCard/MenuCard.view",
+      "label": "MenuCard.view",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/MenuCard/MenuCard.view.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/NavRail/NavRail",
+      "label": "NavRail",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/NavRail/NavRail.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/StatusPanel/StatusPanel",
+      "label": "StatusPanel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/StatusPanel/StatusPanel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/TarsPanel/TarsPanel",
+      "label": "TarsPanel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/TarsPanel/TarsPanel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/Terminal/iTerminal",
+      "label": "iTerminal",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/Terminal/iTerminal.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/Terminal/Terminal",
+      "label": "Terminal",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/Terminal/Terminal.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/Terminal/Terminal.ViewModel",
+      "label": "Terminal.ViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/Terminal/Terminal.ViewModel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/TerminalDock/TerminalDock",
+      "label": "TerminalDock",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/TerminalDock/TerminalDock.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/ThreatAssessmentPanel/ThreatAssessmentPanel",
+      "label": "ThreatAssessmentPanel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/ThreatAssessmentPanel/ThreatAssessmentPanel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/ThreatRow/ThreatRow",
+      "label": "ThreatRow",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/ThreatRow/ThreatRow.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/03_organisms/UnitDetailPanel/UnitDetailPanel",
+      "label": "UnitDetailPanel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/03_organisms/UnitDetailPanel/UnitDetailPanel.tsx",
+      "type": "organism"
+    },
+    {
+      "id": "02_components/05_pages/DesignLibrary.view",
+      "label": "DesignLibrary.view",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/05_pages/DesignLibrary.view.tsx",
+      "type": "page"
+    },
+    {
+      "id": "02_components/DesignSystem/buildRoleTree",
+      "label": "buildRoleTree",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/buildRoleTree.ts",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/codeEditorLanguages",
+      "label": "codeEditorLanguages",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/codeEditorLanguages.ts",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/codeEditorTheme",
+      "label": "codeEditorTheme",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/codeEditorTheme.ts",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/CodeEditorView",
+      "label": "CodeEditorView",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/CodeEditorView.tsx",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/CodeEditorView.ViewModel",
+      "label": "CodeEditorView.ViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/CodeEditorView.ViewModel.tsx",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/ComponentPreviewView",
+      "label": "ComponentPreviewView",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/ComponentPreviewView.tsx",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/DesignLibrary.view",
+      "label": "DesignLibrary.view",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/DesignLibrary.view.tsx",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "label": "DesignLibrary.ViewModel",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/DesignLibrary.ViewModel.tsx",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/LeftRailingView",
+      "label": "LeftRailingView",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/LeftRailingView.tsx",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/lspClient",
+      "label": "lspClient",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/lspClient.ts",
+      "type": "other"
+    },
+    {
+      "id": "02_components/DesignSystem/roleForNode",
+      "label": "roleForNode",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/DesignSystem/roleForNode.ts",
+      "type": "other"
+    },
+    {
+      "id": "02_components/images/Sleipnir-side.svg",
+      "label": "Sleipnir-side",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/images/Sleipnir-side.svg",
+      "type": "other"
+    },
+    {
+      "id": "02_components/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "dsm",
+      "filePath": "src/02_components/README.md",
+      "type": "other"
+    }
+  ],
+  "edges": [
+    {
+      "source": "02_components/00_themes/ThemeProvider",
+      "target": "02_components/00_themes/index",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/Frame/Frame",
+      "target": "02_components/01_atoms/Frame/iFrame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/Frame/Frame",
+      "target": "02_components/01_atoms/Frame/FrameViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/Frame/Frame",
+      "target": "02_components/01_atoms/Frame/iFrame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/Frame/FrameViewModel",
+      "target": "02_components/01_atoms/Frame/iFrame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/NewAtom/NewAtom",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/NewAtom/NewAtom",
+      "target": "02_components/01_atoms/NewAtom/iNewAtom",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/NewAtom/NewAtom",
+      "target": "02_components/01_atoms/NewAtom/NewAtomViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/NewAtom/NewAtomViewModel",
+      "target": "02_components/01_atoms/NewAtom/iNewAtom",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/RankingSystem/RankingSystem",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/RankingSystem/RankingSystem",
+      "target": "02_components/01_atoms/RankingSystem/iRankingSystem",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/RankingSystem/RankingSystem",
+      "target": "02_components/01_atoms/RankingSystem/RankingSystemViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/RankingSystem/RankingSystemViewModel",
+      "target": "02_components/01_atoms/RankingSystem/iRankingSystem",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/StreamText/StreamText",
+      "target": "02_components/01_atoms/StreamText/iStreamText",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/StreamText/StreamText",
+      "target": "02_components/01_atoms/StreamText/StreamTextViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/StreamText/StreamTextViewModel",
+      "target": "02_components/01_atoms/StreamText/iStreamText",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/Text/Text",
+      "target": "02_components/01_atoms/Frame/FrameViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/UnitGlyph/UnitGlyph",
+      "target": "02_components/01_atoms/UnitMarker/iUnitMarker",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/UnitMarker/UnitMarker",
+      "target": "02_components/01_atoms/UnitMarker/iUnitMarker",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/UnitMarker/UnitMarker",
+      "target": "02_components/01_atoms/UnitMarker/UnitMarkerViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/UnitMarker/UnitMarker",
+      "target": "02_components/01_atoms/UnitGlyph/UnitGlyph",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/01_atoms/UnitMarker/UnitMarkerViewModel",
+      "target": "02_components/01_atoms/UnitMarker/iUnitMarker",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Accordion/Accordion",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Accordion/Accordion",
+      "target": "02_components/02_molecules/Accordion/iAccordion",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Accordion/Accordion",
+      "target": "02_components/02_molecules/Accordion/AccordionViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Accordion/Accordion",
+      "target": "02_components/02_molecules/Accordion/iAccordion",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Accordion/AccordionViewModel",
+      "target": "02_components/02_molecules/Accordion/iAccordion",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Button/Button",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Button/Button",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Card/Card",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Chip/Chip",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "target": "02_components/01_atoms/StreamText/StreamText",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "target": "02_components/02_molecules/DataReadout/DataReadout",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "target": "02_components/02_molecules/CommandOverlay/iCommandOverlay",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "target": "02_components/02_molecules/CommandOverlay/CommandOverlayViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "target": "02_components/02_molecules/CommandOverlay/iCommandOverlay",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlayViewModel",
+      "target": "02_components/02_molecules/DataReadout/DataReadout",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/CommandOverlayViewModel",
+      "target": "02_components/02_molecules/CommandOverlay/iCommandOverlay",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/CommandOverlay/iCommandOverlay",
+      "target": "02_components/02_molecules/DataReadout/DataReadout",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/DataReadout/DataReadout",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/DataReadout/DataReadout",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/DataReadout/DataReadout",
+      "target": "02_components/02_molecules/Panel/iPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/DataReadout/DataReadout",
+      "target": "02_components/02_molecules/DataTag/DataTag",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/DataTag/DataTag",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dialog/Dialog",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dialog/Dialog",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dialog/Dialog",
+      "target": "02_components/02_molecules/Dialog/iDialog",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dialog/Dialog",
+      "target": "02_components/02_molecules/Dialog/DialogViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dialog/Dialog",
+      "target": "02_components/02_molecules/Dialog/iDialog",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dialog/DialogViewModel",
+      "target": "02_components/02_molecules/Dialog/iDialog",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dialog/iDialog",
+      "target": "02_components/02_molecules/Panel/iPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dropdown/Dropdown",
+      "target": "02_components/02_molecules/Dropdown/DropdownViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dropdown/Dropdown",
+      "target": "02_components/02_molecules/Dropdown/iDropdown",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dropdown/Dropdown",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dropdown/DropdownViewModel",
+      "target": "02_components/02_molecules/Dropdown/iDropdown",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Dropdown/iDropdown",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/GroupBySwitcher/GroupBySwitcher",
+      "target": "02_components/02_molecules/Tabs/Tabs",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/GroupBySwitcher/GroupBySwitcher",
+      "target": "02_components/02_molecules/GroupBySwitcher/iGroupBySwitcher",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/GroupBySwitcher/GroupBySwitcher",
+      "target": "02_components/02_molecules/GroupBySwitcher/GroupBySwitcherViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/GroupBySwitcher/GroupBySwitcherViewModel",
+      "target": "02_components/02_molecules/GroupBySwitcher/iGroupBySwitcher",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ListItem/iListItem",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ListItem/ListItem",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ListItem/ListItem",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ListItem/ListItem",
+      "target": "02_components/02_molecules/ListItem/iListItem",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ListItem/ListItem",
+      "target": "02_components/02_molecules/ListItem/ListItemViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ListItem/ListItemViewModel",
+      "target": "02_components/02_molecules/ListItem/iListItem",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/NotificationFeed/NotificationFeed",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Panel/iPanel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Panel/Panel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Panel/Panel",
+      "target": "02_components/02_molecules/Panel/iPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Panel/Panel",
+      "target": "02_components/02_molecules/Panel/PanelViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Panel/Panel",
+      "target": "02_components/02_molecules/Panel/iPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Panel/PanelViewModel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Panel/PanelViewModel",
+      "target": "02_components/02_molecules/Panel/iPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ProgressBar/ProgressBar",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ScrollWindow/iScrollWindow",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ScrollWindow/ScrollWindow",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ScrollWindow/ScrollWindow",
+      "target": "02_components/02_molecules/ScrollWindow/iScrollWindow",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ScrollWindow/ScrollWindow",
+      "target": "02_components/02_molecules/ScrollWindow/ScrollWindowViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ScrollWindow/ScrollWindow",
+      "target": "02_components/02_molecules/ScrollWindow/iScrollWindow",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/ScrollWindow/ScrollWindowViewModel",
+      "target": "02_components/02_molecules/ScrollWindow/iScrollWindow",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Search/iSearch",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Search/Search",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Search/Search",
+      "target": "02_components/01_atoms/Icon/Icon",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Search/Search",
+      "target": "02_components/02_molecules/Dropdown/Dropdown",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Search/Search",
+      "target": "02_components/02_molecules/Search/iSearch",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Search/Search",
+      "target": "02_components/02_molecules/Search/SearchViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Search/SearchViewModel",
+      "target": "02_components/02_molecules/Search/iSearch",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Select/Select",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Select/Select",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Select/Select",
+      "target": "02_components/02_molecules/Select/iSelect",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Select/Select",
+      "target": "02_components/02_molecules/Select/SelectViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Select/Select",
+      "target": "02_components/02_molecules/Select/iSelect",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Select/SelectViewModel",
+      "target": "02_components/02_molecules/Select/iSelect",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/SignalBar/SignalBar",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tabs/Tabs",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tabs/Tabs",
+      "target": "02_components/02_molecules/Tabs/iTabs",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tabs/Tabs",
+      "target": "02_components/02_molecules/Tabs/TabsViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tabs/Tabs",
+      "target": "02_components/02_molecules/Tabs/iTabs",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tabs/TabsViewModel",
+      "target": "02_components/02_molecules/Tabs/iTabs",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tooltip/iTooltip",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tooltip/Tooltip",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tooltip/Tooltip",
+      "target": "02_components/02_molecules/Tooltip/iTooltip",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/02_molecules/Tooltip/Tooltip",
+      "target": "02_components/02_molecules/Tooltip/TooltipViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/AlertEntry/AlertEntry",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/ConfidenceBar/ConfidenceBar",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Counter/Counter.view",
+      "target": "02_components/02_molecules/Button/Button",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Counter/Counter.view",
+      "target": "02_components/02_molecules/Card/Card",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Counter/Counter.view",
+      "target": "02_components/03_organisms/Counter/Counter.viewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Counter/Counter.view",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Counter/Counter.view",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/FixedWingViewer/FixedWingViewer",
+      "target": "02_components/03_organisms/FixedWingViewer/iFixedWingViewer",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/FixedWingViewer/FixedWingViewer",
+      "target": "02_components/03_organisms/FixedWingViewer/FixedWingViewerViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Footer/Footer.view",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GlobeMap",
+      "target": "02_components/01_atoms/UnitMarker/iUnitMarker",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupCard/GroupCard",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupCard/GroupCard",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupCard/GroupCard",
+      "target": "02_components/02_molecules/Panel/iPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupCard/GroupCard",
+      "target": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupCard/GroupCard",
+      "target": "02_components/01_atoms/UnitGlyph/UnitGlyph",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupCard/GroupCard",
+      "target": "02_components/01_atoms/UnitMarker/iUnitMarker",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "target": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "target": "02_components/03_organisms/FixedWingViewer/FixedWingViewer",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "target": "02_components/02_molecules/DataReadout/DataReadout",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "target": "02_components/03_organisms/GroupDetailPanel/iGroupDetailPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanel",
+      "target": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanelViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/GroupDetailPanelViewModel",
+      "target": "02_components/03_organisms/GroupDetailPanel/iGroupDetailPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/GroupDetailPanel/iGroupDetailPanel",
+      "target": "02_components/03_organisms/UnitDetailPanel/UnitDetailPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Header/Header.view",
+      "target": "02_components/00_themes/index",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Header/Header.view",
+      "target": "02_components/02_molecules/Dropdown/Dropdown",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Header/Header.view",
+      "target": "02_components/01_atoms/Logo/Logo",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Header/Header.view",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Header/Header.view",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/List/List",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/List/List",
+      "target": "02_components/02_molecules/ListItem/ListItem",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/MenuCard/MenuCard.view",
+      "target": "02_components/02_molecules/Card/Card",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/MenuCard/MenuCard.view",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/MenuCard/MenuCard.view",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/NavRail/NavRail",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/NavRail/NavRail",
+      "target": "02_components/01_atoms/Icon/Icon",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/NavRail/NavRail",
+      "target": "02_components/01_atoms/Logo/Logo",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/StatusPanel/StatusPanel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/StatusPanel/StatusPanel",
+      "target": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/StatusPanel/StatusPanel",
+      "target": "02_components/02_molecules/ProgressBar/ProgressBar",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/StatusPanel/StatusPanel",
+      "target": "02_components/03_organisms/GroupCard/GroupCard",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/StatusPanel/StatusPanel",
+      "target": "02_components/03_organisms/ThreatRow/ThreatRow",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TarsPanel/TarsPanel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TarsPanel/TarsPanel",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TarsPanel/TarsPanel",
+      "target": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TarsPanel/TarsPanel",
+      "target": "02_components/03_organisms/AlertEntry/AlertEntry",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Terminal/Terminal",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Terminal/Terminal",
+      "target": "02_components/03_organisms/Terminal/Terminal.ViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Terminal/Terminal",
+      "target": "02_components/03_organisms/Terminal/iTerminal",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/Terminal/Terminal.ViewModel",
+      "target": "02_components/03_organisms/Terminal/iTerminal",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TerminalDock/TerminalDock",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TerminalDock/TerminalDock",
+      "target": "02_components/01_atoms/Icon/Icon",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TerminalDock/TerminalDock",
+      "target": "02_components/03_organisms/Terminal/Terminal",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/TerminalDock/TerminalDock",
+      "target": "02_components/03_organisms/Terminal/iTerminal",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/ThreatAssessmentPanel/ThreatAssessmentPanel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/ThreatAssessmentPanel/ThreatAssessmentPanel",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/ThreatAssessmentPanel/ThreatAssessmentPanel",
+      "target": "02_components/03_organisms/ConfidenceBar/ConfidenceBar",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/ThreatRow/ThreatRow",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/ThreatRow/ThreatRow",
+      "target": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/UnitDetailPanel/UnitDetailPanel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/UnitDetailPanel/UnitDetailPanel",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/UnitDetailPanel/UnitDetailPanel",
+      "target": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/UnitDetailPanel/UnitDetailPanel",
+      "target": "02_components/03_organisms/FixedWingViewer/FixedWingViewer",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/03_organisms/UnitDetailPanel/UnitDetailPanel",
+      "target": "02_components/02_molecules/DataReadout/DataReadout",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/05_pages/DesignLibrary.view",
+      "target": "02_components/DesignSystem/DesignLibrary.view",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/buildRoleTree",
+      "target": "02_components/DesignSystem/roleForNode",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/CodeEditorView",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/CodeEditorView",
+      "target": "02_components/DesignSystem/CodeEditorView.ViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/CodeEditorView.ViewModel",
+      "target": "02_components/DesignSystem/codeEditorLanguages",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/CodeEditorView.ViewModel",
+      "target": "02_components/DesignSystem/codeEditorTheme",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/CodeEditorView.ViewModel",
+      "target": "02_components/DesignSystem/lspClient",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/ComponentPreviewView",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/ComponentPreviewView",
+      "target": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/ComponentPreviewView",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.view",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.view",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.view",
+      "target": "02_components/DesignSystem/CodeEditorView",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.view",
+      "target": "02_components/DesignSystem/LeftRailingView",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.view",
+      "target": "02_components/DesignSystem/ComponentPreviewView",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.view",
+      "target": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/01_atoms/Text/Text",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/01_atoms/UnitGlyph/UnitGlyph",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/Button/Button",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/Panel/Panel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/StatusBadge/StatusBadge",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/ProgressBar/ProgressBar",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/SignalBar/SignalBar",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/DataTag/DataTag",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/Tabs/Tabs",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/Accordion/Accordion",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/Select/Select",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/Dialog/Dialog",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/CommandOverlay/CommandOverlay",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/DataReadout/DataReadout",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/02_molecules/NotificationFeed/NotificationFeed",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/03_organisms/GroupCard/GroupCard",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/DesignLibrary.ViewModel",
+      "target": "02_components/03_organisms/StatusPanel/StatusPanel",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/LeftRailingView",
+      "target": "02_components/01_atoms/Frame/Frame",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/LeftRailingView",
+      "target": "02_components/01_atoms/Icon/Icon",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/LeftRailingView",
+      "target": "02_components/02_molecules/Chip/Chip",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/LeftRailingView",
+      "target": "02_components/02_molecules/Search/Search",
+      "kind": "borrows"
+    },
+    {
+      "source": "02_components/DesignSystem/LeftRailingView",
+      "target": "02_components/02_molecules/ScrollWindow/ScrollWindow",
+      "kind": "borrows"
+    }
+  ]
+}
