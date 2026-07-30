@@ -1,0 +1,110 @@
+@import './colors/colors.css';
+@import './fonts/fonts.css';
+
+/* ─── Houseplant theme ────────────────────────────────────────────────────────
+   Warm off-white light theme. Earthy neutrals, natural greens for primary,
+   terracotta accent. Drop-in compatible — every token name matches default. */
+
+.theme-houseplant {
+  --bg-1: #f8f6f0;
+  --bg-2: #eeeadf;
+  --bg-3: #e4dfcf;
+  --bg-ide: #eeeadf;
+  --bg-dark: #1a1a12;
+
+  --text-0: #1c1a14;
+  --text-1: #3a3628;
+  --text-2: #7a7260;
+  --text-3: #b0a890;
+
+  --border-1: rgba(0, 0, 0, 0.10);
+  --border-2: rgba(0, 0, 0, 0.20);
+  --border-w: 1px;
+
+  --radius-0: 0;
+  --radius-1: .2rem;
+  --radius-2: .4rem;
+  --radius-3: .7rem;
+  --radius-4: 1rem;
+
+  --shadow-1: 0 14px 36px -18px rgba(30, 25, 10, 0.25);
+
+  --primary-1: #2e4a2a;
+  --primary-2: #3d6336;
+  --primary-3: #4e7c44;
+  --primary-4: #6a9e5e;
+  --primary-5: #8fc285;
+  --primary-6: #b8d9b2;
+  --primary-7: #dff0da;
+
+  --secondary-1: #7829ad;
+  --secondary-2: #7513cf;
+  --secondary-3: #ae33e2;
+  --secondary-4: #730bfc;
+  --secondary-5: #9c08ff;
+  --secondary-6: #9d0fdf;
+  --secondary-7: #440370;
+
+  --accent-1: #8b3a1c;
+  --accent-2: #aa4d2a;
+  --accent-3: #cc6640;
+  --accent-4: #e07c55;
+  --accent-5: #f0a082;
+  --accent-6: #f8c8b0;
+  --accent-7: #fdeadf;
+  --accent-glow: 0 0 18px color-mix(in srgb, var(--accent-4) 35%, transparent);
+
+  --warning-1: var(--color-gold-1);
+  --warning-2: var(--color-gold-2);
+  --warning-3: var(--color-gold-3);
+  --warning-4: var(--color-gold-4);
+  --warning-5: var(--color-gold-5);
+  --warning-6: var(--color-gold-6);
+  --warning-7: var(--color-gold-7);
+
+  --info-1: #1a5c6e;
+  --info-2: #236e84;
+  --info-3: #2e849c;
+  --info-4: #3e9ab5;
+  --info-5: #68b8d0;
+  --info-6: #9ad4e4;
+  --info-7: #ceeef5;
+
+  --danger-1: var(--color-tomato-1);
+  --danger-2: var(--color-tomato-2);
+  --danger-3: var(--color-tomato-3);
+  --danger-4: var(--color-tomato-4);
+  --danger-5: var(--color-tomato-5);
+  --danger-6: var(--color-tomato-6);
+  --danger-7: var(--color-tomato-7);
+
+  --font-body: 'Sometype Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
+  --font-mono: 'Sometype Mono', 'Space Mono', 'Inter', 'Helvetica Neue', Helvetica, Arial, monospace;
+  --font-code: 'Sometype Mono', 'Space Mono', 'Oxygen Mono', 'Helvetica Neue', Helvetica, monospace;
+  --font-brand: 'Avoerock Demo', 'Bodoni Moda', serif;
+  --font-display: 'Helvetica Neue', Helvetica, sans-serif;
+
+  --font-h1: 5.5rem;
+  --font-h2: 2.4rem;
+  --font-h3: 1.85rem;
+  --font-h4: 1.35rem;
+  --font-h5: 1.25rem;
+  --font-h6: 1rem;
+  --font-p: 0.875rem;
+  --font-small: 0.75rem;
+  --font-xs: 0.65rem;
+
+  --leading-tight: .9;
+  --leading-normal: 1.5;
+  --leading-loose: 1.7;
+
+  --weight-light: 300;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
+  --weight-black: 700;
+
+  font-family: var(--font-body);
+  background-color: var(--bg-1);
+  color: var(--text-1);
+}

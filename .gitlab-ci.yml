@@ -1,0 +1,59 @@
+# GitLab CI — quality gates for Sleipnir
+#
+# quality: eslint (design-system rules incl. the style={{}} ratchet) + tsc
+# test:    vitest
+# build:   production build, artifact kept for 1 week
+
+image: node:22
+
+workflow:
+  rules:
+    # Run on merge requests, the default branch, and branches without an open MR
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null
+
+stages:
+  - quality
+  - test
+  - build
+
+default:
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+lint:
+  stage: quality
+  script:
+    # Errors always fail the job. The warning budget is a ratchet for migrating
+    # style={{}} to Frame props (fill / stroke / radius / effects / ...):
+    # lower it as files are cleaned up — never raise it.
+    - npx eslint . --max-warnings 92
+
+typecheck:
+  stage: quality
+  script:
+    # Build mode: the root tsconfig is solution-style (references only),
+    # so plain `tsc --noEmit` checks nothing.
+    - npx tsc -b
+
+test:
+  stage: test
+  script:
+    # --passWithNoTests: suite is empty today; remove once the first spec lands
+    - npx vitest run --passWithNoTests
+
+build:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week

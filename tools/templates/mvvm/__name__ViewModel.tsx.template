@@ -1,0 +1,7 @@
+import { {{name}}Props } from './i{{name}}';
+
+export function use{{name}}ViewModel(_props: {{name}}Props) {
+  // Implement resolution logic, state, and handlers here.
+  // Return everything the view needs to render — the view stays JSX-only.
+  return {};
+}

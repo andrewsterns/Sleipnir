@@ -1,0 +1,32 @@
+{
+  "name": "sleipnir",
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "src",
+  "targets": {
+    "build": {
+      "command": "npm run build"
+    },
+    "dev": {
+      "command": "vite"
+    },
+    "start": {
+      "command": "vite"
+    },
+    "serve": {
+      "command": "vite"
+    },
+    "preview": {
+      "command": "vite preview"
+    },
+    "test": {
+      "command": "vitest run"
+    },
+    "test:watch": {
+      "command": "vitest"
+    },
+    "lint": {
+      "command": "eslint ."
+    }
+  }
+}

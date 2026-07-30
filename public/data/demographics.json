@@ -1,0 +1,24 @@
+{
+  "project": "IBCS",
+  "targetUsers": [
+    {
+      "group": "Fire Control Operators",
+      "size": "5,000+",
+      "avgAge": 22,
+      "skillLevel": "Highly Technical / Operational",
+      "environments": ["Tactical Operations Center", "Mobile Launch Sites"]
+    },
+    {
+      "group": "Cyber Network Defenders",
+      "size": "1,200+",
+      "avgAge": 28,
+      "skillLevel": "Cyber Specialist",
+      "environments": ["Network Operations Center", "Deployed IF Nodes"]
+    }
+  ],
+  "technicalBaselines": {
+    "connectivity": "Satellite / Low Bandwidth / High Latency",
+    "hardware": "Ruggedized Tactical Displays",
+    "security": "Zero-Trust Protocol / Multi-Factor Authentication"
+  }
+}

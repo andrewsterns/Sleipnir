@@ -1,0 +1,84 @@
+.theme-tactical {
+  /* ── Backgrounds ─────────────────────────────────────────────────────── */
+  --bg-1: rgba(8, 8, 8, 0.97);
+  --bg-2: rgba(15, 15, 15, 0.90);
+  --bg-3: rgba(24, 24, 24, 0.78);
+
+  /* ── Text (white-primary) ────────────────────────────────────────────── */
+  --text-1: #e8e8e8;           /* near-white, neutral */
+  --text-2: #9a9a9a;           /* secondary grey */
+  --text-3: #4a4a4a;           /* tertiary / dim labels */
+
+  /* ── Borders ─────────────────────────────────────────────────────────── */
+  --border-1: rgba(255, 255, 255, 0.07);
+  --border-2: rgba(255, 255, 255, 0.16);
+
+  /* ── Button/Frame variant surfaces ───────────────────────────────────────
+     Left undefined before, so variant="primary"/"secondary"/"accent" fell
+     through to whatever ancestor theme was active (usually theme-default's
+     light slate/blue ramp) and rendered as a near-white box. Defined here as
+     translucent dark washes consistent with tactical's own bg layering. */
+  --primary-1:   rgba(255, 255, 255, 0.06);
+  --primary-2:   #e8e8e8;
+  --primary-3:   rgba(255, 255, 255, 0.16);
+  --secondary-1: rgba(255, 255, 255, 0.03);
+  --secondary-2: #9a9a9a;
+  --secondary-3: rgba(255, 255, 255, 0.10);
+  --accent-1:    rgba(232, 232, 232, 0.14);
+
+  /* ── Status accent palette — white spectrum only ─────────────────────── */
+  --scan:           #dce8f0;           /* operational / nominal: near-white */
+  --scan-dim:       rgba(220,232,240,0.10);
+  --scan-mid:       rgba(220,232,240,0.25);
+  --warn:           #b8ccd8;           /* degraded: medium grey-blue */
+  --warn-dim:       rgba(184,204,216,0.08);
+  --warn-mid:       rgba(184,204,216,0.20);
+  --critical:       #ffffff;           /* critical: full white (maximum contrast) */
+  --critical-dim:   rgba(255,255,255,0.10);
+  --critical-mid:   rgba(255,255,255,0.25);
+  --track:          #c8dce8;           /* tracking: light grey */
+  --track-dim:      rgba(200,220,232,0.10);
+  --nominal:        #9ab4c4;
+  --nominal-dim:    rgba(154,180,196,0.10);
+  --caution:        #a8bccc;           /* caution: muted grey */
+
+  /* ── Gradient stroke presets — white only ────────────────────────────── */
+  --stroke-default:  135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.03);
+  --stroke-scan:     135deg, rgba(220,232,240,0.35), rgba(220,232,240,0.03);
+  --stroke-warn:     135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.03);
+  --stroke-critical: 135deg, rgba(255,255,255,0.48), rgba(255,255,255,0.03);
+  --stroke-track:    135deg, rgba(200,220,232,0.32), rgba(200,220,232,0.03);
+  --stroke-dim:      135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02);
+
+  /* ── Chamfer size tokens (numeric px) ────────────────────────────────── */
+  --chamfer-xs: 3;
+  --chamfer-sm: 6;
+  --chamfer-md: 10;
+  --chamfer-lg: 16;
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --font-body:    'Sometype Mono', 'Courier New', monospace;
+  --font-mono:    'Sometype Mono', 'Courier New', monospace;
+  --font-display: 'Sometype Mono', monospace;
+
+  /* ── Radius ──────────────────────────────────────────────────────────── */
+  --radius-1: 0px;
+  --radius-2: 2px;
+  --radius-3: 2px;
+  --radius-4: 4px;
+
+  /* ── Shadows ─────────────────────────────────────────────────────────── */
+  --shadow-1:             0 4px 24px rgba(0, 0, 0, 0.7);
+  --shadow-glow-scan:     0 0 16px rgba(220, 232, 240, 0.10);
+  --shadow-glow-warn:     0 0 16px rgba(255, 255, 255, 0.08);
+  --shadow-glow-critical: 0 0 20px rgba(255, 255, 255, 0.14);
+  --shadow-glow-track:    0 0 16px rgba(200, 220, 232, 0.10);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

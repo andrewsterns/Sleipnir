@@ -1,0 +1,16 @@
+import { forwardRef } from 'react';
+import { Frame } from '../../01_atoms/Frame/Frame';
+import { {{name}}Props } from './i{{name}}';
+import { use{{name}}ViewModel } from './{{name}}ViewModel';
+
+export const {{name}} = forwardRef<HTMLElement, {{name}}Props>((props, ref) => {
+  use{{name}}ViewModel(props);
+
+  return (
+    <Frame ref={ref} flow="vertical">
+      {/* Implement view here — rendering only, no logic */}
+    </Frame>
+  );
+});
+
+{{name}}.displayName = '{{name}}';
