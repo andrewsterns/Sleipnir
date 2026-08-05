@@ -1,0 +1,142 @@
+[
+  {
+    "id": "docker",
+    "label": "Docker",
+    "description": "Browse this project's Docker setup — Dockerfile.dev, Dockerfile.prod, and docker-compose.yml — in one place. Read-only for now.",
+    "category": "Containers",
+    "icon": "docker",
+    "entry": {
+      "id": "docker",
+      "kind": "folder",
+      "label": "Docker",
+      "tag": "DKR",
+      "icon": "docker",
+      "root": "docker",
+      "rootScope": "repo",
+      "previewStrategy": "none",
+      "readOnly": true,
+      "extraFiles": ["docker-compose.yml"]
+    }
+  },
+  {
+    "id": "nx",
+    "label": "Nx",
+    "description": "nx.json, project.json, and the nx-integration.md migration notes for this workspace. Read-only for now.",
+    "category": "Build Tools",
+    "icon": "network",
+    "entry": {
+      "id": "nx",
+      "kind": "folder",
+      "label": "Nx",
+      "tag": "NX",
+      "icon": "network",
+      "root": "",
+      "rootScope": "repo",
+      "previewStrategy": "none",
+      "readOnly": true,
+      "extraFiles": ["nx.json", "project.json", "nx-integration.md"]
+    }
+  },
+  {
+    "id": "project-config",
+    "label": "Project Config",
+    "description": "package.json plus the TypeScript, Vite, ESLint, PostCSS, and Tailwind configs that drive the build. Read-only for now.",
+    "category": "Configuration",
+    "icon": "refactor",
+    "entry": {
+      "id": "project-config",
+      "kind": "folder",
+      "label": "Project Config",
+      "tag": "CFG",
+      "icon": "refactor",
+      "root": "",
+      "rootScope": "repo",
+      "previewStrategy": "none",
+      "readOnly": true,
+      "extraFiles": [
+        "package.json",
+        "tsconfig.json",
+        "tsconfig.app.json",
+        "tsconfig.node.json",
+        "vite.config.ts",
+        "eslint.config.js",
+        "postcss.config.js",
+        "tailwind.config.js"
+      ]
+    }
+  },
+  {
+    "id": "electron-shell",
+    "label": "Electron Shell",
+    "description": "The Electron main process, preload bridge, terminal/chat IPC, and API key store — the electron/ folder. Read-only for now.",
+    "category": "Platform",
+    "icon": "wire",
+    "entry": {
+      "id": "electron-shell",
+      "kind": "folder",
+      "label": "Electron Shell",
+      "tag": "ELC",
+      "icon": "wire",
+      "root": "electron",
+      "rootScope": "repo",
+      "previewStrategy": "none",
+      "readOnly": true
+    }
+  },
+  {
+    "id": "build-scripts",
+    "label": "Build Scripts",
+    "description": "Every custom tools/ script — scaffolding, the graph generator, the refactor engine, git control, and more. Read-only for now.",
+    "category": "Build Tools",
+    "icon": "link",
+    "entry": {
+      "id": "build-scripts",
+      "kind": "folder",
+      "label": "Build Scripts",
+      "tag": "TLS",
+      "icon": "link",
+      "root": "tools",
+      "rootScope": "repo",
+      "previewStrategy": "none",
+      "readOnly": true
+    }
+  },
+  {
+    "id": "docs",
+    "label": "Docs",
+    "description": "The project's own meta-architecture — .agent/ plus the root AGENT.md, ARCHITECTURE.md, and README.md. Read-only for now.",
+    "category": "Documentation",
+    "icon": "research",
+    "entry": {
+      "id": "docs",
+      "kind": "folder",
+      "label": "Docs",
+      "tag": "DOC",
+      "icon": "research",
+      "root": ".agent",
+      "rootScope": "repo",
+      "previewStrategy": "none",
+      "readOnly": true,
+      "extraFiles": ["AGENT.md", "ARCHITECTURE.md", "README.md"]
+    }
+  },
+  {
+    "id": "ci-cd",
+    "label": "CI/CD",
+    "description": "Git hooks (.husky/) and the GitLab CI pipeline config. Read-only for now.",
+    "category": "CI/CD",
+    "icon": "git-merge",
+    "entry": {
+      "id": "ci-cd",
+      "kind": "folder",
+      "label": "CI/CD",
+      "tag": "CI",
+      "icon": "git-merge",
+      "root": ".husky",
+      "rootScope": "repo",
+      "previewStrategy": "none",
+      "readOnly": true,
+      "extraFiles": [".gitlab-ci.yml"]
+    }
+  }
+]

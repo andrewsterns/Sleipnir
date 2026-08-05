@@ -47,7 +47,7 @@ declare module 'd3-force-3d' {
   export function forceCollide<N>(radius?: number | ((node: N) => number)): ForceCollide<N>
 
   export interface ForceAxis<N> {
-    strength(v: number): ForceAxis<N>
+    strength(v: number | ((n: N) => number)): ForceAxis<N>
   }
   export function forceX<N>(x?: number | ((node: N) => number)): ForceAxis<N>
   export function forceY<N>(y?: number | ((node: N) => number)): ForceAxis<N>

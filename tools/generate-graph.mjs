@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import url from 'node:url'
 import { isSourceFile } from './source-extensions.mjs'
+import { readRegistry, isUnderAnyPrototypeRoot } from './library-registry.mjs'
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -42,7 +43,7 @@ function typeForId(id) {
   if (id.includes('04_templates')) return 'template'
   if (id.includes('05_pages')) return 'page'
   if (id.includes('00_themes')) return 'theme'
-  if (id.startsWith('03_prototypes')) return 'prototype'
+  if (isUnderAnyPrototypeRoot(id)) return 'prototype'
   return 'other'
 }
 
@@ -125,26 +126,38 @@ function buildDocGraph(scanDir, mapName) {
 // fresh in-process scan without triggering a graph regen/file write as a
 // side effect.
 if (process.argv[1] && import.meta.url === url.pathToFileURL(process.argv[1]).href) {
-  const dsm = buildCodeGraph(path.join(SRC, '02_components'), 'dsm')
-  const prototypes = buildCodeGraph(path.join(SRC, '03_prototypes'), 'prototypes')
+  const registry = readRegistry()
+  const componentLibs = registry.filter((l) => l.kind === 'component')
+  const protoLibs = registry.filter((l) => l.kind === 'prototype')
 
-  // Cross-map borrow edges: prototypes importing from components. The borrowed
-  // component node is pulled into the prototypes graph (tagged with its true
-  // home map) so the Prototypes view can show what it leans on.
-  for (const f of prototypes.files) {
-    const fromId = toId(f)
-    const content = fs.readFileSync(f, 'utf8')
-    for (const spec of extractImportSpecifiers(content)) {
-      const resolved = resolveImport(f, spec)
-      if (!resolved) continue
-      const targetId = toId(resolved)
-      if (!targetId.startsWith('02_components/')) continue
-      const dsmNode = dsm.nodes.find((n) => n.id === targetId)
-      if (!dsmNode) continue
-      if (!prototypes.nodes.some((n) => n.id === targetId)) {
-        prototypes.nodes.push({ ...dsmNode, map: 'dsm' })
+  const built = {}
+  for (const lib of componentLibs) built[lib.id] = buildCodeGraph(path.join(SRC, lib.root), lib.id)
+  for (const lib of protoLibs) built[lib.id] = buildCodeGraph(path.join(SRC, lib.root), lib.id)
+
+  // Cross-map borrow edges: any prototype library importing from any
+  // component library. The borrowed component node is pulled into the
+  // prototype library's own graph, tagged with the actual owning component
+  // library's id (not a hardcoded 'dsm') so the Prototypes view can show
+  // what it leans on regardless of which component library that is.
+  for (const protoLib of protoLibs) {
+    const protoGraph = built[protoLib.id]
+    for (const f of protoGraph.files) {
+      const fromId = toId(f)
+      const content = fs.readFileSync(f, 'utf8')
+      for (const spec of extractImportSpecifiers(content)) {
+        const resolved = resolveImport(f, spec)
+        if (!resolved) continue
+        const targetId = toId(resolved)
+        const ownerLib = componentLibs.find((l) => targetId.startsWith(`${l.root}/`))
+        if (!ownerLib) continue
+        const ownerGraph = built[ownerLib.id]
+        const componentNode = ownerGraph.nodes.find((n) => n.id === targetId)
+        if (!componentNode) continue
+        if (!protoGraph.nodes.some((n) => n.id === targetId)) {
+          protoGraph.nodes.push({ ...componentNode, map: ownerLib.id })
+        }
+        protoGraph.edges.push({ source: fromId, target: targetId, kind: 'borrows' })
       }
-      prototypes.edges.push({ source: fromId, target: targetId, kind: 'borrows' })
     }
   }
 
@@ -155,13 +168,13 @@ if (process.argv[1] && import.meta.url === url.pathToFileURL(process.argv[1]).hr
   const write = (name, data) => {
     fs.writeFileSync(path.join(OUT_DIR, `${name}.json`), JSON.stringify({ nodes: data.nodes, edges: data.edges }, null, 2))
   }
-  write('dsm', dsm)
-  write('prototypes', prototypes)
+  for (const [id, data] of Object.entries(built)) write(id, data)
   write('research', research)
   write('validation', validation)
 
-  console.log(`dsm:         ${dsm.nodes.length} nodes, ${dsm.edges.length} edges`)
-  console.log(`prototypes:  ${prototypes.nodes.length} nodes, ${prototypes.edges.length} edges`)
+  for (const [id, data] of Object.entries(built)) {
+    console.log(`${id}: ${data.nodes.length} nodes, ${data.edges.length} edges`)
+  }
   console.log(`research:    ${research.nodes.length} nodes, ${research.edges.length} edges`)
   console.log(`validation:  ${validation.nodes.length} nodes, ${validation.edges.length} edges`)
 }

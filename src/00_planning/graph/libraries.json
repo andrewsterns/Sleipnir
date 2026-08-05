@@ -1,0 +1,11 @@
+[
+  {
+    "id": "dsm",
+    "kind": "component",
+    "label": "Sleipnir Default Component Library",
+    "root": "02_components",
+    "architecture": "atomic",
+    "language": "typescript",
+    "createdAt": 0
+  }
+]

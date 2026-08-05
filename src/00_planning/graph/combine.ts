@@ -1,24 +1,26 @@
-import dsmGenerated from './generated/dsm.json'
-import prototypesGenerated from './generated/prototypes.json'
-import researchGenerated from './generated/research.json'
-import validationGenerated from './generated/validation.json'
 import { PROPOSED } from './proposed-nodes'
 import type { GraphData, GraphMapId, GraphNode } from './types'
 import { isArchived, type ArchiveEntry } from '../api/sleipnirApi'
 
-// `todo` has no source files to scan — its nodes are always hand-authored
-// in `proposed-nodes.ts`, so it gets an empty generated graph rather than a
-// generated/todo.json produced by tools/generate-graph.mjs.
-const GENERATED: Record<GraphMapId, GraphData> = {
-  dsm: dsmGenerated as GraphData,
-  prototypes: prototypesGenerated as GraphData,
-  research: researchGenerated as GraphData,
-  validation: validationGenerated as GraphData,
-  todo: { nodes: [], edges: [] },
+// Vite-native glob import, resolved at build time — one JSON per registered
+// library (plus research/validation) with zero per-library file edit ever
+// needed here again, unlike the old fixed 4-static-import list. `todo` and
+// `claude` have no source files to scan at all (`todo`'s nodes are always
+// hand-authored in proposed-nodes.ts, `claude`'s are always AI-created plan
+// nodes — see tools/sleipnir-backend.mjs#createPlanNode), so they're simply
+// absent from this glob and fall through to the empty-graph default below.
+const GENERATED_MODULES = import.meta.glob('./generated/*.json', { eager: true }) as Record<
+  string,
+  { default: GraphData }
+>
+
+function loadGenerated(map: GraphMapId): GraphData {
+  const mod = GENERATED_MODULES[`./generated/${map}.json`]
+  return mod ? mod.default : { nodes: [], edges: [] }
 }
 
 function combine(generated: GraphData, map: GraphMapId): GraphData {
-  const proposed = PROPOSED[map]
+  const proposed = PROPOSED[map] ?? { nodes: [], edges: [] }
   return {
     nodes: [...generated.nodes, ...proposed.nodes],
     edges: [...generated.edges, ...proposed.edges],
@@ -26,7 +28,7 @@ function combine(generated: GraphData, map: GraphMapId): GraphData {
 }
 
 export function getGraphForMap(map: GraphMapId): GraphData {
-  return combine(GENERATED[map], map)
+  return combine(loadGenerated(map), map)
 }
 
 // Dev-only: re-fetch a freshly regenerated graph JSON straight from disk,
@@ -34,9 +36,11 @@ export function getGraphForMap(map: GraphMapId): GraphData {
 // at build time). Used after scaffolding a new component so it shows up
 // without a full page reload.
 export async function refreshGraphForMap(map: GraphMapId): Promise<GraphData> {
-  // `todo` has no generated/todo.json on disk (nothing to re-fetch) — its
-  // nodes only ever come from the hand-authored PROPOSED list.
-  if (map === 'todo') return getGraphForMap(map)
+  // `todo`/`claude`/`welcome`/`open` have no generated/<map>.json on disk
+  // (nothing to re-fetch) — their nodes only ever come from the hand-authored
+  // PROPOSED list (`todo`, `welcome`) or runtime notes (`claude`'s plan
+  // nodes, `open`'s opened-file nodes — see tools/sleipnir-backend.mjs).
+  if (map === 'todo' || map === 'claude' || map === 'welcome' || map === 'open') return getGraphForMap(map)
   const res = await fetch(`/src/00_planning/graph/generated/${map}.json?t=${Date.now()}`)
   if (!res.ok) throw new Error(`Failed to refresh ${map} graph (${res.status})`)
   const generated = (await res.json()) as GraphData

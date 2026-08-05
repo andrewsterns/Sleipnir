@@ -1,0 +1,125 @@
+import { useEffect, useRef, useState } from 'react'
+import type { GraphNode, LibraryEntry } from '../../00_planning/graph/types'
+import type { ChatMessage } from './iAgentChat'
+import { isChatAvailable } from './iAgentChat'
+import { parseSlashCommand } from './slashCommands'
+
+export function useAgentChatViewModel(
+  onPlanNodeCreated?: (node: GraphNode) => void,
+  onPlanCommand?: () => void,
+  onLibraryCreated?: (library: LibraryEntry) => void,
+) {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [streaming, setStreaming] = useState(false)
+  const available = isChatAvailable()
+
+  // One session for the component's lifetime — same one-session-per-mount
+  // idea as the terminal's pty session (see Terminal.ViewModel.tsx).
+  const sessionIdRef = useRef(crypto.randomUUID())
+
+  // Ref, not a dep — App.tsx passes an inline callback that gets a new
+  // identity every render, and re-subscribing the IPC listeners on every
+  // render would leak duplicate `chat:*` handlers.
+  const onPlanNodeCreatedRef = useRef(onPlanNodeCreated)
+  onPlanNodeCreatedRef.current = onPlanNodeCreated
+  const onLibraryCreatedRef = useRef(onLibraryCreated)
+  onLibraryCreatedRef.current = onLibraryCreated
+
+  useEffect(() => {
+    const api = window.chatAPI
+    if (!api) return
+    const sessionId = sessionIdRef.current
+
+    const unsubToken = api.onToken(sessionId, (delta) => {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        if (last?.role === 'assistant' && last.streaming) {
+          return [...prev.slice(0, -1), { ...last, content: last.content + delta }]
+        }
+        return [...prev, { role: 'assistant', content: delta, timestamp: Date.now(), streaming: true }]
+      })
+    })
+
+    const unsubPlanNode = api.onPlanNodeCreated(sessionId, (node) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'system',
+          content: `Created plan node "${node.label}" in the CLAUDE tab — review and approve it in Planning.`,
+          timestamp: Date.now(),
+        },
+      ])
+      onPlanNodeCreatedRef.current?.(node)
+    })
+
+    const unsubLibrary = api.onLibraryCreated(sessionId, (library) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'system',
+          content: `Created ${library.kind} library "${library.label}" — switched to it in Planning.`,
+          timestamp: Date.now(),
+        },
+      ])
+      onLibraryCreatedRef.current?.(library)
+    })
+
+    const unsubDone = api.onDone(sessionId, () => {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        if (last?.role === 'assistant' && last.streaming) {
+          return [...prev.slice(0, -1), { ...last, streaming: false }]
+        }
+        return prev
+      })
+      setStreaming(false)
+    })
+
+    const unsubError = api.onError(sessionId, (message) => {
+      setMessages((prev) => {
+        const withoutPartial = prev[prev.length - 1]?.streaming ? prev.slice(0, -1) : prev
+        return [...withoutPartial, { role: 'system', content: `Error: ${message}`, timestamp: Date.now() }]
+      })
+      setStreaming(false)
+    })
+
+    return () => {
+      unsubToken()
+      unsubPlanNode()
+      unsubLibrary()
+      unsubDone()
+      unsubError()
+    }
+  }, [])
+
+  const sendMessage = async () => {
+    const api = window.chatAPI
+    const text = input.trim()
+    if (!api || !text || streaming) return
+
+    const slash = parseSlashCommand(text)
+    if (slash?.command === 'plan') {
+      setInput('')
+      setMessages((prev) => [...prev, { role: 'user', content: text, timestamp: Date.now() }])
+      onPlanCommand?.()
+      return
+    }
+
+    const history = messages
+      .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({ role: m.role, content: m.content }))
+
+    setInput('')
+    setMessages((prev) => [...prev, { role: 'user', content: text, timestamp: Date.now() }])
+    setStreaming(true)
+    await api.sendMessage(sessionIdRef.current, history, text)
+  }
+
+  const cancel = () => {
+    window.chatAPI?.cancel(sessionIdRef.current)
+    setStreaming(false)
+  }
+
+  return { messages, input, setInput, sendMessage, cancel, streaming, available }
+}

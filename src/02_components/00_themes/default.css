@@ -2,9 +2,15 @@
 @import './fonts/fonts.css';
 
 .theme-default {
-  --bg-1: var(--color-grey-7);
-  --bg-2: var(--color-grey-6);
-  --bg-3: var(--color-grey-5);
+  /* Without this, Chromium's auto dark-mode heuristic silently re-colors
+     native form controls (button, input, select) to a light appearance —
+     the element's own CSS is untouched (computed styles still show the
+     correct dark colors) but the compositor paints it inverted anyway.
+     Declaring the scheme opts every native control here out of that. */
+  color-scheme: dark;
+  --bg-1: #080808;
+  --bg-2: #0e0e0e;
+  --bg-3: #131313;
   --bg-ide: var(--color-grey-6);
   --bg-dark: var(--color-black);
 

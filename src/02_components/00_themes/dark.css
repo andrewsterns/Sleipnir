@@ -6,6 +6,7 @@
    Shares the same token names as default so all Frame fill/stroke tokens work. */
 
 .theme-dark {
+  color-scheme: dark;
   --bg-1: #0a0a0f;
   --bg-2: #111118;
   --bg-3: #1a1a24;

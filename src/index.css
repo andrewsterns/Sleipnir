@@ -23,6 +23,7 @@ body {
   display: flex;
   min-width: 320px;
   background: black;
+  color-scheme: dark;
 }
 
 .scroll-window--no-scrollbar {

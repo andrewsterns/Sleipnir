@@ -10,6 +10,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { walk, toId, typeForId, ROOT, SRC } from './generate-graph.mjs'
+import { getLibrary, isUnderAnyPrototypeRoot, setLibraryArchitecture } from './library-registry.mjs'
+import { lintArchitectureViolations } from './codemod-lint.mjs'
 
 export const ARCHITECTURES = ['atomic', 'mvvm', 'mvc', 'mvp']
 
@@ -40,7 +42,7 @@ const TIER_DIRS = new Set(['01_atoms', '02_molecules', '03_organisms', '04_templ
 // never move, so the tier check has to run first.
 function roleForFile(absPath) {
   const id = toId(absPath) // extension-stripped, e.g. '02_components/01_atoms/Button/Button'
-  if (id.startsWith('03_prototypes')) return 'prototype'
+  if (isUnderAnyPrototypeRoot(id)) return 'prototype'
   const type = typeForId(id)
   if (!LIBRARY_TYPES.has(type)) return 'other'
   const segments = id.split('/')
@@ -60,7 +62,7 @@ function roleForFile(absPath) {
 // computing the Atomic layout back from a non-atomic one (previewRefactor
 // isn't a no-op for 'atomic' — it's "the plan that undoes whatever's
 // currently in place").
-function targetPathFor(absPath, architecture) {
+function targetPathFor(absPath, architecture, libraryRoot) {
   const role = roleForFile(absPath)
   if (role !== 'view' && role !== 'viewModel' && role !== 'interface') return null
   const id = toId(absPath)
@@ -77,7 +79,7 @@ function targetPathFor(absPath, architecture) {
   const parent = segments[segments.length - 2]
   const isFlat = TIER_DIRS.has(parent)
   if (isFlat) {
-    const targetSegments = roleFolder ? ['02_components', roleFolder, parent, filename] : ['02_components', parent, filename]
+    const targetSegments = roleFolder ? [libraryRoot, roleFolder, parent, filename] : [libraryRoot, parent, filename]
     return path.join(SRC, ...targetSegments)
   }
 
@@ -85,8 +87,8 @@ function targetPathFor(absPath, architecture) {
   const componentName = parent
   const tierDir = segments[segments.length - 3]
   const targetSegments = roleFolder
-    ? ['02_components', roleFolder, tierDir, componentName, filename]
-    : ['02_components', tierDir, componentName, filename]
+    ? [libraryRoot, roleFolder, tierDir, componentName, filename]
+    : [libraryRoot, tierDir, componentName, filename]
   return path.join(SRC, ...targetSegments)
 }
 
@@ -202,21 +204,38 @@ function scanFiles() {
 // Single source of truth for "what would this architecture change" — used
 // by both previewRefactor (read-only) and applyRefactor (executes this
 // exact plan), so preview and apply can never drift out of sync.
-function buildPlan(architecture) {
+function buildPlan(architecture, libraryId) {
   if (!ARCHITECTURES.includes(architecture)) {
     throw new Error(`Unknown architecture "${architecture}" — expected one of ${ARCHITECTURES.join(', ')}`)
   }
+  const library = getLibrary(libraryId)
+  if (!library) {
+    throw new Error(`Unknown library "${libraryId}"`)
+  }
+  if (library.kind !== 'component') {
+    throw new Error(`Library "${libraryId}" is a prototype library — Refactor only reorganizes component libraries`)
+  }
+  const libraryRoot = library.root
+
   const files = scanFiles()
   const movedByAbsPath = new Map()
   for (const f of files) {
-    const to = targetPathFor(f, architecture)
+    // Only this library's own files are ever candidates to move — otherwise
+    // a file that happens to match role-classification (view/viewModel/
+    // interface naming) in a DIFFERENT library would get a bogus target path
+    // spliced onto this library's root.
+    if (!toId(f).startsWith(`${libraryRoot}/`)) continue
+    const to = targetPathFor(f, architecture, libraryRoot)
     if (to && to !== f) movedByAbsPath.set(f, to)
   }
 
   // Rewritten content is computed from each file's OLD location (so
   // resolveImport can use its real current directory) while targeting its
   // NEW location for the relative-path math — must happen before any
-  // moves, since a moved file's own content needs to be read pre-move.
+  // moves, since a moved file's own content needs to be read pre-move. Scans
+  // the WHOLE tree (not just this library) since files outside it — the app
+  // shell, other libraries' prototypes, etc — can still import a file that's
+  // moving and need their own import specifiers updated too.
   const rewrittenByAbsPath = new Map()
   for (const f of files) {
     const newAbsPath = movedByAbsPath.get(f) ?? f
@@ -224,7 +243,7 @@ function buildPlan(architecture) {
     if (changes.length > 0) rewrittenByAbsPath.set(f, { content, changes })
   }
 
-  return { movedByAbsPath, rewrittenByAbsPath }
+  return { movedByAbsPath, rewrittenByAbsPath, libraryRoot }
 }
 
 function planToSummary({ movedByAbsPath, rewrittenByAbsPath }) {
@@ -236,8 +255,14 @@ function planToSummary({ movedByAbsPath, rewrittenByAbsPath }) {
   }
 }
 
-export function previewRefactor(architecture) {
-  return planToSummary(buildPlan(architecture))
+export function previewRefactor(architecture, libraryId = 'dsm') {
+  return {
+    ...planToSummary(buildPlan(architecture, libraryId)),
+    // Independent of the move/rewrite plan above — a read-only lint of
+    // whether the code's current control flow actually matches this
+    // architecture's rules, not a simulation of the post-move file tree.
+    violations: lintArchitectureViolations(libraryId, architecture),
+  }
 }
 
 // Recursively removes now-empty directories left behind after moving every
@@ -266,14 +291,14 @@ function gitStatusPorcelain() {
   })
 }
 
-export async function applyRefactor(architecture) {
+export async function applyRefactor(architecture, libraryId = 'dsm') {
   const status = await gitStatusPorcelain()
   if (status.trim().length > 0) {
     throw new Error('Working tree has uncommitted changes — commit or stash before applying a Refactor.')
   }
 
-  const plan = buildPlan(architecture)
-  const { movedByAbsPath, rewrittenByAbsPath } = plan
+  const plan = buildPlan(architecture, libraryId)
+  const { movedByAbsPath, rewrittenByAbsPath, libraryRoot } = plan
 
   // Write rewritten content first (still at each file's OLD path), then move
   // every changed file to its new location — a moved file that also needed
@@ -286,24 +311,32 @@ export async function applyRefactor(architecture) {
     fs.renameSync(from, to)
   }
 
-  pruneEmptyDirs(path.join(SRC, '02_components'))
-  writeArchitecture(architecture)
+  pruneEmptyDirs(path.join(SRC, libraryRoot))
+  setLibraryArchitecture(libraryId, architecture)
 
   return { plan: planToSummary(plan) }
 }
 
-const ARCHITECTURE_PATH = path.join(SRC, '00_planning', 'graph', 'architecture.json')
+// Architecture used to live in a single global file (one architecture for
+// the whole app) before per-library tracking existed — folded into each
+// LibraryEntry in libraries.json instead now. Only consulted once, as a
+// migration: if the old file disagrees with the registry's seeded value,
+// the file wins that one time and the registry takes over from then on.
+const LEGACY_ARCHITECTURE_PATH = path.join(SRC, '00_planning', 'graph', 'architecture.json')
 
-export function getCurrentArchitecture() {
-  if (!fs.existsSync(ARCHITECTURE_PATH)) return { current: 'atomic' }
-  try {
-    return JSON.parse(fs.readFileSync(ARCHITECTURE_PATH, 'utf8'))
-  } catch {
-    return { current: 'atomic' }
+export function getCurrentArchitecture(libraryId = 'dsm') {
+  const library = getLibrary(libraryId)
+  if (!library) return { current: 'atomic' }
+  if (libraryId === 'dsm' && fs.existsSync(LEGACY_ARCHITECTURE_PATH)) {
+    try {
+      const { current } = JSON.parse(fs.readFileSync(LEGACY_ARCHITECTURE_PATH, 'utf8'))
+      if (current && current !== library.architecture) {
+        setLibraryArchitecture(libraryId, current)
+        return { current }
+      }
+    } catch {
+      // fall through to the registry's value
+    }
   }
-}
-
-function writeArchitecture(current) {
-  fs.mkdirSync(path.dirname(ARCHITECTURE_PATH), { recursive: true })
-  fs.writeFileSync(ARCHITECTURE_PATH, JSON.stringify({ current }, null, 2))
+  return { current: library.architecture }
 }

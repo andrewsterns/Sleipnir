@@ -1,6 +1,6 @@
 # Plan: Theme: Houseplant (Brutalist-Minimalist Grayscale)
 
-## 1. Context & Research (Citations: 00_research/)
+## 1. Context & Research (Citations: 01_research/)
 - **Source:** User specification (Direct Mission: "Houseplant").
 - **Persona:** IBCS_MISSION_ALPHA (E5 Cyber Network Defender / E3 Patriot Operator).
 - **Goal:** Create a high-contrast, brutalist-retro interface that maximizes readability using a strict grayscale palette and specialized typography.
@@ -30,14 +30,14 @@
 - **Theme Logic:** `src/02_components/themes/`
 - **Asset Integration:** `src/main.tsx` (Global CSS import)
 - **Sandbox/Demo:** `src/03_prototypes/HouseplantShowcase/`
-- **DSM Integration:** `src/02_components/DSM.view.tsx` (Add theme toggle)
+- **Component Library Integration:** `src/02_components/DesignSystem/DesignLibrary.view.tsx` (Add theme toggle)
 
 ## 4. Task Roadmap
 - [x] **Step 1:** Create `src/02_components/themes/houseplant.css` with color ramp and font imports.
 - [x] **Step 2:** Add theme switching logic and `ThemeProvider` to the `02_components/themes/` directory.
 - [x] **Step 3:** Refactor core components (`Button`, `Counter`) to use CSS semantic variables.
 - [ ] **Step 4:** Create `src/02_components/themes/README.md` documenting the modular, nested theme architecture.
-- [ ] **Step 5:** Build a "Side-by-Side" comparison view in `src/02_components/DSM.view.tsx` to demonstrate component reuse across themes.
+- [ ] **Step 5:** Build a "Side-by-Side" comparison view in `src/02_components/DesignSystem/DesignLibrary.view.tsx` to demonstrate component reuse across themes.
 - [ ] **Step 6:** Build `src/03_prototypes/HouseplantShowcase/` as a full-page mission sandbox for the theme.
 
 ## 5. Success Criteria

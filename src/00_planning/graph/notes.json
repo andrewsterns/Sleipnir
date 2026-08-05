@@ -1,1 +1,15 @@
-[]
+{
+  "nodes": [
+    {
+      "id": "plan/verify-plan/hamburgermenu-component-1785511654302",
+      "label": "HamburgerMenu component",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Collapsible nav menu for small viewports.",
+      "status": "approved",
+      "planId": "verify-plan"
+    }
+  ],
+  "edges": []
+}

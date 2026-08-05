@@ -1,18 +1,18 @@
 # Plan: [Name of Plan]
 
-## 1. Context & Research (Citations: 00_research/)
+## 1. Context & Research (Citations: 01_research/)
 - **Source:** [path/to/research.md]
 - **Persona:** [E3 Patriot Fire Control Operator, etc.]
 - **Goal:** [What problem are we solving?]
 
 ## 2. Component Design (Citations: 02_components/)
-- **Affected:** [src/02_components/atoms/...]
+- **Affected:** [src/02_components/01_atoms/...]
 - **Proposed:** [What new theme/style/logic are we adding?]
 
 ## 3. Execution Targets (Directories)
 - **Atoms/Molecules:** `src/02_components/`
 - **Sandbox/Demo:** `src/03_prototypes/`
-- **Validation:** `src/04_tests/`
+- **Validation:** `src/04_validation/`
 - **Feedback:** `src/05_analytics/`
 
 ## 4. Task Roadmap

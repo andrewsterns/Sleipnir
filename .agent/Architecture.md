@@ -1,22 +1,34 @@
-# .agent: Sleipnir Meta-Architecture
+# Project Architecture: Numbered Pipeline
 
-This directory contains the **Constitution of Sleipnir**. It defines the rules, stack, and pipeline that all agents MUST follow.
+Sleipnir is organized as a linear execution pipeline to ensure "vibe coding" —
+by a human or by the built-in AI agent — is always research-grounded. This is
+the short directory map for agents; see the root [`ARCHITECTURE.md`](../ARCHITECTURE.md)
+for the full technical architecture (transport parity, the library/widget
+registries, the planning graph pipeline, the AI agent's tool-use loop, and the
+refactor engine).
 
-## 1. The Constitution
-- **`Architecture.md`**: The technical map and directory hierarchy.
-- **`README.md`**: General project orientation for new agents.
-- **`RULES.md`**: The foundational AI instructions (replaces GEMINI.md).
+## Directory structure
+- `.agent/` — **Meta-Architecture**. Conventions, rules, and system mandates (this directory).
+- `src/00_planning/` — **Execution Roadmaps + Live Registries**. Roadmap docs, the
+  planning graph, and the library/widget registries that make Components and
+  Prototypes extensible beyond their default folders.
+- `src/01_research/` — **Research Documentation**. Personas, proposals, and journey maps. Docs only.
+- `src/02_components/` — **Default Component Library**. `00_themes/ → 01_atoms/ → 02_molecules/ → 03_organisms/ → 04_templates/`. One of potentially many registered component libraries (see `src/00_planning/graph/libraries.json`).
+- `src/03_prototypes/` — **Default Prototype Library**. Consolidated area for all experimental prototypes.
+- `src/04_validation/` — **Session Validation**. Vitest logic for running and verifying prototype tests.
+- `src/05_analytics/` — **Result Data**. Output from testing sessions for further research.
+- `src/06_source_control/` — **Source Control**. Local git status/diff/commit and push/pull/fetch, host-agnostic. Not part of the 00–05 pipeline sequence; reachable from its own nav-rail entry.
+- `src/app/` — **Application Shell**. Sleipnir's own chrome (nav rail, title bar, AI chat, terminal, refactor UI, the design-system editor) — built from `02_components` primitives but not itself a reusable library. Not a pipeline stage.
+- `tools/` — **Shared Backend**. Framework-agnostic Node modules (filesystem, git, refactor engine, codegen) that both the Electron and web dev-server transports call into identically.
+- `electron/` — **Desktop Shell**. Electron main process, IPC handlers, and the Electron-only features (real terminal, AI chat orchestration, encrypted API key storage, native dialogs).
 
-## 2. Pipeline Enforcement (00-05)
-The mandates here enforce the following linear flow in `src/`:
-- **00_research**: The "Why" (Documentation Only).
-- **01_planning**: The "Intent" (Roadmaps).
-- **02_components**: The "How" (Atoms/Molecules/Assets).
-- **03_prototypes**: The "Sandbox" (Vibe Coding).
-- **04_tests**: The "Validation" (Session Logic).
-- **05_analytics**: The "Feedback" (Results).
+## Key boundaries
+1. **01_research is docs only:** No logic in research; a dropped `.md` file becomes a graph node automatically.
+2. **00_planning is the trigger:** Implementation only starts after a roadmap is defined in `00_planning/roadmaps/`.
+3. **02_components is the default source, not the only one:** All UI in a prototype must come from *a* registered component library — `02_components` by default, or another library registered via `src/00_planning/graph/libraries.json`.
+4. **`generate_code` never writes to disk:** The AI agent's code-generation tool always stages content in an editor tab for human review/save — see `.agent/RULES.md`.
 
-## 3. Agent Rules
-- Never move code into `00_research`.
-- Never start building in `03_prototypes` without a roadmap in `01_planning`.
-- All UI must be built as components in `02_components` first.
+## Getting started
+- `npm install`
+- `npm run electron:dev` (desktop app) or `npm run dev` (browser only, `:5183`)
+- `npm test`

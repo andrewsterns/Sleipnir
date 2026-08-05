@@ -6,6 +6,7 @@
    terracotta accent. Drop-in compatible — every token name matches default. */
 
 .theme-houseplant {
+  color-scheme: light;
   --bg-1: #f8f6f0;
   --bg-2: #eeeadf;
   --bg-3: #e4dfcf;

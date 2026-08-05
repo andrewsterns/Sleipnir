@@ -1,9 +1,11 @@
-import type { GraphData, GraphMapId } from './types'
+import type { GraphData } from './types'
 
 // Hand-authored: things that are planned but don't exist in the codebase yet.
 // `edges[].target` should point at an existing node id (see generated/*.json)
-// or another proposed id declared here.
-export const PROPOSED: Record<GraphMapId, GraphData> = {
+// or another proposed id declared here. Partial/optional since a newly
+// registered library has no hand-authored entry yet — combine.ts already
+// falls back to an empty graph when a map has none.
+export const PROPOSED: Partial<Record<string, GraphData>> = {
   dsm: {
     nodes: [
       {
@@ -283,5 +285,73 @@ export const PROPOSED: Record<GraphMapId, GraphData> = {
       },
     ],
     edges: [],
+  },
+  // Always empty — `claude` nodes only ever come from the AI chat's
+  // create_plan_node tool call, persisted at runtime into notes.json (same
+  // mechanism as `todo`'s notes, see tools/sleipnir-backend.mjs).
+  claude: { nodes: [], edges: [] },
+  // Opened-file nodes are always runtime notes (see
+  // tools/sleipnir-backend.mjs#openFileNode) — nothing hand-authored here.
+  open: { nodes: [], edges: [] },
+  // The default landing tab (see graph/types.ts's getGraphMaps) — a real,
+  // working example component plus a few plain guide nodes explaining what
+  // the other tabs are for. Hand-authored here rather than in notes.json
+  // since it's shipped, permanent seed content, not something a user (or
+  // the AI) creates at runtime.
+  welcome: {
+    nodes: [
+      {
+        id: 'src/02_components/01_atoms/WelcomeCard/WelcomeCard.tsx',
+        label: 'WelcomeCard',
+        kind: 'built',
+        map: 'welcome',
+        type: 'atom',
+        filePath: 'src/02_components/01_atoms/WelcomeCard/WelcomeCard.tsx',
+        description: 'A real, working component — not a mockup. Open it in the Component Library to see the View/ViewModel/Interface split every component in Sleipnir follows.',
+      },
+      {
+        id: 'welcome/guide/planning',
+        label: 'What is Planning?',
+        kind: 'proposed',
+        map: 'welcome',
+        type: 'guide',
+        description: 'This graph view maps your whole project — components, prototypes, research docs, and TODOs — as one connected picture instead of scattered files. Each tab above is a different "map" of the same project.',
+      },
+      {
+        id: 'welcome/guide/claude',
+        label: 'What is the CLAUDE tab?',
+        kind: 'proposed',
+        map: 'welcome',
+        type: 'guide',
+        description: 'Ask the AI Chat panel (bottom-right) to plan something, and it drafts step nodes here for you to review and approve individually — nothing gets built until you say so.',
+      },
+      {
+        id: 'welcome/guide/research',
+        label: 'What is Research?',
+        kind: 'proposed',
+        map: 'welcome',
+        type: 'guide',
+        description: 'Drop .md files under src/01_research/ and they show up here automatically — user research, personas, proposals, anything that informs a decision but isn\'t code.',
+      },
+      {
+        id: 'welcome/guide/new-library',
+        label: 'Have your own components?',
+        kind: 'proposed',
+        map: 'welcome',
+        type: 'guide',
+        description: 'Click the "+" at the end of the tabs above to register a new component or prototype library — your own code, organized and graphed the same way this default library is.',
+      },
+    ],
+    // Hub-and-spoke: every guide node connects to the real WelcomeCard
+    // example, so the tab reads as one connected picture on first open
+    // instead of five isolated dots — same "borrows" edge kind used
+    // everywhere else (see graph/types.ts's GraphEdge), even though these
+    // are guide notes rather than real import relationships.
+    edges: [
+      { source: 'welcome/guide/planning', target: 'src/02_components/01_atoms/WelcomeCard/WelcomeCard.tsx', kind: 'borrows' },
+      { source: 'welcome/guide/claude', target: 'src/02_components/01_atoms/WelcomeCard/WelcomeCard.tsx', kind: 'borrows' },
+      { source: 'welcome/guide/research', target: 'src/02_components/01_atoms/WelcomeCard/WelcomeCard.tsx', kind: 'borrows' },
+      { source: 'welcome/guide/new-library', target: 'src/02_components/01_atoms/WelcomeCard/WelcomeCard.tsx', kind: 'borrows' },
+    ],
   },
 }

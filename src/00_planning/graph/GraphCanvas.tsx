@@ -1,42 +1,30 @@
 import React, { useEffect, useMemo, useRef } from 'react'
-import { forceSimulation, forceManyBody, forceLink, forceCenter, forceCollide } from 'd3-force-3d'
-import type { Simulation } from 'd3-force-3d'
-import type { GraphData, GraphNode } from './types'
-
-interface SimNode extends GraphNode {
-  x?: number
-  y?: number
-  vx?: number
-  vy?: number
-  fx?: number | null
-  fy?: number | null
-}
-
-interface SimLink {
-  // forceLink() resolves these from id strings to SimNode references in place
-  // once the simulation initializes, so both shapes have to be handled.
-  source: string | SimNode
-  target: string | SimNode
-}
-
-const linkNode = (endpoint: string | SimNode, nodes: SimNode[]): SimNode | undefined =>
-  typeof endpoint === 'string' ? nodes.find((n) => n.id === endpoint) : endpoint
-
-const linkId = (endpoint: string | SimNode): string => (typeof endpoint === 'string' ? endpoint : endpoint.id)
+import { forceCenter } from 'd3-force-3d'
+import type { GraphData } from './types'
+import { buildForceLayout, linkNode, linkId, nodeRadius } from './layout'
 
 const NODE_COLOR = '#8a94a3'
-const nodeRadius = (node: SimNode): number => (node.kind === 'proposed' ? 4 : 6)
 
 const MIN_SCALE = 0.15
 const MAX_SCALE = 4
+
+// Pointer must move more than this (px) before a background pointer-down
+// counts as a pan-drag rather than a plain click-to-deselect.
+const CLICK_DRAG_THRESHOLD = 4
+
+// Nodes render at a 4-6px radius, too small to click comfortably — pad the
+// actual hit target well beyond the visible circle.
+const NODE_HIT_PADDING = 12
 
 export interface GraphCanvasProps {
   data: GraphData
   selectedId: string | null
   onSelectNode: (id: string) => void
+  /** Double-click a node to jump to its component/prototype source. */
+  onActivateNode?: (id: string) => void
 }
 
-export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode }) => {
+export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, onActivateNode }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const viewportRef = useRef<SVGGElement>(null)
@@ -44,39 +32,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
   const edgeRefs = useRef<Map<number, SVGLineElement>>(new Map())
 
   const view = useRef({ x: 0, y: 0, k: 1 })
-  const pan = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
+  const pan = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null)
   const drag = useRef<{ id: string } | null>(null)
 
   const selectedIdRef = useRef(selectedId)
   selectedIdRef.current = selectedId
 
-  const { simNodes, simLinks, simulation, neighbors } = useMemo(() => {
-    const nodes: SimNode[] = data.nodes.map((n, i) => {
-      const angle = (i / Math.max(1, data.nodes.length)) * Math.PI * 2
-      const spread = 40 + Math.sqrt(data.nodes.length) * 20
-      return { ...n, x: Math.cos(angle) * spread, y: Math.sin(angle) * spread }
-    })
-    const idSet = new Set(nodes.map((n) => n.id))
-    const filteredEdges = data.edges.filter((e) => idSet.has(e.source) && idSet.has(e.target))
-    const links: SimLink[] = filteredEdges.map((e) => ({ source: e.source, target: e.target }))
-
-    const neighborMap = new Map<string, Set<string>>()
-    for (const edge of filteredEdges) {
-      if (!neighborMap.has(edge.source)) neighborMap.set(edge.source, new Set())
-      if (!neighborMap.has(edge.target)) neighborMap.set(edge.target, new Set())
-      neighborMap.get(edge.source)!.add(edge.target)
-      neighborMap.get(edge.target)!.add(edge.source)
-    }
-
-    const sim: Simulation<SimNode> = forceSimulation(nodes, 2)
-      .force('charge', forceManyBody<SimNode>().strength(-360))
-      .force('link', forceLink<SimNode, SimLink>(links).id((n) => n.id).distance(140).strength(0.4))
-      .force('center', forceCenter(0, 0))
-      .force('collide', forceCollide<SimNode>((n) => nodeRadius(n) + 26))
-      .stop()
-
-    return { simNodes: nodes, simLinks: links, simulation: sim, neighbors: neighborMap }
-  }, [data])
+  const { simNodes, simLinks, simulation, neighbors } = useMemo(() => buildForceLayout(data), [data])
 
   // Center the simulation on the actual pixel size of the container.
   useEffect(() => {
@@ -172,8 +134,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
 
   const handleBackgroundPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.target !== svgRef.current) return
-    onSelectNode('')
-    pan.current = { startX: e.clientX, startY: e.clientY, originX: view.current.x, originY: view.current.y }
+    // Deselecting happens on pointer-up (see handlePointerUp), once we know
+    // this was a plain click and not the start of a pan-drag — otherwise
+    // panning away from a selected node would close its card mid-drag.
+    pan.current = { startX: e.clientX, startY: e.clientY, originX: view.current.x, originY: view.current.y, moved: false }
     ;(e.target as Element).setPointerCapture(e.pointerId)
   }
 
@@ -196,10 +160,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
       return
     }
     if (pan.current) {
+      const dx = e.clientX - pan.current.startX
+      const dy = e.clientY - pan.current.startY
+      if (!pan.current.moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) pan.current.moved = true
       view.current = {
         ...view.current,
-        x: pan.current.originX + (e.clientX - pan.current.startX),
-        y: pan.current.originY + (e.clientY - pan.current.startY),
+        x: pan.current.originX + dx,
+        y: pan.current.originY + dy,
       }
       applyTransform()
     }
@@ -214,7 +181,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
       }
       drag.current = null
     }
-    pan.current = null
+    if (pan.current) {
+      // Only a real click (no movement) deselects — a pan-drag leaves the
+      // current selection (and its card) locked in place.
+      if (!pan.current.moved) onSelectNode('')
+      pan.current = null
+    }
   }
 
   return (
@@ -270,9 +242,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                   else nodeGroupRefs.current.delete(node.id)
                 }}
                 onPointerDown={handleNodePointerDown(node.id)}
+                onDoubleClick={() => onActivateNode?.(node.id)}
                 opacity={dimmed ? 0.25 : 1}
                 style={{ cursor: 'pointer' }}
               >
+                <circle r={radius + NODE_HIT_PADDING} fill="transparent" pointerEvents="all" />
                 <circle
                   r={radius}
                   fill={isProposed ? 'none' : color}

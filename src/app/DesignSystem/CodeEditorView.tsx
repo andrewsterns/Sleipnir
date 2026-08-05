@@ -1,26 +1,57 @@
-import React from 'react'
-import { Frame } from '../01_atoms/Frame/Frame'
-import { Dropdown } from '../02_molecules/Dropdown/Dropdown'
+import React, { forwardRef, useImperativeHandle } from 'react'
+import { Frame } from '../UIKit/Frame/Frame'
+import { Dropdown } from '../UIKit/Dropdown/Dropdown'
 import { useCodeEditorViewModel } from './CodeEditorView.ViewModel'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
 export interface CodeEditorViewProps {
-  /** Repo-relative path (from src/) — used for language detection and as the save target. */
+  /** Path relative to whatever root `scope` implies — used for language detection and as the save target. Not always "from src/": see `scope`'s doc comment. */
   path: string
   value: string
   readOnly?: boolean
   onSaved?: () => void
+  /** Staged AI-generated content awaiting human review — disables the 1.2s autosave (only explicit Save/Ctrl+S persists) and shows an "AI-GENERATED — UNSAVED" banner instead of the normal status pill. */
+  suppressAutoSave?: boolean
+  /** Overrides the save target — see CodeEditorView.ViewModel's writeFile param. */
+  writeFile?: (path: string, content: string) => Promise<void>
+  /**
+   * Which root `path` is relative to — determines whether/how LSP attaches
+   * (see ROADMAP.md's Phase 1 fix): `'src'` (default, matches every
+   * pre-existing caller) means `path` is SRC_ROOT-relative; `'repo'` means
+   * `path` is already REPO_ROOT-relative; `'workspace'` disables LSP
+   * entirely (tsserver has no knowledge of an arbitrary opened folder's root).
+   */
+  scope?: 'src' | 'repo' | 'workspace'
+  /** Scrolls/positions the cursor to this line (1-based) once real content loads — set by search-result and quick-open jumps. Re-fires if this changes while the tab stays open (e.g. a second search-result click). */
+  revealLine?: number
 }
 
-export const CodeEditorView: React.FC<CodeEditorViewProps> = ({ path, value, readOnly, onSaved }) => {
-  const { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run } =
-    useCodeEditorViewModel({ path, value, readOnly })
+/** Imperative handle for callers that need to trigger a save from outside — e.g. OpenEditorsView's File > Save All, which can't reach into whichever tab owns the dirty document any other way. */
+export interface CodeEditorHandle {
+  save: () => Promise<void>
+  /** Snapshot as of the last render — accurate by the time a user-triggered Save All actually reads it. */
+  dirty: boolean
+  /** Live LSP diagnostic count for this tab — see ProblemsDock. */
+  problemCount: number
+}
+
+export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(function CodeEditorView(
+  { path, value, readOnly, onSaved, suppressAutoSave, writeFile, scope, revealLine },
+  ref,
+) {
+  const { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run, problemCount } =
+    useCodeEditorViewModel({ path, value, readOnly, suppressAutoSave, startDirty: suppressAutoSave, writeFile, scope, revealLine })
 
   const handleSave = async () => {
     await save()
     onSaved?.()
   }
+
+  // No deps array — handleSave is a fresh closure every render anyway (it
+  // isn't memoized), so bailing out on a stale deps list would just mean a
+  // stale `save` reference. Recomputing every render is cheap here.
+  useImperativeHandle(ref, () => ({ save: handleSave, dirty, problemCount }))
 
   return (
     <Frame flow="vertical" h="fill" w="fill" style={{ position: 'relative' }}>
@@ -34,9 +65,24 @@ export const CodeEditorView: React.FC<CodeEditorViewProps> = ({ path, value, rea
           {status === 'error' && errorMessage && (
             <span style={{ fontSize: 9, color: '#e07a7a', maxWidth: 240, ...MONO }}>{errorMessage}</span>
           )}
-          <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
-            {status === 'saving' ? 'SAVING…' : dirty ? 'UNSAVED' : status === 'saved' ? 'SAVED' : ''}
-          </span>
+          {suppressAutoSave && dirty ? (
+            <span
+              style={{
+                fontSize: 9,
+                letterSpacing: '0.08em',
+                color: '#e0a040',
+                border: '1px solid rgba(224,160,64,0.4)',
+                padding: '2px 6px',
+                ...MONO,
+              }}
+            >
+              AI-GENERATED — UNSAVED
+            </span>
+          ) : (
+            <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
+              {status === 'saving' ? 'SAVING…' : dirty ? 'UNSAVED' : status === 'saved' ? 'SAVED' : ''}
+            </span>
+          )}
           {runnable && (
             <button
               onClick={run}
@@ -96,4 +142,4 @@ export const CodeEditorView: React.FC<CodeEditorViewProps> = ({ path, value, rea
       )}
     </Frame>
   )
-}
+})

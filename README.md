@@ -1,84 +1,171 @@
+# Sleipnir
 
-# Sleipnir Project
+Sleipnir is a desktop workbench for research-driven UI design that ships with a
+built-in AI coding agent. It's an Electron + React (Vite) application, organized
+as a numbered pipeline — research feeds planning, planning feeds components,
+components feed prototypes, prototypes get validated, results feed back into
+research — with a live component-library editor, a multi-provider AI chat that
+can plan and generate code for human review, a real terminal, and a Git panel,
+all built from one shared component library.
 
-## 🚀 First-Time Setup Instructions
+The same app runs three ways with (almost) identical behavior:
+- **Electron desktop app** — the primary target. Native file dialogs, a real
+  terminal (`node-pty`), and an OS-encrypted API key store.
+- **Browser, via `vite`** — everything except the Electron-only features above;
+  useful for fast iteration without packaging.
+- **Containerized, via Docker** — the same browser mode, running inside a
+  container (see [Docker](#docker-optional) below for a current caveat).
+
+## Features
+
+- **Numbered pipeline (`00`–`06`)** — research, planning, components,
+  prototypes, validation, and analytics as ordered stages, plus a
+  source-control panel outside the sequence. See [ARCHITECTURE.md](ARCHITECTURE.md).
+- **AI agent chat** — Anthropic Claude by default (bring your own API key, or
+  fall back to a local Ollama model with no key at all). The agent can create
+  planning nodes, register new libraries, and generate code — but generated
+  code is always staged into an editor tab for you to review and save, never
+  written to disk automatically.
+- **Multi-library registry** — the default component library (`02_components`)
+  and prototype library (`03_prototypes`) are just the seeded entries; register
+  as many additional component/prototype libraries as you want, each with its
+  own folder layout (Atomic, MVVM, MVC, or MVP) and language.
+- **Widget system** — install a read-only browser onto any folder (via *File →
+  Open Folder…* or the built-in Widget Store) as its own entry in the nav rail.
+- **Live component editor** — a CodeMirror-based code editor with real
+  TypeScript language-server support (hover, diagnostics, go-to-definition) via
+  a local LSP proxy, plus a live component preview pane.
+- **Refactor engine** — preview and apply a full folder-layout migration for a
+  component library (Atomic ↔ MVVM ↔ MVC ↔ MVP) without hand-editing imports.
+- **Planning graph** — a force-directed graph of every component/prototype and
+  its import relationships, generated from the actual source tree.
+- **Integrated terminal and Git panel** — a real shell and a status/diff/stage/
+  commit/branch/push/pull UI, without leaving the app.
+
+## Quick start
 
 ### Prerequisites
-- **Node.js** (v18+ recommended): https://nodejs.org/
-- **Docker Desktop**: https://www.docker.com/products/docker-desktop/
-- **Nx CLI** (global, optional but recommended):
-  ```sh
-  npm install -g nx
-  ```
+- **Node.js 20+** (the Docker image pins `20.17`; 18+ likely works for local
+  dev but isn't tested here)
+- **Git**, available on `PATH` — required by the Source Control panel, the
+  refactor engine's dirty-tree check, and Husky's pre-commit hook
+- **Docker Desktop** — only if you want the containerized dev mode
 
-### 1. Clone the Repository
+### 1. Install
 ```sh
 git clone <repo-url>
 cd Sleipnir
-```
-
-### 2. Install Dependencies
-```sh
 npm install
 ```
 
-### 3. Start Docker (Required for all development)
-- Make sure Docker Desktop is running before any Nx or npm commands.
-- All Nx commands are run inside Docker containers for consistency.
+### 2. Run it
 
-### 4. Run the App
+**Desktop app (recommended)** — starts the Vite dev server and an Electron
+window pointed at it:
 ```sh
-npm run docker:up         # Start Docker containers
-npm run docker:nx serve   # Serve the app via Docker/Nx
+npm run electron:dev
 ```
 
-### 5. Run Tests
+**Browser only** — starts just the Vite dev server at
+`http://localhost:5183` (the port is fixed in `vite.config.ts`; native
+dialogs, the terminal, and the OS-encrypted key store aren't available here):
 ```sh
-npm run docker:test
+npm run dev
 ```
 
-### 6. Stop Docker Containers
+### 3. Test and lint
 ```sh
-npm run docker:down
+npm test        # vitest, watch mode
+npm run test:run # vitest, single run
+npm run lint
 ```
 
----
+### 4. Build
 
-For more, see the Nx documentation: https://nx.dev/getting-started/intro
+```sh
+npm run build          # tsc -b && vite build -> dist/
+npm run electron:build # build + electron-builder -> release/ (dmg/nsis/AppImage)
+```
 
-Welcome to the Sleipnir project! This project is organized as an Nx monorepo for maximum collaborative efficiency, research-driven design, and clear planning workflows.
+## Configuring the AI agent
 
-## Key Directories
-- `/src/research/` — Research data, analytics, personas, and research views
-- `/src/prototypes/` — Interactive prototypes and user test modules
-- `/src/dsm/` — Design System Master (component library, DSM UI)
-- `/src/components/` — Shared UI components
+Open the Agent dock (bottom of the app) and use its key settings popover to
+add an Anthropic API key — it's encrypted at rest via the OS keychain
+(`electron/apiKeyStore.cjs`) and never sent back to the renderer once saved.
+No key configured? The agent falls back to a local [Ollama](https://ollama.com)
+model (`qwen2.5-coder:7b` by default) at `http://localhost:11434` — install
+Ollama and pull that model if you want the no-key path. Set
+`SLEIPNIR_MODEL_PROVIDER=anthropic|ollama` to force a provider.
 
-## Nx Monorepo
-- Nx is used for project management, code generation, and scaling
-- Use `nx serve` to run the main app, `nx build` to build, and `nx test` for testing
+## Docker (optional)
 
-## Getting Started
-- Install dependencies: `npm install`
-- Run the app: `nx serve` (or `npm start` for legacy setup)
-- Build: `nx build`
-- Test: `nx test`
+```sh
+npm run docker:up         # docker-compose up -d
+npm run docker:nx serve   # nx serve inside the container
+npm run docker:test       # npm test inside the container
+npm run docker:down       # docker-compose down
+```
 
-## App Navigation
-- Main menu (tabs or sidebar) with:
-  - Research
-  - Prototypes
-  - DSM (Design System Master)
+> **Known caveat:** `docker-compose.yml` and `docker/Dockerfile.dev` currently
+> expose port `5173`, but the Vite dev server is pinned to `5183`
+> (`vite.config.ts`, `strictPort: true`) — the container's dev server won't be
+> reachable on the mapped port until that's fixed. Prefer `npm run dev` or
+> `npm run electron:dev` for now.
 
-## Conventions
-- MVVM: `.view`, `.viewModel`, `.model` file naming
-- All planning and design should reference research data
+## Scripts
 
-## Next Steps
-- Use the Research tab for research data and analytics
-- Use the Prototypes tab for interactive prototypes
-- Use the DSM tab for component library and design system documentation
+| Script | What it does |
+| --- | --- |
+| `npm run dev` / `npm start` | Vite dev server at `:5183` |
+| `npm run electron:dev` | Vite dev server + Electron window, concurrently |
+| `npm run build` | Type-check (`tsc -b`) then `vite build` → `dist/` |
+| `npm run electron:build` | `build` then `electron-builder` → `release/` |
+| `npm test` / `test:ui` / `test:run` | Vitest — watch, UI, and single-run modes |
+| `npm run lint` | ESLint over the repo |
+| `npm run preview` | Serve the built `dist/` output |
+| `npm run generate:mvvm` | Scaffold a View/ViewModel/interface triplet (`tools/generate-mvvm.mjs`) |
+| `npm run generate:graph` | Regenerate the planning graph JSON for every registered library (`tools/generate-graph.mjs`) |
+| `npm run docker:up` / `docker:down` | Start/stop the dev container |
+| `npm run docker:nx <target>` | Run an Nx target inside the dev container |
+| `npm run docker:test` | Run `npm test` inside the dev container |
 
----
+Pre-commit hooks (Husky + lint-staged) run ESLint and Prettier on staged
+`.js/.jsx/.ts/.tsx` files and Prettier on staged `.json/.md/.css` files.
 
-For more, see the Nx documentation: https://nx.dev/getting-started/intro
+## Project layout
+
+```
+electron/     Electron main process, IPC handlers, terminal/chat/key-store backends
+src/
+  00_planning/  Roadmap engine, planning graph, library + widget registries
+  01_research/  Docs-only research graph (personas, proposals, analytics)
+  02_components/  Default component library (atoms -> molecules -> organisms -> templates)
+  03_prototypes/  Default prototype library
+  04_validation/  Test/validation logic (Vitest)
+  05_analytics/   Test-session results and reporting
+  06_source_control/  Git panel — outside the numbered pipeline
+  app/          Sleipnir's own application shell (nav rail, docks, editor, AI chat, ...)
+  utils/        Small cross-cutting helpers
+tools/        Shared Node backend (filesystem, git, refactor engine, codegen scripts)
+docker/       Dev/prod Dockerfiles
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how these actually fit together —
+the dual Electron/web transport, the library and widget extensibility model,
+the planning graph pipeline, and the AI agent's tool-use loop. Most
+directories also carry their own `README.md` with directory-specific
+conventions.
+
+## For AI agents working in this repo
+
+Start at [AGENT.md](AGENT.md), which points to [`.agent/RULES.md`](.agent/RULES.md)
+(the operating mandates) and [`.agent/Architecture.md`](.agent/Architecture.md)
+(the directory map).
+
+## Nx
+
+This workspace is Nx-managed (`nx.json`, `project.json`) but currently defines
+a single application project whose targets just wrap the npm scripts above
+(`nx serve` → `vite`, `nx build` → `npm run build`, `nx test` → `vitest run`,
+`nx lint` → `eslint .`). See [nx-integration.md](nx-integration.md) for details
+and notes on growing this into a true multi-project workspace.

@@ -1,15 +1,16 @@
 import React from 'react'
-import { Frame } from '../01_atoms/Frame/Frame'
+import { Frame } from '../UIKit/Frame/Frame'
 import { getComponentPreview } from './DesignLibrary.ViewModel'
-import { Text } from '../01_atoms/Text/Text'
+import { Text } from '../UIKit/Text/Text'
 
 interface ComponentPreviewProps {
   activeComponent: string
+  activeComponentPath?: string
   onActiveComponentChange: (component: string) => void
   children?: React.ReactNode
 }
 
-export const ComponentPreview = ({ activeComponent }: ComponentPreviewProps) => {
+export const ComponentPreview = ({ activeComponent, activeComponentPath }: ComponentPreviewProps) => {
   return (
     <Frame
       flow="horizontal"
@@ -20,7 +21,7 @@ export const ComponentPreview = ({ activeComponent }: ComponentPreviewProps) => 
       fill={{ solid: 'bg-1' }}
       clipContent
     >
-      {getComponentPreview(activeComponent) ?? (
+      {getComponentPreview(activeComponent, activeComponentPath) ?? (
         <Text variant="small" color="text-2" mono>No preview available</Text>
       )}
     </Frame>

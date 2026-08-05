@@ -22,7 +22,7 @@ const REPO_ROOT = path.resolve(__dirname, '..')
 
 // The browser/renderer has no way to know this machine's absolute repo
 // path, so the frontend always speaks in terms of this fake, stable root
-// URI (see src/02_components/DesignSystem/lspClient.ts) and this proxy
+// URI (see src/app/DesignSystem/lspClient.ts) and this proxy
 // rewrites it to/from the real file:// URI on the way through — the one
 // place that translation needs to happen.
 export const FAKE_ROOT_URI = 'file:///__SLEIPNIR_ROOT__'
@@ -32,8 +32,25 @@ function toRealUris(json) {
   return json.split(FAKE_ROOT_URI).join(REAL_ROOT_URI)
 }
 
+// Messages typescript-language-server constructs itself from filesystem
+// paths (publishDiagnostics, definitions, ...) don't always echo the drive
+// segment back byte-for-byte the way Node's pathToFileURL wrote it — on
+// Windows it's been observed emitting a lowercase, percent-encoded drive
+// letter (file:///c%3A/...) instead of REAL_ROOT_URI's uppercase, literal
+// colon (file:///C:/...). A plain string split/join silently fails to match
+// that variant, which drops every such message client-side (it doesn't
+// recognize the URI as any document it has open) — so match the root
+// case/encoding-insensitively instead of as an exact string.
+const REAL_ROOT_PATTERN = (() => {
+  const m = /^file:\/\/\/([a-zA-Z]):(.*)$/.exec(REAL_ROOT_URI)
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (!m) return new RegExp(escape(REAL_ROOT_URI), 'g')
+  const [, drive, rest] = m
+  return new RegExp(`file:///${drive}(?::|%3[aA])${escape(rest)}`, 'gi')
+})()
+
 function toFakeUris(json) {
-  return json.split(REAL_ROOT_URI).join(FAKE_ROOT_URI)
+  return json.replace(REAL_ROOT_PATTERN, FAKE_ROOT_URI)
 }
 
 function createLspReader(onMessage) {

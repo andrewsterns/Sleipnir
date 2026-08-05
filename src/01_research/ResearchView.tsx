@@ -1,8 +1,8 @@
 import React from 'react'
-import { Frame } from '../02_components/01_atoms/Frame/Frame'
-import { ScrollWindow } from '../02_components/02_molecules/ScrollWindow/ScrollWindow'
-import { Search } from '../02_components/02_molecules/Search/Search'
-import { CodeEditorView } from '../02_components/DesignSystem/CodeEditorView'
+import { Frame } from '../app/UIKit/Frame/Frame'
+import { ScrollWindow } from '../app/UIKit/ScrollWindow/ScrollWindow'
+import { Search } from '../app/UIKit/Search/Search'
+import { CodeEditorView } from '../app/DesignSystem/CodeEditorView'
 import { useResearchViewModel } from './ResearchView.ViewModel'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }

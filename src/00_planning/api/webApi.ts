@@ -13,8 +13,22 @@ import type {
   RunResult,
   Architecture,
   RefactorPlan,
+  LibraryEntry,
+  LibraryKind,
+  WidgetEntry,
+  NewWidgetInput,
+  WidgetCatalogEntry,
+  GitStatus,
+  GitBranch,
+  GitBranchTree,
+  GitOpResult,
+  GitIdentity,
+  PreviewConfig,
+  PreviewConfigEntry,
+  WorkspaceInfo,
+  SearchMatch,
 } from './PlatformAPI'
-import type { GraphNode } from '../graph/types'
+import type { GraphEdge, GraphNode, NodeStatus, SavedPlan } from '../graph/types'
 
 async function asJson<T>(res: Response): Promise<T> {
   const data = await res.json()
@@ -30,11 +44,12 @@ export const webApi: PlatformAPI = {
     tier: ComponentTier,
     language?: ScaffoldLanguage,
     parts?: ScaffoldPart[],
+    libraryId?: string,
   ): Promise<ScaffoldComponentResult> {
     return fetch('/api/sleipnir/scaffold-component', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, tier, language, parts }),
+      body: JSON.stringify({ name, tier, language, parts, libraryId }),
     }).then((res) => asJson<ScaffoldComponentResult>(res))
   },
 
@@ -42,6 +57,51 @@ export const webApi: PlatformAPI = {
     return fetch('/api/sleipnir/regenerate-graph', { method: 'POST' }).then((res) =>
       asJson<{ stdout: string }>(res),
     )
+  },
+
+  createLibrary(input): Promise<{ library: LibraryEntry }> {
+    return fetch('/api/sleipnir/create-library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }).then((res) => asJson<{ library: LibraryEntry }>(res))
+  },
+
+  listLibraries(kind?: LibraryKind): Promise<{ libraries: LibraryEntry[] }> {
+    const qs = kind ? `?kind=${encodeURIComponent(kind)}` : ''
+    return fetch(`/api/sleipnir/libraries${qs}`).then((res) => asJson<{ libraries: LibraryEntry[] }>(res))
+  },
+
+  removeLibrary(id: string): Promise<void> {
+    return fetch('/api/sleipnir/remove-library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  deleteLibrary(id: string): Promise<void> {
+    return fetch('/api/sleipnir/delete-library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  listWidgets(): Promise<{ widgets: WidgetEntry[] }> {
+    return fetch('/api/sleipnir/widgets').then((res) => asJson<{ widgets: WidgetEntry[] }>(res))
+  },
+
+  installWidget(input: NewWidgetInput): Promise<{ widget: WidgetEntry }> {
+    return fetch('/api/sleipnir/install-widget', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }).then((res) => asJson<{ widget: WidgetEntry }>(res))
+  },
+
+  getWidgetCatalog(): Promise<{ catalog: WidgetCatalogEntry[] }> {
+    return fetch('/api/sleipnir/widget-catalog').then((res) => asJson<{ catalog: WidgetCatalogEntry[] }>(res))
   },
 
   readFile(path: string): Promise<{ content: string }> {
@@ -64,6 +124,26 @@ export const webApi: PlatformAPI = {
     )
   },
 
+  listRepoDir(path: string, extraFiles?: string[]): Promise<{ tree: FileTreeNode[] }> {
+    const qs = new URLSearchParams({ path })
+    for (const f of extraFiles ?? []) qs.append('extraFiles', f)
+    return fetch(`/api/sleipnir/list-repo-dir?${qs}`).then((res) => asJson<{ tree: FileTreeNode[] }>(res))
+  },
+
+  readRepoFile(path: string): Promise<{ content: string }> {
+    return fetch(`/api/sleipnir/read-repo-file?path=${encodeURIComponent(path)}`).then((res) =>
+      asJson<{ content: string }>(res),
+    )
+  },
+
+  writeRepoFile(path: string, content: string): Promise<void> {
+    return fetch('/api/sleipnir/write-repo-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, content }),
+    }).then((res) => asJson<void>(res))
+  },
+
   createFile(path: string, content?: string): Promise<void> {
     return fetch('/api/sleipnir/create-file', {
       method: 'POST',
@@ -80,6 +160,88 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<void>(res))
   },
 
+  importPath(sourceAbsolutePath: string, destRepoRelativeDir: string): Promise<{ path: string }> {
+    return fetch('/api/sleipnir/import-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceAbsolutePath, destRepoRelativeDir }),
+    }).then((res) => asJson<{ path: string }>(res))
+  },
+
+  getWorkspaceInfo(): Promise<WorkspaceInfo> {
+    return fetch('/api/sleipnir/workspace/info').then((res) => asJson<WorkspaceInfo>(res))
+  },
+
+  listWorkspaceDir(path: string): Promise<{ tree: FileTreeNode[] }> {
+    return fetch(`/api/sleipnir/workspace/list-dir?path=${encodeURIComponent(path)}`).then((res) =>
+      asJson<{ tree: FileTreeNode[] }>(res),
+    )
+  },
+
+  readWorkspaceFile(path: string): Promise<{ content: string }> {
+    return fetch(`/api/sleipnir/workspace/read-file?path=${encodeURIComponent(path)}`).then((res) =>
+      asJson<{ content: string }>(res),
+    )
+  },
+
+  writeWorkspaceFile(path: string, content: string): Promise<void> {
+    return fetch('/api/sleipnir/workspace/write-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, content }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  createWorkspaceFile(path: string, content?: string): Promise<void> {
+    return fetch('/api/sleipnir/workspace/create-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, content }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  createWorkspaceDir(path: string): Promise<void> {
+    return fetch('/api/sleipnir/workspace/create-dir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  searchRepo(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }> {
+    const params = new URLSearchParams({ query, ...(opts?.limit ? { limit: String(opts.limit) } : {}) })
+    return fetch(`/api/sleipnir/search-repo?${params}`).then((res) => asJson<{ matches: SearchMatch[]; truncated: boolean }>(res))
+  },
+
+  searchWorkspace(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }> {
+    const params = new URLSearchParams({ query, ...(opts?.limit ? { limit: String(opts.limit) } : {}) })
+    return fetch(`/api/sleipnir/search-workspace?${params}`).then((res) => asJson<{ matches: SearchMatch[]; truncated: boolean }>(res))
+  },
+
+  listRepoTree(): Promise<{ tree: FileTreeNode[] }> {
+    return fetch('/api/sleipnir/list-repo-tree').then((res) => asJson<{ tree: FileTreeNode[] }>(res))
+  },
+
+  detectPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfig | null }> {
+    return fetch(`/api/sleipnir/detect-preview-config?path=${encodeURIComponent(folderRepoRelativePath)}`).then((res) =>
+      asJson<{ config: PreviewConfig | null }>(res),
+    )
+  },
+
+  getPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfigEntry | null }> {
+    return fetch(`/api/sleipnir/preview-config?path=${encodeURIComponent(folderRepoRelativePath)}`).then((res) =>
+      asJson<{ config: PreviewConfigEntry | null }>(res),
+    )
+  },
+
+  setPreviewConfig(folderRepoRelativePath: string, config: PreviewConfig): Promise<{ config: PreviewConfigEntry }> {
+    return fetch('/api/sleipnir/preview-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: folderRepoRelativePath, config }),
+    }).then((res) => asJson<{ config: PreviewConfigEntry }>(res))
+  },
+
   getArchivedPaths(): Promise<{ entries: ArchiveEntry[] }> {
     return fetch('/api/sleipnir/archive').then((res) => asJson<{ entries: ArchiveEntry[] }>(res))
   },
@@ -92,8 +254,8 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ entries: ArchiveEntry[] }>(res))
   },
 
-  getNotes(): Promise<{ notes: GraphNode[] }> {
-    return fetch('/api/sleipnir/notes').then((res) => asJson<{ notes: GraphNode[] }>(res))
+  getNotes(): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
+    return fetch('/api/sleipnir/notes').then((res) => asJson<{ nodes: GraphNode[]; edges: GraphEdge[] }>(res))
   },
 
   addNote(map: string, label: string, description?: string): Promise<{ node: GraphNode }> {
@@ -104,6 +266,55 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ node: GraphNode }>(res))
   },
 
+  createPlanNode(
+    planId: string,
+    label: string,
+    description?: string,
+    parentId?: string,
+  ): Promise<{ node: GraphNode }> {
+    return fetch('/api/sleipnir/plan-node', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId, label, description, parentId }),
+    }).then((res) => asJson<{ node: GraphNode }>(res))
+  },
+
+  setNodeStatus(id: string, status: NodeStatus): Promise<{ node: GraphNode }> {
+    return fetch('/api/sleipnir/node-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    }).then((res) => asJson<{ node: GraphNode }>(res))
+  },
+
+  openFileNode(path: string, label?: string): Promise<{ node: GraphNode }> {
+    return fetch('/api/sleipnir/open-file-node', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, label }),
+    }).then((res) => asJson<{ node: GraphNode }>(res))
+  },
+
+  getPlans(): Promise<{ plans: SavedPlan[] }> {
+    return fetch('/api/sleipnir/plans').then((res) => asJson<{ plans: SavedPlan[] }>(res))
+  },
+
+  createPlan(label: string, nodeIds: string[]): Promise<{ plan: SavedPlan }> {
+    return fetch('/api/sleipnir/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, nodeIds }),
+    }).then((res) => asJson<{ plan: SavedPlan }>(res))
+  },
+
+  deletePlan(id: string): Promise<void> {
+    return fetch('/api/sleipnir/delete-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).then((res) => asJson<void>(res))
+  },
+
   runScript(path: string): Promise<RunResult> {
     return fetch('/api/sleipnir/run-script', {
       method: 'POST',
@@ -112,23 +323,107 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<RunResult>(res))
   },
 
-  previewRefactor(architecture: Architecture): Promise<RefactorPlan> {
+  previewRefactor(architecture: Architecture, libraryId?: string): Promise<RefactorPlan> {
     return fetch('/api/sleipnir/refactor/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ architecture }),
+      body: JSON.stringify({ architecture, libraryId }),
     }).then((res) => asJson<RefactorPlan>(res))
   },
 
-  applyRefactor(architecture: Architecture): Promise<{ plan: RefactorPlan }> {
+  applyRefactor(architecture: Architecture, libraryId?: string): Promise<{ plan: RefactorPlan }> {
     return fetch('/api/sleipnir/refactor/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ architecture }),
+      body: JSON.stringify({ architecture, libraryId }),
     }).then((res) => asJson<{ plan: RefactorPlan }>(res))
   },
 
-  getCurrentArchitecture(): Promise<{ current: Architecture }> {
-    return fetch('/api/sleipnir/refactor/current').then((res) => asJson<{ current: Architecture }>(res))
+  getCurrentArchitecture(libraryId?: string): Promise<{ current: Architecture }> {
+    const qs = libraryId ? `?libraryId=${encodeURIComponent(libraryId)}` : ''
+    return fetch(`/api/sleipnir/refactor/current${qs}`).then((res) => asJson<{ current: Architecture }>(res))
+  },
+
+  getGitStatus(): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/status').then((res) => asJson<GitStatus>(res))
+  },
+
+  getGitDiff(path: string, staged?: boolean): Promise<{ diff: string }> {
+    const qs = `?path=${encodeURIComponent(path)}&staged=${staged ? '1' : '0'}`
+    return fetch(`/api/sleipnir/git/diff${qs}`).then((res) => asJson<{ diff: string }>(res))
+  },
+
+  stageFiles(paths: string[]): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/stage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  unstageFiles(paths: string[]): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/unstage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  commitChanges(message: string): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  getBranches(): Promise<GitBranch[]> {
+    return fetch('/api/sleipnir/git/branches')
+      .then((res) => asJson<{ branches: GitBranch[] }>(res))
+      .then((data) => data.branches)
+  },
+
+  getBranchTree(): Promise<GitBranchTree> {
+    return fetch('/api/sleipnir/git/branch-tree').then((res) => asJson<GitBranchTree>(res))
+  },
+
+  checkoutBranch(name: string): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  createBranch(name: string): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/create-branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  gitPush(): Promise<GitOpResult> {
+    return fetch('/api/sleipnir/git/push', { method: 'POST' }).then((res) => asJson<GitOpResult>(res))
+  },
+
+  gitPull(): Promise<GitOpResult> {
+    return fetch('/api/sleipnir/git/pull', { method: 'POST' }).then((res) => asJson<GitOpResult>(res))
+  },
+
+  gitFetch(): Promise<GitOpResult> {
+    return fetch('/api/sleipnir/git/fetch', { method: 'POST' }).then((res) => asJson<GitOpResult>(res))
+  },
+
+  getGitIdentity(): Promise<GitIdentity> {
+    return fetch('/api/sleipnir/git/identity').then((res) => asJson<GitIdentity>(res))
+  },
+
+  setGitIdentity(name: string, email: string): Promise<GitIdentity> {
+    return fetch('/api/sleipnir/git/identity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    }).then((res) => asJson<GitIdentity>(res))
   },
 }
