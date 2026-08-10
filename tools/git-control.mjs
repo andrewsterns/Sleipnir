@@ -6,16 +6,22 @@
 // plain plumbing-command calls. Host-agnostic: works against whatever
 // `origin` a project actually has (GitHub here), never a specific host's API.
 import { execFile } from 'node:child_process'
+import { getWorkspaceRoot } from './workspace-root.mjs'
 
-const REPO_ROOT = process.cwd()
 const GIT_TIMEOUT_MS = 15_000
 
+// Source Control visualizes/manages whichever project is currently open
+// (see tools/workspace-root.mjs) rather than Sleipnir's own repo — unlike
+// Planning/Research, it has no data of its own to bundle per-project; git
+// itself already is that store, just pointed at a different working tree.
 function git(args) {
+  const cwd = getWorkspaceRoot()
+  if (!cwd) throw new Error('No project is open')
   return new Promise((resolve) => {
     execFile(
       'git',
       args,
-      { cwd: REPO_ROOT, timeout: GIT_TIMEOUT_MS, maxBuffer: 20 * 1024 * 1024 },
+      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 20 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (!err) {
           resolve({ stdout, stderr, exitCode: 0 })
@@ -108,6 +114,37 @@ export async function unstageFiles(paths) {
   if (!paths?.length) throw new Error('No files given to unstage.')
   const { exitCode, stderr } = await git(['reset', '--', ...paths])
   if (exitCode !== 0) throw new Error(stderr || 'git reset failed')
+  return getStatus()
+}
+
+// Discard working-tree changes for the given paths — the Source Control
+// "Discard changes" action. Classifies each path against a fresh status:
+// modified/deleted tracked files are reverted to HEAD (index + worktree),
+// while untracked files and staged-but-new files are unstaged and removed
+// from the working tree (they have no HEAD version to restore). Destructive,
+// so the renderer confirms first (see SourceControlView).
+export async function discardFiles(paths) {
+  await ensureRepo()
+  if (!paths?.length) throw new Error('No files given to discard.')
+  const status = await getStatus()
+  const byPath = new Map(status.files.map((f) => [f.path, f]))
+  const remove = []
+  const restore = []
+  for (const p of paths) {
+    const f = byPath.get(p)
+    if (f && (f.untracked || (f.staged && f.indexStatus === 'A'))) remove.push(p)
+    else restore.push(p)
+  }
+  if (restore.length) {
+    const { exitCode, stderr } = await git(['checkout', 'HEAD', '--', ...restore])
+    if (exitCode !== 0) throw new Error(stderr || 'git checkout failed')
+  }
+  if (remove.length) {
+    // Unstage first so a staged-new file becomes untracked, then clean removes it.
+    await git(['reset', '--', ...remove])
+    const { exitCode, stderr } = await git(['clean', '-fd', '--', ...remove])
+    if (exitCode !== 0) throw new Error(stderr || 'git clean failed')
+  }
   return getStatus()
 }
 
@@ -227,6 +264,16 @@ export async function createBranch(name) {
   await ensureRepo()
   const { exitCode, stderr } = await git(['checkout', '-b', name])
   if (exitCode !== 0) throw new Error(stderr || `Failed to create branch "${name}"`)
+  return getStatus()
+}
+
+// `git branch -m <old> <new>` works whether or not `oldName` is the
+// currently checked-out branch — no special-casing needed either way.
+export async function renameBranch(oldName, newName) {
+  await ensureRepo()
+  if (!newName || !newName.trim()) throw new Error('New branch name is required')
+  const { exitCode, stderr } = await git(['branch', '-m', oldName, newName.trim()])
+  if (exitCode !== 0) throw new Error(stderr || `Failed to rename branch "${oldName}" to "${newName}"`)
   return getStatus()
 }
 

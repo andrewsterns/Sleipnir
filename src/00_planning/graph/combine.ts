@@ -36,11 +36,11 @@ export function getGraphForMap(map: GraphMapId): GraphData {
 // at build time). Used after scaffolding a new component so it shows up
 // without a full page reload.
 export async function refreshGraphForMap(map: GraphMapId): Promise<GraphData> {
-  // `todo`/`claude`/`welcome`/`open` have no generated/<map>.json on disk
-  // (nothing to re-fetch) — their nodes only ever come from the hand-authored
+  // `todo`/`claude`/`welcome` have no generated/<map>.json on disk (nothing
+  // to re-fetch) — their nodes only ever come from the hand-authored
   // PROPOSED list (`todo`, `welcome`) or runtime notes (`claude`'s plan
-  // nodes, `open`'s opened-file nodes — see tools/sleipnir-backend.mjs).
-  if (map === 'todo' || map === 'claude' || map === 'welcome' || map === 'open') return getGraphForMap(map)
+  // nodes — see tools/sleipnir-backend.mjs).
+  if (map === 'todo' || map === 'claude' || map === 'welcome') return getGraphForMap(map)
   const res = await fetch(`/src/00_planning/graph/generated/${map}.json?t=${Date.now()}`)
   if (!res.ok) throw new Error(`Failed to refresh ${map} graph (${res.status})`)
   const generated = (await res.json()) as GraphData

@@ -5,11 +5,19 @@ import { IconButton } from '../UIKit/IconButton/IconButton'
 import { Chip } from '../UIKit/Chip/Chip'
 import { Search } from '../UIKit/Search/Search'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
+import { SidebarHeader } from '../UIKit/SidebarHeader/SidebarHeader'
+import { ContextMenu } from '../UIKit/ContextMenu/ContextMenu'
+import { DeletePathModal } from './DeletePathModal'
+import { RenamePathModal } from './RenamePathModal'
+import { useFileClipboard, setFileClipboard, getFileClipboard } from '../UIKit/fileClipboard'
 import {
   createFile as createSrcFile,
   createDir as createSrcDir,
   setArchived,
   regenerateGraph,
+  renameWorkspacePath,
+  copyWorkspacePath,
+  getWorkspaceInfo,
   type FileTreeNode,
   type ArchiveEntry,
 } from '../../00_planning/api/sleipnirApi'
@@ -20,6 +28,8 @@ interface LeftRailingProps {
   tree: FileTreeNode[]
   archivedEntries: ArchiveEntry[]
   activePath: string
+  /** Every open tab's path (the active one included) — all render at the brightest text tier, above NEW-but-unopened files, which in turn sit above plain older files. */
+  openPaths: Set<string>
   newPaths: Set<string>
   onSelectFile: (file: { name: string; path: string }) => void
   onChanged: () => void
@@ -28,6 +38,8 @@ interface LeftRailingProps {
   headerAction?: ReactNode
   /** The library's root folder (e.g. '02_components' or '02_components_myLibrary') — drives the header label and where root-level creates land. */
   rootPath?: string
+  /** Overrides the displayed header label without affecting `rootPath`'s role in create paths — e.g. Workspace shows the open folder's name here while rootPath itself stays ''. */
+  rootLabel?: string
   /** Hides every create/archive/restore affordance (root "+", per-row "+"/"×", the archived section) — for widgets browsing a folder they can't or shouldn't mutate (e.g. node_modules). */
   readOnly?: boolean
   /** Tier filter chips shown in the search row. Defaults to the Components/Prototypes atom-molecule-organism-template-page set; pass [] to hide the filter control entirely for a widget where tiering is meaningless (e.g. Docker). */
@@ -66,6 +78,10 @@ interface LeftRailingProps {
   onMutated?: () => Promise<void>
   /** Shows the per-row/root archive "×" and the ARCHIVED section. Defaults to true (today's behavior). Workspace passes false — no archive/delete support for arbitrary external folders in Phase 0. */
   supportsArchive?: boolean
+  /** Enables the right-click "Delete" context menu on every row — undefined (the default) hides it entirely, same opt-in shape as createFile/createDir. Workspace/Research pass their workspace-scoped deleteWorkspacePath; scope:'src'/'repo' callers don't, since there's no equivalent permanent-delete backend for those roots today. */
+  deletePath?: (path: string) => Promise<void>
+  /** Fired right after a successful delete, before onChanged's refresh — lets the caller close any open tab(s) under the deleted path so they don't dangle pointing at a file that no longer exists. */
+  onDeleted?: (path: string, isDir: boolean) => void
 }
 
 function isAncestorOf(dirPath: string, targetPath: string): boolean {
@@ -89,6 +105,30 @@ function collectFilePaths(node: FileTreeNode, into: string[]) {
     return
   }
   for (const child of node.children ?? []) collectFilePaths(child, into)
+}
+
+const parentDir = (p: string): string => {
+  const i = p.lastIndexOf('/')
+  return i >= 0 ? p.slice(0, i) : ''
+}
+const baseName = (p: string): string => {
+  const i = p.lastIndexOf('/')
+  return i >= 0 ? p.slice(i + 1) : p
+}
+const joinPath = (dir: string, name: string): string => (dir ? `${dir}/${name}` : name)
+
+// Pick a name not already used among `siblings`, appending " copy"/" copy N"
+// before any extension — the paste conflict policy (never overwrite).
+function deconflictName(base: string, siblings: FileTreeNode[]): string {
+  const names = new Set(siblings.map((s) => s.name))
+  if (!names.has(base)) return base
+  const dot = base.lastIndexOf('.')
+  const stem = dot > 0 ? base.slice(0, dot) : base
+  const ext = dot > 0 ? base.slice(dot) : ''
+  let candidate = `${stem} copy${ext}`
+  let i = 2
+  while (names.has(candidate)) candidate = `${stem} copy ${i++}${ext}`
+  return candidate
 }
 
 // Keeps a node if its own name matches, or (for dirs) if any descendant
@@ -216,6 +256,7 @@ function InlineCreateForm({
         style={{
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 'var(--radius-2)',
           color: 'var(--text-1)',
           fontSize: 12,
           padding: '6px 8px',
@@ -231,6 +272,7 @@ function TreeNodeRow({
   node,
   depth,
   activePath,
+  openPaths,
   newPaths,
   onSelectFile,
   onChanged,
@@ -243,10 +285,12 @@ function TreeNodeRow({
   createDir,
   onMutated,
   supportsArchive,
+  onContextMenu,
 }: {
   node: FileTreeNode
   depth: number
   activePath: string
+  openPaths: Set<string>
   newPaths: Set<string>
   onSelectFile: (file: { name: string; path: string }) => void
   onChanged: () => void
@@ -260,6 +304,8 @@ function TreeNodeRow({
   createDir: (path: string) => Promise<void>
   onMutated: () => Promise<void>
   supportsArchive: boolean
+  /** Reports a right-click on this row back to LeftRailing, which owns the actual context-menu/delete-modal state — undefined (when the caller didn't pass `deletePath`) leaves the native browser context menu untouched. */
+  onContextMenu?: (e: React.MouseEvent, node: FileTreeNode) => void
 }) {
   const [expanded, setExpanded] = useState(() => isAncestorOf(node.path, activePath))
   const isExpanded = forceExpanded || expanded
@@ -284,7 +330,13 @@ function TreeNodeRow({
         <div
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: 28, gap: 2, background: containsActive ? 'rgba(255,255,255,0.03)' : 'transparent' }}
+          onContextMenu={(e) => {
+            if (!onContextMenu) return
+            e.preventDefault()
+            e.stopPropagation()
+            onContextMenu(e, node)
+          }}
+          style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: 28, gap: 2, background: hovered ? 'rgba(255,255,255,0.06)' : containsActive ? 'rgba(255,255,255,0.03)' : 'transparent' }}
         >
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -307,8 +359,11 @@ function TreeNodeRow({
           >
             <span style={{ opacity: 0.7, width: 8, display: 'inline-block', flexShrink: 0 }}>{isExpanded ? '▾' : '▸'}</span>
             <Icon name="folder" size={16} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
-            {isNew && <Chip variant="new">NEW</Chip>}
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
+            {/* Trailing NEW chip; hidden on hover so the row's action buttons
+                take that space (and clicking into the folder's files clears
+                their own chips — see the file row / openTab). */}
+            {isNew && !hovered && <Chip variant="new">NEW</Chip>}
           </button>
           {(hovered || containsActive) && action && (
             <IconButton
@@ -342,6 +397,15 @@ function TreeNodeRow({
               textColor="var(--text-3)"
             />
           )}
+          {onContextMenu && hovered && (
+            <IconButton
+              onClick={(e) => { e.stopPropagation(); onContextMenu(e, node) }}
+              title="More actions"
+              glyph="⋯"
+              iconSize={16}
+              textColor="var(--text-3)"
+            />
+          )}
         </div>
         {creating && (
           <InlineCreateForm
@@ -360,6 +424,7 @@ function TreeNodeRow({
             node={child}
             depth={depth + 1}
             activePath={activePath}
+            openPaths={openPaths}
             newPaths={newPaths}
             onSelectFile={onSelectFile}
             onChanged={onChanged}
@@ -372,6 +437,7 @@ function TreeNodeRow({
             createDir={createDir}
             onMutated={onMutated}
             supportsArchive={supportsArchive}
+            onContextMenu={onContextMenu}
           />
         ))}
       </Frame>
@@ -379,13 +445,26 @@ function TreeNodeRow({
   }
 
   const isActive = node.path === activePath
+  const isOpen = openPaths.has(node.path)
+  // Brightness tiers: currently selected/open files are brightest; a NEW-but-
+  // never-opened file is a step down (lighter than old, darker than open);
+  // everything else is the base dim. Hover brightens to full ink (see
+  // displayColor) without inverting the row.
+  const textColor = isActive || isOpen ? 'var(--text-1)' : isNew ? 'var(--text-2)' : 'var(--text-3)'
+  const displayColor = hovered ? 'var(--text-1)' : textColor
   const action = fileAction?.(node.path, node.name)
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: 28, gap: 2 }}
+      onContextMenu={(e) => {
+        if (!onContextMenu) return
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu(e, node)
+      }}
+      style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: 28, gap: 2, background: isActive ? 'rgba(255,255,255,0.10)' : hovered ? 'rgba(255,255,255,0.06)' : 'transparent' }}
     >
       <button
         onClick={() => onSelectFile({ name: node.name.replace(/\.tsx?$/, ''), path: node.path })}
@@ -397,18 +476,21 @@ function TreeNodeRow({
           minWidth: 0,
           minHeight: 28,
           textAlign: 'left',
-          background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+          background: 'transparent',
           border: 'none',
           cursor: 'pointer',
           padding: `6px 4px 6px ${16 + depth * 14 + 18}px`,
-          color: isActive ? 'var(--text-1)' : 'var(--text-3)',
+          color: displayColor,
           fontSize: 12,
           letterSpacing: '0.02em',
           ...MONO,
         }}
       >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
-        {isNew && <Chip variant="new">NEW</Chip>}
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
+        {/* Trailing NEW chip — hidden on hover so the row's action buttons
+            (open/add-to-plan/remove) get the space, and cleared for good once
+            the file is opened (openTab marks it seen). */}
+        {isNew && !hovered && <Chip variant="new">NEW</Chip>}
       </button>
       {hovered && action && (
         <IconButton
@@ -433,6 +515,15 @@ function TreeNodeRow({
           textColor="var(--text-3)"
         />
       )}
+      {onContextMenu && hovered && (
+        <IconButton
+          onClick={(e) => { e.stopPropagation(); onContextMenu(e, node) }}
+          title="More actions"
+          glyph="⋯"
+          iconSize={16}
+          textColor="var(--text-3)"
+        />
+      )}
     </div>
   )
 }
@@ -441,12 +532,14 @@ export const LeftRailing = ({
   tree,
   archivedEntries,
   activePath,
+  openPaths,
   newPaths,
   onSelectFile,
   onChanged,
   width,
   headerAction,
   rootPath = '02_components',
+  rootLabel,
   readOnly,
   tierFilterOptions = TIER_FILTER_OPTIONS,
   folderAction,
@@ -456,6 +549,8 @@ export const LeftRailing = ({
   createDir = createSrcDir,
   onMutated = async () => { await regenerateGraph().catch(() => {}) },
   supportsArchive = true,
+  deletePath,
+  onDeleted,
 }: LeftRailingProps) => {
   const [rootCreating, setRootCreating] = useState(false)
   const [query, setQuery] = useState('')
@@ -464,10 +559,47 @@ export const LeftRailing = ({
   // same as this component's other view-only state (treeWidth etc.).
   const [sortOrder, setSortOrder] = useState<SortOrder>('name')
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; anchorEl: HTMLElement; node: FileTreeNode } | null>(null)
+  const [deletingNode, setDeletingNode] = useState<FileTreeNode | null>(null)
+  const [renamingNode, setRenamingNode] = useState<FileTreeNode | null>(null)
+  // Subscribe so the "Paste" item enables/disables the moment something is
+  // cut/copied anywhere (including the sibling Workspace/Research tree).
+  const clipboard = useFileClipboard()
 
   const restore = async (path: string) => {
     await setArchived(path, false)
     await afterMutation(onMutated, onChanged)
+  }
+
+  const handleRowContextMenu = (e: React.MouseEvent, node: FileTreeNode) => {
+    setContextMenu({ x: e.clientX, y: e.clientY, anchorEl: e.currentTarget as HTMLElement, node })
+  }
+
+  const childrenOf = (dir: string): FileTreeNode[] =>
+    dir === '' || dir === rootPath ? tree : (findNodeByPath(tree, dir)?.children ?? [])
+
+  // Paste the clipboard entry into `destDir` (a folder path, or the parent dir
+  // of a file row). Cut = move (then clear); copy = duplicate (keep). Names are
+  // de-conflicted so a paste never overwrites; a folder can't be pasted into
+  // itself or a descendant.
+  const pasteInto = async (destDir: string) => {
+    const c = getFileClipboard()
+    if (!c) return
+    if (c.isDir && isAncestorOf(c.path, destDir)) return
+    const dest = joinPath(destDir, deconflictName(baseName(c.path), childrenOf(destDir)))
+    if (c.mode === 'cut') {
+      await renameWorkspacePath(c.path, dest)
+      setFileClipboard(null)
+    } else {
+      await copyWorkspacePath(c.path, dest)
+    }
+    await afterMutation(onMutated, onChanged)
+  }
+
+  const copyRelativePath = (node: FileTreeNode) => { void navigator.clipboard.writeText(node.path) }
+  const copyAbsolutePath = async (node: FileTreeNode) => {
+    const info = await getWorkspaceInfo()
+    void navigator.clipboard.writeText(info.root ? `${info.root}/${node.path}` : node.path)
   }
 
   // For a file, the seed is just that one path. For a dir, every descendant
@@ -492,12 +624,13 @@ export const LeftRailing = ({
   const visibleTree = sortTree(filterTreeByTier(filterTreeByQuery(tree, query), tierFilter), sortOrder)
 
   return (
+    <>
     <ScrollWindow axis="y" flow="vertical" gap={0} minH={0} w={width} shrink={0} padding={{ y: 16 }}>
-      <Frame flow="horizontal" align="center" justify="between" padding={{ x: 16, bottom: 10 }}>
-        <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-2)', ...MONO }}>
-          {rootPath.toUpperCase()}
-        </span>
-        <Frame flow="horizontal" align="center" gap={2} style={{ position: 'relative' }}>
+      <Frame padding={{ x: 16, bottom: 10 }}>
+        <SidebarHeader
+        label={(rootLabel ?? rootPath).toUpperCase()}
+        actions={
+        <Frame flow="horizontal" align="center" gap={2} shrink={0} style={{ position: 'relative' }}>
           {headerAction}
           <IconButton
             onClick={() => setSortMenuOpen((v) => !v)}
@@ -517,9 +650,10 @@ export const LeftRailing = ({
           {sortMenuOpen && (
             <Frame
               flow="vertical"
-              gap={2}
-              padding={6}
-              style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 180, zIndex: 20 }}
+              gap={0}
+              padding={0}
+              clipContent
+              style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 150, zIndex: 20 }}
               fill={{ solid: 'bg-2' }}
               stroke={{ color: 'rgba(255,255,255,0.15)' }}
               radius={4}
@@ -536,11 +670,11 @@ export const LeftRailing = ({
                   minH={28}
                   variant="none"
                   hoverFill="bg-3"
-                  radius={4}
+                  radius={0}
                   padding={{ x: 10, y: 6 }}
                   cursor="pointer"
                   textColor={sortOrder === value ? 'var(--text-1)' : 'var(--text-3)'}
-                  style={{ textAlign: 'left', fontSize: 12, letterSpacing: '0.02em', ...MONO }}
+                  style={{ textAlign: 'left', fontSize: 11, letterSpacing: '0.02em', ...MONO }}
                 >
                   {label}
                   {sortOrder === value && <span>✓</span>}
@@ -549,6 +683,8 @@ export const LeftRailing = ({
             </Frame>
           )}
         </Frame>
+        }
+      />
       </Frame>
       <Frame padding={{ x: 16, bottom: 10 }}>
         <Search
@@ -577,6 +713,7 @@ export const LeftRailing = ({
           node={node}
           depth={0}
           activePath={activePath}
+          openPaths={openPaths}
           newPaths={newPaths}
           onSelectFile={onSelectFile}
           onChanged={onChanged}
@@ -589,6 +726,7 @@ export const LeftRailing = ({
           createDir={createDir}
           onMutated={onMutated}
           supportsArchive={supportsArchive}
+          onContextMenu={deletePath && !readOnly ? handleRowContextMenu : undefined}
         />
       ))}
 
@@ -631,5 +769,62 @@ export const LeftRailing = ({
         </Frame>
       )}
     </ScrollWindow>
+
+    {contextMenu && (
+      <ContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        anchorEl={contextMenu.anchorEl}
+        onClose={() => setContextMenu(null)}
+        items={[
+          { label: 'Rename', onSelect: () => setRenamingNode(contextMenu.node) },
+          { label: 'Cut', separator: true, onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'cut' }) },
+          { label: 'Copy', onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'copy' }) },
+          {
+            label: 'Paste',
+            disabled: !clipboard,
+            onSelect: () => pasteInto(contextMenu.node.type === 'dir' ? contextMenu.node.path : parentDir(contextMenu.node.path)),
+          },
+          { label: 'Copy path', separator: true, onSelect: () => copyAbsolutePath(contextMenu.node) },
+          { label: 'Copy relative path', onSelect: () => copyRelativePath(contextMenu.node) },
+          {
+            label: contextMenu.node.type === 'dir' ? 'Delete Folder' : 'Delete File',
+            separator: true,
+            destructive: true,
+            onSelect: () => setDeletingNode(contextMenu.node),
+          },
+        ]}
+      />
+    )}
+
+    {renamingNode && (
+      <RenamePathModal
+        name={renamingNode.name}
+        isDir={renamingNode.type === 'dir'}
+        rename={(newName) => renameWorkspacePath(renamingNode.path, joinPath(parentDir(renamingNode.path), newName))}
+        onClose={() => setRenamingNode(null)}
+        onRenamed={async () => {
+          setRenamingNode(null)
+          await afterMutation(onMutated, onChanged)
+        }}
+      />
+    )}
+
+    {deletingNode && deletePath && (
+      <DeletePathModal
+        path={deletingNode.path}
+        name={deletingNode.name}
+        isDir={deletingNode.type === 'dir'}
+        deletePath={deletePath}
+        onClose={() => setDeletingNode(null)}
+        onDeleted={async () => {
+          const { path, type } = deletingNode
+          setDeletingNode(null)
+          onDeleted?.(path, type === 'dir')
+          await afterMutation(onMutated, onChanged)
+        }}
+      />
+    )}
+    </>
   )
 }

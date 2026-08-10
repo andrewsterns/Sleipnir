@@ -37,8 +37,18 @@ export interface ForceLayout {
   neighbors: Map<string, Set<string>>
 }
 
-export function buildForceLayout(data: GraphData): ForceLayout {
+// Position of a node carried over from a previous layout — see GraphCanvas's
+// positionsRef. Seeding these back in lets the graph rebuild (on any data
+// change) without scattering: nodes that still exist keep exactly where they
+// were, so a change that doesn't alter topology (an edge-direction flip, a
+// label/status edit) can render with the simulation cooled to a stop instead
+// of reheating gravity.
+export type NodePositions = Map<string, { x: number; y: number; vx: number; vy: number }>
+
+export function buildForceLayout(data: GraphData, prev?: NodePositions): ForceLayout {
   const nodes: SimNode[] = data.nodes.map((n: GraphNode, i: number) => {
+    const seed = prev?.get(n.id)
+    if (seed) return { ...n, x: seed.x, y: seed.y, vx: seed.vx, vy: seed.vy }
     const angle = (i / Math.max(1, data.nodes.length)) * Math.PI * 2
     const spread = 40 + Math.sqrt(data.nodes.length) * 20
     return { ...n, x: Math.cos(angle) * spread, y: Math.sin(angle) * spread }

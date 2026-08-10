@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react'
 import { getWorkspaceInfo, openWorkspace } from '../../00_planning/api/sleipnirApi'
 import type { WorkspaceInfo } from '../../00_planning/api/PlatformAPI'
 
-export function useWorkspaceViewModel() {
+// `onProjectOpened`, when given, fires after a successful chooseFolder() —
+// lets App.tsx (the single owner of activeProject/recentProjects, see its
+// own onOpenProject/onOpenRecentProject) stay in sync even when the switch
+// was triggered from this view's own "Choose/Switch Folder…" button rather
+// than the File menu.
+export function useWorkspaceViewModel(onProjectOpened?: (info: WorkspaceInfo) => void) {
   const [info, setInfo] = useState<WorkspaceInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -23,6 +28,7 @@ export function useWorkspaceViewModel() {
       return
     }
     setInfo(result)
+    onProjectOpened?.(result)
   }
 
   return { info, loading, error, chooseFolder }

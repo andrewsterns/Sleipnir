@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { IconName } from '../UIKit/Icon/Icon'
+import type { GraphNode } from '../../00_planning/graph/types'
 
 /** One open tab within a single FolderBrowserView instance — local to that instance, never shared across categories. */
 export interface BrowserTab {
@@ -25,6 +26,8 @@ export interface FolderBrowserViewProps {
    */
   scope: 'src' | 'repo' | 'workspace'
   root: string
+  /** Overrides the rail header's displayed root label (defaults to `root`) without affecting where creates/reads actually resolve — e.g. Workspace passes the open folder's name here while `root` itself stays `''`. */
+  rootLabel?: string
   /** repo-scope only — extra repo-relative files spliced in as top-level siblings (mirrors WidgetEntry.extraFiles, e.g. Docker's docker-compose.yml). */
   extraFiles?: string[]
   readOnly?: boolean
@@ -50,6 +53,11 @@ export interface FolderBrowserViewProps {
    */
   pendingOverride?: { path: string; content: string; planNodeId: string } | null
   onOverrideSaved?: (planNodeId: string) => void
+  /** Passed straight through to every open tab's CodeEditorView — see its own onImportsChanged doc comment. scope:'workspace' only in practice (Workspace/Research); omitted elsewhere, same as onAddToPlan. */
+  onImportsChanged?: (path: string, content: string) => void
+  /** Passed straight through to every open tab's CodeEditorView — see its own getGraphNodes/onLinkResolved doc comments (the "##token" editor extension). */
+  getGraphNodes?: () => GraphNode[]
+  onLinkResolved?: (path: string, target: GraphNode) => void
 }
 
 /**

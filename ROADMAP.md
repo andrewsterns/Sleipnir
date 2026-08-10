@@ -73,3 +73,52 @@ above combined, and every phase before it is valuable on its own first.
 - **Collaboration/remote dev, settings sync, an external extension
   marketplace** — not on the path to "true IDE for one developer," which is
   the more valuable near-term target.
+
+---
+
+# Launch Readiness (shipping to real users)
+
+The phases above are *product* work — features. This section is the separate
+axis of *actually distributing* Sleipnir: packaging, trust, ops, legal. As of
+the launch-readiness audit, the product is strong but none of this scaffolding
+exists yet. Ordered by "a packaged build literally breaks" → "strangers can
+trust and run it."
+
+## 🔴 Blockers — a packaged build breaks without these
+- [x] **Bundle all `tools/*.mjs`.** `build.files` only shipped 3 of them, but
+  the main process dynamically imports `git-control`, `preview-registry`,
+  `source-extensions`, and (packaged-only) `lsp-proxy` too — so git/preview/
+  file-tree/LSP threw on first use in a real install. Fixed to `tools/**/*`.
+- [x] **Unpack `node-pty` from asar.** Native `.node` binaries can't load from
+  inside the asar archive, so the terminal failed to spawn on every packaged
+  install. Added `asarUnpack` for it.
+- [ ] **Code signing + notarization.** Unsigned builds are blocked by Windows
+  SmartScreen ("unknown publisher") and refused by macOS Gatekeeper. Needs a
+  Windows cert + macOS Developer ID + notarization in the build config.
+- [ ] **License / EULA.** No `license` field and no `LICENSE` file → legally
+  "all rights reserved," can't be publicly distributed until this is decided
+  (proprietary EULA or an OSS license).
+
+## 🟠 Should-fix before a public launch
+- [ ] **Crash/error handling.** No `uncaughtException`/`unhandledRejection`
+  handlers or crash reporter in the main process — no visibility into user
+  failures, and an unhandled main throw shows the raw Electron error dialog.
+- [ ] **Auto-update.** No `electron-updater`/`publish` config — every fix would
+  need a manual re-download.
+- [ ] **Smoke tests.** `vitest` is wired up but there are 0 test files; at
+  minimum cover backend path-safety (`resolveSafe`) + the import adapters
+  before users point this at their own repos.
+- [ ] **CI.** No `.github/workflows` — nothing enforces typecheck/lint/build or
+  produces a reproducible release build.
+- [ ] **Real version + changelog.** Still `0.0.0`.
+- [ ] **Privacy note.** The AI agent sends code/prompts to Anthropic; a public
+  tool needs a short disclosure of what leaves the machine. (BYOK key storage
+  via OS keychain / `safeStorage` is already done correctly.)
+
+## 🟡 Known product gaps surfaced by the audit (fold into the phases above)
+- **Save-on-close prompt** — staged AI content (`suppressAutoSave`) can be lost
+  on window close; autosave covers the rest.
+- **Per-window resource cleanup** — closing a non-last window leaks that
+  window's terminal/chat/preview child processes.
+- Everything already in Phase 2–4 (Validation UI, multi-terminal/split panes,
+  theme toggle, keybinding settings UI, workspace-aware Planning pipeline).

@@ -16,4 +16,11 @@ export interface WorkspaceTabStripProps {
   activeTabId: string
   onActivate: (id: string) => void
   onClose: (id: string) => void
+  /**
+   * Renders a "+" after the last tab — click reveals an inline filename
+   * input right there in the strip; Enter creates and opens it as a new
+   * tab, Escape cancels. Omit to hide the control entirely (e.g. Planning,
+   * whose tabs are maps/plans, not files, so "add a tab" has no meaning).
+   */
+  onAddTab?: (name: string) => void
 }

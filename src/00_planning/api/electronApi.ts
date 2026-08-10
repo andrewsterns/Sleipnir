@@ -5,7 +5,7 @@
 // a packaged/dev Electron shell, so `getPlatformAPI()` (in sleipnirApi.ts)
 // never selects this module until then.
 
-import type { PlatformAPI, WorkspaceInfo } from './PlatformAPI'
+import type { PlatformAPI, RecentProject, WorkspaceInfo } from './PlatformAPI'
 
 // Picking a path is inherently native-shell territory — a browser's
 // <input type=file>/directory picker returns file *content*, never a real
@@ -15,14 +15,16 @@ import type { PlatformAPI, WorkspaceInfo } from './PlatformAPI'
 // entirely outside PlatformAPI — callers feature-detect with `?.` rather
 // than assuming every PlatformAPI method exists.
 export interface ElectronBridge extends PlatformAPI {
-  /** Returns the picked file's repo-relative path, `{ error }` if it's outside the repo, or `null` if canceled. */
-  openFileDialog?(): Promise<{ path: string } | { error: string } | null>
-  /** Same shape as openFileDialog, for a directory instead. */
-  openFolderDialog?(): Promise<{ path: string } | { error: string } | null>
-  /** Unlike openFileDialog/openFolderDialog, deliberately unrestricted — Import's whole point is picking from outside the repo. Returns the raw absolute path, or `null` if canceled. */
-  importDialog?(): Promise<{ path: string } | null>
-  /** Opens a real, unrestricted native folder picker for the Workspace feature (see ROADMAP.md's Phase 0) — repoints the app at a different project entirely, unlike openFolderDialog (which adds a widget onto Sleipnir's own repo). Persists the choice for next launch. `null` if canceled, `{error}` if the picked folder can't be opened. */
+  /** Opens a real, unrestricted native folder picker for the Workspace feature (see ROADMAP.md's Phase 0) — repoints the app at a different project entirely. Persists the choice for next launch. `null` if canceled, `{error}` if the picked folder can't be opened. */
   openWorkspace?(): Promise<WorkspaceInfo | { error: string } | null>
+  /** File > Open Recent's list — most-recently-opened first, capped at 10. */
+  getRecentProjects?(): Promise<{ projects: RecentProject[] }>
+  /** Reopens a known project path without the folder-picker dialog. `{error}` if the folder no longer exists on disk. */
+  openRecentProject?(projectPath: string): Promise<WorkspaceInfo | { error: string }>
+  /** File > New Window — closes the current project in place (single-window reset; see App.tsx). Workspace and Planning both go back to their blank/no-project states. */
+  newWindow?(): Promise<{ ok: true }>
+  /** File > Rename Project — sets a custom display name, stored inside the project's own `.planning/project.json` so it travels with the folder. */
+  renameProject?(projectPath: string, name: string): Promise<{ name: string }>
 }
 
 declare global {

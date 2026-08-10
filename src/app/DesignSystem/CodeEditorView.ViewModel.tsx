@@ -7,6 +7,8 @@ import { languageForPath, isRunnablePath } from './codeEditorLanguages'
 import { tacticalEditorTheme, tacticalCodeHighlighting } from './codeEditorTheme'
 import { writeFile as writeSrcFile, runScript, type RunResult } from '../../00_planning/api/sleipnirApi'
 import { getTypeScriptLspClient, lspLanguageIdForPath, uriForPath } from './lspClient'
+import { graphLinkExtension } from './graphLinkExtension'
+import type { GraphNode } from '../../00_planning/graph/types'
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -40,6 +42,9 @@ export function useCodeEditorViewModel({
   writeFile = writeSrcFile,
   scope = 'src',
   revealLine,
+  onImportsChanged,
+  getGraphNodes,
+  onLinkResolved,
 }: {
   path: string
   value: string
@@ -54,6 +59,12 @@ export function useCodeEditorViewModel({
   scope?: 'src' | 'repo' | 'workspace'
   /** See CodeEditorViewProps.revealLine. */
   revealLine?: number
+  /** Fired right after a successful save with the path and the just-saved content — WorkspaceView uses this to re-scan the file's real imports and reconcile the corresponding node's graph edges (see tools/sleipnir-backend.mjs#setNodeBorrows). No-op when omitted (every pre-existing caller). */
+  onImportsChanged?: (path: string, content: string) => void
+  /** Live getter (not a snapshot) for the "##token" completion extension's candidate pool — see graphLinkExtension.ts. Omit to disable ## linking entirely for this editor instance (every pre-existing caller). */
+  getGraphNodes?: () => GraphNode[]
+  /** Fired once a "##token" resolves and its import has been spliced into the document — `path` identifies which tab/node this happened in, since one callback is shared across every open tab in a FolderBrowserView instance. */
+  onLinkResolved?: (path: string, target: GraphNode) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -94,9 +105,11 @@ export function useCodeEditorViewModel({
     if (!view) return
     setStatus('saving')
     try {
-      await writeFile(path, view.state.doc.toString())
+      const content = view.state.doc.toString()
+      await writeFile(path, content)
       setStatus('saved')
       setDirty(false)
+      onImportsChanged?.(path, content)
     } catch (e) {
       setStatus('error')
       setErrorMessage(e instanceof Error ? e.message : String(e))
@@ -132,12 +145,22 @@ export function useCodeEditorViewModel({
     const lspExtension =
       lspLanguageId && repoRelPath ? [getTypeScriptLspClient().plugin(uriForPath(repoRelPath), lspLanguageId)] : []
 
+    // "##token" linking — only meaningful for a real Workspace file with a
+    // live node pool to resolve against (see graphLinkExtension's own doc
+    // comment for why it's a languageData addition, not a competing
+    // autocompletion() config).
+    const graphLink =
+      scope === 'workspace' && getGraphNodes
+        ? [graphLinkExtension({ getGraphNodes, fromPath: path, onResolved: (target) => onLinkResolved?.(path, target) })]
+        : []
+
     const state = EditorState.create({
       doc: value,
       extensions: [
         basicSetup,
         ...languageForPath(path),
         ...lspExtension,
+        ...graphLink,
         lintGutter(),
         tacticalEditorTheme,
         tacticalCodeHighlighting,

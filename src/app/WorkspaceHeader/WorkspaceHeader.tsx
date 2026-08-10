@@ -3,42 +3,29 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { WorkspaceTabStrip } from '../WorkspaceTabStrip/WorkspaceTabStrip'
 import type { WorkspaceHeaderProps } from './iWorkspaceHeader'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+// One row, shared by every rail-driven view (Planning, Workspace) — open
+// tabs on the left, trailing actions (Delete Plan dropdown, new-plan input,
+// node/edge count, ...) on the right. No separate title bar above it; this
+// row sits beside the rail/sidebar, not above it (see WidgetShell/
+// PlanningView, whose rail/sidebar now runs the full height instead of
+// starting below this row).
+export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ actions, tabs, activeTabId, onActivateTab, onCloseTab, onAddTab }) => {
+  if (tabs.length === 0 && !actions && !onAddTab) return null
 
-// The "title bar, then its open tabs beneath it" header shared by every
-// rail-driven view (Planning, Components, Prototypes, folder widgets, Open
-// Files) — lifted from PlanningView.tsx so "title on top, tabs underneath,
-// same padding/type everywhere" is a property of the shell itself instead of
-// something each view has to hand-roll and keep in sync.
-export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
-  title,
-  actions,
-  tabs,
-  activeTabId,
-  onActivateTab,
-  onCloseTab,
-}) => (
-  <>
-    {(title || actions) && (
-      <Frame
-        flow="horizontal"
-        align="center"
-        justify="between"
-        padding={{ x: 24, y: 10 }}
-        stroke={{ bottom: { color: 'rgba(255,255,255,0.07)' } }}
-      >
-        {title && (
-          <span style={{ fontSize: 11, letterSpacing: '0.14em', color: 'var(--text-2)', ...MONO }}>
-            {title}
-          </span>
-        )}
-        {actions && (
-          <Frame flow="horizontal" align="center" gap={16}>
-            {actions}
-          </Frame>
-        )}
-      </Frame>
-    )}
-    <WorkspaceTabStrip tabs={tabs} activeTabId={activeTabId} onActivate={onActivateTab} onClose={onCloseTab} />
-  </>
-)
+  return (
+    <Frame
+      flow="horizontal"
+      align="center"
+      shrink={0}
+      stroke={{ bottom: { color: 'rgba(255,255,255,0.08)' } }}
+      fill={{ solid: 'bg-1' }}
+    >
+      <WorkspaceTabStrip tabs={tabs} activeTabId={activeTabId} onActivate={onActivateTab} onClose={onCloseTab} onAddTab={onAddTab} />
+      {actions && (
+        <Frame flow="horizontal" align="center" gap={16} shrink={0} padding={{ x: 16 }}>
+          {actions}
+        </Frame>
+      )}
+    </Frame>
+  )
+}

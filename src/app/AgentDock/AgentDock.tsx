@@ -4,7 +4,7 @@ import { Icon } from '../UIKit/Icon/Icon'
 import { AgentChat } from '../AgentChat/AgentChat'
 import { ApiKeySettings } from '../AgentChat/ApiKeySettings'
 import { ANTHROPIC_MODELS, type KeyStatus, type ModelStatus } from '../AgentChat/iApiKeySettings'
-import type { GraphNode, LibraryEntry } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../00_planning/graph/types'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -14,10 +14,6 @@ interface AgentDockProps {
   onOpenChange: (open: boolean) => void
   /** Forwarded to AgentChat — lets App.tsx jump to Planning's CLAUDE tab live as Claude builds nodes. */
   onPlanNodeCreated?: (node: GraphNode) => void
-  /** Forwarded to AgentChat — the `/plan` slash command opens the Create Library modal. */
-  onPlanCommand?: () => void
-  /** Forwarded to AgentChat — fires when the AI itself creates a library via natural language (not `/plan`). */
-  onLibraryCreated?: (library: LibraryEntry) => void
   /** True whenever any dock (this one or a sibling) is open — App.tsx reclaims DOCK_PANEL_HEIGHT from the layout above when that happens, so every dock's own toggle button shifts up in lockstep to stay clear of whichever panel is now occupying that space, rather than floating on top of it. */
   shiftUp?: boolean
 }
@@ -26,7 +22,7 @@ interface AgentDockProps {
 // spacing = 68px from the right edge). Same mount-once-hide-via-CSS pattern:
 // <AgentChat/> mounts exactly once, the first time it's opened, and stays
 // mounted afterward so the conversation survives closing the panel.
-export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlanNodeCreated, onPlanCommand, onLibraryCreated, shiftUp }) => {
+export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlanNodeCreated, shiftUp }) => {
   const [everOpened, setEverOpened] = useState(false)
   const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null)
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null)
@@ -144,7 +140,7 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
             </Frame>
           </Frame>
           <Frame grow minH={0}>
-            <AgentChat onPlanNodeCreated={onPlanNodeCreated} onPlanCommand={onPlanCommand} onLibraryCreated={onLibraryCreated} />
+            <AgentChat onPlanNodeCreated={onPlanNodeCreated} />
           </Frame>
         </Frame>
       )}

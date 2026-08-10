@@ -8,24 +8,9 @@ import { webApi } from './webApi'
 import { getElectronApi } from './electronApi'
 
 export type {
-  ComponentTier,
-  ScaffoldLanguage,
-  ScaffoldPart,
-  ScaffoldComponentResult,
   FileTreeNode,
   ArchiveEntry,
   RunResult,
-  Architecture,
-  RefactorPlan,
-  RefactorMove,
-  RefactorRewrite,
-  RefactorViolation,
-  LibraryEntry,
-  LibraryKind,
-  WidgetEntry,
-  WidgetKind,
-  NewWidgetInput,
-  WidgetCatalogEntry,
   GitStatus,
   GitFileStatus,
   GitBranch,
@@ -36,46 +21,15 @@ export type {
   GitIdentity,
   PreviewConfig,
   PreviewConfigEntry,
+  RecentProject,
 } from './PlatformAPI'
 
 function getPlatformAPI(): PlatformAPI {
   return getElectronApi() ?? webApi
 }
 
-export function scaffoldComponent(...args: Parameters<PlatformAPI['scaffoldComponent']>) {
-  return getPlatformAPI().scaffoldComponent(...args)
-}
-
 export function regenerateGraph(...args: Parameters<PlatformAPI['regenerateGraph']>) {
   return getPlatformAPI().regenerateGraph(...args)
-}
-
-export function createLibrary(...args: Parameters<PlatformAPI['createLibrary']>) {
-  return getPlatformAPI().createLibrary(...args)
-}
-
-export function listLibraries(...args: Parameters<PlatformAPI['listLibraries']>) {
-  return getPlatformAPI().listLibraries(...args)
-}
-
-export function removeLibrary(...args: Parameters<PlatformAPI['removeLibrary']>) {
-  return getPlatformAPI().removeLibrary(...args)
-}
-
-export function deleteLibrary(...args: Parameters<PlatformAPI['deleteLibrary']>) {
-  return getPlatformAPI().deleteLibrary(...args)
-}
-
-export function listWidgets(...args: Parameters<PlatformAPI['listWidgets']>) {
-  return getPlatformAPI().listWidgets(...args)
-}
-
-export function installWidget(...args: Parameters<PlatformAPI['installWidget']>) {
-  return getPlatformAPI().installWidget(...args)
-}
-
-export function getWidgetCatalog(...args: Parameters<PlatformAPI['getWidgetCatalog']>) {
-  return getPlatformAPI().getWidgetCatalog(...args)
 }
 
 export function readFile(...args: Parameters<PlatformAPI['readFile']>) {
@@ -110,10 +64,6 @@ export function createDir(...args: Parameters<PlatformAPI['createDir']>) {
   return getPlatformAPI().createDir(...args)
 }
 
-export function importPath(...args: Parameters<PlatformAPI['importPath']>) {
-  return getPlatformAPI().importPath(...args)
-}
-
 export function getWorkspaceInfo(...args: Parameters<PlatformAPI['getWorkspaceInfo']>) {
   return getPlatformAPI().getWorkspaceInfo(...args)
 }
@@ -138,16 +88,20 @@ export function createWorkspaceDir(...args: Parameters<PlatformAPI['createWorksp
   return getPlatformAPI().createWorkspaceDir(...args)
 }
 
-export function searchRepo(...args: Parameters<PlatformAPI['searchRepo']>) {
-  return getPlatformAPI().searchRepo(...args)
+export function deleteWorkspacePath(...args: Parameters<PlatformAPI['deleteWorkspacePath']>) {
+  return getPlatformAPI().deleteWorkspacePath(...args)
+}
+
+export function renameWorkspacePath(...args: Parameters<PlatformAPI['renameWorkspacePath']>) {
+  return getPlatformAPI().renameWorkspacePath(...args)
+}
+
+export function copyWorkspacePath(...args: Parameters<PlatformAPI['copyWorkspacePath']>) {
+  return getPlatformAPI().copyWorkspacePath(...args)
 }
 
 export function searchWorkspace(...args: Parameters<PlatformAPI['searchWorkspace']>) {
   return getPlatformAPI().searchWorkspace(...args)
-}
-
-export function listRepoTree(...args: Parameters<PlatformAPI['listRepoTree']>) {
-  return getPlatformAPI().listRepoTree(...args)
 }
 
 export function detectPreviewConfig(...args: Parameters<PlatformAPI['detectPreviewConfig']>) {
@@ -178,6 +132,10 @@ export function addNote(...args: Parameters<PlatformAPI['addNote']>) {
   return getPlatformAPI().addNote(...args)
 }
 
+export function scaffoldNodes(...args: Parameters<PlatformAPI['scaffoldNodes']>) {
+  return getPlatformAPI().scaffoldNodes(...args)
+}
+
 export function createPlanNode(...args: Parameters<PlatformAPI['createPlanNode']>) {
   return getPlatformAPI().createPlanNode(...args)
 }
@@ -186,8 +144,24 @@ export function setNodeStatus(...args: Parameters<PlatformAPI['setNodeStatus']>)
   return getPlatformAPI().setNodeStatus(...args)
 }
 
-export function openFileNode(...args: Parameters<PlatformAPI['openFileNode']>) {
-  return getPlatformAPI().openFileNode(...args)
+export function setNodeBorrows(...args: Parameters<PlatformAPI['setNodeBorrows']>) {
+  return getPlatformAPI().setNodeBorrows(...args)
+}
+
+export function updateNote(...args: Parameters<PlatformAPI['updateNote']>) {
+  return getPlatformAPI().updateNote(...args)
+}
+
+export function deleteNote(...args: Parameters<PlatformAPI['deleteNote']>) {
+  return getPlatformAPI().deleteNote(...args)
+}
+
+export function getNodeStages(...args: Parameters<PlatformAPI['getNodeStages']>) {
+  return getPlatformAPI().getNodeStages(...args)
+}
+
+export function setNodeStage(...args: Parameters<PlatformAPI['setNodeStage']>) {
+  return getPlatformAPI().setNodeStage(...args)
 }
 
 export function getPlans(...args: Parameters<PlatformAPI['getPlans']>) {
@@ -198,44 +172,43 @@ export function createPlan(...args: Parameters<PlatformAPI['createPlan']>) {
   return getPlatformAPI().createPlan(...args)
 }
 
+export function appendPlanGeneratedFiles(...args: Parameters<PlatformAPI['appendPlanGeneratedFiles']>) {
+  return getPlatformAPI().appendPlanGeneratedFiles(...args)
+}
+
 export function deletePlan(...args: Parameters<PlatformAPI['deletePlan']>) {
   return getPlatformAPI().deletePlan(...args)
 }
 
-// Electron-only — no PlatformAPI transport exists for these (see
+// Electron-only — no PlatformAPI transport exists for this (see
 // electronApi.ts's ElectronBridge comment). Callers get `undefined` when
 // running in a plain browser tab (`npm run dev`, no Electron shell) and
 // should treat that as "unavailable", e.g. disabling the menu item.
-export function openFileDialog() {
-  return window.electronAPI?.openFileDialog?.()
-}
-
-export function importDialog() {
-  return window.electronAPI?.importDialog?.()
-}
-
-export function openFolderDialog() {
-  return window.electronAPI?.openFolderDialog?.()
-}
-
 export function openWorkspace() {
   return window.electronAPI?.openWorkspace?.()
 }
 
+// Project switching — also Electron-only, same reasoning as openWorkspace
+// above. `undefined` in a plain browser tab; callers should treat that as
+// "unavailable" (e.g. disabling the File menu's Open Recent/New Window items).
+export function getRecentProjects() {
+  return window.electronAPI?.getRecentProjects?.()
+}
+
+export function openRecentProject(projectPath: string) {
+  return window.electronAPI?.openRecentProject?.(projectPath)
+}
+
+export function newWindow() {
+  return window.electronAPI?.newWindow?.()
+}
+
+export function renameProject(projectPath: string, name: string) {
+  return window.electronAPI?.renameProject?.(projectPath, name)
+}
+
 export function runScript(...args: Parameters<PlatformAPI['runScript']>) {
   return getPlatformAPI().runScript(...args)
-}
-
-export function previewRefactor(...args: Parameters<PlatformAPI['previewRefactor']>) {
-  return getPlatformAPI().previewRefactor(...args)
-}
-
-export function applyRefactor(...args: Parameters<PlatformAPI['applyRefactor']>) {
-  return getPlatformAPI().applyRefactor(...args)
-}
-
-export function getCurrentArchitecture(...args: Parameters<PlatformAPI['getCurrentArchitecture']>) {
-  return getPlatformAPI().getCurrentArchitecture(...args)
 }
 
 export function getGitStatus(...args: Parameters<PlatformAPI['getGitStatus']>) {
@@ -252,6 +225,10 @@ export function stageFiles(...args: Parameters<PlatformAPI['stageFiles']>) {
 
 export function unstageFiles(...args: Parameters<PlatformAPI['unstageFiles']>) {
   return getPlatformAPI().unstageFiles(...args)
+}
+
+export function discardFiles(...args: Parameters<PlatformAPI['discardFiles']>) {
+  return getPlatformAPI().discardFiles(...args)
 }
 
 export function commitChanges(...args: Parameters<PlatformAPI['commitChanges']>) {
@@ -272,6 +249,10 @@ export function checkoutBranch(...args: Parameters<PlatformAPI['checkoutBranch']
 
 export function createBranch(...args: Parameters<PlatformAPI['createBranch']>) {
   return getPlatformAPI().createBranch(...args)
+}
+
+export function renameBranch(...args: Parameters<PlatformAPI['renameBranch']>) {
+  return getPlatformAPI().renameBranch(...args)
 }
 
 export function gitPush(...args: Parameters<PlatformAPI['gitPush']>) {
@@ -295,13 +276,13 @@ export function setGitIdentity(...args: Parameters<PlatformAPI['setGitIdentity']
 }
 
 // A path is archived if it's an exact match, or falls under an archived
-// directory prefix (archiving a component's folder archives its whole
+// directory prefix (archiving a folder archives its whole
 // View/ViewModel/interface "series" as one entry).
 export function isArchived(targetPath: string, entries: ArchiveEntry[]): boolean {
   return entries.some((e) => targetPath === e.path || targetPath.startsWith(`${e.path}/`))
 }
 
-const LAST_VISIT_KEY = 'sleipnir:library:lastVisit'
+const LAST_VISIT_KEY = 'sleipnir:browser:lastVisit'
 
 export function getLastVisit(): number {
   const raw = localStorage.getItem(LAST_VISIT_KEY)

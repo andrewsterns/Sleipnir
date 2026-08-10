@@ -44,6 +44,11 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
   const requested = useRef<Set<string>>(new Set())
 
   const sessionLastVisitRef = useRef(getLastVisit())
+  // Files opened this session — dropped from the "new" set so their chip
+  // stays gone even after a refresh re-derives newness from createdAt (which
+  // wouldn't otherwise know the user has since looked at them). Cleared on
+  // root change (a different project starts its own baseline).
+  const seenPathsRef = useRef<Set<string>>(new Set())
 
   const refresh = () => {
     const fetchTree =
@@ -52,6 +57,7 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
       setRawTree(tree)
       const fresh = new Set<string>()
       collectNewPaths(tree, sessionLastVisitRef.current, fresh)
+      for (const p of seenPathsRef.current) fresh.delete(p)
       setNewPaths(fresh)
     }).catch(() => {})
     // No archive support for scope:'workspace' in Phase 0 (see ROADMAP.md) —
@@ -71,6 +77,7 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
     setTabs([])
     setActiveTabPath(null)
     requested.current.clear()
+    seenPathsRef.current.clear()
     setContentByPath({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [root])
@@ -80,6 +87,15 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
   // that's already open still re-reveals the new line — see CodeEditorView's
   // revealLine effect, which is keyed on path+line and re-fires accordingly.
   const openTab = (path: string, label?: string, line?: number) => {
+    // Opening a file marks it seen — its NEW chip disappears and doesn't come
+    // back on the next refresh (see seenPathsRef in refresh above).
+    seenPathsRef.current.add(path)
+    setNewPaths((prev) => {
+      if (!prev.has(path)) return prev
+      const next = new Set(prev)
+      next.delete(path)
+      return next
+    })
     setTabs((prev) =>
       prev.some((t) => t.path === path)
         ? prev.map((t) => (t.path === path ? { ...t, line } : t))
@@ -106,6 +122,19 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
     const remaining = tabs.filter((t) => t.path !== path)
     setTabs(remaining)
     if (activeTabPath === path) setActiveTabPath(remaining[remaining.length - 1]?.path ?? null)
+  }
+
+  // Fired after a right-click delete (see LeftRailing's onDeleted) — closes
+  // the deleted file's own tab, or every open tab nested under a deleted
+  // folder, so nothing's left pointing at a path that no longer exists on
+  // disk (the next read of it would just 404/ENOENT).
+  const closeTabsUnder = (path: string, isDir: boolean) => {
+    const matches = (p: string) => (isDir ? p === path || p.startsWith(`${path}/`) : p === path)
+    const remaining = tabs.filter((t) => !matches(t.path))
+    setTabs(remaining)
+    if (activeTabPath && matches(activeTabPath)) {
+      setActiveTabPath(remaining[remaining.length - 1]?.path ?? null)
+    }
   }
 
   // Loads each open tab's content once, lazily — same shape as
@@ -145,6 +174,7 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
     setActiveTabPath,
     openTab,
     closeTab,
+    closeTabsUnder,
     contentByPath,
     refresh,
   }

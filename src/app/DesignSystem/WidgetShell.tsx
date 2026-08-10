@@ -37,42 +37,34 @@ function ResizeHandle({ axis, onMouseDown }: { axis: 'x' | 'y'; onMouseDown: (e:
   )
 }
 
-// Generic "rail + optional preview + code" widget layout, generalized from
-// the hardcoded JSX in DesignLibrary.view.tsx (the "Components" widget) so a
-// newly-registered folder widget (see widgets.json/WidgetEntry) doesn't need
-// to hand-roll its own drag-resize plumbing the way PrototypeList.tsx
-// currently does. Existing widgets keep their own inline layouts for
-// now — only newly-registered ones are built on this.
-//
-// `header` is a sibling above the rail+content row, not scoped inside the
-// content column next to the rail — same arrangement as Planning, where
-// WorkspaceHeader sits above the whole body row and the sidebar ScrollWindow
-// lives inside that body rather than beside the header.
+// Generic "rail + optional preview + code" widget layout. The rail runs the
+// full height of the widget, from the true top — `header` (the tabs row) is
+// scoped inside the content column beside the rail, not a sibling spanning
+// above it, so the rail/sidebar never starts lower than the content it sits
+// next to.
 export function WidgetShell({ rail, header, preview, code }: WidgetShellProps) {
   const { railWidth, previewHeight, startDrag } = useWidgetShellViewModel()
 
   return (
-    <Frame theme="tactical" flow="vertical" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
-      {header}
+    <Frame theme="tactical" flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
+      {rail(railWidth)}
 
-      <Frame flow="horizontal" grow minH={0} minW={0}>
-        {rail(railWidth)}
+      <ResizeHandle axis="x" onMouseDown={(e) => startDrag('rail', e)} />
 
-        <ResizeHandle axis="x" onMouseDown={(e) => startDrag('rail', e)} />
+      <Frame flow="vertical" gap={0} minH={0} minW={0} grow h="fill">
+        {header}
 
-        <Frame flow="vertical" gap={0} minH={0} minW={0} grow h="fill">
-          {preview && (
-            <>
-              <Frame w="fill" h={previewHeight} shrink={0}>
-                {preview}
-              </Frame>
-              <ResizeHandle axis="y" onMouseDown={(e) => startDrag('preview', e)} />
-            </>
-          )}
+        {preview && (
+          <>
+            <Frame w="fill" h={previewHeight} shrink={0}>
+              {preview}
+            </Frame>
+            <ResizeHandle axis="y" onMouseDown={(e) => startDrag('preview', e)} />
+          </>
+        )}
 
-          <Frame flow="vertical" gap={0} grow minH={0} fill={{ solid: 'bg-1' }}>
-            {code}
-          </Frame>
+        <Frame flow="vertical" gap={0} grow minH={0} fill={{ solid: 'bg-1' }}>
+          {code}
         </Frame>
       </Frame>
     </Frame>

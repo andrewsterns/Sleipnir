@@ -30,8 +30,8 @@ const ROLE_COLOR: Record<string, string> = {
   system: 'var(--text-3)',
 }
 
-export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, onPlanCommand, onLibraryCreated }) => {
-  const { messages, input, setInput, sendMessage, cancel, streaming, available } = useAgentChatViewModel(onPlanNodeCreated, onPlanCommand, onLibraryCreated)
+export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
+  const { messages, input, setInput, sendMessage, cancel, streaming, available } = useAgentChatViewModel(onPlanNodeCreated)
   const scrollRef = useRef<HTMLElement>(null)
 
   // Gap between "sent" and the first token: no assistant message exists yet

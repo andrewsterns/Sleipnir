@@ -2,6 +2,11 @@ import { useState } from 'react'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { Icon } from '../app/UIKit/Icon/Icon'
 import { Button } from '../app/UIKit/Button/Button'
+import { IconButton } from '../app/UIKit/IconButton/IconButton'
+import { ContextMenu } from '../app/UIKit/ContextMenu/ContextMenu'
+import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
+import { DiscardFileModal } from './DiscardFileModal'
+import { getWorkspaceInfo } from '../00_planning/api/sleipnirApi'
 import { useSourceControlViewModel } from './SourceControlView.ViewModel'
 import type { GitFileStatus, GitBranchTree, GitBranchTreeEntry, GitCommitSummary } from '../00_planning/api/sleipnirApi'
 
@@ -30,13 +35,16 @@ function statusColor(f: GitFileStatus): string {
 }
 
 function FileRow({
-  file, active, onSelect, onToggleStage,
+  file, active, onSelect, onToggleStage, onContextMenu, onMenuButton,
 }: {
   file: GitFileStatus
   active: boolean
   onSelect: () => void
   onToggleStage: () => void
+  onContextMenu: (e: React.MouseEvent) => void
+  onMenuButton: (e: React.MouseEvent) => void
 }) {
+  const [hovered, setHovered] = useState(false)
   return (
     <Frame
       flow="horizontal"
@@ -44,9 +52,12 @@ function FileRow({
       gap={8}
       padding={{ x: 8, y: 5 }}
       radius="var(--radius-2)"
-      fill={{ solid: active ? 'rgba(255,255,255,0.08)' : 'transparent' }}
+      fill={{ solid: active ? 'rgba(255,255,255,0.10)' : hovered ? 'rgba(255,255,255,0.06)' : 'transparent' }}
       style={{ cursor: 'pointer' }}
       onClick={onSelect}
+      onContextMenu={onContextMenu}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <button
         onClick={(e) => { e.stopPropagation(); onToggleStage() }}
@@ -61,9 +72,20 @@ function FileRow({
       <span style={{ fontSize: 10, color: 'var(--text-1)', ...MONO, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {file.path}
       </span>
-      <span style={{ fontSize: 8, letterSpacing: '0.06em', color: statusColor(file), ...MONO, flexShrink: 0 }}>
-        {statusLabel(file)}
-      </span>
+      {hovered ? (
+        <IconButton
+          onClick={(e) => { e.stopPropagation(); onMenuButton(e) }}
+          title="More actions"
+          glyph="⋯"
+          iconSize={14}
+          size={18}
+          textColor="var(--text-3)"
+        />
+      ) : (
+        <span style={{ fontSize: 8, letterSpacing: '0.06em', color: statusColor(file), ...MONO, flexShrink: 0 }}>
+          {statusLabel(file)}
+        </span>
+      )}
     </Frame>
   )
 }
@@ -165,6 +187,14 @@ function DiffView({ diff, loading }: { diff: string; loading: boolean }) {
 export default function SourceControlView() {
   const vm = useSourceControlViewModel()
   const [showBranches, setShowBranches] = useState(false)
+  const fileMenu = useContextMenu<GitFileStatus>()
+  const [discardingFile, setDiscardingFile] = useState<GitFileStatus | null>(null)
+
+  const copyRelativePath = (f: GitFileStatus) => { void navigator.clipboard.writeText(f.path) }
+  const copyAbsolutePath = async (f: GitFileStatus) => {
+    const info = await getWorkspaceInfo()
+    void navigator.clipboard.writeText(info.root ? `${info.root}/${f.path}` : f.path)
+  }
 
   if (vm.loading && !vm.status) {
     return (
@@ -207,21 +237,63 @@ export default function SourceControlView() {
 
           {showBranches && (
             <Frame flow="vertical" gap={4} padding={8} radius="var(--radius-2)" stroke={{ color: 'border-1' }}>
-              {vm.branches.map((b) => (
-                <Frame
-                  key={b.name}
-                  flow="horizontal"
-                  align="center"
-                  justify="between"
-                  padding={{ x: 4, y: 3 }}
-                  style={{ cursor: b.current ? 'default' : 'pointer' }}
-                  onClick={() => !b.current && !vm.switchingBranch && vm.switchBranch(b.name)}
-                >
-                  <span style={{ fontSize: 10, color: b.current ? 'var(--text-1)' : 'var(--text-2)', ...MONO }}>
-                    {b.current ? '● ' : ''}{b.name}
-                  </span>
-                </Frame>
-              ))}
+              {vm.branches.map((b) =>
+                vm.renamingBranch === b.name ? (
+                  <Frame key={b.name} flow="horizontal" align="center" gap={4} padding={{ x: 4, y: 3 }}>
+                    <input
+                      autoFocus
+                      value={vm.renameValue}
+                      onChange={(e) => vm.setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') vm.submitRenameBranch()
+                        if (e.key === 'Escape') vm.cancelRenameBranch()
+                      }}
+                      disabled={vm.renamingInFlight}
+                      style={{
+                        flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+                        color: 'var(--text-1)', fontSize: 10, padding: '3px 5px', ...MONO,
+                      }}
+                    />
+                    <button
+                      onClick={() => vm.submitRenameBranch()}
+                      title="Save"
+                      disabled={vm.renamingInFlight}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-1)', cursor: 'pointer', fontSize: 11, ...MONO }}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => vm.cancelRenameBranch()}
+                      title="Cancel"
+                      disabled={vm.renamingInFlight}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 11, ...MONO }}
+                    >
+                      ×
+                    </button>
+                  </Frame>
+                ) : (
+                  <Frame
+                    key={b.name}
+                    flow="horizontal"
+                    align="center"
+                    justify="between"
+                    padding={{ x: 4, y: 3 }}
+                    style={{ cursor: b.current ? 'default' : 'pointer' }}
+                    onClick={() => !b.current && !vm.switchingBranch && vm.switchBranch(b.name)}
+                  >
+                    <span style={{ fontSize: 10, color: b.current ? 'var(--text-1)' : 'var(--text-2)', ...MONO }}>
+                      {b.current ? '● ' : ''}{b.name}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); vm.startRenameBranch(b.name) }}
+                      title="Rename branch"
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 10, ...MONO }}
+                    >
+                      ✎
+                    </button>
+                  </Frame>
+                ),
+              )}
               <Frame flow="horizontal" gap={4} padding={{ top: 4 }}>
                 <input
                   value={vm.newBranchName}
@@ -270,7 +342,7 @@ export default function SourceControlView() {
               STAGED ({vm.staged.length})
             </span>
             {vm.staged.map((f) => (
-              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} />
+              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -279,7 +351,7 @@ export default function SourceControlView() {
               CHANGES ({vm.unstaged.length})
             </span>
             {vm.unstaged.map((f) => (
-              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} />
+              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -288,7 +360,7 @@ export default function SourceControlView() {
               UNTRACKED ({vm.untracked.length})
             </span>
             {vm.untracked.map((f) => (
-              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} />
+              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -338,6 +410,35 @@ export default function SourceControlView() {
             : <BranchTreeView tree={vm.branchTree} loading={vm.branchTreeLoading} />}
         </Frame>
       </Frame>
+
+      {fileMenu.menu && (() => {
+        const f = fileMenu.menu.data
+        return (
+          <ContextMenu
+            x={fileMenu.menu.x}
+            y={fileMenu.menu.y}
+            anchorEl={fileMenu.menu.anchorEl}
+            onClose={fileMenu.close}
+            items={[
+              { label: 'Open diff', onSelect: () => vm.selectFile(f) },
+              { label: f.staged ? 'Unstage' : 'Stage', onSelect: () => vm.toggleStage(f) },
+              { label: 'Discard changes', separator: true, destructive: true, onSelect: () => setDiscardingFile(f) },
+              { label: 'Copy path', separator: true, onSelect: () => copyAbsolutePath(f) },
+              { label: 'Copy relative path', onSelect: () => copyRelativePath(f) },
+            ]}
+          />
+        )
+      })()}
+
+      {discardingFile && (
+        <DiscardFileModal
+          path={discardingFile.path}
+          isNew={discardingFile.untracked || (discardingFile.staged && discardingFile.indexStatus === 'A')}
+          discard={() => vm.discard(discardingFile)}
+          onClose={() => setDiscardingFile(null)}
+          onDiscarded={() => setDiscardingFile(null)}
+        />
+      )}
     </Frame>
   )
 }

@@ -23,5 +23,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Test files run under vitest (see vitest.config.ts), not this strict app
+  // build — they legitimately import untyped runtime .mjs modules that would
+  // otherwise trip noImplicitAny here.
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

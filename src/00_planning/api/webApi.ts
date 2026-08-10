@@ -4,20 +4,9 @@
 
 import type {
   PlatformAPI,
-  ComponentTier,
-  ScaffoldLanguage,
-  ScaffoldPart,
-  ScaffoldComponentResult,
   FileTreeNode,
   ArchiveEntry,
   RunResult,
-  Architecture,
-  RefactorPlan,
-  LibraryEntry,
-  LibraryKind,
-  WidgetEntry,
-  NewWidgetInput,
-  WidgetCatalogEntry,
   GitStatus,
   GitBranch,
   GitBranchTree,
@@ -28,7 +17,7 @@ import type {
   WorkspaceInfo,
   SearchMatch,
 } from './PlatformAPI'
-import type { GraphEdge, GraphNode, NodeStatus, SavedPlan } from '../graph/types'
+import type { GraphEdge, GraphNode, NodeStage, NodeStatus, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
 
 async function asJson<T>(res: Response): Promise<T> {
   const data = await res.json()
@@ -39,69 +28,8 @@ async function asJson<T>(res: Response): Promise<T> {
 }
 
 export const webApi: PlatformAPI = {
-  scaffoldComponent(
-    name: string,
-    tier: ComponentTier,
-    language?: ScaffoldLanguage,
-    parts?: ScaffoldPart[],
-    libraryId?: string,
-  ): Promise<ScaffoldComponentResult> {
-    return fetch('/api/sleipnir/scaffold-component', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, tier, language, parts, libraryId }),
-    }).then((res) => asJson<ScaffoldComponentResult>(res))
-  },
-
   regenerateGraph(): Promise<{ stdout: string }> {
-    return fetch('/api/sleipnir/regenerate-graph', { method: 'POST' }).then((res) =>
-      asJson<{ stdout: string }>(res),
-    )
-  },
-
-  createLibrary(input): Promise<{ library: LibraryEntry }> {
-    return fetch('/api/sleipnir/create-library', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    }).then((res) => asJson<{ library: LibraryEntry }>(res))
-  },
-
-  listLibraries(kind?: LibraryKind): Promise<{ libraries: LibraryEntry[] }> {
-    const qs = kind ? `?kind=${encodeURIComponent(kind)}` : ''
-    return fetch(`/api/sleipnir/libraries${qs}`).then((res) => asJson<{ libraries: LibraryEntry[] }>(res))
-  },
-
-  removeLibrary(id: string): Promise<void> {
-    return fetch('/api/sleipnir/remove-library', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    }).then((res) => asJson<void>(res))
-  },
-
-  deleteLibrary(id: string): Promise<void> {
-    return fetch('/api/sleipnir/delete-library', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    }).then((res) => asJson<void>(res))
-  },
-
-  listWidgets(): Promise<{ widgets: WidgetEntry[] }> {
-    return fetch('/api/sleipnir/widgets').then((res) => asJson<{ widgets: WidgetEntry[] }>(res))
-  },
-
-  installWidget(input: NewWidgetInput): Promise<{ widget: WidgetEntry }> {
-    return fetch('/api/sleipnir/install-widget', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    }).then((res) => asJson<{ widget: WidgetEntry }>(res))
-  },
-
-  getWidgetCatalog(): Promise<{ catalog: WidgetCatalogEntry[] }> {
-    return fetch('/api/sleipnir/widget-catalog').then((res) => asJson<{ catalog: WidgetCatalogEntry[] }>(res))
+    return fetch('/api/sleipnir/regenerate-graph', { method: 'POST' }).then((res) => asJson<{ stdout: string }>(res))
   },
 
   readFile(path: string): Promise<{ content: string }> {
@@ -160,14 +88,6 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<void>(res))
   },
 
-  importPath(sourceAbsolutePath: string, destRepoRelativeDir: string): Promise<{ path: string }> {
-    return fetch('/api/sleipnir/import-path', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceAbsolutePath, destRepoRelativeDir }),
-    }).then((res) => asJson<{ path: string }>(res))
-  },
-
   getWorkspaceInfo(): Promise<WorkspaceInfo> {
     return fetch('/api/sleipnir/workspace/info').then((res) => asJson<WorkspaceInfo>(res))
   },
@@ -208,18 +128,33 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<void>(res))
   },
 
-  searchRepo(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }> {
-    const params = new URLSearchParams({ query, ...(opts?.limit ? { limit: String(opts.limit) } : {}) })
-    return fetch(`/api/sleipnir/search-repo?${params}`).then((res) => asJson<{ matches: SearchMatch[]; truncated: boolean }>(res))
+  deleteWorkspacePath(path: string): Promise<void> {
+    return fetch('/api/sleipnir/workspace/delete-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  renameWorkspacePath(fromPath: string, toPath: string): Promise<void> {
+    return fetch('/api/sleipnir/workspace/rename-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromPath, toPath }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  copyWorkspacePath(fromPath: string, toPath: string): Promise<void> {
+    return fetch('/api/sleipnir/workspace/copy-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromPath, toPath }),
+    }).then((res) => asJson<void>(res))
   },
 
   searchWorkspace(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }> {
     const params = new URLSearchParams({ query, ...(opts?.limit ? { limit: String(opts.limit) } : {}) })
     return fetch(`/api/sleipnir/search-workspace?${params}`).then((res) => asJson<{ matches: SearchMatch[]; truncated: boolean }>(res))
-  },
-
-  listRepoTree(): Promise<{ tree: FileTreeNode[] }> {
-    return fetch('/api/sleipnir/list-repo-tree').then((res) => asJson<{ tree: FileTreeNode[] }>(res))
   },
 
   detectPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfig | null }> {
@@ -266,6 +201,14 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ node: GraphNode }>(res))
   },
 
+  scaffoldNodes(map: string, entries: ScaffoldEntry[], links?: ScaffoldLink[]): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
+    return fetch('/api/sleipnir/scaffold-nodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ map, entries, links }),
+    }).then((res) => asJson<{ nodes: GraphNode[]; edges: GraphEdge[] }>(res))
+  },
+
   createPlanNode(
     planId: string,
     label: string,
@@ -287,31 +230,72 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ node: GraphNode }>(res))
   },
 
-  openFileNode(path: string, label?: string): Promise<{ node: GraphNode }> {
-    return fetch('/api/sleipnir/open-file-node', {
+  setNodeBorrows(nodeId: string, targetIds: string[]): Promise<{ edges: GraphEdge[] }> {
+    return fetch('/api/sleipnir/node-borrows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, label }),
+      body: JSON.stringify({ nodeId, targetIds }),
+    }).then((res) => asJson<{ edges: GraphEdge[] }>(res))
+  },
+
+  updateNote(id: string, patch: { label?: string; description?: string }): Promise<{ node: GraphNode }> {
+    return fetch('/api/sleipnir/update-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, patch }),
     }).then((res) => asJson<{ node: GraphNode }>(res))
+  },
+
+  deleteNote(id: string): Promise<void> {
+    return fetch('/api/sleipnir/delete-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).then((res) => asJson<void>(res))
+  },
+
+  getNodeStages(): Promise<{ stages: Record<string, NodeStage> }> {
+    return fetch('/api/sleipnir/node-stages').then((res) => asJson<{ stages: Record<string, NodeStage> }>(res))
+  },
+
+  setNodeStage(id: string, stage: NodeStage | null): Promise<{ stages: Record<string, NodeStage> }> {
+    return fetch('/api/sleipnir/node-stage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, stage }),
+    }).then((res) => asJson<{ stages: Record<string, NodeStage> }>(res))
   },
 
   getPlans(): Promise<{ plans: SavedPlan[] }> {
     return fetch('/api/sleipnir/plans').then((res) => asJson<{ plans: SavedPlan[] }>(res))
   },
 
-  createPlan(label: string, nodeIds: string[]): Promise<{ plan: SavedPlan }> {
+  createPlan(
+    label: string,
+    nodeIds: string[] = [],
+    assetPaths?: string[],
+    assetEdges?: { source: string; target: string }[],
+  ): Promise<{ plan: SavedPlan }> {
     return fetch('/api/sleipnir/plans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, nodeIds }),
+      body: JSON.stringify({ label, nodeIds, assetPaths, assetEdges }),
     }).then((res) => asJson<{ plan: SavedPlan }>(res))
   },
 
-  deletePlan(id: string): Promise<void> {
+  appendPlanGeneratedFiles(id: string, paths: string[]): Promise<{ plan: SavedPlan }> {
+    return fetch('/api/sleipnir/plans/generated-files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, paths }),
+    }).then((res) => asJson<{ plan: SavedPlan }>(res))
+  },
+
+  deletePlan(id: string, opts?: { deleteFiles?: boolean }): Promise<void> {
     return fetch('/api/sleipnir/delete-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, deleteFiles: opts?.deleteFiles }),
     }).then((res) => asJson<void>(res))
   },
 
@@ -321,27 +305,6 @@ export const webApi: PlatformAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path }),
     }).then((res) => asJson<RunResult>(res))
-  },
-
-  previewRefactor(architecture: Architecture, libraryId?: string): Promise<RefactorPlan> {
-    return fetch('/api/sleipnir/refactor/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ architecture, libraryId }),
-    }).then((res) => asJson<RefactorPlan>(res))
-  },
-
-  applyRefactor(architecture: Architecture, libraryId?: string): Promise<{ plan: RefactorPlan }> {
-    return fetch('/api/sleipnir/refactor/apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ architecture, libraryId }),
-    }).then((res) => asJson<{ plan: RefactorPlan }>(res))
-  },
-
-  getCurrentArchitecture(libraryId?: string): Promise<{ current: Architecture }> {
-    const qs = libraryId ? `?libraryId=${encodeURIComponent(libraryId)}` : ''
-    return fetch(`/api/sleipnir/refactor/current${qs}`).then((res) => asJson<{ current: Architecture }>(res))
   },
 
   getGitStatus(): Promise<GitStatus> {
@@ -363,6 +326,14 @@ export const webApi: PlatformAPI = {
 
   unstageFiles(paths: string[]): Promise<GitStatus> {
     return fetch('/api/sleipnir/git/unstage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  discardFiles(paths: string[]): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/discard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paths }),
@@ -400,6 +371,14 @@ export const webApi: PlatformAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  renameBranch(oldName: string, newName: string): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/rename-branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldName, newName }),
     }).then((res) => asJson<GitStatus>(res))
   },
 

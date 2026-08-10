@@ -1,4 +1,4 @@
-import type { GraphNode, LibraryEntry } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../00_planning/graph/types'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -11,10 +11,6 @@ export interface ChatMessage {
 export interface AgentChatProps {
   /** Fired every time a plan node streams in, so the host app can jump to (and stay on) Planning's CLAUDE tab to watch the build live instead of wherever the user last navigated. */
   onPlanNodeCreated?: (node: GraphNode) => void
-  /** Fired when the user types the `/plan` slash command — opens the same Create Library modal the Planning UI's "+ New Library" button does. Intercepted locally; never reaches the LLM. */
-  onPlanCommand?: () => void
-  /** Fired when the AI itself calls the create_library tool (natural-language request, not the `/plan` command) — the library already exists by the time this fires; the host app can jump to it in Planning. */
-  onLibraryCreated?: (library: LibraryEntry) => void
 }
 
 export interface GeneratedFile {
@@ -35,8 +31,7 @@ export interface ChatAPI {
   cancel: (sessionId: string) => void
   onToken: (sessionId: string, callback: (delta: string) => void) => () => void
   onPlanNodeCreated: (sessionId: string, callback: (node: GraphNode) => void) => () => void
-  onLibraryCreated: (sessionId: string, callback: (library: LibraryEntry) => void) => () => void
-  /** Fired by the generate_code tool — staged content only, never written to disk (see DesignLibrary.view.tsx's pendingOverride). */
+  /** Fired by the generate_code tool — staged content only, never written to disk (see WorkspaceView.tsx's pendingOverride). */
   onCodeGenerated: (sessionId: string, callback: (payload: CodeGeneratedPayload) => void) => () => void
   onDone: (sessionId: string, callback: (fullText: string) => void) => () => void
   onError: (sessionId: string, callback: (message: string) => void) => () => void

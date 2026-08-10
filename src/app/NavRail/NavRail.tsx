@@ -22,7 +22,10 @@ export interface NavRailBottomAction {
 interface NavRailProps {
   items: NavRailItem[]
   activeId: string
-  onSelect: (id: string) => void
+  /** Secondary (split-view) category, if any — see App.tsx's switchTo. Only used to decide which rail buttons get the secondary indicator dot below. */
+  secondaryId?: string | null
+  /** `e` is passed through so callers can detect a Ctrl/Cmd-click ("open in split view beside the current category") vs. a plain click ("switch to it"). */
+  onSelect: (id: string, e?: React.MouseEvent) => void
   bottomAction?: NavRailBottomAction
 }
 
@@ -31,13 +34,15 @@ function NavRailButton({
   title,
   tag,
   active,
+  secondary,
   onClick,
 }: {
   icon: IconName
   title: string
   tag?: string
   active: boolean
-  onClick: () => void
+  secondary?: boolean
+  onClick: (e: React.MouseEvent) => void
 }) {
   return (
     <button
@@ -69,6 +74,20 @@ function NavRailButton({
           }}
         />
       )}
+      {secondary && (
+        <div
+          title="Open in split view"
+          style={{
+            position: 'absolute',
+            right: 6,
+            top: 6,
+            width: 4,
+            height: 4,
+            borderRadius: '50%',
+            background: 'var(--text-2)',
+          }}
+        />
+      )}
       <span
         style={{
           color: active ? 'var(--text-1)' : 'var(--text-3)',
@@ -93,7 +112,7 @@ function NavRailButton({
   )
 }
 
-export const NavRail: React.FC<NavRailProps> = ({ items, activeId, onSelect, bottomAction }) => (
+export const NavRail: React.FC<NavRailProps> = ({ items, activeId, secondaryId, onSelect, bottomAction }) => (
   <Frame
     as="nav"
     theme="tactical"
@@ -111,10 +130,11 @@ export const NavRail: React.FC<NavRailProps> = ({ items, activeId, onSelect, bot
       <NavRailButton
         key={item.id}
         icon={item.icon}
-        title={item.title}
+        title={`${item.title} — Ctrl/Cmd-click to open in split view`}
         tag={item.tag}
         active={item.id === activeId}
-        onClick={() => onSelect(item.id)}
+        secondary={item.id === secondaryId}
+        onClick={(e) => onSelect(item.id, e)}
       />
     ))}
     {bottomAction && (

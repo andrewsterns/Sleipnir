@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
@@ -6,21 +6,31 @@ import type { WorkspaceTabStripProps } from './iWorkspaceTabStrip'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
-// Sits between TitleBar and the NavRail+content row, listing every open
-// "page" regardless of kind — the generalized version of what
-// OpenEditorsView used to render just for opened files. Visuals lifted
-// directly from that component's tab strip (already right, just needed to
-// stop being file-only).
-export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose }) => {
-  if (tabs.length === 0) return null
+// Lists every open "page" regardless of kind — the generalized version of
+// what OpenEditorsView used to render just for opened files. Rendered inside
+// WorkspaceHeader's own row (which owns the border/background) so it can
+// share that row with trailing actions instead of owning a full-width strip
+// of its own.
+export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose, onAddTab }) => {
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+
+  if (tabs.length === 0 && !onAddTab) return null
+
+  const submit = () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onAddTab?.(trimmed)
+    setAdding(false)
+    setName('')
+  }
 
   return (
     <Frame
       flow="horizontal"
       align="center"
-      shrink={0}
-      stroke={{ bottom: { color: 'rgba(255,255,255,0.08)' } }}
-      fill={{ solid: 'bg-1' }}
+      grow
+      minW={0}
       style={{ overflowX: 'auto' }}
     >
       {tabs.map((tab) => {
@@ -61,6 +71,40 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
           </Frame>
         )
       })}
+      {onAddTab && (
+        adding ? (
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit()
+              if (e.key === 'Escape') { setAdding(false); setName('') }
+            }}
+            onBlur={() => { if (!name) setAdding(false) }}
+            placeholder="filename"
+            style={{
+              flexShrink: 0,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 'var(--radius-2)',
+              color: 'var(--text-1)',
+              fontSize: 12,
+              padding: '4px 6px',
+              margin: '0 8px',
+              width: 130,
+              ...MONO,
+            }}
+          />
+        ) : (
+          <IconButton
+            onClick={() => setAdding(true)}
+            title="New tab"
+            glyph="+"
+            iconSize={16}
+          />
+        )
+      )}
     </Frame>
   )
 }

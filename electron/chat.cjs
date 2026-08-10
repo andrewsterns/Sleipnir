@@ -56,41 +56,18 @@ const TOOL_DEFS = [
     required: ['plan_id', 'label'],
   },
   {
-    name: 'create_library',
-    description:
-      'Create a brand-new blank component library or prototype library when the user asks to start a new one (e.g. "create a new component library called X", "start a fresh prototype library"). Same effect as the Planning UI\'s "+ New Library" button / the `/plan` slash command — do not use create_plan_node for this.',
-    properties: {
-      id: { type: 'string', description: 'Lowercase slug, letters/digits/hyphens only, e.g. "my-design-system".' },
-      kind: { type: 'string', enum: ['component', 'prototype'] },
-      label: { type: 'string', description: 'Human-readable display name, e.g. "My Design System".' },
-      architecture: { type: 'string', enum: ['atomic', 'mvvm', 'mvc', 'mvp'], description: 'Defaults to "atomic" if not specified by the user.' },
-      language: { type: 'string', enum: ['typescript', 'python', 'rust', 'go'], description: 'Defaults to "typescript" if not specified by the user.' },
-    },
-    required: ['id', 'kind', 'label'],
-  },
-  {
     name: 'generate_code',
     description:
-      'Generate or modify real source code for an approved plan node, staged for human review — never written to disk directly. ' +
-      'If editing a file that already exists in the project (the prompt may list likely candidate paths), set existing_path to its exact path and provide the FULL updated file content, not a diff or a snippet. ' +
-      'If creating a brand-new component, provide component_name (PascalCase), tier, and parts instead, and its file shell will be scaffolded first. ' +
-      'Always include the complete resulting file content for every file in `files` — the human reviews and saves each one manually in the Code Editor.',
+      'Generate or modify source code in the currently open Workspace project, staged for human review — never written to disk directly. ' +
+      'Provide the FULL file content for every file in `files`, using paths relative to the Workspace root (e.g. "src/components/Button.tsx"). ' +
+      'Works identically for editing an existing file or creating a brand-new one — Sleipnir creates any missing folders automatically once the human saves.',
     properties: {
-      existing_path: { type: 'string', description: 'Exact existing file path to modify, e.g. "02_components/02_molecules/Button/Button.tsx". Omit when creating a new component.' },
-      component_name: { type: 'string', description: 'PascalCase name — only when creating a brand-new component, not when editing an existing one.' },
-      tier: { type: 'string', enum: ['atoms', 'molecules', 'organisms', 'templates', 'pages'], description: 'Only relevant when creating a new component.' },
-      library_id: { type: 'string', description: 'Which component library to scaffold into — defaults to the default library if omitted. Only relevant when creating a new component.' },
-      parts: {
-        type: 'array',
-        items: { type: 'string', enum: ['view', 'viewModel', 'interface'] },
-        description: 'Which MVVM files to scaffold — only relevant when creating a new component.',
-      },
       files: {
         type: 'array',
         items: {
           type: 'object',
           properties: {
-            path: { type: 'string', description: 'Repo-relative path (no leading src/), e.g. "02_components/02_molecules/Button/Button.tsx".' },
+            path: { type: 'string', description: 'Workspace-relative path (no leading slash), e.g. "src/components/Button.tsx".' },
             content: { type: 'string', description: 'The complete file content after the change.' },
           },
           required: ['path', 'content'],
@@ -110,37 +87,12 @@ async function executeTool(call) {
     const { node } = b.createPlanNode(call.input.plan_id, call.input.label, call.input.description, call.input.parent_id)
     return { node, result: { created: true, node_id: node.id } }
   }
-  if (call.name === 'create_library') {
-    const b = await getBackend()
-    const { library } = b.createLibrary({
-      id: call.input.id,
-      kind: call.input.kind,
-      label: call.input.label,
-      architecture: call.input.architecture || 'atomic',
-      language: call.input.language || 'typescript',
-    })
-    await b.regenerateGraph()
-    return { library, result: { created: true, library_id: library.id } }
-  }
   if (call.name === 'generate_code') {
     const files = call.input.files || []
-    // New-component case: scaffold real file shells from templates first
-    // (same mechanism NewComponentForm uses) so the staged paths actually
-    // exist on disk once the human saves. Editing an existing file needs no
-    // scaffold — existing_path already points at a real file.
-    if (call.input.component_name) {
-      const b = await getBackend()
-      try {
-        b.scaffoldComponent(call.input.component_name, call.input.tier, 'typescript', call.input.parts, call.input.library_id)
-        await b.regenerateGraph()
-      } catch {
-        // Already exists — fine, we're just overlaying staged content on the existing shell.
-      }
-    }
     // Not written to disk here — chat:codeGenerated hands the content to the
     // renderer, which stages it in an unsaved Code Editor tab (see
-    // DesignLibrary.view.tsx's pendingOverride). Disk writes only happen
-    // when the human hits Save.
+    // WorkspaceView.tsx's pendingOverride). Disk writes only happen when the
+    // human hits Save.
     return { codeGenerated: { files }, result: { staged: true, fileCount: files.length } }
   }
   throw new Error(`Unknown tool: ${call.name}`)
@@ -174,9 +126,8 @@ async function sendMessage(sender, sessionId, history, userMessage) {
       const results = []
       for (const call of toolCalls) {
         try {
-          const { node, library, codeGenerated, result } = await executeTool(call)
+          const { node, codeGenerated, result } = await executeTool(call)
           if (node && !sender.isDestroyed()) sender.send('chat:planNodeCreated', sessionId, node)
-          if (library && !sender.isDestroyed()) sender.send('chat:libraryCreated', sessionId, library)
           if (codeGenerated && !sender.isDestroyed()) sender.send('chat:codeGenerated', sessionId, codeGenerated)
           results.push({ id: call.id, name: call.name, result })
         } catch (err) {

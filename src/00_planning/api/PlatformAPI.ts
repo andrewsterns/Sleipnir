@@ -2,26 +2,11 @@
 // IPC → main process) implement identically, so the rest of the app never
 // needs to know which one it's talking to.
 
-import type { Architecture, GraphEdge, GraphNode, LibraryEntry, LibraryKind, NodeStatus, SavedPlan, ScaffoldLanguage, WidgetEntry, WidgetKind, WidgetCatalogEntry } from '../graph/types'
+import type { GraphEdge, GraphNode, NodeStage, NodeStatus, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
 
 // Re-exported so existing consumers (e.g. sleipnirApi.ts) keep working
-// unchanged — canonical definitions live in graph/types.ts since LibraryEntry
-// needs them there too, and PlatformAPI already depends on that module.
-export type { Architecture, LibraryEntry, LibraryKind, SavedPlan, ScaffoldLanguage, WidgetEntry, WidgetKind, WidgetCatalogEntry }
-
-/** Everything addWidget (tools/widget-registry.mjs) needs to persist a new entry — this is exactly a WidgetCatalogEntry's `entry` field, resolved client-side rather than looked up server-side, so the catalog only has to exist in one place (widget-catalog.json). */
-export type NewWidgetInput = Omit<WidgetEntry, 'createdAt'>
-
-export type ComponentTier = 'atoms' | 'molecules' | 'organisms' | 'templates' | 'pages'
-
-// Which files of the MVVM triplet to generate — only meaningful when
-// language === 'typescript'. Defaults to all three (see webApi.ts/electronApi.ts).
-export type ScaffoldPart = 'view' | 'viewModel' | 'interface'
-
-export interface ScaffoldComponentResult {
-  path: string
-  files: string[]
-}
+// unchanged.
+export type { SavedPlan }
 
 export interface FileTreeNode {
   name: string
@@ -41,6 +26,13 @@ export interface ArchiveEntry {
 export interface WorkspaceInfo {
   root: string | null
   name: string | null
+}
+
+/** One entry in File > Open Recent — see electron/workspaceStore.cjs. `name` is the project's display name (custom, via Rename Project, or the folder's basename) as of when it was last opened; may be stale if renamed from disk elsewhere. */
+export interface RecentProject {
+  path: string
+  name: string
+  lastOpened: string
 }
 
 /** One line hit from searchRepo/searchWorkspace — see ROADMAP.md's Phase 1. `column` is 1-based. */
@@ -67,32 +59,6 @@ export interface PreviewConfig {
 export interface PreviewConfigEntry extends PreviewConfig {
   path: string
   configuredAt: number
-}
-
-export interface RefactorMove {
-  from: string
-  to: string
-}
-
-export interface RefactorRewrite {
-  file: string
-  changes: { oldSpecifier: string; newSpecifier: string }[]
-}
-
-/** A read-only Stage 1 codemod-lint finding — see tools/codemod-lint.mjs. Never causes a file change; purely informational. */
-export interface RefactorViolation {
-  file: string
-  rule: string
-  message: string
-}
-
-export interface RefactorPlan {
-  moves: RefactorMove[]
-  rewrites: RefactorRewrite[]
-  movedCount: number
-  rewrittenFileCount: number
-  /** Only populated by previewRefactor — applyRefactor's returned plan omits it (nothing to re-check after the move already happened). */
-  violations?: RefactorViolation[]
 }
 
 export interface GitFileStatus {
@@ -159,51 +125,24 @@ export interface GitIdentity {
 }
 
 export interface PlatformAPI {
-  scaffoldComponent(
-    name: string,
-    tier: ComponentTier,
-    language?: ScaffoldLanguage,
-    parts?: ScaffoldPart[],
-    libraryId?: string,
-  ): Promise<ScaffoldComponentResult>
+  /** Re-runs tools/generate-graph.mjs's research/validation doc-graph scan — refreshes Planning's Research Notes/Validation maps after an archive/restore. */
   regenerateGraph(): Promise<{ stdout: string }>
-  /** Creates a brand-new blank component or prototype library (just a registry entry + empty root folder). */
-  createLibrary(input: {
-    id: string
-    kind: LibraryKind
-    label: string
-    architecture: Architecture
-    language: ScaffoldLanguage
-  }): Promise<{ library: LibraryEntry }>
-  listLibraries(kind?: LibraryKind): Promise<{ libraries: LibraryEntry[] }>
-  /** Unregisters a library only — its files stay on disk untouched. Refuses on the two default libraries. */
-  removeLibrary(id: string): Promise<void>
-  /** Unregisters AND deletes the library's entire folder — irreversible. Refuses on the two default libraries. */
-  deleteLibrary(id: string): Promise<void>
-  /** Registered NavRail widgets (e.g. "Docker") — always fetched at runtime, never statically imported (see graph/types.ts's WidgetEntry comment). */
-  listWidgets(): Promise<{ widgets: WidgetEntry[] }>
-  /** Persists a new widget registry entry — the caller (WidgetStoreView) resolves a catalog entry's `entry` field into this shape first. */
-  installWidget(input: NewWidgetInput): Promise<{ widget: WidgetEntry }>
-  /** The Widget Store's browsable catalog — backed by widget-catalog.json today (see graph/types.ts's WidgetCatalogEntry comment for why it's fetched, not bundled). */
-  getWidgetCatalog(): Promise<{ catalog: WidgetCatalogEntry[] }>
   readFile(path: string): Promise<{ content: string }>
   /** Overwrites an existing file's content. Added for the Phase 2 code editor's save action. */
   writeFile(path: string, content: string): Promise<void>
   listDir(path: string): Promise<{ tree: FileTreeNode[] }>
-  /** Repo-root-scoped counterpart to listDir — for widgets browsing outside src/ (e.g. Docker's docker/ folder). */
+  /** Repo-root-scoped counterpart to listDir. */
   listRepoDir(path: string, extraFiles?: string[]): Promise<{ tree: FileTreeNode[] }>
   readRepoFile(path: string): Promise<{ content: string }>
-  /** Repo-root-scoped counterpart to writeFile — the File menu's Open File/Save can target anywhere in the repo, not just src/. */
+  /** Repo-root-scoped counterpart to writeFile. */
   writeRepoFile(path: string, content: string): Promise<void>
   createFile(path: string, content?: string): Promise<void>
   createDir(path: string): Promise<void>
-  /** Copies a file/folder from anywhere on disk (sourceAbsolutePath, unrestricted — see importDialog) into a repo-relative destination directory, at its own basename. Used by the File menu's Import button. */
-  importPath(sourceAbsolutePath: string, destRepoRelativeDir: string): Promise<{ path: string }>
   /**
    * The currently-open Workspace folder (see ROADMAP.md's Phase 0) — an
    * arbitrary project on disk, completely independent of SRC_ROOT/REPO_ROOT
-   * (which stay pinned to Sleipnir's own repo for Planning/Components/
-   * Prototypes/Refactor). `root`/`name` are both null when none is open yet.
+   * (which stay pinned to Sleipnir's own repo). `root`/`name` are both null
+   * when none is open yet.
    */
   getWorkspaceInfo(): Promise<WorkspaceInfo>
   listWorkspaceDir(path: string): Promise<{ tree: FileTreeNode[] }>
@@ -211,18 +150,20 @@ export interface PlatformAPI {
   writeWorkspaceFile(path: string, content: string): Promise<void>
   createWorkspaceFile(path: string, content?: string): Promise<void>
   createWorkspaceDir(path: string): Promise<void>
+  /** Removes a file or folder (recursively) from the currently-open Workspace. The Electron transport moves it to the OS Recycle Bin; the web transport (no browser-accessible trash) deletes it outright — see electron/main.cjs vs. tools/sleipnir-backend.mjs's deleteWorkspacePath. */
+  deleteWorkspacePath(path: string): Promise<void>
+  /** Renames/moves a Workspace path (fs.rename). Powers both in-place rename and cut→paste (move into another folder). Rejects if `toPath` already exists — callers de-conflict first. Both ends are validated against the workspace root. */
+  renameWorkspacePath(fromPath: string, toPath: string): Promise<void>
+  /** Copies a Workspace path (recursive for folders), for copy→paste. `toPath` is the caller's already-de-conflicted target; rejects if it still exists. */
+  copyWorkspacePath(fromPath: string, toPath: string): Promise<void>
   /**
    * Project-wide search (ROADMAP.md's Phase 1) — plain case-insensitive
-   * substring search, capped at a server-side result limit (`truncated`
-   * indicates more matches exist than were returned). `searchRepo` scopes to
-   * Sleipnir's own repo, `searchWorkspace` to the currently-open Workspace
-   * folder (throws if none is open, same as the other workspace-scoped
-   * methods above).
+   * substring search over the currently-open Workspace folder, capped at a
+   * server-side result limit (`truncated` indicates more matches exist than
+   * were returned). Throws if no Workspace is open, same as the other
+   * workspace-scoped methods above.
    */
-  searchRepo(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }>
   searchWorkspace(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }>
-  /** Flat recursive file tree for Sleipnir's own repo (skip-list applied, same as listWorkspaceDir) — backs quick-open's file list when no Workspace is open. Unlike listRepoDir(''), this doesn't short-circuit to an empty tree. */
-  listRepoTree(): Promise<{ tree: FileTreeNode[] }>
   /** Pure filesystem heuristic (package.json scripts, a lone .html file) — `config: null` when nothing's auto-detectable. No process spawning; see previewAPI (electronApi.ts) for actually running it. */
   detectPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfig | null }>
   getPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfigEntry | null }>
@@ -232,6 +173,8 @@ export interface PlatformAPI {
   /** Plain idea/task nodes with no backing file — created from Planning's "+" flow. */
   getNotes(): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }>
   addNote(map: string, label: string, description?: string): Promise<{ node: GraphNode }>
+  /** The "Add Node" modal's file-scaffolding branch — creates every entry's real Workspace file plus a matching graph node, atomically, in one call. `links` are architecture-implied auto-links (indices into `entries`), see AddNodeModal.ViewModel. */
+  scaffoldNodes(map: string, entries: ScaffoldEntry[], links?: ScaffoldLink[]): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }>
   /** Created by the AI chat's create_plan_node tool — lands in the CLAUDE map as a draft node. */
   createPlanNode(
     planId: string,
@@ -241,12 +184,24 @@ export interface PlatformAPI {
   ): Promise<{ node: GraphNode }>
   /** Approve/complete a plan node created via createPlanNode. */
   setNodeStatus(id: string, status: NodeStatus): Promise<{ node: GraphNode }>
-  /** Created by the File menu's Open File… flow for files with no existing graph node — dedupes by filePath. See src/App.tsx's open-file handler for the "does a node already exist" check (graph data isn't reachable from the Node backend). */
-  openFileNode(path: string, label?: string): Promise<{ node: GraphNode }>
-  /** Named, persisted lists of existing node ids — created via a widget's "add to plan" hover action. See src/00_planning/graph/resolvePlan.ts for the client-side neighbor-expansion this backs. */
+  /** Full-replace of a node's outgoing 'borrows' edges — used by the node-card link editor and by re-scanning a saved file's real imports (see WorkspaceView's onImportsChanged). */
+  setNodeBorrows(nodeId: string, targetIds: string[]): Promise<{ edges: GraphEdge[] }>
+  /** Edits a notes.json node's label/description in place (the rename counterpart to addNote). Only nodes stored in notes.json (note, scaffolded, plan-step) are editable; throws for build-generated src nodes, which regenerate from source — callers gate "Rename" to notes-backed nodes. */
+  updateNote(id: string, patch: { label?: string; description?: string }): Promise<{ node: GraphNode }>
+  /** Permanently deletes a notes.json node (note, scaffolded, or plan-step) plus every edge touching it. The restorable-soft-hide counterpart, setArchived, is for build-generated src nodes instead. Does not delete any real Workspace file a scaffolded node points at — callers pair this with deleteWorkspacePath when the file should go too. */
+  deleteNote(id: string): Promise<void>
+  /** The per-node sprint-stage overlay — a { [nodeId]: stage } map covering every node id that's been tagged (see graph/stages.ts). Kept separate from the node records so build-generated nodes can be tagged too. */
+  getNodeStages(): Promise<{ stages: Record<string, NodeStage> }>
+  /** Tags one node with a stage, or clears it when `stage` is null. Any node id is valid — not restricted to notes.json nodes. */
+  setNodeStage(id: string, stage: NodeStage | null): Promise<{ stages: Record<string, NodeStage> }>
+  /** Named, persisted lists of existing node ids. See src/00_planning/graph/resolvePlan.ts for the client-side neighbor-expansion this backs. */
   getPlans(): Promise<{ plans: SavedPlan[] }>
-  createPlan(label: string, nodeIds: string[]): Promise<{ plan: SavedPlan }>
-  deletePlan(id: string): Promise<void>
+  /** `assetPaths`, when given, seeds the plan from a Workspace asset-filter selection (see NewWorkspacePlanModal) instead of/alongside real graph node ids. `assetEdges` are the import connections detected between those paths at creation time. */
+  createPlan(label: string, nodeIds?: string[], assetPaths?: string[], assetEdges?: { source: string; target: string }[]): Promise<{ plan: SavedPlan }>
+  /** Merges workspace-relative paths into a plan's `generatedFiles`, recording what a "Generate Code" run produced while that plan's tab was active. */
+  appendPlanGeneratedFiles(id: string, paths: string[]): Promise<{ plan: SavedPlan }>
+  /** `opts.deleteFiles` also deletes every path in the plan's `generatedFiles`, resolved against the open Workspace root. */
+  deletePlan(id: string, opts?: { deleteFiles?: boolean }): Promise<void>
   /**
    * Runs a file through its language's local interpreter/compiler and
    * captures output. Desktop/local-trusted only: the web transport's runner
@@ -256,23 +211,14 @@ export interface PlatformAPI {
    * this could ever be exposed beyond the developer's own machine.
    */
   runScript(path: string): Promise<RunResult>
-  /** Computes what a Refactor to this architecture would change — never touches disk. `libraryId` defaults to the original default component library. */
-  previewRefactor(architecture: Architecture, libraryId?: string): Promise<RefactorPlan>
-  /**
-   * Executes the same plan previewRefactor would compute: moves files
-   * between folders and rewrites the import specifiers that break as a
-   * result. Refuses to run against an uncommitted working tree (see
-   * tools/refactor-engine.mjs's git-clean gate) so an unwanted result is
-   * always a `git checkout` away.
-   */
-  applyRefactor(architecture: Architecture, libraryId?: string): Promise<{ plan: RefactorPlan }>
-  getCurrentArchitecture(libraryId?: string): Promise<{ current: Architecture }>
 
   // ── Source Control (local git only — see tools/git-control.mjs) ──────────
   getGitStatus(): Promise<GitStatus>
   getGitDiff(path: string, staged?: boolean): Promise<{ diff: string }>
   stageFiles(paths: string[]): Promise<GitStatus>
   unstageFiles(paths: string[]): Promise<GitStatus>
+  /** Discards working-tree changes for the given paths (reverts tracked files to HEAD; unstages + removes untracked/new files). Destructive — the renderer confirms first. See tools/git-control.mjs's discardFiles. */
+  discardFiles(paths: string[]): Promise<GitStatus>
   commitChanges(message: string): Promise<GitStatus>
   getBranches(): Promise<GitBranch[]>
   /** Simple branch list + divergence view (not a full multi-lane DAG) — see tools/git-control.mjs's getBranchTree. */
@@ -280,6 +226,7 @@ export interface PlatformAPI {
   /** Refuses to switch while the working tree is dirty — commit or stash first. */
   checkoutBranch(name: string): Promise<GitStatus>
   createBranch(name: string): Promise<GitStatus>
+  renameBranch(oldName: string, newName: string): Promise<GitStatus>
   /** Auto-sets upstream on a branch's first push instead of surfacing git's raw "no upstream" error. */
   gitPush(): Promise<GitOpResult>
   /** Returns `conflicted: true` (with the file list) on a merge conflict rather than attempting any automatic resolution — resolve in the Terminal panel. */

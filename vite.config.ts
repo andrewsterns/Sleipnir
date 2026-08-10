@@ -38,108 +38,12 @@ function sleipnirApiPlugin() {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '', 'http://localhost')
 
-        if (url.pathname === '/api/sleipnir/scaffold-component' && req.method === 'POST') {
-          try {
-            const { name, tier, language, parts, libraryId } = await readJsonBody(req)
-            const result = backend.scaffoldComponent(
-              String(name ?? ''),
-              String(tier ?? ''),
-              language ? String(language) : undefined,
-              Array.isArray(parts) ? parts.map(String) : undefined,
-              libraryId ? String(libraryId) : undefined,
-            )
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
         if (url.pathname === '/api/sleipnir/regenerate-graph' && req.method === 'POST') {
           try {
             const result = await backend.regenerateGraph()
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 500, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/create-library' && req.method === 'POST') {
-          try {
-            const { id, kind, label, architecture, language } = await readJsonBody(req)
-            const result = backend.createLibrary({
-              id: String(id ?? ''),
-              kind: String(kind ?? ''),
-              label: String(label ?? ''),
-              architecture: String(architecture ?? ''),
-              language: String(language ?? ''),
-            })
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/libraries' && req.method === 'GET') {
-          try {
-            const kind = url.searchParams.get('kind') || undefined
-            const result = backend.getLibraries(kind)
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/remove-library' && req.method === 'POST') {
-          try {
-            const { id } = await readJsonBody(req)
-            const result = backend.removeLibrary(String(id ?? ''))
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/delete-library' && req.method === 'POST') {
-          try {
-            const { id } = await readJsonBody(req)
-            const result = backend.deleteLibrary(String(id ?? ''))
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/widgets' && req.method === 'GET') {
-          try {
-            sendJson(res, 200, { success: true, ...backend.getWidgets() })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/install-widget' && req.method === 'POST') {
-          try {
-            const input = await readJsonBody(req)
-            const result = backend.installWidget(input)
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/widget-catalog' && req.method === 'GET') {
-          try {
-            sendJson(res, 200, { success: true, ...backend.getWidgetCatalog() })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
           }
           return
         }
@@ -291,12 +195,37 @@ function sleipnirApiPlugin() {
           return
         }
 
-        if (url.pathname === '/api/sleipnir/search-repo' && req.method === 'GET') {
+        // Permanent delete — no OS Recycle Bin reachable from a browser dev
+        // server. The Electron transport moves to the Recycle Bin instead
+        // (electron/main.cjs's own sleipnir:deleteWorkspacePath handler),
+        // bypassing this route entirely.
+        if (url.pathname === '/api/sleipnir/workspace/delete-path' && req.method === 'POST') {
           try {
-            const query = url.searchParams.get('query') ?? ''
-            const limit = url.searchParams.get('limit')
-            const result = backend.searchRepo(query, limit ? { limit: Number(limit) } : undefined)
-            sendJson(res, 200, { success: true, ...result })
+            const { path: relPath } = await readJsonBody(req)
+            backend.deleteWorkspacePath(String(relPath ?? ''))
+            sendJson(res, 200, { success: true })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/workspace/rename-path' && req.method === 'POST') {
+          try {
+            const { fromPath, toPath } = await readJsonBody(req)
+            backend.renameWorkspacePath(String(fromPath ?? ''), String(toPath ?? ''))
+            sendJson(res, 200, { success: true })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/workspace/copy-path' && req.method === 'POST') {
+          try {
+            const { fromPath, toPath } = await readJsonBody(req)
+            backend.copyWorkspacePath(String(fromPath ?? ''), String(toPath ?? ''))
+            sendJson(res, 200, { success: true })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
           }
@@ -308,27 +237,6 @@ function sleipnirApiPlugin() {
             const query = url.searchParams.get('query') ?? ''
             const limit = url.searchParams.get('limit')
             const result = backend.searchWorkspace(query, limit ? { limit: Number(limit) } : undefined)
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/list-repo-tree' && req.method === 'GET') {
-          try {
-            const result = backend.listRepoTree()
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/import-path' && req.method === 'POST') {
-          try {
-            const { sourceAbsolutePath, destRepoRelativeDir } = await readJsonBody(req)
-            const result = backend.importPath(String(sourceAbsolutePath ?? ''), String(destRepoRelativeDir ?? ''))
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
@@ -447,10 +355,66 @@ function sleipnirApiPlugin() {
           return
         }
 
-        if (url.pathname === '/api/sleipnir/open-file-node' && req.method === 'POST') {
+        if (url.pathname === '/api/sleipnir/node-borrows' && req.method === 'POST') {
           try {
-            const { path: relPath, label } = await readJsonBody(req)
-            const result = backend.openFileNode(String(relPath ?? ''), label ? String(label) : undefined)
+            const { nodeId, targetIds } = await readJsonBody(req)
+            const result = backend.setNodeBorrows(String(nodeId ?? ''), Array.isArray(targetIds) ? targetIds.map(String) : [])
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/update-note' && req.method === 'POST') {
+          try {
+            const { id, patch } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...backend.updateNote(String(id ?? ''), patch ?? {}) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/delete-note' && req.method === 'POST') {
+          try {
+            const { id } = await readJsonBody(req)
+            backend.deleteNote(String(id ?? ''))
+            sendJson(res, 200, { success: true })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/node-stages' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, ...backend.getNodeStages() })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/node-stage' && req.method === 'POST') {
+          try {
+            const { id, stage } = await readJsonBody(req)
+            const result = backend.setNodeStage(String(id ?? ''), stage ? String(stage) : null)
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/scaffold-nodes' && req.method === 'POST') {
+          try {
+            const { map, entries, links } = await readJsonBody(req)
+            const result = backend.scaffoldNodes(
+              String(map ?? ''),
+              Array.isArray(entries) ? entries : [],
+              Array.isArray(links) ? links : undefined,
+            )
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
@@ -469,8 +433,24 @@ function sleipnirApiPlugin() {
 
         if (url.pathname === '/api/sleipnir/plans' && req.method === 'POST') {
           try {
-            const { label, nodeIds } = await readJsonBody(req)
-            const result = backend.createPlan(String(label ?? ''), Array.isArray(nodeIds) ? nodeIds.map(String) : [])
+            const { label, nodeIds, assetPaths, assetEdges } = await readJsonBody(req)
+            const result = backend.createPlan(
+              String(label ?? ''),
+              Array.isArray(nodeIds) ? nodeIds.map(String) : [],
+              Array.isArray(assetPaths) ? assetPaths.map(String) : undefined,
+              Array.isArray(assetEdges) ? assetEdges : undefined,
+            )
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/plans/generated-files' && req.method === 'POST') {
+          try {
+            const { id, paths } = await readJsonBody(req)
+            const result = backend.appendPlanGeneratedFiles(String(id ?? ''), Array.isArray(paths) ? paths.map(String) : [])
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
@@ -480,41 +460,9 @@ function sleipnirApiPlugin() {
 
         if (url.pathname === '/api/sleipnir/delete-plan' && req.method === 'POST') {
           try {
-            const { id } = await readJsonBody(req)
-            backend.deletePlan(String(id ?? ''))
+            const { id, deleteFiles } = await readJsonBody(req)
+            backend.deletePlan(String(id ?? ''), { deleteFiles: !!deleteFiles })
             sendJson(res, 200, { success: true })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/refactor/preview' && req.method === 'POST') {
-          try {
-            const { architecture, libraryId } = await readJsonBody(req)
-            const result = backend.previewRefactor(String(architecture ?? ''), libraryId ? String(libraryId) : undefined)
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/refactor/apply' && req.method === 'POST') {
-          try {
-            const { architecture, libraryId } = await readJsonBody(req)
-            const result = await backend.applyRefactor(String(architecture ?? ''), libraryId ? String(libraryId) : undefined)
-            sendJson(res, 200, { success: true, ...result })
-          } catch (e) {
-            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
-          }
-          return
-        }
-
-        if (url.pathname === '/api/sleipnir/refactor/current' && req.method === 'GET') {
-          try {
-            const libraryId = url.searchParams.get('libraryId') || undefined
-            sendJson(res, 200, { success: true, ...backend.getCurrentArchitecture(libraryId) })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
           }
@@ -555,6 +503,16 @@ function sleipnirApiPlugin() {
           try {
             const { paths } = await readJsonBody(req)
             sendJson(res, 200, { success: true, ...(await backend.unstageFiles(paths as string[])) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/discard' && req.method === 'POST') {
+          try {
+            const { paths } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...(await backend.discardFiles(paths as string[])) })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
           }
@@ -603,6 +561,16 @@ function sleipnirApiPlugin() {
           try {
             const { name } = await readJsonBody(req)
             sendJson(res, 200, { success: true, ...(await backend.createBranch(String(name ?? ''))) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/rename-branch' && req.method === 'POST') {
+          try {
+            const { oldName, newName } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...(await backend.renameBranch(String(oldName ?? ''), String(newName ?? ''))) })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
           }

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { getWorkspaceInfo, listWorkspaceDir, listRepoTree, searchRepo, searchWorkspace } from '../../00_planning/api/sleipnirApi'
+import { getWorkspaceInfo, listWorkspaceDir, searchWorkspace } from '../../00_planning/api/sleipnirApi'
 import type { FileTreeNode, SearchMatch } from '../../00_planning/api/PlatformAPI'
 import { fuzzyScore } from '../../utils/fuzzyMatch'
 
 export interface PaletteFile {
   path: string
-  scope: 'workspace' | 'repo'
+  scope: 'workspace'
 }
 
 // One unified, mode-agnostic result shape so keyboard nav (arrow/Enter) never
@@ -21,7 +21,7 @@ const FILE_RESULT_LIMIT = 50
 const SEARCH_RESULT_LIMIT = 200
 const SEARCH_DEBOUNCE_MS = 250
 
-function flattenFiles(nodes: FileTreeNode[], scope: 'workspace' | 'repo', into: PaletteFile[]) {
+function flattenFiles(nodes: FileTreeNode[], scope: 'workspace', into: PaletteFile[]) {
   for (const n of nodes) {
     if (n.type === 'file') into.push({ path: n.path, scope })
     if (n.children) flattenFiles(n.children, scope, into)
@@ -30,18 +30,17 @@ function flattenFiles(nodes: FileTreeNode[], scope: 'workspace' | 'repo', into: 
 
 export function useCommandPaletteViewModel(
   open: boolean,
-  onJumpToFile: (path: string, opts?: { line?: number; scope?: 'workspace' | 'repo' }) => void,
+  onJumpToFile: (path: string, opts?: { line?: number; scope?: 'workspace' }) => void,
   onClose: () => void,
 ) {
   const [query, setQuery] = useState('')
   const [files, setFiles] = useState<PaletteFile[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
-  // Resolved once per palette-open (below) — both quick-open and `>` content
-  // search reuse this same value rather than each re-calling
-  // getWorkspaceInfo(), so they can never disagree mid-session if the
-  // Workspace happens to open/close while the palette is up.
-  const [scope, setScope] = useState<'workspace' | 'repo'>('repo')
+  // Sleipnir has no notion of "browse Sleipnir's own repo" anymore — quick-
+  // open/search only ever operate on the open Workspace. `null` means no
+  // Workspace is open yet, distinct from "open but empty".
+  const [workspaceOpen, setWorkspaceOpen] = useState(false)
 
   const [searchGroups, setSearchGroups] = useState<{ path: string; matches: SearchMatch[] }[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -62,12 +61,17 @@ export function useCommandPaletteViewModel(
     let cancelled = false
     ;(async () => {
       const info = await getWorkspaceInfo()
-      const currentScope: 'workspace' | 'repo' = info.root ? 'workspace' : 'repo'
-      const { tree } = currentScope === 'workspace' ? await listWorkspaceDir('') : await listRepoTree()
+      if (cancelled) return
+      setWorkspaceOpen(!!info.root)
+      if (!info.root) {
+        setFiles([])
+        setFilesLoading(false)
+        return
+      }
+      const { tree } = await listWorkspaceDir('')
       if (cancelled) return
       const flat: PaletteFile[] = []
-      flattenFiles(tree, currentScope, flat)
-      setScope(currentScope)
+      flattenFiles(tree, 'workspace', flat)
       setFiles(flat)
       setFilesLoading(false)
     })().catch(() => {
@@ -90,7 +94,7 @@ export function useCommandPaletteViewModel(
   // ViewModel: same debounce + stale-response-guard shape.
   useEffect(() => {
     if (searchDebounceTimer.current) clearTimeout(searchDebounceTimer.current)
-    if (!open || !isSearchMode || !searchQuery) {
+    if (!open || !isSearchMode || !searchQuery || !workspaceOpen) {
       searchRequestIdRef.current++
       setSearchGroups([])
       setTruncated(false)
@@ -103,10 +107,7 @@ export function useCommandPaletteViewModel(
     searchDebounceTimer.current = setTimeout(async () => {
       const requestId = ++searchRequestIdRef.current
       try {
-        const result =
-          scope === 'workspace'
-            ? await searchWorkspace(searchQuery, { limit: SEARCH_RESULT_LIMIT })
-            : await searchRepo(searchQuery, { limit: SEARCH_RESULT_LIMIT })
+        const result = await searchWorkspace(searchQuery, { limit: SEARCH_RESULT_LIMIT })
         if (requestId !== searchRequestIdRef.current) return
 
         const byPath = new Map<string, SearchMatch[]>()
@@ -130,7 +131,7 @@ export function useCommandPaletteViewModel(
     return () => {
       if (searchDebounceTimer.current) clearTimeout(searchDebounceTimer.current)
     }
-  }, [open, isSearchMode, searchQuery, scope])
+  }, [open, isSearchMode, searchQuery, workspaceOpen])
 
   const fileResults: PaletteFile[] = trimmed
     ? files
@@ -157,7 +158,7 @@ export function useCommandPaletteViewModel(
 
   const select = (item: PaletteResultItem) => {
     if (item.kind === 'file') onJumpToFile(item.file.path, { scope: item.file.scope })
-    else onJumpToFile(item.path, { line: item.match.line, scope })
+    else onJumpToFile(item.path, { line: item.match.line, scope: 'workspace' })
     onClose()
   }
 
@@ -178,5 +179,5 @@ export function useCommandPaletteViewModel(
     }
   }
 
-  return { query, setQuery, mode, scope, results, loading, truncated, error, selectedIndex, setSelectedIndex, select, onKeyDown }
+  return { query, setQuery, mode, workspaceOpen, results, loading, truncated, error, selectedIndex, setSelectedIndex, select, onKeyDown }
 }

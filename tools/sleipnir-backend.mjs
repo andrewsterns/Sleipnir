@@ -9,24 +9,25 @@ import os from 'node:os'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { isSourceFile } from './source-extensions.mjs'
-import { LANGUAGES, DEFAULT_LANGUAGE } from './languages.mjs'
-import { listLibraries, getLibrary, addLibrary, removeLibraryEntry } from './library-registry.mjs'
-import { listWidgets, addWidget } from './widget-registry.mjs'
-import { readCatalog } from './widget-catalog.mjs'
 import { getPreviewConfig as getPreviewConfigEntry, setPreviewConfig as setPreviewConfigEntry } from './preview-registry.mjs'
 import { getWorkspaceRoot, setWorkspaceRoot } from './workspace-root.mjs'
+// Re-exported for electron/main.cjs's multi-window support: it holds a
+// per-window root and sets this shared one to the *calling* window's root
+// immediately before each (synchronous) backend call — see main.cjs's `ws`.
+export { setWorkspaceRoot }
 
-export { previewRefactor, applyRefactor, getCurrentArchitecture } from './refactor-engine.mjs'
 export {
   getStatus as getGitStatus,
   getDiff as getGitDiff,
   stageFiles,
   unstageFiles,
+  discardFiles,
   commit as commitChanges,
   getBranches,
   getBranchTree,
   checkoutBranch,
   createBranch,
+  renameBranch,
   push as gitPush,
   pull as gitPull,
   fetchRemote as gitFetch,
@@ -37,15 +38,14 @@ export {
 export const REPO_ROOT = process.cwd()
 export const SRC_ROOT = path.resolve(REPO_ROOT, 'src')
 
-const TIER_DIR = {
-  atoms: '01_atoms',
-  molecules: '02_molecules',
-  organisms: '03_organisms',
-  templates: '04_templates',
-  pages: '05_pages',
-}
+// Where a project's own Planning board (Notes graph / Saved Plans / Archive /
+// its custom display name) lives, relative to whichever folder is open as
+// the Workspace — see the "Planning data" section below. Deliberately
+// separate from REPO_ROOT/SRC_ROOT, which stay pinned to Sleipnir's own repo
+// for the component-library/graph-scanning pipeline (see that section's own
+// comment for why).
+const PLANNING_DIR = '.planning'
 
-const NAME_RE = /^[A-Z][A-Za-z0-9]*$/
 const SKIP_RE = /\.(stories|test|spec)\.tsx?$/
 
 // Throws if the resolved path would escape `base` — the one place path
@@ -57,152 +57,6 @@ function resolveSafe(base, ...segments) {
     throw new Error('Path escapes allowed root')
   }
   return resolved
-}
-
-// Maps each MVVM template file to the "part" it represents — lets callers
-// scaffold a subset of the triplet (e.g. View only) instead of always all
-// three. Keep in sync with tools/templates/mvvm/*.template's filenames.
-const PART_FOR_TEMPLATE = {
-  '__name__.tsx.template': 'view',
-  '__name__ViewModel.tsx.template': 'viewModel',
-  'i__name__.tsx.template': 'interface',
-}
-
-// Resolves a library id to its registered root, falling back to today's
-// defaults so every existing call site (none of which pass libraryId yet)
-// keeps scaffolding into the same place it always has.
-function libraryRoot(libraryId, kind) {
-  if (libraryId) {
-    const lib = getLibrary(libraryId)
-    if (!lib) throw new Error(`Unknown library "${libraryId}"`)
-    return lib.root
-  }
-  return kind === 'component' ? '02_components' : '03_prototypes'
-}
-
-export function scaffoldComponent(name, tier, language = DEFAULT_LANGUAGE, parts = ['view', 'viewModel', 'interface'], libraryId) {
-  if (!NAME_RE.test(name)) {
-    throw new Error('Name must be PascalCase (letters and digits only, starting with a capital)')
-  }
-  const lang = LANGUAGES[language]
-  if (!lang) {
-    throw new Error(`Unknown language "${language}" — expected one of ${Object.keys(LANGUAGES).join(', ')}`)
-  }
-
-  if (lang.mvvm) {
-    // TypeScript: View/ViewModel/interface triplet (or a chosen subset of it)
-    // under the usual atoms/molecules/organisms tiering.
-    if (!parts.length) {
-      throw new Error('Select at least one file to create (View, ViewModel, or Interface)')
-    }
-    const tierDir = TIER_DIR[tier]
-    if (!tierDir) {
-      throw new Error(`Unknown tier "${tier}" — expected one of ${Object.keys(TIER_DIR).join(', ')}`)
-    }
-
-    const targetDir = resolveSafe(SRC_ROOT, libraryRoot(libraryId, 'component'), tierDir, name)
-    if (fs.existsSync(targetDir)) {
-      throw new Error(`${path.relative(REPO_ROOT, targetDir)} already exists`)
-    }
-
-    const templatesDir = path.join(REPO_ROOT, 'tools/templates', lang.templateDir)
-    fs.mkdirSync(targetDir, { recursive: true })
-
-    const files = fs.readdirSync(templatesDir)
-      .filter((file) => parts.includes(PART_FOR_TEMPLATE[file]))
-      .map((file) => {
-        const content = fs.readFileSync(path.join(templatesDir, file), 'utf8').replace(/{{name}}/g, name)
-        const fileName = file.replace(/__name__/g, name).replace('.template', '')
-        const outPath = path.join(targetDir, fileName)
-        fs.writeFileSync(outPath, content)
-        return path.relative(REPO_ROOT, outPath).replace(/\\/g, '/')
-      })
-
-    return { path: path.relative(REPO_ROOT, targetDir).replace(/\\/g, '/'), files }
-  }
-
-  // Other languages don't fit the atoms/molecules/organisms tiering (that's
-  // this app's TSX design-system taxonomy) — scaffold a single file into a
-  // prototype library instead, alongside this project's other free-form
-  // experiments.
-  const templatesDir = path.join(REPO_ROOT, 'tools/templates', lang.templateDir)
-  const templateFile = fs.readdirSync(templatesDir)[0]
-  const content = fs.readFileSync(path.join(templatesDir, templateFile), 'utf8').replace(/{{name}}/g, name)
-  const fileName = `${name}.${lang.ext}`
-  const outPath = resolveSafe(SRC_ROOT, libraryRoot(libraryId, 'prototype'), fileName)
-  if (fs.existsSync(outPath)) {
-    throw new Error(`${path.relative(REPO_ROOT, outPath)} already exists`)
-  }
-  fs.mkdirSync(path.dirname(outPath), { recursive: true })
-  fs.writeFileSync(outPath, content)
-  const relOut = path.relative(REPO_ROOT, outPath).replace(/\\/g, '/')
-  return { path: relOut, files: [relOut] }
-}
-
-// Creates a brand-new blank library — just a registry entry + an empty root
-// folder. No pre-populated tier/role folders: those get created on demand
-// the first time scaffoldComponent (or Refactor) actually writes into this
-// library, same as any other mkdir-recursive write in this file.
-export function createLibrary({ id, kind, label, architecture, language }) {
-  const root = kind === 'component' ? `02_components_${id}` : `03_prototypes_${id}`
-  const entry = addLibrary({ id, kind, label, root, architecture, language })
-  fs.mkdirSync(resolveSafe(SRC_ROOT, root), { recursive: true })
-  return { library: entry }
-}
-
-export function getLibraries(kind) {
-  return { libraries: listLibraries(kind) }
-}
-
-// The one library seeded at repo creation — generate-graph.mjs's dsm map and
-// DesignLibraryView's hardcoded default-file fallback assume it exists, so
-// it can't be removed or deleted, only ever created alongside.
-const PROTECTED_LIBRARY_IDS = new Set(['dsm'])
-
-function assertRemovable(id) {
-  if (PROTECTED_LIBRARY_IDS.has(id)) {
-    throw new Error(`"${id}" is a default library and can't be removed`)
-  }
-  if (!getLibrary(id)) {
-    throw new Error(`No library with id "${id}"`)
-  }
-}
-
-// Unregisters only — the library's tab disappears from Planning, but its
-// folder and files are left untouched on disk, so re-registering the same
-// root later (a new "+ New Library" with a matching id) picks them back up.
-export function removeLibrary(id) {
-  assertRemovable(id)
-  removeLibraryEntry(id)
-  return {}
-}
-
-// Unregisters AND deletes the library's entire folder — irreversible. The
-// renderer is expected to gate this behind an explicit, deliberate
-// confirmation (type-the-name), same spirit as GitHub's repo-delete flow;
-// this function itself performs no confirmation of its own.
-export function deleteLibrary(id) {
-  assertRemovable(id)
-  const { root } = getLibrary(id)
-  removeLibraryEntry(id)
-  fs.rmSync(resolveSafe(SRC_ROOT, root), { recursive: true, force: true })
-  return {}
-}
-
-export function getWidgets() {
-  return { widgets: listWidgets() }
-}
-
-export function getWidgetCatalog() {
-  return { catalog: readCatalog() }
-}
-
-// Unlike createLibrary, never mkdirs — every widget kind shipped so far
-// (folder widgets pointed at an existing directory like src/utils) needs no
-// new folder on disk. A future widget kind that does would add that here.
-export function installWidget(input) {
-  const entry = addWidget(input)
-  return { widget: entry }
 }
 
 function buildTree(absDir, srcRelDir) {
@@ -309,18 +163,52 @@ function requireWorkspaceRoot() {
   return root
 }
 
+// A project's display name defaults to its folder's basename, but can be
+// overridden by File > Rename Project (see renameProject below), which
+// writes into the same .planning/ folder the project's own Planning board
+// lives in — so the label travels with the project, not with this machine's
+// userData (electron/workspaceStore.cjs only caches it for the Open Recent
+// list).
+function readProjectName(root) {
+  const metaPath = path.join(root, PLANNING_DIR, 'project.json')
+  if (fs.existsSync(metaPath)) {
+    try {
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'))
+      if (typeof meta.name === 'string' && meta.name.trim()) return meta.name.trim()
+    } catch {
+      // Malformed project.json — fall back to the folder name below.
+    }
+  }
+  return path.basename(root)
+}
+
+export function renameProject(projectRoot, name) {
+  const trimmed = (name ?? '').trim()
+  if (!trimmed) throw new Error('Name is required')
+  const metaPath = path.join(projectRoot, PLANNING_DIR, 'project.json')
+  fs.mkdirSync(path.dirname(metaPath), { recursive: true })
+  fs.writeFileSync(metaPath, JSON.stringify({ name: trimmed }, null, 2))
+  return { name: trimmed }
+}
+
 export function openWorkspace(absolutePath) {
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isDirectory()) {
     throw new Error(`Not a folder: ${absolutePath}`)
   }
   const resolved = fs.realpathSync(absolutePath)
   setWorkspaceRoot(resolved)
-  return { root: resolved, name: path.basename(resolved) }
+  return { root: resolved, name: readProjectName(resolved) }
+}
+
+// File > New Window — closes the current project (Workspace file browsing
+// and the Planning board both go blank) without opening a different one.
+export function closeWorkspace() {
+  setWorkspaceRoot(null)
 }
 
 export function getWorkspaceInfo() {
   const root = getWorkspaceRoot()
-  return { root, name: root ? path.basename(root) : null }
+  return { root, name: root ? readProjectName(root) : null }
 }
 
 // An arbitrary opened project needs its own tree walk, not buildTree above —
@@ -383,11 +271,13 @@ export function readWorkspaceFile(relPath) {
   return { content: fs.readFileSync(filePath, 'utf8') }
 }
 
+// Upsert, unlike writeFile/writeRepoFile's "must already exist" guard — an
+// AI-generated file staged via generate_code (see App.tsx's onCodeGenerated)
+// has no pre-scaffold step creating it first, so the first save of a
+// brand-new file has to just work.
 export function writeWorkspaceFile(relPath, content) {
   const filePath = resolveSafe(requireWorkspaceRoot(), relPath)
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`${relPath} does not exist`)
-  }
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, content)
 }
 
@@ -406,6 +296,56 @@ export function createWorkspaceDir(relPath) {
     throw new Error(`${relPath} already exists`)
   }
   fs.mkdirSync(dirPath, { recursive: true })
+}
+
+// Resolves + existence-checks a workspace-relative path without touching it.
+// Shared by deleteWorkspacePath below (the web transport's fs.rmSync
+// fallback) and the Electron IPC handler (electron/main.cjs), which needs
+// the absolute path to hand to shell.trashItem instead of calling
+// deleteWorkspacePath itself — moving something to the OS Recycle Bin is an
+// Electron-only API, not something this framework-agnostic module can do.
+export function resolveWorkspacePath(relPath) {
+  const filePath = resolveSafe(requireWorkspaceRoot(), relPath)
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`${relPath} does not exist`)
+  }
+  return filePath
+}
+
+// Permanent delete (recursive for dirs) — used directly by the web dev-
+// server transport, which has no OS trash to move things to. The Electron
+// transport moves to the Recycle Bin instead (see resolveWorkspacePath's
+// comment above).
+export function deleteWorkspacePath(relPath) {
+  fs.rmSync(resolveWorkspacePath(relPath), { recursive: true, force: true })
+}
+
+// Rename or move a workspace path. `fromRel` must exist; `toRel` must not
+// (both callers — in-place rename and cut→paste move — treat an existing
+// destination as a conflict to reject rather than silently overwrite). Both
+// ends go through resolveSafe so neither can escape the workspace root; the
+// destination can't use resolveWorkspacePath since it doesn't exist yet.
+export function renameWorkspacePath(fromRel, toRel) {
+  const from = resolveWorkspacePath(fromRel)
+  const to = resolveSafe(requireWorkspaceRoot(), toRel)
+  if (fs.existsSync(to)) {
+    throw new Error(`${toRel} already exists`)
+  }
+  fs.mkdirSync(path.dirname(to), { recursive: true })
+  fs.renameSync(from, to)
+}
+
+// Copy a workspace path (recursive for dirs), for copy→paste. `toRel` is the
+// caller's already-de-conflicted target (see the renderer's paste flow); if it
+// somehow still exists we refuse rather than merge/overwrite.
+export function copyWorkspacePath(fromRel, toRel) {
+  const from = resolveWorkspacePath(fromRel)
+  const to = resolveSafe(requireWorkspaceRoot(), toRel)
+  if (fs.existsSync(to)) {
+    throw new Error(`${toRel} already exists`)
+  }
+  fs.mkdirSync(path.dirname(to), { recursive: true })
+  fs.cpSync(from, to, { recursive: true })
 }
 
 // Project-wide search (ROADMAP.md's Phase 1) — plain fs recursion, no
@@ -501,20 +441,81 @@ export function listRepoTree() {
   return { tree: buildWorkspaceTree(REPO_ROOT, '') }
 }
 
-const ARCHIVE_PATH = path.join(REPO_ROOT, 'src/00_planning/graph/archive.json')
+// ─── Planning data (Notes graph / Saved Plans / Archive) ───────────────────
+// One board per open project — stored as real files under the currently open
+// Workspace root's own `.planning/` folder (portable, git-committable,
+// travels with the project). Deliberately independent of REPO_ROOT/SRC_ROOT:
+// Sleipnir's own generated component-library/graph-scanning system
+// (generate-graph.mjs, combine.ts's build-time import.meta.glob) stays
+// pinned to Sleipnir's own repo regardless of which project is open — see
+// ROADMAP.md's Phase 4 for why generalizing *that* system is a separate,
+// deliberately deferred, much larger rewrite. `null` (no project open) reads
+// as empty and refuses writes, same as requireWorkspaceRoot's other callers.
+function planningFilePath(fileName) {
+  const root = getWorkspaceRoot()
+  return root ? path.join(root, PLANNING_DIR, fileName) : null
+}
+
+// One-time migration for installs that predate per-project Planning data —
+// copies the old REPO_ROOT-fixed notes/plans/archive.json into `projectRoot`'s
+// own .planning/ folder, so opening Sleipnir's own repo as a project (which
+// electron/main.cjs seeds as the first recent project on first launch under
+// this system) shows exactly what Planning showed before this change, with
+// nothing lost. Additive only — never touches or deletes the legacy files.
+const LEGACY_PLANNING_FILES = {
+  'notes.json': path.join(REPO_ROOT, 'src/00_planning/graph/notes.json'),
+  'plans.json': path.join(REPO_ROOT, 'src/00_planning/graph/plans.json'),
+  'archive.json': path.join(REPO_ROOT, 'src/00_planning/graph/archive.json'),
+}
+
+export function migrateLegacyPlanningData(projectRoot) {
+  const targetDir = path.join(projectRoot, PLANNING_DIR)
+  for (const [fileName, legacyPath] of Object.entries(LEGACY_PLANNING_FILES)) {
+    const targetPath = path.join(targetDir, fileName)
+    if (fs.existsSync(legacyPath) && !fs.existsSync(targetPath)) {
+      fs.mkdirSync(targetDir, { recursive: true })
+      fs.copyFileSync(legacyPath, targetPath)
+    }
+  }
+}
 
 function readArchive() {
-  if (!fs.existsSync(ARCHIVE_PATH)) return []
+  const p = planningFilePath('archive.json')
+  if (!p || !fs.existsSync(p)) return []
   try {
-    return JSON.parse(fs.readFileSync(ARCHIVE_PATH, 'utf8'))
+    return JSON.parse(fs.readFileSync(p, 'utf8'))
   } catch {
     return []
   }
 }
 
 function writeArchive(entries) {
-  fs.mkdirSync(path.dirname(ARCHIVE_PATH), { recursive: true })
-  fs.writeFileSync(ARCHIVE_PATH, JSON.stringify(entries, null, 2))
+  const p = planningFilePath('archive.json')
+  if (!p) throw new Error('No project is open')
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(entries, null, 2))
+}
+
+// Per-node sprint "stage" overlay — a plain { [nodeId]: stage } map, kept in
+// its own file rather than on the node records so it can tag *any* node
+// (including build-generated ones that don't live in notes.json). Missing file
+// = no tags yet. See graph/stages.ts for the valid values / how each renders.
+function readStages() {
+  const p = planningFilePath('stages.json')
+  if (!p || !fs.existsSync(p)) return {}
+  try {
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf8'))
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeStages(stages) {
+  const p = planningFilePath('stages.json')
+  if (!p) throw new Error('No project is open')
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(stages, null, 2))
 }
 
 export function createFile(relPath, content) {
@@ -625,14 +626,10 @@ export function setArchived(relPath, archived, label) {
   return { entries }
 }
 
-const NOTES_PATH = path.join(REPO_ROOT, 'src/00_planning/graph/notes.json')
-const FIXED_MAP_IDS = new Set(['welcome', 'research', 'validation', 'todo', 'claude', 'open'])
+const FIXED_MAP_IDS = new Set(['welcome', 'research', 'validation', 'todo', 'claude'])
 
-// A note's `map` can be any registered library id (dsm, prototypes, or any
-// user-created one) plus the 4 fixed non-library maps — not a hardcoded set,
-// since new libraries are added to the registry at runtime, not at build time.
 function isValidMapId(map) {
-  return FIXED_MAP_IDS.has(map) || listLibraries().some((lib) => lib.id === map)
+  return FIXED_MAP_IDS.has(map)
 }
 
 // Was a flat GraphNode[] array; now { nodes, edges } so plan-step nodes can
@@ -641,9 +638,10 @@ function isValidMapId(map) {
 // disk as the old shape until the next write), so an existing notes.json
 // from before this change keeps working with no manual migration step.
 function readNotesFile() {
-  if (!fs.existsSync(NOTES_PATH)) return { nodes: [], edges: [] }
+  const p = planningFilePath('notes.json')
+  if (!p || !fs.existsSync(p)) return { nodes: [], edges: [] }
   try {
-    const parsed = JSON.parse(fs.readFileSync(NOTES_PATH, 'utf8'))
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf8'))
     if (Array.isArray(parsed)) return { nodes: parsed, edges: [] }
     return { nodes: parsed.nodes ?? [], edges: parsed.edges ?? [] }
   } catch {
@@ -652,8 +650,10 @@ function readNotesFile() {
 }
 
 function writeNotesFile(data) {
-  fs.mkdirSync(path.dirname(NOTES_PATH), { recursive: true })
-  fs.writeFileSync(NOTES_PATH, JSON.stringify(data, null, 2))
+  const p = planningFilePath('notes.json')
+  if (!p) throw new Error('No project is open')
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(data, null, 2))
 }
 
 export function getNotes() {
@@ -687,7 +687,68 @@ export function addNote(map, label, description) {
   return { node }
 }
 
-const PLANS_PATH = path.join(REPO_ROOT, 'src/00_planning/graph/plans.json')
+// "Scaffold Files…" — the richer, second creation flow alongside addNote
+// above: writes N real files into the open Workspace plus N graph nodes in
+// one atomic call, rather than N separate createWorkspaceFile/addNote round
+// trips (which would be non-atomic and leave orphaned files on a mid-loop
+// failure). The renderer owns all business logic (which roles, which
+// template content, which pairs get an auto-link) — this stays a dumb bulk
+// writer, same "content is always caller-supplied" convention as
+// createWorkspaceFile.
+//
+// entries: [{ label, role, language, description?, filePath, content }]
+// links: [{ from: <index into entries>, to: <index into entries> }] —
+// architecture-implied pairs (e.g. a View linking to its ViewModel),
+// computed client-side from architectures.ts's `linksTo` against whichever
+// roles were checked.
+export function scaffoldNodes(map, entries, links) {
+  if (!isValidMapId(map)) {
+    throw new Error(`Unknown map "${map}"`)
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error('entries must be a non-empty array')
+  }
+  const root = requireWorkspaceRoot()
+
+  // Pre-check every path before writing anything, so a single collision
+  // fails the whole batch instead of leaving a partial scaffold on disk.
+  const resolvedPaths = entries.map((e) => resolveSafe(root, e.filePath))
+  resolvedPaths.forEach((filePath, i) => {
+    if (fs.existsSync(filePath)) {
+      throw new Error(`${entries[i].filePath} already exists`)
+    }
+  })
+  resolvedPaths.forEach((filePath, i) => {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, entries[i].content ?? '')
+  })
+
+  const now = Date.now()
+  const nodes = entries.map((e, i) => {
+    const slug = e.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    return {
+      id: `note/${map}/${slug || 'node'}-${now}-${i}`,
+      label: e.label.trim(),
+      kind: 'proposed',
+      map,
+      type: 'scaffold',
+      role: e.role,
+      language: e.language,
+      architecture: e.architecture,
+      filePath: e.filePath,
+      description: e.description?.trim() || undefined,
+    }
+  })
+  const edges = (links ?? [])
+    .filter((l) => nodes[l.from] && nodes[l.to])
+    .map((l) => ({ source: nodes[l.from].id, target: nodes[l.to].id, kind: 'borrows' }))
+
+  const data = readNotesFile()
+  data.nodes.push(...nodes)
+  data.edges.push(...edges)
+  writeNotesFile(data)
+  return { nodes, edges }
+}
 
 // A "saved plan" is a named, persisted list of existing graph node ids (plus
 // their already-computed neighbors — see src/00_planning/graph/resolvePlan.ts,
@@ -696,9 +757,10 @@ const PLANS_PATH = path.join(REPO_ROOT, 'src/00_planning/graph/plans.json')
 // notes.json). It only ever *references* real nodes, never owns/duplicates
 // their data, so deleting one can't affect the files it points at.
 function readPlansFile() {
-  if (!fs.existsSync(PLANS_PATH)) return []
+  const p = planningFilePath('plans.json')
+  if (!p || !fs.existsSync(p)) return []
   try {
-    const parsed = JSON.parse(fs.readFileSync(PLANS_PATH, 'utf8'))
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf8'))
     return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
@@ -706,26 +768,30 @@ function readPlansFile() {
 }
 
 function writePlansFile(data) {
-  fs.mkdirSync(path.dirname(PLANS_PATH), { recursive: true })
-  fs.writeFileSync(PLANS_PATH, JSON.stringify(data, null, 2))
+  const p = planningFilePath('plans.json')
+  if (!p) throw new Error('No project is open')
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(data, null, 2))
 }
 
 export function getPlans() {
   return { plans: readPlansFile() }
 }
 
-export function createPlan(label, nodeIds) {
+export function createPlan(label, nodeIds = [], assetPaths, assetEdges) {
   if (!label || !label.trim()) {
     throw new Error('Label is required')
   }
-  if (!Array.isArray(nodeIds) || nodeIds.length === 0) {
-    throw new Error('At least one node id is required')
+  if (!Array.isArray(nodeIds)) {
+    throw new Error('nodeIds must be an array')
   }
   const slug = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
   const plan = {
     id: `plan/${slug || 'plan'}-${Date.now()}`,
     label: label.trim(),
     nodeIds,
+    ...(Array.isArray(assetPaths) && assetPaths.length ? { assetPaths } : {}),
+    ...(Array.isArray(assetEdges) && assetEdges.length ? { assetEdges } : {}),
     createdAt: Date.now(),
   }
   const plans = readPlansFile()
@@ -734,9 +800,36 @@ export function createPlan(label, nodeIds) {
   return { plan }
 }
 
-export function deletePlan(id) {
-  const plans = readPlansFile().filter((p) => p.id !== id)
+// Merges workspace-relative paths into a plan's `generatedFiles` — called
+// once per "Generate Code" run that happened while this plan's tab was
+// active (see PlanningView.tsx's generateCode/App.tsx's onCodeGenerated).
+// Lets a later deletePlan(id, {deleteFiles:true}) know what to clean up.
+export function appendPlanGeneratedFiles(id, paths) {
+  const plans = readPlansFile()
+  const plan = plans.find((p) => p.id === id)
+  if (!plan) throw new Error(`No plan with id "${id}"`)
+  const existing = new Set(plan.generatedFiles ?? [])
+  for (const p of paths) existing.add(p)
+  plan.generatedFiles = [...existing]
   writePlansFile(plans)
+  return { plan }
+}
+
+// opts.deleteFiles also removes every workspace-relative path recorded in
+// the plan's generatedFiles (see appendPlanGeneratedFiles) — resolved
+// against the open Workspace root, same fs.rmSync pattern deleteLibrary used
+// to use for a library's whole folder, just per-file here.
+export function deletePlan(id, opts = {}) {
+  const plans = readPlansFile()
+  const plan = plans.find((p) => p.id === id)
+  if (opts.deleteFiles && plan?.generatedFiles?.length) {
+    const root = requireWorkspaceRoot()
+    for (const relPath of plan.generatedFiles) {
+      const filePath = resolveSafe(root, relPath)
+      fs.rmSync(filePath, { force: true })
+    }
+  }
+  writePlansFile(plans.filter((p) => p.id !== id))
 }
 
 // Created by the AI chat's create_plan_node tool (see electron/chat.cjs) —
@@ -773,30 +866,6 @@ export function createPlanNode(planId, label, description, parentId) {
   return { node }
 }
 
-// Created by the File menu's Open File… flow (see src/App.tsx) for files
-// opened from outside any registered library — the caller has already
-// checked the graph client-side (where getGraphForMap actually lives, via
-// Vite's import.meta.glob — not reachable from this plain-Node module) and
-// only calls this for files with no existing node anywhere. Dedupes by
-// filePath within the `open` map itself so re-invoking this for the same
-// file (e.g. a stale client-side check) never creates a second node.
-export function openFileNode(repoRelativePath, label) {
-  const data = readNotesFile()
-  const existing = data.nodes.find((n) => n.map === 'open' && n.filePath === repoRelativePath)
-  if (existing) return { node: existing }
-  const node = {
-    id: `open/${repoRelativePath}`,
-    label: label?.trim() || path.basename(repoRelativePath),
-    kind: 'built',
-    map: 'open',
-    type: 'opened-file',
-    filePath: repoRelativePath,
-  }
-  data.nodes.push(node)
-  writeNotesFile(data)
-  return { node }
-}
-
 const NODE_STATUSES = new Set(['draft', 'approved', 'done'])
 
 export function setNodeStatus(id, status) {
@@ -810,6 +879,100 @@ export function setNodeStatus(id, status) {
   node.status = status
   writeNotesFile(data)
   return { node }
+}
+
+// Full-replace of one node's outgoing 'borrows' edges — used both by the
+// node-card link editor (PlanningView, an explicit user edit) and by
+// CodeEditorView's save-hook (re-parsing a saved file's real imports and
+// reconciling the graph to match, see WorkspaceView's onImportsChanged).
+// A full replace rather than individual add/remove calls is the simplest
+// correct approach for the parse direction, since re-scanning a file's
+// imports always yields its complete current set, not a delta.
+export function setNodeBorrows(nodeId, targetIds) {
+  if (!Array.isArray(targetIds)) {
+    throw new Error('targetIds must be an array')
+  }
+  const data = readNotesFile()
+  data.edges = data.edges.filter((e) => !(e.source === nodeId && e.kind === 'borrows'))
+  for (const targetId of targetIds) {
+    if (targetId !== nodeId) data.edges.push({ source: nodeId, target: targetId, kind: 'borrows' })
+  }
+  writeNotesFile(data)
+  return { edges: data.edges.filter((e) => e.source === nodeId) }
+}
+
+// Permanently removes one notes.json node plus every edge touching it (as
+// source or target). Notes, scaffolded nodes, and plan-step nodes all live
+// in notes.json, so this one function is the hard-delete counterpart for all
+// three — unlike setArchived, which is a *restorable* soft-hide for the
+// build-generated src nodes that combine.ts owns (those aren't in notes.json
+// and can't be deleted here; they'd just regenerate from source).
+//
+// Deliberately does NOT touch any real Workspace file a scaffolded node
+// points at — deleting that file is the caller's separate, explicit choice
+// via deleteWorkspacePath (see PlanningView's DeleteNodeModal), same
+// node-only-vs-node-plus-files split deletePlan offers.
+// Edit a notes.json node's label (and optionally description) in place — the
+// rename counterpart to addNote. Only nodes that actually live in notes.json
+// (notes, scaffolded, plan-steps) can be renamed here; build-generated src
+// nodes aren't stored here (they regenerate from source), so this throws for
+// an unknown id and callers gate "Rename" to notes-backed nodes.
+export function updateNote(id, patch) {
+  const data = readNotesFile()
+  const node = data.nodes.find((n) => n.id === id)
+  if (!node) {
+    throw new Error(`No note node with id "${id}"`)
+  }
+  if (patch && patch.label !== undefined) {
+    const label = String(patch.label).trim()
+    if (!label) throw new Error('Name is required')
+    node.label = label
+  }
+  if (patch && patch.description !== undefined) {
+    node.description = String(patch.description).trim() || undefined
+  }
+  writeNotesFile(data)
+  return { node }
+}
+
+export function deleteNote(id) {
+  const data = readNotesFile()
+  if (!data.nodes.some((n) => n.id === id)) {
+    throw new Error(`No note node with id "${id}"`)
+  }
+  data.nodes = data.nodes.filter((n) => n.id !== id)
+  data.edges = data.edges.filter((e) => e.source !== id && e.target !== id)
+  writeNotesFile(data)
+  // A stage tag on a now-deleted node would just be dead weight in the overlay.
+  const stages = readStages()
+  if (id in stages) {
+    delete stages[id]
+    writeStages(stages)
+  }
+}
+
+const NODE_STAGES = new Set(['proposed', 'todo', 'in-progress', 'in-review', 'blocked', 'completed'])
+
+export function getNodeStages() {
+  return { stages: readStages() }
+}
+
+// Tags one node (any node, by id) with a sprint stage, or clears it when
+// `stage` is null/undefined/empty. Not scoped to notes.json — the overlay is
+// keyed by bare node id so build-generated nodes can be tagged too.
+export function setNodeStage(id, stage) {
+  if (!id) throw new Error('id is required')
+  const stages = readStages()
+  if (!stage) {
+    delete stages[id]
+  } else {
+    if (!NODE_STAGES.has(stage)) {
+      throw new Error(`Unknown stage "${stage}" — expected one of ${[...NODE_STAGES].join(', ')}`)
+    }
+    stages[id] = stage
+  }
+  writeStages(stages)
+  return { stages }
 }
 
 export function regenerateGraph() {

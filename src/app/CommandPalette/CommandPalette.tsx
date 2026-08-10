@@ -9,9 +9,8 @@ import type { CommandPaletteProps } from './iCommandPalette'
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
 // Ctrl+P/Cmd+P quick-open (ROADMAP.md's Phase 1) — a fuzzy file switcher over
-// "the current project" (the open Workspace's files if any, else Sleipnir's
-// own repo). Mounted once at the App shell level alongside TerminalDock/
-// AgentDock/ProblemsDock/OpenFolderModal — fully self-contained, no App-level
+// the open Workspace's files. Mounted once at the App shell level alongside
+// TerminalDock/AgentDock/ProblemsDock — fully self-contained, no App-level
 // open/close coordination needed (no mutual exclusion with the docks).
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) => {
   const [open, setOpen] = useState(false)
@@ -31,7 +30,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
   }, [])
 
   const close = () => setOpen(false)
-  const { query, setQuery, mode, scope, results, loading, truncated, error, selectedIndex, setSelectedIndex, select, onKeyDown } =
+  const { query, setQuery, mode, workspaceOpen, results, loading, truncated, error, selectedIndex, setSelectedIndex, select, onKeyDown } =
     useCommandPaletteViewModel(open, onJumpToFile, close)
 
   useEffect(() => {
@@ -95,12 +94,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                     ...MONO,
                   }}
                 />
-                {/* Every result in one palette session shares the same scope
-                    — a per-row tag would just repeat itself, so one badge
-                    near the input is enough to say "which project" a jump
-                    lands in. Nothing shown for scope:'repo' (the implicit
-                    default). */}
-                {scope === 'workspace' && (
+                {workspaceOpen && (
                   <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', paddingRight: 14, flexShrink: 0, ...MONO }}>
                     WORKSPACE
                   </span>
@@ -117,7 +111,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                     Loading…
                   </span>
                 )}
-                {!error && !loading && results.length === 0 && (
+                {!error && !loading && !workspaceOpen && (
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...MONO }}>
+                    Choose a Workspace folder to search.
+                  </span>
+                )}
+                {!error && !loading && workspaceOpen && results.length === 0 && (
                   <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...MONO }}>
                     No matches
                   </span>

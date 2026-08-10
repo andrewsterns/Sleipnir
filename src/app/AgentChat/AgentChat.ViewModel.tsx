@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import type { GraphNode, LibraryEntry } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../00_planning/graph/types'
 import type { ChatMessage } from './iAgentChat'
 import { isChatAvailable } from './iAgentChat'
-import { parseSlashCommand } from './slashCommands'
 
-export function useAgentChatViewModel(
-  onPlanNodeCreated?: (node: GraphNode) => void,
-  onPlanCommand?: () => void,
-  onLibraryCreated?: (library: LibraryEntry) => void,
-) {
+export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -23,8 +18,6 @@ export function useAgentChatViewModel(
   // render would leak duplicate `chat:*` handlers.
   const onPlanNodeCreatedRef = useRef(onPlanNodeCreated)
   onPlanNodeCreatedRef.current = onPlanNodeCreated
-  const onLibraryCreatedRef = useRef(onLibraryCreated)
-  onLibraryCreatedRef.current = onLibraryCreated
 
   useEffect(() => {
     const api = window.chatAPI
@@ -53,18 +46,6 @@ export function useAgentChatViewModel(
       onPlanNodeCreatedRef.current?.(node)
     })
 
-    const unsubLibrary = api.onLibraryCreated(sessionId, (library) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'system',
-          content: `Created ${library.kind} library "${library.label}" — switched to it in Planning.`,
-          timestamp: Date.now(),
-        },
-      ])
-      onLibraryCreatedRef.current?.(library)
-    })
-
     const unsubDone = api.onDone(sessionId, () => {
       setMessages((prev) => {
         const last = prev[prev.length - 1]
@@ -87,7 +68,6 @@ export function useAgentChatViewModel(
     return () => {
       unsubToken()
       unsubPlanNode()
-      unsubLibrary()
       unsubDone()
       unsubError()
     }
@@ -97,14 +77,6 @@ export function useAgentChatViewModel(
     const api = window.chatAPI
     const text = input.trim()
     if (!api || !text || streaming) return
-
-    const slash = parseSlashCommand(text)
-    if (slash?.command === 'plan') {
-      setInput('')
-      setMessages((prev) => [...prev, { role: 'user', content: text, timestamp: Date.now() }])
-      onPlanCommand?.()
-      return
-    }
 
     const history = messages
       .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')

@@ -2,6 +2,7 @@ import React, { forwardRef, useImperativeHandle } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Dropdown } from '../UIKit/Dropdown/Dropdown'
 import { useCodeEditorViewModel } from './CodeEditorView.ViewModel'
+import type { GraphNode } from '../../00_planning/graph/types'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -25,6 +26,12 @@ export interface CodeEditorViewProps {
   scope?: 'src' | 'repo' | 'workspace'
   /** Scrolls/positions the cursor to this line (1-based) once real content loads — set by search-result and quick-open jumps. Re-fires if this changes while the tab stays open (e.g. a second search-result click). */
   revealLine?: number
+  /** See useCodeEditorViewModel's own doc comment — fired after a successful save with the just-saved content. */
+  onImportsChanged?: (path: string, content: string) => void
+  /** Live getter for the "##token" completion extension's candidate pool. Omit to disable ## linking for this instance. */
+  getGraphNodes?: () => GraphNode[]
+  /** Fired once a "##token" resolves and its import has been spliced into the document. */
+  onLinkResolved?: (path: string, target: GraphNode) => void
 }
 
 /** Imperative handle for callers that need to trigger a save from outside — e.g. OpenEditorsView's File > Save All, which can't reach into whichever tab owns the dirty document any other way. */
@@ -37,11 +44,11 @@ export interface CodeEditorHandle {
 }
 
 export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(function CodeEditorView(
-  { path, value, readOnly, onSaved, suppressAutoSave, writeFile, scope, revealLine },
+  { path, value, readOnly, onSaved, suppressAutoSave, writeFile, scope, revealLine, onImportsChanged, getGraphNodes, onLinkResolved },
   ref,
 ) {
   const { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run, problemCount } =
-    useCodeEditorViewModel({ path, value, readOnly, suppressAutoSave, startDirty: suppressAutoSave, writeFile, scope, revealLine })
+    useCodeEditorViewModel({ path, value, readOnly, suppressAutoSave, startDirty: suppressAutoSave, writeFile, scope, revealLine, onImportsChanged, getGraphNodes, onLinkResolved })
 
   const handleSave = async () => {
     await save()

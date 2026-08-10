@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "id": "plan/verify-plan/hamburgermenu-component-1785511654302",
+      "label": "HamburgerMenu component",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Collapsible nav menu for small viewports.",
+      "status": "approved",
+      "planId": "verify-plan"
+    },
+    {
+      "id": "note/dsm/thinggy-1786023722432",
+      "label": "Thinggy",
+      "kind": "proposed",
+      "map": "dsm",
+      "type": "note"
+    },
+    {
+      "id": "note/this-is-a-cool-library/item3-1786029117634",
+      "label": "Item3",
+      "kind": "proposed",
+      "map": "this-is-a-cool-library",
+      "type": "note"
+    }
+  ],
+  "edges": []
+}

@@ -5,7 +5,7 @@ import { WidgetShell } from './WidgetShell'
 import { WorkspaceHeader } from '../WorkspaceHeader/WorkspaceHeader'
 import { CodeEditorView, type CodeEditorHandle } from './CodeEditorView'
 import { LOADING_PLACEHOLDER } from './CodeEditorView.ViewModel'
-import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir } from '../../00_planning/api/sleipnirApi'
+import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir, deleteWorkspacePath } from '../../00_planning/api/sleipnirApi'
 import { useFolderBrowserViewModel } from './FolderBrowserView.ViewModel'
 import type { FolderBrowserHandle, FolderBrowserViewProps } from './iFolderBrowserView'
 
@@ -22,8 +22,8 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   props,
   ref,
 ) {
-  const { scope, root, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan } = props
-  const { liveTree, archivedEntries, newPaths, tabs, activeTabPath, setActiveTabPath, openTab, closeTab, contentByPath, refresh } =
+  const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, onImportsChanged, getGraphNodes, onLinkResolved } = props
+  const { liveTree, archivedEntries, newPaths, tabs, activeTabPath, setActiveTabPath, openTab, closeTab, closeTabsUnder, contentByPath, refresh } =
     useFolderBrowserViewModel(props)
   const editorRefs = useRef<Map<string, CodeEditorHandle | null>>(new Map())
 
@@ -52,15 +52,37 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   const activeTab = tabs.find((t) => t.path === activeTabPath)
   const preview = activeTab && getPreview ? getPreview(activeTab.label, activeTab.path) : undefined
 
+  // Tab strip's own "+" (see WorkspaceTabStrip) — universal add-a-file
+  // shortcut for Workspace/Research, mirroring LeftRailing's root "+" but
+  // reachable without opening the sidebar. Same scope:'workspace' gate as
+  // LeftRailing's own createFile prop above; undefined elsewhere hides the
+  // control entirely (e.g. Planning, which renders its own WorkspaceHeader
+  // directly rather than through this component).
+  const handleAddTab = scope === 'workspace' && supportsCreate
+    ? async (name: string) => {
+        const path = root ? `${root}/${name}` : name
+        try {
+          await createWorkspaceFile(path, '')
+          refresh()
+        } catch {
+          // Already exists (or a transient error) — opening it below still
+          // gets the user to the same file either way.
+        }
+        openTab(path)
+      }
+    : undefined
+
   return (
     <WidgetShell
       rail={(width) => (
         <LeftRailing
           tree={liveTree}
           rootPath={root}
+          rootLabel={rootLabel}
           headerAction={headerAction?.(refresh)}
           archivedEntries={archivedEntries}
           activePath={activeTabPath ?? ''}
+          openPaths={new Set(tabs.map((t) => t.path))}
           newPaths={newPaths}
           onSelectFile={(file) => openTab(file.path, file.name)}
           onChanged={refresh}
@@ -74,6 +96,8 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
           createDir={scope === 'workspace' ? createWorkspaceDir : undefined}
           onMutated={scope === 'workspace' ? async () => {} : undefined}
           supportsArchive={scope === 'src'}
+          deletePath={scope === 'workspace' ? deleteWorkspacePath : undefined}
+          onDeleted={closeTabsUnder}
         />
       )}
       header={
@@ -82,6 +106,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
           activeTabId={activeTabPath ?? ''}
           onActivateTab={setActiveTabPath}
           onCloseTab={closeTab}
+          onAddTab={handleAddTab}
         />
       }
       preview={preview}
@@ -119,6 +144,9 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
                     onSaved={isOverrideActive ? () => onOverrideSaved?.(pendingOverride!.planNodeId) : undefined}
                     scope={scope}
                     revealLine={tab.line}
+                    onImportsChanged={onImportsChanged}
+                    getGraphNodes={getGraphNodes}
+                    onLinkResolved={onLinkResolved}
                   />
                 </div>
               )

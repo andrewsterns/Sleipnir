@@ -1,50 +1,29 @@
-import librariesData from './libraries.json'
-import type { IconName } from '../../app/UIKit/Icon/Icon'
+import type { ArchitectureId, LanguageId, NodeRole } from './architectures'
 
-// The 6 fixed, non-library "doc"/meta maps — never registered as libraries,
-// always exist, never created/deleted by the user.
-export type FixedMapId = 'welcome' | 'research' | 'validation' | 'todo' | 'claude' | 'open'
+// The 5 fixed maps — always exist, never created/deleted by the user.
+export type FixedMapId = 'welcome' | 'research' | 'validation' | 'todo' | 'claude'
 
-// A library map id is open-ended (whatever's registered in libraries.json),
-// so GraphMapId is no longer a closed literal union — it's validated at
-// runtime against the registry + the 4 fixed ids, not at compile time.
+// Also holds a SavedPlan's id when a plan tab is active (see PlanningView's
+// `mapId`), so this stays a plain string rather than a closed FixedMapId
+// union.
 export type GraphMapId = string
-
-export type LibraryKind = 'component' | 'prototype'
-
-// Physical folder layouts Refactor can reorganize a component library into.
-// Kept here (not just in PlatformAPI.ts) since LibraryEntry needs it and
-// types.ts has no dependency on the API layer.
-export type Architecture = 'atomic' | 'mvvm' | 'mvc' | 'mvp'
-export type ScaffoldLanguage = 'typescript' | 'python' | 'rust' | 'go'
-
-export interface LibraryEntry {
-  id: string
-  kind: LibraryKind
-  label: string
-  /** Relative to src/, e.g. '02_components' or '02_components_myLibrary'. */
-  root: string
-  architecture: Architecture
-  language: ScaffoldLanguage
-  createdAt: number
-}
-
-// Static at build time (mirrors how combine.ts sources generated/*.json) —
-// Phase B adds a runtime refresh path (listLibraries()) for "just created a
-// library, show it without a full reload," the same way regenerateGraph()
-// already works for generated node data.
-export const LIBRARIES: LibraryEntry[] = librariesData as LibraryEntry[]
 
 // A named, persisted list of existing graph node ids — created via a
 // widget's "add to plan" hover action (see graph/resolvePlan.ts for how
-// nodeIds gets built: the seed node(s) plus their direct neighbors). Not a
-// LibraryEntry (no folder on disk) and not an AI createPlanNode draft (no
-// map/status, doesn't live in notes.json) — it only ever *references* real
-// nodes, fetched fresh each time its tab is opened, never a frozen copy.
+// nodeIds gets built: the seed node(s) plus their direct neighbors). Not an
+// AI createPlanNode draft (no map/status, doesn't live in notes.json) — it
+// only ever *references* real nodes, fetched fresh each time its tab is
+// opened, never a frozen copy.
 export interface SavedPlan {
   id: string
   label: string
   nodeIds: string[]
+  /** Workspace-relative paths written via "Generate Code" while this plan's tab was the active Planning tab. Optional — absent/empty for plans with no AI-generated files yet. See DeletePlanModal's "also delete workspace files" option. */
+  generatedFiles?: string[]
+  /** Workspace-relative paths this plan was seeded with via Workspace's "Add Plan" asset-filter flow — a snapshot of what matched at creation time, not a live query. Mutually exclusive with `nodeIds` in practice (a plan is either graph-node-based or asset-based), but both fields always exist on the type since a plan could in principle reference a mix. */
+  assetPaths?: string[]
+  /** Import/require connections detected between `assetPaths` entries at creation time (see NewWorkspacePlanModal.ViewModel's detectEdges) — a snapshot alongside assetPaths, not recomputed on every view. Best-effort: precise for JS/TS relative imports, coarser (basename-matched) for other languages. */
+  assetEdges?: { source: string; target: string }[]
   createdAt: number
 }
 
@@ -54,6 +33,13 @@ export type NodeKind = 'built' | 'proposed'
 // Undefined means "not a plan node" — every existing node (generated, proposed,
 // hand-typed note) has no status and must keep rendering exactly as it does today.
 export type NodeStatus = 'draft' | 'approved' | 'done'
+
+// The sprint-ticket "stage" any node can be tagged with from the detail card —
+// independent of both `kind` and the plan-step `status` above. Persisted per
+// node id in an overlay store (backend getNodeStages/setNodeStage), not on the
+// node's own record, so it applies to build-generated nodes too. See
+// graph/stages.ts for the label + color + stroke each value renders as.
+export type NodeStage = 'proposed' | 'todo' | 'in-progress' | 'in-review' | 'blocked' | 'completed'
 
 export interface GraphNode {
   id: string
@@ -66,6 +52,12 @@ export interface GraphNode {
   status?: NodeStatus
   /** Groups plan-step nodes under the parent "plan" node that spawned them. */
   planId?: string
+  /** Only set on nodes created via the "Add Node" modal's file-scaffolding branch (tools/sleipnir-backend.mjs#scaffoldNodes) — which MVVM/MVC/MVP role this node's file plays. Absent on every other node kind (notes, plan-steps, generated/proposed library nodes). */
+  role?: NodeRole
+  /** Paired with `role` — which of the app's 4 supported languages this scaffolded node's file is written in (see src/app/DesignSystem/codeEditorLanguages.ts). */
+  language?: LanguageId
+  /** Which architecture this node's batch was scaffolded under — informational (drives the node-card link editor's candidate filtering), not enforced afterward. */
+  architecture?: ArchitectureId
 }
 
 export interface GraphEdge {
@@ -77,6 +69,27 @@ export interface GraphEdge {
 export interface GraphData {
   nodes: GraphNode[]
   edges: GraphEdge[]
+}
+
+// Wire shape for the "Add Node" modal's bulk-create flow (see
+// tools/sleipnir-backend.mjs#scaffoldNodes) — the renderer pre-renders every
+// file's full content (see graph/templates) before this ever reaches the
+// backend, which just writes bytes and creates nodes/edges atomically.
+export interface ScaffoldEntry {
+  label: string
+  role: NodeRole
+  language: LanguageId
+  description?: string
+  /** Workspace-relative. */
+  filePath: string
+  content: string
+  architecture?: ArchitectureId
+}
+
+/** Architecture-implied auto-link between two entries in the same batch — indices into the `entries` array passed to scaffoldNodes, not node ids (which don't exist yet client-side until the backend assigns them). */
+export interface ScaffoldLink {
+  from: number
+  to: number
 }
 
 const WELCOME_MAP = { id: 'welcome' as FixedMapId, label: 'Welcome' }
@@ -92,71 +105,10 @@ const FIXED_GRAPH_MAPS: { id: FixedMapId; label: string }[] = [
   { id: 'validation', label: 'Validation' },
   { id: 'todo', label: 'TODO' },
   { id: 'claude', label: 'CLAUDE' },
-  { id: 'open', label: 'Open Editors' },
 ]
 
 // Welcome first (the default landing tab for a fresh Planning session — see
-// usePlanningViewModel's initial mapId), then every registered library (in
-// registry order — dsm/prototypes first since they're seeded first), then
-// the remaining fixed maps — matching today's existing tab order for
-// everything after Welcome.
+// usePlanningViewModel's initial mapId), then the remaining fixed maps.
 export function getGraphMaps(): { id: string; label: string }[] {
-  return [WELCOME_MAP, ...LIBRARIES.map((lib) => ({ id: lib.id, label: lib.label })), ...FIXED_GRAPH_MAPS]
-}
-
-// NavRail widgets — a level above LibraryEntry: libraries only ever add tabs
-// *inside* the Components/Prototypes rail items, these add whole new rail
-// items. 'folder' widgets browse a directory — either src/-scoped
-// (rootScope 'src', editable) or repo-scoped (rootScope 'repo', read-only —
-// e.g. Docker's docker/ folder, browsed via tools/sleipnir-backend.mjs's
-// listRepoDir/readRepoFile). 'tool' widgets would talk to an external
-// process/tool directly (e.g. running `docker ps`/`nx` commands) instead of
-// a filesystem tree — not built yet, toolId is reserved so WidgetEntry
-// doesn't need reshaping when they land.
-export type WidgetKind = 'folder' | 'tool'
-
-// Deliberately NOT statically imported from widgets.json the way LIBRARIES
-// imports libraries.json above — that only reflects a freshly-created entry
-// today by accident of Vite dev-mode HMR reloading the page on file change,
-// which doesn't happen in a packaged Electron build. Widgets must always be
-// fetched at runtime via listWidgets() and held in React state.
-export interface WidgetEntry {
-  id: string
-  kind: WidgetKind
-  label: string
-  tag: string
-  icon: IconName
-  createdAt: number
-  /** kind === 'folder': path passed to listDir (rootScope 'src') or listRepoDir (rootScope 'repo'). */
-  root?: string
-  rootScope?: 'src' | 'repo'
-  /** kind === 'folder', rootScope 'repo' only: extra repo-relative file paths spliced in as top-level siblings of `root`'s contents — e.g. Docker's root is the `docker/` folder, but docker-compose.yml lives one level up at the repo root. */
-  extraFiles?: string[]
-  /** kind === 'folder': how (or whether) to render a preview above the code editor — mirrors DesignLibrary's curated/AutoPreview/none tiers. */
-  previewStrategy?: 'curated' | 'auto' | 'none'
-  /** kind === 'folder': hides create/archive/edit affordances — every repo-scoped widget (e.g. Docker) sets this true today. */
-  readOnly?: boolean
-  /** kind === 'tool': which built-in adapter renders this widget's content. Not built yet. */
-  toolId?: 'docker' | 'nx'
-}
-
-// One entry in the Widget Store's browsable catalog. Lives here (not
-// PlatformAPI.ts) so it can reference WidgetEntry directly via an inline
-// Omit — PlatformAPI.ts's NewWidgetInput is that same Omit, defined
-// separately to avoid a types.ts <-> PlatformAPI.ts import cycle (PlatformAPI
-// needs WidgetCatalogEntry for getWidgetCatalog's return type).
-//
-// Fetched from tools/widget-catalog.mjs (backed today by widget-catalog.json
-// on disk), not statically imported — the whole point of moving it out of a
-// compiled TS array is that growing the catalog to hundreds of entries never
-// requires an app rebuild, and swapping the backend reader for a real
-// fetch(remoteURL) later is a one-function change, not a re-architecture.
-export interface WidgetCatalogEntry {
-  id: string
-  label: string
-  description: string
-  /** Free-text grouping shown as filter chips in the store (e.g. "Containers", "Build Tools") — not a closed enum, so new categories need no code change. */
-  category: string
-  icon: IconName
-  entry: Omit<WidgetEntry, 'createdAt'>
+  return [WELCOME_MAP, ...FIXED_GRAPH_MAPS]
 }

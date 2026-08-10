@@ -4,6 +4,7 @@ import { useDropdownViewModel } from './DropdownViewModel'
 import { DropdownProps } from './iDropdown'
 import { cn } from '../../../utils/cn'
 import { Frame } from '../Frame/Frame'
+import { Text } from '../Text/Text'
 
 export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
   {
@@ -89,17 +90,12 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
       }}
       flow={flow}
       w={w}
-      className={cn('font-mono text-xs', className)}
+      className={cn('font-mono', className)}
       {...frameProps}
     >
       {label && (
-        <Frame
-          as="label"
-          layout="block"
-          margin={{ bottom: 4 }}
-          className="text-[var(--text-2)] font-black uppercase tracking-widest"
-        >
-          {label}
+        <Frame as="label" layout="block" margin={{ bottom: 4 }}>
+          <Text variant="xs" weight="black" color="text-2">{label}</Text>
         </Frame>
       )}
 
@@ -117,11 +113,12 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
         effects={{ 'drop-shadow': { x: 0, y: 4, blur: 12, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
         activeScale={0.98}
         transition="all"
-        className={trigger ? undefined : 'italic font-bold uppercase tracking-tighter'}
       >
         {trigger ?? (
           <>
-            <span className="truncate">{selectedLabel}</span>
+            <Text variant="small" weight="bold" italic transform="uppercase" tracking="tighter" noWrap>
+              {selectedLabel}
+            </Text>
             <span className={cn('transition-transform duration-200 text-[10px]', isOpen ? 'rotate-180' : '')}>
               ▼
             </span>
@@ -144,7 +141,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
             effects={{ 'drop-shadow': { x: 0, y: 8, blur: 24, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
             animate="fade-in"
             animationDuration={150}
-            className="font-mono text-xs"
+            className="font-mono"
           >
             {options.map((option) => {
               const isSelected = multiple ? selectedValues.includes(option.value) : selectedValue === option.value
@@ -158,14 +155,15 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
                   align="center"
                   gap={8}
                   padding={{ x: 12, y: 8 }}
-                  radius="var(--radius-2)"
+                  radius={0}
                   stroke={{ bottom: { color: 'border-1' } }}
                   hoverFill="bg-3"
                   fill={{ solid: isSelected && !multiple ? 'bg-3' : 'transparent' }}
-                  className="text-left uppercase italic tracking-tighter text-[var(--text-1)]"
                 >
-                  {multiple && <span className="not-italic">{isSelected ? '☑' : '☐'}</span>}
-                  {option.label}
+                  {multiple && <span>{isSelected ? '☑' : '☐'}</span>}
+                  <Text variant="small" weight="bold" italic transform="uppercase" tracking="tighter" color="text-1" align="left">
+                    {option.label}
+                  </Text>
                 </Frame>
               )
             })}
