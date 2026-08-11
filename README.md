@@ -42,6 +42,26 @@ The same app runs three ways with (almost) identical behavior:
 - **Integrated terminal and Git panel** — a real shell and a status/diff/stage/
   commit/branch/push/pull UI, without leaving the app.
 
+## Install (desktop app)
+
+Download the installer for your OS from the
+[latest release](https://github.com/andrewsterns/Sleipnir/releases/latest):
+
+- **Windows** — run the `.exe`. Sleipnir isn't code-signed yet, so SmartScreen
+  may warn *"Windows protected your PC / unknown publisher"* — click
+  **More info → Run anyway**.
+- **macOS** — open the `.dmg` and drag Sleipnir to Applications. Because the
+  build isn't notarized yet, Gatekeeper blocks the *first* launch. To open it:
+  **right-click (or Control-click) the app → Open → Open**. macOS remembers the
+  choice afterward.
+
+> These one-time steps are expected for an unsigned indie build; code
+> signing/notarization is planned. Once the app is running it updates itself
+> automatically from GitHub Releases (on macOS, auto-update turns on once the
+> build is signed).
+
+Everything below is for **running from source / development**.
+
 ## Quick start
 
 ### Prerequisites
@@ -169,3 +189,16 @@ a single application project whose targets just wrap the npm scripts above
 (`nx serve` → `vite`, `nx build` → `npm run build`, `nx test` → `vitest run`,
 `nx lint` → `eslint .`). See [nx-integration.md](nx-integration.md) for details
 and notes on growing this into a true multi-project workspace.
+
+## License & privacy
+
+Sleipnir is **source-available** under the
+[PolyForm Noncommercial License 1.0.0](LICENSE): you may view, run, and modify
+it for **noncommercial** purposes; commercial use requires a separate license
+from the copyright holder. Copyright © 2026 Andrew Sterns.
+
+- **[PRIVACY.md](PRIVACY.md)** — what stays on your device and the few things
+  that don't. Short version: your code stays local, the AI can run fully local
+  via Ollama, and there's no telemetry.
+- **[CHANGELOG.md](CHANGELOG.md)** — release history.
+- **[RELEASING.md](RELEASING.md)** — how releases are cut and published.

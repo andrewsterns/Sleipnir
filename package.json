@@ -86,7 +86,7 @@
     "concurrently": "^9.2.4",
     "cross-env": "^10.1.0",
     "electron": "^41.7.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
@@ -141,7 +141,10 @@
       }
     ],
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build/icon.png"
     },
     "win": {
