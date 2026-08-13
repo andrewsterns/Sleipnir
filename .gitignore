@@ -30,3 +30,6 @@ dist-ssr
 .claude/worktrees/
 # Electron-builder output (installers/unpacked app — too large for git)
 release/
+dist-electron/
+out/
+*.asar

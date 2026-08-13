@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+# Guard against committing files GitHub will reject (it hard-rejects anything
+# over 100MB). Build output (release/, dist/, *.asar) is already gitignored;
+# this is the safety net for anything else, so a push can't get rejected the
+# way the committed release/ artifacts once did.
+limit=99000000  # ~94MB, safely under GitHub's 100MB hard limit
+oversized=""
+
+# Split on newlines only, so paths with spaces (e.g. "Sleipnir Setup.exe") are
+# handled as single entries.
+IFS='
+'
+for path in $(git diff --cached --name-only --diff-filter=ACM); do
+  # Size of the STAGED blob — exactly what would be committed.
+  size=$(git cat-file -s ":$path" 2>/dev/null) || continue
+  [ "$size" -gt "$limit" ] && oversized="${oversized}  $((size / 1048576)) MB  ${path}
+"
+done
+
+if [ -n "$oversized" ]; then
+  echo "✖ Commit blocked — staged file(s) exceed GitHub's 100MB limit:"
+  printf '%s' "$oversized"
+  echo "→ Build output belongs in .gitignore / GitHub Releases, not the repo."
+  echo "→ To override (rarely a good idea): git commit --no-verify"
+  exit 1
+fi
