@@ -39,7 +39,7 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
         ...prev,
         {
           role: 'system',
-          content: `Created plan node "${node.label}" in the CLAUDE tab — review and approve it in Planning.`,
+          content: `Created plan node "${node.label}" in the AI tab — review and approve it in Planning.`,
           timestamp: Date.now(),
         },
       ])

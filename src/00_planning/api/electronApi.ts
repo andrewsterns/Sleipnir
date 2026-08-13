@@ -17,6 +17,8 @@ import type { PlatformAPI, RecentProject, WorkspaceInfo } from './PlatformAPI'
 export interface ElectronBridge extends PlatformAPI {
   /** Opens a real, unrestricted native folder picker for the Workspace feature (see ROADMAP.md's Phase 0) — repoints the app at a different project entirely. Persists the choice for next launch. `null` if canceled, `{error}` if the picked folder can't be opened. */
   openWorkspace?(): Promise<WorkspaceInfo | { error: string } | null>
+  /** Relocates the auto-provided "scratch" project (its .planning + any files created while unsaved) into a folder the user picks, repoints this window to it, and resets scratch for next time. `null` if canceled, `{error}` on failure. Only meaningful while `getWorkspaceInfo().isScratch` is true. */
+  saveScratchToFolder?(): Promise<WorkspaceInfo | { error: string } | null>
   /** File > Open Recent's list — most-recently-opened first, capped at 10. */
   getRecentProjects?(): Promise<{ projects: RecentProject[] }>
   /** Reopens a known project path without the folder-picker dialog. `{error}` if the folder no longer exists on disk. */
@@ -25,6 +27,8 @@ export interface ElectronBridge extends PlatformAPI {
   newWindow?(): Promise<{ ok: true }>
   /** File > Rename Project — sets a custom display name, stored inside the project's own `.planning/project.json` so it travels with the folder. */
   renameProject?(projectPath: string, name: string): Promise<{ name: string }>
+  /** Recolors this window's native (OS-drawn) minimize/maximize/close overlay to match the active theme. Fire-and-forget; Windows-only (a no-op elsewhere). Called by ThemeController whenever the theme changes. */
+  setTitleBarTheme?(colors: { color: string; symbolColor: string }): void
 }
 
 declare global {

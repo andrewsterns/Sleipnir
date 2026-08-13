@@ -112,7 +112,7 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
         zIndex: 1001,
       }}
       fill={{ solid: 'bg-2' }}
-      stroke={{ color: 'rgba(255,255,255,0.15)' }}
+      stroke={{ color: 'var(--border-2)' }}
       radius={4}
     >
       <Frame flow="vertical" gap={10}>
@@ -128,7 +128,7 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
               disabled={busy}
               style={{
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.15)',
+                border: '1px solid var(--border-2)',
                 color: 'var(--text-1)',
                 fontSize: 9,
                 letterSpacing: '0.08em',
@@ -144,7 +144,7 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
         ) : (
           <>
             <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
-              No key set — chat falls back to a local Ollama model. To use Claude instead:
+              No key set — chat falls back to a local Ollama model. To use cloud AI instead:
             </span>
             <ol
               style={{
@@ -170,8 +170,8 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
               onChange={(e) => setInput(e.target.value)}
               placeholder="sk-ant-…"
               style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.15)',
+                background: 'var(--bg-2)',
+                border: '1px solid var(--border-2)',
                 color: 'var(--text-1)',
                 fontSize: 11,
                 padding: '6px 8px',
@@ -182,8 +182,8 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
               onClick={save}
               disabled={busy || !input.trim()}
               style={{
-                background: input.trim() ? 'rgba(255,255,255,0.10)' : 'transparent',
-                border: '1px solid rgba(255,255,255,0.15)',
+                background: input.trim() ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
+                border: '1px solid var(--border-2)',
                 color: 'var(--text-1)',
                 fontSize: 9,
                 letterSpacing: '0.08em',
@@ -199,7 +199,7 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
         )}
       </Frame>
 
-      <Frame flow="vertical" gap={10} stroke={{ top: { color: 'rgba(255,255,255,0.1)' } }} padding={{ top: 14 }}>
+      <Frame flow="vertical" gap={10} stroke={{ top: { color: 'var(--border-2)' } }} padding={{ top: 14 }}>
         <span style={SECTION_LABEL}>MODEL</span>
         <Dropdown
           options={modelOptions}

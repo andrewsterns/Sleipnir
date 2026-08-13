@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../app/UIKit/Frame/Frame'
+import { Card } from '../app/UIKit/Card/Card'
 import { Button } from '../app/UIKit/Button/Button'
 import { Text } from '../app/UIKit/Text/Text'
 import { Dropdown } from '../app/UIKit/Dropdown/Dropdown'
@@ -59,7 +60,7 @@ function TargetFolderField({
         style={INPUT_STYLE}
       />
       {focused && results.length > 0 && (
-        <Frame flow="vertical" gap={0} radius="var(--radius-2)" stroke={{ color: 'border-1' }} clipContent>
+        <Frame flow="vertical" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-1' }} clipContent>
           {results.map((f) => (
             <Frame
               as="button"
@@ -87,9 +88,9 @@ function TargetFolderField({
 }
 
 const INPUT_STYLE: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 'var(--radius-2)',
+  background: 'var(--bg-2)',
+  border: '1px solid var(--border-2)',
+  borderRadius: 'var(--radius-control)',
   color: 'var(--text-1)',
   fontSize: 12,
   padding: '7px 9px',
@@ -102,12 +103,11 @@ const INPUT_STYLE: React.CSSProperties = {
 // creates a bare note, same as the old quick-note form; checking any creates
 // real, linked files (see AddNodeModal.ViewModel's submit for the branch).
 //
-// Same portal-to-nearest-theme-scope pattern as DeletePlanModal, but built
-// directly on Frame + radius (matching Dropdown's own rounded visual
-// language) rather than TacticalPanel/chamfer — chamfer and radius are
-// mutually exclusive on Frame, and this modal is meant to read as one
-// consistent control alongside the two Dropdowns inside it, not the angular
-// chamfer look every other modal in this app uses.
+// Same portal-to-nearest-theme-scope pattern as DeletePlanModal, and the same
+// reusable Card surface every modal in this app now uses — a plain rounded
+// surface (var(--radius-control)) matching the right-click Dropdown's visual
+// language, so this modal reads as one consistent control alongside the two
+// Dropdowns inside it.
 export function AddNodeModal(props: AddNodeModalProps) {
   const vm = useAddNodeViewModel(props)
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -132,17 +132,14 @@ export function AddNodeModal(props: AddNodeModalProps) {
             onClick={vm.submitting ? undefined : vm.onClose}
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
-          <Frame
+          <Card
             flow="vertical"
             gap={14}
             padding={20}
-            variant="surface"
-            radius="var(--radius-3)"
             relative
             w={440}
             maxH="80vh"
             scroll="y"
-            effects={{ 'drop-shadow': { x: 0, y: 8, blur: 24, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
           >
             <Text variant="xs" weight="black" color="text-2">Add Node</Text>
 
@@ -150,6 +147,7 @@ export function AddNodeModal(props: AddNodeModalProps) {
               autoFocus
               value={vm.label}
               onChange={(e) => vm.setLabel(e.target.value)}
+              onBlur={vm.normalizeLabel}
               placeholder="Name (e.g. ShoppingCart)"
               disabled={vm.submitting}
               style={INPUT_STYLE}
@@ -186,9 +184,9 @@ export function AddNodeModal(props: AddNodeModalProps) {
               <Frame flow="vertical" gap={0}>
                 <Frame flow="horizontal" align="center" justify="between">
                   <Text variant="xs" weight="black" color="text-2">File Types</Text>
-                  <Text variant="xs" color="text-3">optional — none = plain note</Text>
+                  <Text variant="xs" color="text-3">Node (.md root) + any code roles — at least one</Text>
                 </Frame>
-                <Frame flow="vertical" gap={0} padding={{ top: 6 }} radius="var(--radius-2)" stroke={{ color: 'border-1' }} clipContent>
+                <Frame flow="vertical" gap={0} padding={{ top: 6 }} radius="var(--radius-control)" stroke={{ color: 'border-1' }} clipContent>
                   {vm.roles.map((role) => {
                     const checked = vm.checkedRoles.has(role.id)
                     return (
@@ -200,13 +198,13 @@ export function AddNodeModal(props: AddNodeModalProps) {
                         flow="horizontal"
                         align="center"
                         gap={8}
-                        padding={{ x: 12, y: 8 }}
-                        stroke={{ bottom: { color: 'border-1' } }}
+                        minH={28}
+                        padding={{ x: 10, y: 6 }}
                         hoverFill="bg-3"
                         fill={{ solid: 'transparent' }}
                       >
                         <span>{checked ? '☑' : '☐'}</span>
-                        <Text variant="small" weight="bold" italic transform="uppercase" tracking="tighter" color="text-1" align="left">
+                        <Text variant="small" color="text-2" align="left">
                           {role.label}
                         </Text>
                       </Frame>
@@ -238,11 +236,11 @@ export function AddNodeModal(props: AddNodeModalProps) {
               <Button variant="ghost" size="sm" onClick={vm.onClose} disabled={vm.submitting}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" onClick={vm.submit} disabled={vm.submitting || !vm.label.trim()}>
+              <Button variant="primary" size="sm" onClick={vm.submit} disabled={vm.submitting || !vm.canSubmit}>
                 {vm.submitting ? 'Creating…' : 'Create'}
               </Button>
             </Frame>
-          </Frame>
+          </Card>
         </Frame>,
         portalTarget,
       )}

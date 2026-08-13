@@ -61,7 +61,7 @@ export interface ImageFillOptions {
  *   fill={{ image: '/hero.png' }}
  *   fill={{ image: { src: '/tile.png', mode: 'tile', size: '24px' } }}
  *   fill={{ video: '/bg.mp4' }}
- *   fill={{ lines: { angle: 135, spacing: 8, color: 'rgba(255,255,255,0.04)', width: 1 } }}
+ *   fill={{ lines: { angle: 135, spacing: 8, color: 'var(--border-1)', width: 1 } }}
  *   fill={[{ lines: { angle: 135, spacing: 8 } }, { solid: 'bg-2' }]}
  *   fill={[{ image: { src: '/hero.png' }, blendMode: 'luminosity' }, { solid: 'bg-2' }]}
  */

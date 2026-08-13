@@ -3,7 +3,10 @@ import './00_themes/default.css'
 import './00_themes/dark.css'
 import './00_themes/houseplant.css'
 import './00_themes/tactical.css'
+import './00_themes/light.css'
+import './00_themes/item-states.css'
 import { ThemeProvider } from './00_themes/ThemeProvider'
+import { ThemeController, useAppTheme } from './00_themes/ThemeController'
 import { Frame } from './app/UIKit/Frame/Frame'
 import { NavRail, type NavRailItem } from './app/NavRail/NavRail'
 import { TerminalDock } from './app/TerminalDock/TerminalDock'
@@ -22,6 +25,7 @@ import {
   deletePlan,
   getWorkspaceInfo,
   openWorkspace,
+  saveScratchToFolder,
   getRecentProjects,
   openRecentProject,
   newWindow,
@@ -57,6 +61,7 @@ function tabLabelFor(path: string): string {
 }
 
 function App() {
+  const { theme } = useAppTheme()
   // NavRail switches between mutually-exclusive categories (never a shared
   // cross-category tab strip — see FolderBrowserView for where tabs
   // actually live, scoped inside a single category). `mountedCategories`
@@ -94,6 +99,9 @@ function App() {
   // Recent's list; WorkspaceView keeps its own info in sync both ways (see
   // its onProjectOpened prop for the "changed via its own button" direction).
   const [activeProject, setActiveProject] = useState<{ path: string; name: string } | null>(null)
+  // True when the active project is the auto-provided scratch project (no real
+  // folder chosen yet) — drives the TitleBar's "unsaved" label + Save action.
+  const [isScratch, setIsScratch] = useState(false)
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
   // Terminal, AI Chat, and Problems share one full-width bottom dock slot —
   // only one can be open at a time, or their panels would fully overlap.
@@ -116,7 +124,10 @@ function App() {
 
   useEffect(() => {
     getWorkspaceInfo()
-      .then((info) => setActiveProject(info.root ? { path: info.root, name: info.name ?? tabLabelFor(info.root) } : null))
+      .then((info) => {
+        setActiveProject(info.root ? { path: info.root, name: info.name ?? tabLabelFor(info.root) } : null)
+        setIsScratch(!!info.isScratch)
+      })
       .catch(() => {})
     refreshRecentProjects()
   }, [])
@@ -145,6 +156,7 @@ function App() {
   const applyProjectInfo = (info: WorkspaceInfo) => {
     resetProjectScopedUiState()
     setActiveProject(info.root ? { path: info.root, name: info.name ?? tabLabelFor(info.root) } : null)
+    setIsScratch(!!info.isScratch)
     refreshRecentProjects()
   }
 
@@ -173,6 +185,16 @@ function App() {
     await newWindow()
   }
 
+  // File > Save Project to Folder… — relocates the scratch/unsaved project into
+  // a real folder the user picks (see electron/main.cjs's saveScratchToFolder),
+  // then repoints this window (and Planning's board) to it.
+  const onSaveProjectToFolder = async () => {
+    const result = await saveScratchToFolder()
+    if (!result || 'error' in result) return
+    applyProjectInfo(result)
+    switchTo('workspace')
+  }
+
   const onCreatePlan = (plan: SavedPlan) => {
     setPlans((prev) => [...prev, plan])
   }
@@ -180,6 +202,14 @@ function App() {
   const onDeletePlan = (id: string, opts?: { deleteFiles?: boolean }) => {
     deletePlan(id, opts).catch(() => {})
     setPlans((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  // Reflects an in-view plan mutation (Planning's addLink pulls a cross-plan
+  // node into the active plan's nodeIds — see PlanningView.ViewModel) back
+  // into this owning state, same map-in-place update onCodeGenerated uses
+  // after appendPlanGeneratedFiles.
+  const onUpdatePlan = (plan: SavedPlan) => {
+    setPlans((prev) => prev.map((p) => (p.id === plan.id ? plan : p)))
   }
 
   // Plain click: switch the primary pane, same as always. Ctrl/Cmd-click:
@@ -201,9 +231,9 @@ function App() {
   }
 
   // Fired every time the AI chat streams in a new plan node — brings the
-  // user to Planning's CLAUDE tab so they watch it build live instead of
+  // user to Planning's AI tab so they watch it build live instead of
   // staying wherever they last navigated.
-  const jumpToClaudeTab = () => {
+  const jumpToAiTab = () => {
     switchTo('planning')
     setFocusMapId('claude')
   }
@@ -283,6 +313,7 @@ function App() {
             plans={plans}
             onCreatePlan={onCreatePlan}
             onDeletePlan={onDeletePlan}
+            onUpdatePlan={onUpdatePlan}
             onOpenFile={(path) => jumpToProjectFile(path)}
           />
         )
@@ -337,7 +368,7 @@ function App() {
   }
 
   return (
-    <ThemeProvider theme="default">
+    <ThemeProvider theme={theme}>
       <Frame
         h="screen"
         flow="vertical"
@@ -349,6 +380,8 @@ function App() {
           onSave={onSave}
           onSaveAll={onSaveAll}
           projectName={activeProject?.name ?? null}
+          isScratch={isScratch}
+          onSaveProjectToFolder={onSaveProjectToFolder}
           onOpenProject={onOpenProject}
           recentProjects={recentProjects}
           onOpenRecentProject={onOpenRecentProject}
@@ -380,7 +413,7 @@ function App() {
               const isSecondary = id === secondaryCategory
               const style: React.CSSProperties = isPrimary
                 ? secondaryCategory
-                  ? { position: 'absolute', top: 0, bottom: 0, left: 0, right: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,0.08)' }
+                  ? { position: 'absolute', top: 0, bottom: 0, left: 0, right: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-1)' }
                   : { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }
                 : isSecondary
                   ? { position: 'absolute', top: 0, bottom: 0, left: '50%', right: 0, display: 'flex', flexDirection: 'column' }
@@ -432,7 +465,7 @@ function App() {
       <AgentDock
         open={activeDock === 'agent'}
         onOpenChange={(o) => setActiveDock(o ? 'agent' : null)}
-        onPlanNodeCreated={jumpToClaudeTab}
+        onPlanNodeCreated={jumpToAiTab}
         shiftUp={activeDock !== null}
       />
       <ProblemsDock
@@ -448,4 +481,12 @@ function App() {
   )
 }
 
-export default App
+// ThemeController owns the app-wide theme (persisted) and must sit above App
+// so App and every view can read the selection via useAppTheme().
+export default function AppRoot() {
+  return (
+    <ThemeController>
+      <App />
+    </ThemeController>
+  )
+}

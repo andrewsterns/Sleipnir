@@ -16,9 +16,9 @@ export interface ModelStatus {
 
 // Keep in sync with AVAILABLE_MODELS in electron/modelStore.cjs.
 export const ANTHROPIC_MODELS: ModelOption[] = [
-  { id: 'claude-opus-5', label: 'Claude Opus 5', description: 'Most capable — best for hard, multi-step work' },
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', description: 'Balanced speed and intelligence (default)' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', description: 'Fastest and cheapest' },
+  { id: 'claude-opus-5', label: 'AI Opus 5', description: 'Most capable — best for hard, multi-step work' },
+  { id: 'claude-sonnet-5', label: 'AI Sonnet 5', description: 'Balanced speed and intelligence (default)' },
+  { id: 'claude-haiku-4-5', label: 'AI Haiku 4.5', description: 'Fastest and cheapest' },
 ]
 
 export interface SettingsAPI {

@@ -68,6 +68,11 @@
   --radius-2: 2px;
   --radius-3: 2px;
   --radius-4: 4px;
+  /* Interactive controls (dropdowns, menus, buttons, inputs, search, chips)
+     stay visibly rounded even in this square-panel HUD theme — one shared
+     value so every control matches instead of some being square (radius-2/3)
+     and Search being a one-off 0.7rem. */
+  --radius-control: 0.7rem;
 
   /* ── Shadows ─────────────────────────────────────────────────────────── */
   --shadow-1:             0 4px 24px rgba(0, 0, 0, 0.7);
@@ -75,6 +80,28 @@
   --shadow-glow-warn:     0 0 16px rgba(255, 255, 255, 0.08);
   --shadow-glow-critical: 0 0 20px rgba(255, 255, 255, 0.14);
   --shadow-glow-track:    0 0 16px rgba(200, 220, 232, 0.10);
+
+  /* ── Planning graph (GraphCanvas) ─────────────────────────────────────────
+     The node/edge/label colours the SVG graph reads, so it inverts with the
+     theme instead of being white-on-dark hardcoded. edge-1/edge-2 are the
+     directional gradient's faint tail → bright head; the alpha lives in the
+     colour so each theme tunes visibility independently. label-bg/label-text
+     are the node-label pill and its ink (a high-contrast chip vs. the graph
+     ground — light pill on dark here, dark pill on light in light.css). */
+  --graph-node:          #8a94a3;              /* base node dot */
+  --graph-node-neighbor: #9aa4ae;              /* a selected node's neighbours */
+  --graph-node-selected: #ffffff;              /* the selected node */
+  --graph-ring:          #ffffff;              /* selection ring */
+  --graph-edge:          #ffffff;              /* solid edge line + arrowhead */
+
+  /* ── Selectable item states (list rows + graph node labels) ───────────────
+     One hover/selection language everywhere. --item-ink is an "R, G, B" triple
+     (so it can be used at varying alpha); --item-ground is the ink's opposite,
+     used as text on filled states. See item-states.css for the ladder:
+       idle → no fill / 80% ink text · hover → 40% ink · connected → 20% ink ·
+       selected → solid ink, all with ground-coloured text on fills. */
+  --item-ink:    255, 255, 255;
+  --item-ground: #000000;
 }
 
 .no-scrollbar {

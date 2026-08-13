@@ -1,12 +1,14 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
+import { ListRow } from '../UIKit/ListRow/ListRow'
+import { Dropdown } from '../UIKit/Dropdown/Dropdown'
 import { Chip } from '../UIKit/Chip/Chip'
 import { Search } from '../UIKit/Search/Search'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { SidebarHeader } from '../UIKit/SidebarHeader/SidebarHeader'
-import { ContextMenu } from '../UIKit/ContextMenu/ContextMenu'
+import { ContextMenu, type ContextMenuItem } from '../UIKit/ContextMenu/ContextMenu'
 import { DeletePathModal } from './DeletePathModal'
 import { RenamePathModal } from './RenamePathModal'
 import { useFileClipboard, setFileClipboard, getFileClipboard } from '../UIKit/fileClipboard'
@@ -21,8 +23,25 @@ import {
   type FileTreeNode,
   type ArchiveEntry,
 } from '../../00_planning/api/sleipnirApi'
+import type { GraphNode, NodeStage } from '../../00_planning/graph/types'
+import { useFileStages } from '../../00_planning/useFileStages'
+import { StatusGlyph } from '../../00_planning/graph/StatusGlyph'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+
+// Name-entry field styled to match the Search box (variant="surface") — bg-2
+// surface, border-1 hairline, shared control radius, 10px mono. Theme-aware
+// tokens so it reads correctly in light mode too.
+const FIELD_STYLE: React.CSSProperties = {
+  background: 'var(--bg-2)',
+  border: '1px solid var(--border-1)',
+  borderRadius: 'var(--radius-control)',
+  color: 'var(--text-1)',
+  fontSize: 10,
+  padding: '6px 10px',
+  outline: 'none',
+  ...MONO,
+}
 
 interface LeftRailingProps {
   tree: FileTreeNode[]
@@ -42,6 +61,8 @@ interface LeftRailingProps {
   rootLabel?: string
   /** Hides every create/archive/restore affordance (root "+", per-row "+"/"×", the archived section) — for widgets browsing a folder they can't or shouldn't mutate (e.g. node_modules). */
   readOnly?: boolean
+  /** Hides the header's root "+" — for callers (Workspace) that already provide their own Add file / Add folder header buttons, so it isn't shown twice. */
+  hideRootCreate?: boolean
   /** Tier filter chips shown in the search row. Defaults to the Components/Prototypes atom-molecule-organism-template-page set; pass [] to hide the filter control entirely for a widget where tiering is meaningless (e.g. Docker). */
   tierFilterOptions?: { id: string; label: string }[]
   /**
@@ -82,6 +103,10 @@ interface LeftRailingProps {
   deletePath?: (path: string) => Promise<void>
   /** Fired right after a successful delete, before onChanged's refresh — lets the caller close any open tab(s) under the deleted path so they don't dangle pointing at a file that no longer exists. */
   onDeleted?: (path: string, isDir: boolean) => void
+  /** Resolves the plan node(s) scaffolded from a path (for a folder, from any file under it) so a file/folder delete can offer the inverse of DeleteNodeModal's "…+ Delete File": "…+ Delete Node". Undefined (or a resolver returning []) keeps the delete modal a plain single-button confirm. Workspace supplies this (see FolderBrowserView); scope:'src'/'repo' callers don't — a plan node's filePath is Workspace-relative. */
+  findPlanNodes?: (path: string, isDir: boolean) => Promise<GraphNode[]>
+  /** Permanently deletes the given plan node ids — paired with findPlanNodes for the "…+ node" delete branch. */
+  deletePlanNodes?: (ids: string[]) => Promise<void>
 }
 
 function isAncestorOf(dirPath: string, targetPath: string): boolean {
@@ -212,6 +237,7 @@ async function afterMutation(onMutated: () => Promise<void>, onChanged: () => vo
 function InlineCreateForm({
   dirPath,
   depth,
+  kind,
   onDone,
   onChanged,
   createFile,
@@ -220,6 +246,9 @@ function InlineCreateForm({
 }: {
   dirPath: string
   depth: number
+  /** Forces the created entry's type (from the row's Add file/Add folder menu).
+   *  Omitted = the legacy heuristic: a name with a "." is a file, else a folder. */
+  kind?: 'file' | 'folder'
   onDone: () => void
   onChanged: () => void
   createFile: (path: string, content?: string) => Promise<void>
@@ -232,8 +261,10 @@ function InlineCreateForm({
   const submit = async () => {
     if (!name) return
     try {
-      if (name.includes('.')) await createFile(`${dirPath}/${name}`)
-      else await createDir(`${dirPath}/${name}`)
+      const asFile = kind ? kind === 'file' : name.includes('.')
+      const full = dirPath ? `${dirPath}/${name}` : name
+      if (asFile) await createFile(full)
+      else await createDir(full)
       onDone()
       await afterMutation(onMutated, onChanged)
     } catch (e) {
@@ -241,8 +272,10 @@ function InlineCreateForm({
     }
   }
 
+  const placeholder = kind === 'file' ? 'file name (e.g. Cart.tsx)' : kind === 'folder' ? 'folder name' : 'name or name.tsx'
+
   return (
-    <Frame flow="vertical" gap={2} padding={{ left: 16 + depth * 14 + 18, right: 16, top: 2, bottom: 4 }}>
+    <Frame flow="vertical" gap={2} padding={{ left: 8 + depth * 14 + 18, right: 8, top: 2, bottom: 4 }}>
       <input
         autoFocus
         value={name}
@@ -252,16 +285,8 @@ function InlineCreateForm({
           if (e.key === 'Escape') onDone()
         }}
         onBlur={() => !name && onDone()}
-        placeholder="name or name.tsx"
-        style={{
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 'var(--radius-2)',
-          color: 'var(--text-1)',
-          fontSize: 12,
-          padding: '6px 8px',
-          ...MONO,
-        }}
+        placeholder={placeholder}
+        style={FIELD_STYLE}
       />
       {error && <span style={{ fontSize: 11, color: '#e07a7a', ...MONO }}>{error}</span>}
     </Frame>
@@ -274,6 +299,7 @@ function TreeNodeRow({
   activePath,
   openPaths,
   newPaths,
+  fileStages,
   onSelectFile,
   onChanged,
   forceExpanded,
@@ -286,12 +312,16 @@ function TreeNodeRow({
   onMutated,
   supportsArchive,
   onContextMenu,
+  pendingCreate,
+  onPendingCreateConsumed,
 }: {
   node: FileTreeNode
   depth: number
   activePath: string
   openPaths: Set<string>
   newPaths: Set<string>
+  /** filePath → planning stage of the plan node a file backs (see useFileStages) — shows the file's planning status at rest. */
+  fileStages: Map<string, NodeStage>
   onSelectFile: (file: { name: string; path: string }) => void
   onChanged: () => void
   forceExpanded?: boolean
@@ -306,12 +336,26 @@ function TreeNodeRow({
   supportsArchive: boolean
   /** Reports a right-click on this row back to LeftRailing, which owns the actual context-menu/delete-modal state — undefined (when the caller didn't pass `deletePath`) leaves the native browser context menu untouched. */
   onContextMenu?: (e: React.MouseEvent, node: FileTreeNode) => void
+  /** A pending "Add file"/"Add folder" from some row's context menu — the folder it targets opens its inline create form with the given kind. */
+  pendingCreate?: { path: string; kind: 'file' | 'folder' } | null
+  onPendingCreateConsumed?: () => void
 }) {
   const [expanded, setExpanded] = useState(() => isAncestorOf(node.path, activePath))
   const isExpanded = forceExpanded || expanded
-  const [hovered, setHovered] = useState(false)
-  const [creating, setCreating] = useState(false)
+  // null = not creating; 'auto' = the "." heuristic (the per-row "+"); 'file'/
+  // 'folder' = an explicit kind from the context menu.
+  const [creating, setCreating] = useState<'file' | 'folder' | 'auto' | null>(null)
   const isNew = newPaths.has(node.path)
+
+  // This folder is the target of a context-menu "Add file/folder" — expand and
+  // open its inline create form with the chosen kind, then clear the request.
+  useEffect(() => {
+    if (pendingCreate && node.type === 'dir' && pendingCreate.path === node.path) {
+      setExpanded(true)
+      setCreating(pendingCreate.kind)
+      onPendingCreateConsumed?.()
+    }
+  }, [pendingCreate, node.path, node.type, onPendingCreateConsumed])
 
   const archive = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -327,91 +371,51 @@ function TreeNodeRow({
     const containsActive = node.path !== activePath && isAncestorOf(node.path, activePath)
     return (
       <Frame flow="vertical" gap={0} w="fill">
-        <div
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          onContextMenu={(e) => {
-            if (!onContextMenu) return
-            e.preventDefault()
-            e.stopPropagation()
-            onContextMenu(e, node)
-          }}
-          style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: 28, gap: 2, background: hovered ? 'rgba(255,255,255,0.06)' : containsActive ? 'rgba(255,255,255,0.03)' : 'transparent' }}
-        >
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              flex: 1,
-              minWidth: 0,
-              minHeight: 28,
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              padding: `6px 4px 6px ${16 + depth * 14}px`,
-              color: containsActive ? 'var(--text-1)' : 'var(--text-2)',
-              fontSize: 12,
-              letterSpacing: '0.02em',
-              ...MONO,
-            }}
-          >
+        <ListRow
+          indent={8 + depth * 14}
+          // An ancestor of the active file stays a touch brighter so you can
+          // trace the selection up the tree; colour flips via `.srow`.
+          labelOpacity={containsActive ? 1 : 0.8}
+          onClick={() => setExpanded((v) => !v)}
+          onContextMenu={onContextMenu ? (e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node) } : undefined}
+          leading={
             <span style={{ opacity: 0.7, width: 8, display: 'inline-block', flexShrink: 0 }}>{isExpanded ? '▾' : '▸'}</span>
-            <Icon name="folder" size={16} />
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
-            {/* Trailing NEW chip; hidden on hover so the row's action buttons
-                take that space (and clicking into the folder's files clears
-                their own chips — see the file row / openTab). */}
-            {isNew && !hovered && <Chip variant="new">NEW</Chip>}
-          </button>
-          {(hovered || containsActive) && action && (
-            <IconButton
-              onClick={(e) => { e.stopPropagation(); action.onClick() }}
-              title={action.title}
-              icon={action.icon}
-            />
+          }
+          iconStart={<Icon name="folder" size={16} />}
+          trailing={(hovered) => (
+            <>
+              {/* NEW chip at rest; hidden on hover so the action buttons take
+                  that space. */}
+              {isNew && !hovered && <Chip variant="new">NEW</Chip>}
+              {(hovered || containsActive) && action && (
+                <IconButton onClick={(e) => { e.stopPropagation(); action.onClick() }} title={action.title} icon={action.icon} />
+              )}
+              {hovered && onAddToPlan && (
+                <IconButton onClick={(e) => { e.stopPropagation(); onAddToPlan(node.path, node.name, true) }} title="Add to plan" icon="plan-node-add" />
+              )}
+              {/* Per-row "+" only when there's no context menu to host create
+                  (Components/Docker); Workspace/Research use the menu's Add
+                  file / Add folder instead. */}
+              {!readOnly && !onContextMenu && hovered && (
+                <IconButton onClick={(e) => { e.stopPropagation(); setCreating('auto') }} title="New file/folder" glyph="+" iconSize={17} textColor="var(--text-3)" />
+              )}
+              {supportsArchive && !readOnly && hovered && (
+                <IconButton onClick={archive} title="Remove" glyph="×" iconSize={16} textColor="var(--text-3)" />
+              )}
+              {onContextMenu && hovered && (
+                <IconButton onClick={(e) => { e.stopPropagation(); onContextMenu(e, node) }} title="More actions" glyph="⋯" iconSize={16} textColor="var(--text-3)" />
+              )}
+            </>
           )}
-          {hovered && onAddToPlan && (
-            <IconButton
-              onClick={(e) => { e.stopPropagation(); onAddToPlan(node.path, node.name, true) }}
-              title="Add to plan"
-              icon="plan-node-add"
-            />
-          )}
-          {!readOnly && hovered && (
-            <IconButton
-              onClick={(e) => { e.stopPropagation(); setCreating(true) }}
-              title="New file/folder"
-              glyph="+"
-              iconSize={17}
-              textColor="var(--text-3)"
-            />
-          )}
-          {supportsArchive && !readOnly && hovered && (
-            <IconButton
-              onClick={archive}
-              title="Remove"
-              glyph="×"
-              iconSize={16}
-              textColor="var(--text-3)"
-            />
-          )}
-          {onContextMenu && hovered && (
-            <IconButton
-              onClick={(e) => { e.stopPropagation(); onContextMenu(e, node) }}
-              title="More actions"
-              glyph="⋯"
-              iconSize={16}
-              textColor="var(--text-3)"
-            />
-          )}
-        </div>
+        >
+          {node.name}
+        </ListRow>
         {creating && (
           <InlineCreateForm
             dirPath={node.path}
             depth={depth + 1}
-            onDone={() => setCreating(false)}
+            kind={creating === 'auto' ? undefined : creating}
+            onDone={() => setCreating(null)}
             onChanged={onChanged}
             createFile={createFile}
             createDir={createDir}
@@ -426,6 +430,7 @@ function TreeNodeRow({
             activePath={activePath}
             openPaths={openPaths}
             newPaths={newPaths}
+            fileStages={fileStages}
             onSelectFile={onSelectFile}
             onChanged={onChanged}
             forceExpanded={forceExpanded}
@@ -438,6 +443,8 @@ function TreeNodeRow({
             onMutated={onMutated}
             supportsArchive={supportsArchive}
             onContextMenu={onContextMenu}
+            pendingCreate={pendingCreate}
+            onPendingCreateConsumed={onPendingCreateConsumed}
           />
         ))}
       </Frame>
@@ -446,85 +453,48 @@ function TreeNodeRow({
 
   const isActive = node.path === activePath
   const isOpen = openPaths.has(node.path)
-  // Brightness tiers: currently selected/open files are brightest; a NEW-but-
-  // never-opened file is a step down (lighter than old, darker than open);
-  // everything else is the base dim. Hover brightens to full ink (see
-  // displayColor) without inverting the row.
-  const textColor = isActive || isOpen ? 'var(--text-1)' : isNew ? 'var(--text-2)' : 'var(--text-3)'
-  const displayColor = hovered ? 'var(--text-1)' : textColor
+  // Brightness tiers, now carried by opacity so the label colour can still flip
+  // to the ground colour on the filled hover/selected states (see .srow /
+  // item-states.css): selected/open files are brightest, a NEW-but-never-opened
+  // file a step down, everything else the base dim. Hover brightens to full.
+  const tierOpacity = isActive || isOpen ? 1 : isNew ? 0.78 : 0.55
   const action = fileAction?.(node.path, node.name)
 
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onContextMenu={(e) => {
-        if (!onContextMenu) return
-        e.preventDefault()
-        e.stopPropagation()
-        onContextMenu(e, node)
-      }}
-      style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: 28, gap: 2, background: isActive ? 'rgba(255,255,255,0.10)' : hovered ? 'rgba(255,255,255,0.06)' : 'transparent' }}
+    <ListRow
+      selected={isActive}
+      // Same left base as a folder row at this depth; the 8px spacer in leading
+      // stands in for the folder's chevron so the file icon lines up directly
+      // under folder icons and the name reads left-aligned right beside it.
+      indent={8 + depth * 14}
+      labelOpacity={tierOpacity}
+      onClick={() => onSelectFile({ name: node.name.replace(/\.tsx?$/, ''), path: node.path })}
+      onContextMenu={onContextMenu ? (e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node) } : undefined}
+      leading={<span style={{ width: 8, flexShrink: 0 }} />}
+      iconStart={<Icon name="file" size={16} />}
+      trailing={(hovered) => (
+        <>
+          {isNew && !hovered && <Chip variant="new">NEW</Chip>}
+          {/* Planning status of the plan node this file backs, at rest — the same
+              glyph the planning list and git view show; 'proposed' by default. */}
+          {!hovered && <StatusGlyph stage={fileStages.get(node.path)} />}
+          {hovered && action && (
+            <IconButton onClick={(e) => { e.stopPropagation(); action.onClick() }} title={action.title} icon={action.icon} />
+          )}
+          {hovered && onAddToPlan && (
+            <IconButton onClick={(e) => { e.stopPropagation(); onAddToPlan(node.path, node.name, false) }} title="Add to plan" icon="plan-node-add" />
+          )}
+          {supportsArchive && !readOnly && hovered && (
+            <IconButton onClick={archive} title="Remove" glyph="×" iconSize={16} textColor="var(--text-3)" />
+          )}
+          {onContextMenu && hovered && (
+            <IconButton onClick={(e) => { e.stopPropagation(); onContextMenu(e, node) }} title="More actions" glyph="⋯" iconSize={16} textColor="var(--text-3)" />
+          )}
+        </>
+      )}
     >
-      <button
-        onClick={() => onSelectFile({ name: node.name.replace(/\.tsx?$/, ''), path: node.path })}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          flex: 1,
-          minWidth: 0,
-          minHeight: 28,
-          textAlign: 'left',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: `6px 4px 6px ${16 + depth * 14 + 18}px`,
-          color: displayColor,
-          fontSize: 12,
-          letterSpacing: '0.02em',
-          ...MONO,
-        }}
-      >
-        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
-        {/* Trailing NEW chip — hidden on hover so the row's action buttons
-            (open/add-to-plan/remove) get the space, and cleared for good once
-            the file is opened (openTab marks it seen). */}
-        {isNew && !hovered && <Chip variant="new">NEW</Chip>}
-      </button>
-      {hovered && action && (
-        <IconButton
-          onClick={(e) => { e.stopPropagation(); action.onClick() }}
-          title={action.title}
-          icon={action.icon}
-        />
-      )}
-      {hovered && onAddToPlan && (
-        <IconButton
-          onClick={(e) => { e.stopPropagation(); onAddToPlan(node.path, node.name, false) }}
-          title="Add to plan"
-          icon="plan-node-add"
-        />
-      )}
-      {supportsArchive && !readOnly && hovered && (
-        <IconButton
-          onClick={archive}
-          title="Remove"
-          glyph="×"
-          iconSize={16}
-          textColor="var(--text-3)"
-        />
-      )}
-      {onContextMenu && hovered && (
-        <IconButton
-          onClick={(e) => { e.stopPropagation(); onContextMenu(e, node) }}
-          title="More actions"
-          glyph="⋯"
-          iconSize={16}
-          textColor="var(--text-3)"
-        />
-      )}
-    </div>
+      {node.name}
+    </ListRow>
   )
 }
 
@@ -541,6 +511,7 @@ export const LeftRailing = ({
   rootPath = '02_components',
   rootLabel,
   readOnly,
+  hideRootCreate,
   tierFilterOptions = TIER_FILTER_OPTIONS,
   folderAction,
   fileAction,
@@ -551,17 +522,71 @@ export const LeftRailing = ({
   supportsArchive = true,
   deletePath,
   onDeleted,
+  findPlanNodes,
+  deletePlanNodes,
 }: LeftRailingProps) => {
-  const [rootCreating, setRootCreating] = useState(false)
+  // filePath → planning stage of the plan node a file backs — so every file row
+  // shows its planning status at rest, the same glyph the planning list and git
+  // view use. Empty for files that back no node.
+  const fileStages = useFileStages()
+  // null = not creating; 'auto' = the "." heuristic (the root "+"); 'file'/
+  // 'folder' = an explicit kind routed here from a root-level row's menu.
+  const [rootCreating, setRootCreating] = useState<'file' | 'folder' | 'auto' | null>(null)
+  // A row's "Add file"/"Add folder" menu action targets a specific folder — the
+  // matching TreeNodeRow picks this up, expands, and opens its inline create
+  // form with the chosen kind (then clears it via onPendingCreateConsumed).
+  const [pendingCreate, setPendingCreate] = useState<{ path: string; kind: 'file' | 'folder' } | null>(null)
+  // A pendingCreate that targets the root itself (a top-level row's parent) has
+  // no TreeNodeRow to catch it, so route it to the root create form here.
+  useEffect(() => {
+    if (pendingCreate && (pendingCreate.path === '' || pendingCreate.path === rootPath)) {
+      setRootCreating(pendingCreate.kind)
+      setPendingCreate(null)
+    }
+  }, [pendingCreate, rootPath])
   const [query, setQuery] = useState('')
   const [tierFilter, setTierFilter] = useState<string[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchContainerRef = useRef<HTMLElement>(null)
   // Local display preference, not persisted — resets to Name on remount,
   // same as this component's other view-only state (treeWidth etc.).
   const [sortOrder, setSortOrder] = useState<SortOrder>('name')
-  const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; anchorEl: HTMLElement; node: FileTreeNode } | null>(null)
+
+  useEffect(() => {
+    if (!searchOpen) return
+    const onMouseDown = (e: MouseEvent) => {
+      const t = e.target as Element
+      if (searchContainerRef.current?.contains(t)) return
+      if (t.closest('[data-floating-menu]')) return
+      setSearchOpen(false)
+      setQuery('')
+      setTierFilter([])
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [searchOpen])
   const [deletingNode, setDeletingNode] = useState<FileTreeNode | null>(null)
+  // Plan node(s) scaffolded from the file/folder being deleted — resolved
+  // fresh each time the delete modal opens (see the effect below), so the
+  // "…+ Delete Node" choice reflects the current graph even for a node
+  // scaffolded elsewhere this session. Empty until the async lookup resolves,
+  // so the option pops in a beat after the modal appears rather than blocking
+  // it.
+  const [deletingPlanNodes, setDeletingPlanNodes] = useState<GraphNode[]>([])
   const [renamingNode, setRenamingNode] = useState<FileTreeNode | null>(null)
+
+  useEffect(() => {
+    if (!deletingNode || !findPlanNodes) {
+      setDeletingPlanNodes([])
+      return
+    }
+    let cancelled = false
+    findPlanNodes(deletingNode.path, deletingNode.type === 'dir')
+      .then((nodes) => { if (!cancelled) setDeletingPlanNodes(nodes) })
+      .catch(() => { if (!cancelled) setDeletingPlanNodes([]) })
+    return () => { cancelled = true }
+  }, [deletingNode, findPlanNodes])
   // Subscribe so the "Paste" item enables/disables the moment something is
   // cut/copied anywhere (including the sibling Workspace/Research tree).
   const clipboard = useFileClipboard()
@@ -626,80 +651,60 @@ export const LeftRailing = ({
   return (
     <>
     <ScrollWindow axis="y" flow="vertical" gap={0} minH={0} w={width} shrink={0} padding={{ y: 16 }}>
-      <Frame padding={{ x: 16, bottom: 10 }}>
+      <Frame ref={searchContainerRef} padding={{ x: 8, bottom: 10 }}>
         <SidebarHeader
         label={(rootLabel ?? rootPath).toUpperCase()}
+        searchOpen={searchOpen || !!query}
         actions={
-        <Frame flow="horizontal" align="center" gap={2} shrink={0} style={{ position: 'relative' }}>
+        <Frame flow="horizontal" align="center" gap={2} shrink={0}>
           {headerAction}
-          <IconButton
-            onClick={() => setSortMenuOpen((v) => !v)}
-            title="Sort order"
-            icon="settings"
-            textColor="var(--text-3)"
+          <Dropdown
+            options={[{ value: 'name', label: 'Name' }, { value: 'recent', label: 'Recently modified' }]}
+            value={sortOrder}
+            onChange={(v) => setSortOrder((Array.isArray(v) ? v[0] : v) as SortOrder)}
+            variant="none"
+            w="auto"
+            trigger={<IconButton as="span" icon="settings" iconSize={16} title="Sort order" textColor="var(--text-3)" />}
           />
-          {!readOnly && (
+          {!searchOpen && !query && (
             <IconButton
-              onClick={() => setRootCreating((v) => !v)}
+              as="span"
+              icon="search"
+              iconSize={14}
+              title="Search files"
+              textColor="var(--text-3)"
+              onClick={() => setSearchOpen(true)}
+            />
+          )}
+          {!readOnly && !hideRootCreate && (
+            <IconButton
+              onClick={() => setRootCreating((v) => (v ? null : 'auto'))}
               title="New file/folder"
               glyph="+"
               iconSize={17}
               textColor="var(--text-2)"
             />
           )}
-          {sortMenuOpen && (
-            <Frame
-              flow="vertical"
-              gap={0}
-              padding={0}
-              clipContent
-              style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 150, zIndex: 20 }}
-              fill={{ solid: 'bg-2' }}
-              stroke={{ color: 'rgba(255,255,255,0.15)' }}
-              radius={4}
-            >
-              {([['name', 'Name'], ['recent', 'Recently modified']] as const).map(([value, label]) => (
-                <Frame
-                  key={value}
-                  as="button"
-                  onClick={() => { setSortOrder(value); setSortMenuOpen(false) }}
-                  flow="horizontal"
-                  align="center"
-                  justify="between"
-                  w="fill"
-                  minH={28}
-                  variant="none"
-                  hoverFill="bg-3"
-                  radius={0}
-                  padding={{ x: 10, y: 6 }}
-                  cursor="pointer"
-                  textColor={sortOrder === value ? 'var(--text-1)' : 'var(--text-3)'}
-                  style={{ textAlign: 'left', fontSize: 11, letterSpacing: '0.02em', ...MONO }}
-                >
-                  {label}
-                  {sortOrder === value && <span>✓</span>}
-                </Frame>
-              ))}
-            </Frame>
-          )}
         </Frame>
         }
+        search={
+          <Search
+            value={query}
+            onChange={setQuery}
+            placeholder={`Search in ${rootLabel ?? rootPath}…`}
+            w="fill"
+            autoFocus={searchOpen && !query}
+            filters={tierFilterOptions.length > 0 ? { options: tierFilterOptions, active: tierFilter, onChange: setTierFilter } : undefined}
+          />
+        }
       />
-      </Frame>
-      <Frame padding={{ x: 16, bottom: 10 }}>
-        <Search
-          value={query}
-          onChange={setQuery}
-          placeholder="Search files…"
-          w="fill"
-          filters={tierFilterOptions.length > 0 ? { options: tierFilterOptions, active: tierFilter, onChange: setTierFilter } : undefined}
-        />
       </Frame>
       {!readOnly && rootCreating && (
         <InlineCreateForm
           dirPath={rootPath}
           depth={0}
-          onDone={() => setRootCreating(false)}
+          kind={rootCreating === 'auto' ? undefined : rootCreating}
+          onDone={() => setRootCreating(null)}
           onChanged={onChanged}
           createFile={createFile}
           createDir={createDir}
@@ -715,6 +720,7 @@ export const LeftRailing = ({
           activePath={activePath}
           openPaths={openPaths}
           newPaths={newPaths}
+          fileStages={fileStages}
           onSelectFile={onSelectFile}
           onChanged={onChanged}
           forceExpanded={query.trim().length > 0}
@@ -727,12 +733,14 @@ export const LeftRailing = ({
           onMutated={onMutated}
           supportsArchive={supportsArchive}
           onContextMenu={deletePath && !readOnly ? handleRowContextMenu : undefined}
+          pendingCreate={pendingCreate}
+          onPendingCreateConsumed={() => setPendingCreate(null)}
         />
       ))}
 
       {supportsArchive && !readOnly && archivedEntries.length > 0 && (
         <Frame flow="vertical" gap={0} padding={{ top: 12 }}>
-          <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', padding: '0 16px 4px', ...MONO }}>
+          <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', padding: '0 8px 4px', ...MONO }}>
             ARCHIVED ({archivedEntries.length})
           </span>
           {archivedEntries.map((entry) => (
@@ -748,7 +756,7 @@ export const LeftRailing = ({
               variant="none"
               hoverFill="bg-3"
               radius={0}
-              padding={{ x: 16, y: 6 }}
+              padding={{ x: 8, y: 6 }}
               cursor="pointer"
               textColor="var(--text-3)"
               style={{
@@ -776,8 +784,14 @@ export const LeftRailing = ({
         y={contextMenu.y}
         anchorEl={contextMenu.anchorEl}
         onClose={() => setContextMenu(null)}
-        items={[
-          { label: 'Rename', onSelect: () => setRenamingNode(contextMenu.node) },
+        items={((): ContextMenuItem[] => {
+          // Create target: inside a folder row, or in a file row's parent folder
+          // (a root-level row's parent is the root — routed via pendingCreate).
+          const createDir = contextMenu.node.type === 'dir' ? contextMenu.node.path : parentDir(contextMenu.node.path)
+          return [
+          { label: 'Add file', icon: 'file-add', onSelect: () => setPendingCreate({ path: createDir, kind: 'file' }) },
+          { label: 'Add folder', icon: 'folder-add', onSelect: () => setPendingCreate({ path: createDir, kind: 'folder' }) },
+          { label: 'Rename', separator: true, onSelect: () => setRenamingNode(contextMenu.node) },
           { label: 'Cut', separator: true, onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'cut' }) },
           { label: 'Copy', onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'copy' }) },
           {
@@ -793,7 +807,8 @@ export const LeftRailing = ({
             destructive: true,
             onSelect: () => setDeletingNode(contextMenu.node),
           },
-        ]}
+        ]
+        })()}
       />
     )}
 
@@ -816,6 +831,8 @@ export const LeftRailing = ({
         name={deletingNode.name}
         isDir={deletingNode.type === 'dir'}
         deletePath={deletePath}
+        planNodes={deletingPlanNodes}
+        deletePlanNodes={deletePlanNodes}
         onClose={() => setDeletingNode(null)}
         onDeleted={async () => {
           const { path, type } = deletingNode

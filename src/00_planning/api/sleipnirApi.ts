@@ -17,6 +17,9 @@ export type {
   GitBranchTree,
   GitBranchTreeEntry,
   GitCommitSummary,
+  GitCommitNode,
+  GitCommitGraph,
+  GitCommitFileMap,
   GitOpResult,
   GitIdentity,
   PreviewConfig,
@@ -176,6 +179,10 @@ export function appendPlanGeneratedFiles(...args: Parameters<PlatformAPI['append
   return getPlatformAPI().appendPlanGeneratedFiles(...args)
 }
 
+export function addPlanNodes(...args: Parameters<PlatformAPI['addPlanNodes']>) {
+  return getPlatformAPI().addPlanNodes(...args)
+}
+
 export function deletePlan(...args: Parameters<PlatformAPI['deletePlan']>) {
   return getPlatformAPI().deletePlan(...args)
 }
@@ -186,6 +193,13 @@ export function deletePlan(...args: Parameters<PlatformAPI['deletePlan']>) {
 // should treat that as "unavailable", e.g. disabling the menu item.
 export function openWorkspace() {
   return window.electronAPI?.openWorkspace?.()
+}
+
+// Saves the current scratch/unsaved project into a real folder the user picks.
+// Electron-only (native folder picker + fs relocation); `undefined` in a plain
+// browser tab, where there's no scratch fallback to save.
+export function saveScratchToFolder() {
+  return window.electronAPI?.saveScratchToFolder?.()
 }
 
 // Project switching — also Electron-only, same reasoning as openWorkspace
@@ -241,6 +255,14 @@ export function getBranches(...args: Parameters<PlatformAPI['getBranches']>) {
 
 export function getBranchTree(...args: Parameters<PlatformAPI['getBranchTree']>) {
   return getPlatformAPI().getBranchTree(...args)
+}
+
+export function getCommitGraph(...args: Parameters<PlatformAPI['getCommitGraph']>) {
+  return getPlatformAPI().getCommitGraph(...args)
+}
+
+export function getCommitFileMap(...args: Parameters<PlatformAPI['getCommitFileMap']>) {
+  return getPlatformAPI().getCommitFileMap(...args)
 }
 
 export function checkoutBranch(...args: Parameters<PlatformAPI['checkoutBranch']>) {

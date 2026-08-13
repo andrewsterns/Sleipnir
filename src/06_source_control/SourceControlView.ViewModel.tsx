@@ -35,6 +35,12 @@ export function useSourceControlViewModel() {
   const [branchTree, setBranchTree] = useState<GitBranchTree | null>(null)
   const [branchTreeLoading, setBranchTreeLoading] = useState(true)
 
+  // Bumped after every status/branch refresh (i.e. after any git op) so the
+  // heavier commit-graph view — which fetches its own getCommitGraph() lazily
+  // rather than living in this hook — knows to reload without us threading a
+  // dedicated refresh through each handler.
+  const [dataVersion, setDataVersion] = useState(0)
+
   const [selected, setSelected] = useState<SelectedFile | null>(null)
   const [diff, setDiff] = useState('')
   const [diffLoading, setDiffLoading] = useState(false)
@@ -67,6 +73,7 @@ export function useSourceControlViewModel() {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
+      setDataVersion((v) => v + 1)
     }
   }, [])
 
@@ -260,7 +267,7 @@ export function useSourceControlViewModel() {
 
   return {
     status, branches, loading, error,
-    branchTree, branchTreeLoading,
+    branchTree, branchTreeLoading, dataVersion,
     staged, unstaged, untracked,
     selected, diff, diffLoading, selectFile, clearSelection,
     toggleStage, discard,

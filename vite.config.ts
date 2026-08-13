@@ -458,6 +458,17 @@ function sleipnirApiPlugin() {
           return
         }
 
+        if (url.pathname === '/api/sleipnir/plans/nodes' && req.method === 'POST') {
+          try {
+            const { id, nodeIds } = await readJsonBody(req)
+            const result = backend.addPlanNodes(String(id ?? ''), Array.isArray(nodeIds) ? nodeIds.map(String) : [])
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
         if (url.pathname === '/api/sleipnir/delete-plan' && req.method === 'POST') {
           try {
             const { id, deleteFiles } = await readJsonBody(req)
@@ -541,6 +552,24 @@ function sleipnirApiPlugin() {
         if (url.pathname === '/api/sleipnir/git/branch-tree' && req.method === 'GET') {
           try {
             sendJson(res, 200, { success: true, ...(await backend.getBranchTree()) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/commit-graph' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, ...(await backend.getCommitGraph()) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/commit-files' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, ...(await backend.getCommitFileMap()) })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
           }

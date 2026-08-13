@@ -12,6 +12,7 @@ import {
 import type { FileTreeNode } from './api/PlatformAPI'
 import { rolesForArchitecture, isArchitecturalLanguage, NODE_ROLE, type ArchitectureId, type LanguageId, type NodeRole } from './graph/architectures'
 import { renderTemplate } from './graph/templates'
+import { toCamelCase, toPascalCase, splitLabelExtension } from './graph/naming'
 import { adapterForLanguage } from './graph/importAdapters'
 import type { GraphNode, ScaffoldEntry, ScaffoldLink } from './graph/types'
 
@@ -52,10 +53,11 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
   const [description, setDescription] = useState('')
   const [architecture, setArchitectureRaw] = useState<ArchitectureId>('mvvm')
   const [language, setLanguageRaw] = useState<LanguageId>('react')
-  // Empty by default — the zero-checked-roles case is a bare note, so the
-  // default "type a name, hit Create" path matches the old quick-note form's
-  // muscle memory instead of silently scaffolding a generic 'node' file.
-  const [checkedRoles, setCheckedRoles] = useState<Set<NodeRole>>(new Set<NodeRole>())
+  // The root 'Node' is checked by default and at least one role is always
+  // required (see canSubmit) — every creation produces at least the root node.
+  // The root is a Markdown doc (nodeName.md), distinct from the suffixed code
+  // files (nodeNameView.tsx …); checking more roles adds those alongside it.
+  const [checkedRoles, setCheckedRoles] = useState<Set<NodeRole>>(new Set<NodeRole>(['node']))
   const [targetFolder, setTargetFolder] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -90,10 +92,13 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
   }
 
   // Switching to a non-architectural language (html/css) drops any checked
-  // roles — there are no role files to scaffold, just one plain file.
+  // roles — there are no role files to scaffold, just one plain file. Switching
+  // back to an architectural language re-seeds the required root 'Node' if the
+  // set was emptied, so the "≥1 checked" invariant always holds there.
   const setLanguage = (id: LanguageId) => {
     setLanguageRaw(id)
     if (!isArchitecturalLanguage(id)) setCheckedRoles(new Set())
+    else setCheckedRoles((prev) => (prev.size === 0 ? new Set<NodeRole>(['node']) : prev))
   }
 
   const toggleRole = (role: NodeRole) => {
@@ -105,10 +110,34 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
     })
   }
 
+  // Fired when the name field blurs: if the user typed the extension into the
+  // name ("MyFile.css"), auto-select the matching language and strip the
+  // extension from the visible name — so the filetype dropdown reflects it and
+  // the scaffolder produces "myFile.css", never a doubled "myFileCss.css".
+  // setLanguage brings its own role side-effects (html/css drop roles, an
+  // architectural language re-seeds the root Node), so the whole form stays
+  // consistent afterward. submit re-applies the same split as a safety net for
+  // a name typed and submitted without the field ever blurring.
+  const normalizeLabel = () => {
+    const { base, language: detected } = splitLabelExtension(label)
+    if (detected && base) {
+      setLabel(base)
+      setLanguage(detected)
+    }
+  }
+
   const effectiveFolder = targetFolder.trim() || slugify(label)
 
   const submit = async () => {
-    const trimmedLabel = label.trim()
+    // Safety net for the doubled-extension bug when the field never blurred
+    // (name typed, then straight to Create): split a trailing recognized
+    // extension off the name and let it pick the language, exactly as
+    // normalizeLabel does on blur. `activeLanguage`/`activeArchitectural`
+    // stand in for the raw `language`/`architectural` for the rest of submit.
+    const { base, language: detected } = splitLabelExtension(label)
+    const trimmedLabel = base.trim()
+    const activeLanguage = detected ?? language
+    const activeArchitectural = isArchitecturalLanguage(activeLanguage)
     if (!trimmedLabel) {
       setError('Name is required')
       return
@@ -118,7 +147,7 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
     // as the old standalone "New Node" form. No Workspace requirement either:
     // a note has no file to write, so this works even with nothing open.
     // html/css (non-architectural) skip this and always scaffold one file.
-    if (architectural && checkedRoles.size === 0) {
+    if (activeArchitectural && checkedRoles.size === 0) {
       setSubmitting(true)
       setError(null)
       try {
@@ -144,14 +173,31 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
     try {
       // html/css scaffold exactly one architecture-less file (the plain 'node'
       // role, no suffix); architectural languages scaffold the checked roles.
-      const orderedRoles = architectural ? roles.filter((r) => checkedRoles.has(r.id)) : [NODE_ROLE]
+      const orderedRoles = activeArchitectural ? roles.filter((r) => checkedRoles.has(r.id)) : [NODE_ROLE]
       const entries: ScaffoldEntry[] = orderedRoles.map((r) => {
-        const { fileName, content } = renderTemplate(language, r.id, trimmedLabel)
+        // The root 'Node' role is a Markdown doc (nodeName.md), never a code
+        // file — it names/describes the cluster and so can never share a name
+        // with the suffixed role files (nodeNameView.tsx …). It carries no
+        // `language`, so it's never same-language-linked to or spliced into.
+        // Only in the architectural flow; a plain html/css single file still
+        // uses its own language + extension (that path also uses NODE_ROLE).
+        if (activeArchitectural && r.id === 'node') {
+          const body = description.trim()
+          return {
+            label: trimmedLabel,
+            role: r.id,
+            architecture,
+            description: body || undefined,
+            filePath: `${effectiveFolder}/${toCamelCase(trimmedLabel)}.md`,
+            content: `# ${toPascalCase(trimmedLabel)}\n${body ? `\n${body}\n` : ''}`,
+          }
+        }
+        const { fileName, content } = renderTemplate(activeLanguage, r.id, trimmedLabel)
         return {
           label: trimmedLabel,
           role: r.id,
-          language,
-          architecture: architectural ? architecture : undefined,
+          language: activeLanguage,
+          architecture: activeArchitectural ? architecture : undefined,
           description: description.trim() || undefined,
           filePath: `${effectiveFolder}/${fileName}`,
           content,
@@ -165,7 +211,7 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
       // ships already wired, not just graph-linked.
       const roleIndex = new Map(orderedRoles.map((r, i) => [r.id, i]))
       const links: ScaffoldLink[] = []
-      const adapter = adapterForLanguage(language)
+      const adapter = adapterForLanguage(activeLanguage)
       for (const r of orderedRoles) {
         const fromIndex = roleIndex.get(r.id)
         if (fromIndex === undefined) continue
@@ -192,7 +238,7 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
       const { nodes: existingNodes, edges: existingEdges } = await getNotes()
       const folderPrefix = `${effectiveFolder}/`
       const existingInFolder = existingNodes.filter(
-        (n) => n.role && n.filePath && n.language === language && n.filePath.startsWith(folderPrefix),
+        (n) => n.role && n.filePath && n.language === activeLanguage && n.filePath.startsWith(folderPrefix),
       )
       const roleById = new Map(roles.map((r) => [r.id, r]))
       // new entry -> existing file (new imports existing): spliced into the
@@ -277,8 +323,12 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
     }
   }
 
+  // At least one role must be checked in the architectural flow (the root
+  // 'Node' defaults checked) — html/css has no roles, so only a name is needed.
+  const canSubmit = !!label.trim() && (!architectural || checkedRoles.size > 0)
+
   return {
-    label, setLabel,
+    label, setLabel, normalizeLabel,
     description, setDescription,
     architecture, setArchitecture,
     language, setLanguage,
@@ -286,6 +336,7 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
     roles, checkedRoles, toggleRole,
     targetFolder, setTargetFolder, effectiveFolder,
     workspaceName, existingFolders,
+    canSubmit,
     submitting, error, submit, onClose,
   }
 }

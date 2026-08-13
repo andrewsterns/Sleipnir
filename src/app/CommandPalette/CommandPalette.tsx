@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../UIKit/Frame/Frame'
-import { TacticalPanel } from '../UIKit/Panel/Panel'
+import { Card } from '../UIKit/Card/Card'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { useCommandPaletteViewModel, type PaletteResultItem } from './CommandPalette.ViewModel'
 import type { CommandPaletteProps } from './iCommandPalette'
@@ -58,12 +58,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
               onClick={close}
               style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
             />
-            <TacticalPanel
+            <Card
               flow="vertical"
               gap={0}
               padding={0}
-              variant="default"
-              chamfer={6}
               relative
               w={560}
               maxH="60vh"
@@ -74,7 +72,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                 align="center"
                 gap={8}
                 shrink={0}
-                stroke={{ bottom: { color: 'rgba(255,255,255,0.12)' } }}
+                stroke={{ bottom: { color: 'var(--border-2)' } }}
               >
                 <input
                   ref={inputRef}
@@ -186,7 +184,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                   </span>
                 )}
               </ScrollWindow>
-            </TacticalPanel>
+            </Card>
           </Frame>,
           portalTarget,
         )}

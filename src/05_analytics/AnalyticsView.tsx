@@ -3,20 +3,22 @@ import { Frame } from '../app/UIKit/Frame/Frame'
 import { ScrollWindow } from '../app/UIKit/ScrollWindow/ScrollWindow'
 import { Search } from '../app/UIKit/Search/Search'
 import { useAnalyticsViewModel } from './AnalyticsView.ViewModel'
+import { useAppTheme } from '../00_themes/ThemeController'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
 export const AnalyticsView: React.FC = () => {
   const { query, setQuery, filteredItems } = useAnalyticsViewModel()
+  const { theme } = useAppTheme()
 
   return (
-    <Frame theme="tactical" h="fill" flow="vertical" fill={{ solid: 'var(--bg-1)' }} style={MONO}>
+    <Frame theme={theme} h="fill" flow="vertical" fill={{ solid: 'var(--bg-1)' }} style={MONO}>
       <Frame
         flow="horizontal"
         align="center"
         justify="between"
         padding={{ x: 24, y: 10 }}
-        stroke={{ bottom: { color: 'rgba(255,255,255,0.07)' } }}
+        stroke={{ bottom: { color: 'var(--border-1)' } }}
       >
         <span style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--text-2)', ...MONO }}>
           05 — ANALYTICS

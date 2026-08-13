@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { Button } from '../app/UIKit/Button/Button'
-import { TacticalPanel } from '../app/UIKit/Panel/Panel'
+import { Card } from '../app/UIKit/Card/Card'
 import { useDeleteNodeViewModel, type DeleteNodeModalProps } from './DeleteNodeModal.ViewModel'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
@@ -38,7 +38,7 @@ export function DeleteNodeModal(props: DeleteNodeModalProps) {
             onClick={vm.submitting ? undefined : vm.onClose}
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
-          <TacticalPanel flow="vertical" gap={14} padding={20} variant="default" chamfer={6} relative w={440}>
+          <Card flow="vertical" gap={14} padding={20} relative w={440}>
             <span style={{ fontSize: 12, letterSpacing: '0.1em', color: '#e07a7a', fontWeight: 600, ...MONO }}>
               DELETE NODE
             </span>
@@ -68,7 +68,7 @@ export function DeleteNodeModal(props: DeleteNodeModalProps) {
                 </Button>
               )}
             </Frame>
-          </TacticalPanel>
+          </Card>
         </Frame>,
         portalTarget,
       )}

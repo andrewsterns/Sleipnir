@@ -52,8 +52,30 @@ let backend
 // each synchronous backend call.
 const windowRoots = new Map()
 
+// A stable per-user "scratch" project, used whenever a window has no real
+// folder open — so plans/notes/files can be created immediately (nothing errors
+// with "No project is open") and relocated to a real folder later via
+// saveScratchToFolder. Its .planning holds an 'Untitled' project.json so
+// getWorkspaceInfo reads back a friendly name rather than the userData basename.
+let scratchRoot = null
+function getScratchRoot() {
+  if (!scratchRoot) scratchRoot = path.join(app.getPath('userData'), 'ScratchProject')
+  fs.mkdirSync(path.join(scratchRoot, '.planning'), { recursive: true })
+  const meta = path.join(scratchRoot, '.planning', 'project.json')
+  if (!fs.existsSync(meta)) fs.writeFileSync(meta, JSON.stringify({ name: 'Untitled' }, null, 2))
+  return scratchRoot
+}
+
 function rootForSender(sender) {
-  return windowRoots.get(sender.id) ?? null
+  // Fall back to the scratch project so the backend always has a root to write
+  // into — a window with no chosen project is "unsaved", not unusable.
+  return windowRoots.get(sender.id) || getScratchRoot()
+}
+
+// True when the window has no *chosen* project — i.e. it's operating on the
+// scratch project. Drives the renderer's "unsaved" label + Save action.
+function isScratchWindow(sender) {
+  return !windowRoots.get(sender.id)
 }
 
 function setWindowTitle(win, projectName) {
@@ -171,7 +193,7 @@ function registerIpcHandlers() {
       return fn(b, event, ...args)
     })
 
-  ws('sleipnir:getWorkspaceInfo', (b) => b.getWorkspaceInfo())
+  ws('sleipnir:getWorkspaceInfo', (b, e) => ({ ...b.getWorkspaceInfo(), isScratch: isScratchWindow(e.sender) }))
   ws('sleipnir:listWorkspaceDir', (b, _e, dirPath) => b.listWorkspaceDir(dirPath))
   ws('sleipnir:readWorkspaceFile', (b, _e, filePath) => b.readWorkspaceFile(filePath))
   ws('sleipnir:writeWorkspaceFile', (b, _e, filePath, content) => { b.writeWorkspaceFile(filePath, content) })
@@ -206,6 +228,7 @@ function registerIpcHandlers() {
   ws('sleipnir:getPlans', (b) => b.getPlans())
   ws('sleipnir:createPlan', (b, _e, label, nodeIds, assetPaths, assetEdges) => b.createPlan(label, nodeIds, assetPaths, assetEdges))
   ws('sleipnir:appendPlanGeneratedFiles', (b, _e, id, paths) => b.appendPlanGeneratedFiles(id, paths))
+  ws('sleipnir:addPlanNodes', (b, _e, id, nodeIds) => b.addPlanNodes(id, nodeIds))
   ws('sleipnir:deletePlan', (b, _e, id, opts) => b.deletePlan(id, opts))
   ws('sleipnir:runScript', (b, _e, filePath) => b.runScript(filePath))
 
@@ -217,6 +240,8 @@ function registerIpcHandlers() {
   ws('sleipnir:commitChanges', (b, _e, message) => b.commitChanges(message))
   ws('sleipnir:getBranches', (b) => b.getBranches())
   ws('sleipnir:getBranchTree', (b) => b.getBranchTree())
+  ws('sleipnir:getCommitGraph', (b) => b.getCommitGraph())
+  ws('sleipnir:getCommitFileMap', (b) => b.getCommitFileMap())
   ws('sleipnir:checkoutBranch', (b, _e, name) => b.checkoutBranch(name))
   ws('sleipnir:createBranch', (b, _e, name) => b.createBranch(name))
   ws('sleipnir:renameBranch', (b, _e, oldName, newName) => b.renameBranch(oldName, newName))
@@ -302,6 +327,46 @@ function registerIpcHandlers() {
     }
   })
 
+  // Relocates the scratch project (everything under it — .planning plus any
+  // files created while unsaved) into a real folder the user picks, then
+  // repoints THIS window to that folder and resets scratch for the next unsaved
+  // session. This is the "save into some dir later" half of the scratch flow.
+  ipcMain.handle('sleipnir:saveScratchToFolder', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })
+    if (result.canceled || !result.filePaths[0]) return null
+    const dest = result.filePaths[0]
+    const b = await getBackend()
+    try {
+      const scratch = getScratchRoot()
+      // Copy each top-level entry (force-overwrites same-named files if the
+      // chosen folder isn't empty).
+      for (const entry of fs.readdirSync(scratch)) {
+        fs.cpSync(path.join(scratch, entry), path.join(dest, entry), { recursive: true, force: true })
+      }
+      // If the scratch name was never customized (still the default 'Untitled'),
+      // drop the copied project.json so the saved project's name derives from
+      // the folder the user chose instead of reading back as "Untitled".
+      const destMeta = path.join(dest, '.planning', 'project.json')
+      try {
+        const meta = JSON.parse(fs.readFileSync(destMeta, 'utf8'))
+        if (meta && meta.name === 'Untitled') fs.rmSync(destMeta, { force: true })
+      } catch {
+        // No/invalid project.json — nothing to normalize.
+      }
+      // Reset scratch to empty so the next "no project" session starts clean.
+      fs.rmSync(scratch, { recursive: true, force: true })
+      getScratchRoot()
+      const info = b.openWorkspace(dest)
+      windowRoots.set(event.sender.id, info.root)
+      workspaceStore.touchProject(info.root, info.name)
+      setWindowTitle(win, info.name)
+      return { ...info, isScratch: false }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
   ipcMain.handle('sleipnir:getRecentProjects', () => ({ projects: workspaceStore.getRecentProjects() }))
 
   // Reopens a project from File > Open Recent into the CALLING window (its
@@ -339,6 +404,34 @@ function registerIpcHandlers() {
     retitleWindowsForRoot(projectPath, result.name)
     return result
   })
+
+  // Recolor this window's native (OS-drawn) min/max/close overlay to match the
+  // theme the renderer just switched to — so light mode doesn't keep the dark
+  // button strip. Two levers matter on Windows: setTitleBarOverlay's own colours
+  // AND nativeTheme.themeSource, which decides whether the OS paints the whole
+  // caption-button area in dark or light mode (a dark themeSource keeps the
+  // buttons reading black even with a light overlay colour). We derive dark/
+  // light from the overlay's background luminance so both stay in lockstep.
+  ipcMain.on('sleipnir:setTitleBarTheme', (event, colors) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || !colors) return
+    nativeTheme.themeSource = isDarkHex(colors.color) ? 'dark' : 'light'
+    if (typeof win.setTitleBarOverlay !== 'function') return
+    try {
+      win.setTitleBarOverlay({ color: colors.color, symbolColor: colors.symbolColor, height: 32 })
+    } catch {
+      // Platform without overlay support, or the window was torn down mid-call.
+    }
+  })
+}
+
+// True when a "#rrggbb" colour is dark enough to want light-on-dark chrome.
+function isDarkHex(hex) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || '').trim())
+  if (!m) return true
+  const n = parseInt(m[1], 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  return 0.299 * r + 0.587 * g + 0.114 * b < 128
 }
 
 // initialRoot/initialName seed the window's own project (see windowRoots) —

@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { Button } from '../app/UIKit/Button/Button'
-import { TacticalPanel } from '../app/UIKit/Panel/Panel'
+import { Card } from '../app/UIKit/Card/Card'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -55,7 +55,7 @@ export function DiscardFileModal({ path, isNew, discard, onClose, onDiscarded }:
             onClick={submitting ? undefined : onClose}
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
-          <TacticalPanel flow="vertical" gap={14} padding={20} variant="default" chamfer={6} relative w={420}>
+          <Card flow="vertical" gap={14} padding={20} relative w={420}>
             <span style={{ fontSize: 12, letterSpacing: '0.1em', color: '#e07a7a', fontWeight: 600, ...MONO }}>
               DISCARD CHANGES
             </span>
@@ -78,7 +78,7 @@ export function DiscardFileModal({ path, isNew, discard, onClose, onDiscarded }:
                 {submitting ? 'Discarding…' : 'Discard'}
               </Button>
             </Frame>
-          </TacticalPanel>
+          </Card>
         </Frame>,
         portalTarget,
       )}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { useWidgetShellViewModel } from './WidgetShell.ViewModel'
+import { useAppTheme } from '../../00_themes/ThemeController'
 
 export interface WidgetShellProps {
   /** Rendered at the current rail width — a rail control (e.g. LeftRailing) sizes itself via a `width` prop, so this is a render prop rather than a plain node. */
@@ -16,7 +17,7 @@ function ResizeHandle({ axis, onMouseDown }: { axis: 'x' | 'y'; onMouseDown: (e:
   const [hover, setHover] = useState(false)
   const lineStyle: React.CSSProperties = {
     position: 'absolute',
-    background: hover ? 'rgba(255,255,255,0.28)' : 'var(--border-1)',
+    background: hover ? 'rgba(var(--item-ink, 255,255,255), 0.28)' : 'var(--border-1)',
     transition: 'background 80ms',
     ...(axis === 'x' ? { left: '50%', top: 0, bottom: 0, width: 1 } : { top: '50%', left: 0, right: 0, height: 1 }),
   }
@@ -44,9 +45,10 @@ function ResizeHandle({ axis, onMouseDown }: { axis: 'x' | 'y'; onMouseDown: (e:
 // next to.
 export function WidgetShell({ rail, header, preview, code }: WidgetShellProps) {
   const { railWidth, previewHeight, startDrag } = useWidgetShellViewModel()
+  const { theme } = useAppTheme()
 
   return (
-    <Frame theme="tactical" flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
+    <Frame theme={theme} flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
       {rail(railWidth)}
 
       <ResizeHandle axis="x" onMouseDown={(e) => startDrag('rail', e)} />

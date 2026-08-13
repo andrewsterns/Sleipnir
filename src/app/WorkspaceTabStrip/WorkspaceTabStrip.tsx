@@ -11,11 +11,11 @@ const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 // WorkspaceHeader's own row (which owns the border/background) so it can
 // share that row with trailing actions instead of owning a full-width strip
 // of its own.
-export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose, onAddTab }) => {
+export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose, onAddTab, onAddTabClick }) => {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
 
-  if (tabs.length === 0 && !onAddTab) return null
+  if (tabs.length === 0 && !onAddTab && !onAddTabClick) return null
 
   const submit = () => {
     const trimmed = name.trim()
@@ -44,7 +44,7 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
             padding={{ x: 12, y: 8 }}
             onClick={() => onActivate(tab.id)}
             stroke={active ? { bottom: { color: 'var(--text-1)', width: 2 } } : undefined}
-            fill={{ solid: active ? 'rgba(255,255,255,0.05)' : 'transparent' }}
+            fill={{ solid: active ? 'rgba(var(--item-ink, 255,255,255), 0.05)' : 'transparent' }}
             style={{ cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             {tab.icon && (
@@ -71,8 +71,10 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
           </Frame>
         )
       })}
-      {onAddTab && (
-        adding ? (
+      {(onAddTab || onAddTabClick) && (
+        // onAddTabClick short-circuits the inline input entirely — the "+"
+        // just fires the callback (Planning opens its full-page create screen).
+        adding && !onAddTabClick ? (
           <input
             autoFocus
             value={name}
@@ -85,8 +87,8 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
             placeholder="filename"
             style={{
               flexShrink: 0,
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.15)',
+              background: 'var(--bg-2)',
+              border: '1px solid var(--border-2)',
               borderRadius: 'var(--radius-2)',
               color: 'var(--text-1)',
               fontSize: 12,
@@ -98,7 +100,7 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
           />
         ) : (
           <IconButton
-            onClick={() => setAdding(true)}
+            onClick={() => (onAddTabClick ? onAddTabClick() : setAdding(true))}
             title="New tab"
             glyph="+"
             iconSize={16}

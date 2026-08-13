@@ -23,4 +23,11 @@ export interface WorkspaceTabStripProps {
    * whose tabs are maps/plans, not files, so "add a tab" has no meaning).
    */
   onAddTab?: (name: string) => void
+  /**
+   * Alternative "+" behavior: click fires this immediately with no inline
+   * input, for callers whose creation flow lives elsewhere (Planning routes
+   * it to a full-page create-plan screen rather than typing a name in the
+   * strip). Takes precedence over `onAddTab` when both are set.
+   */
+  onAddTabClick?: () => void
 }

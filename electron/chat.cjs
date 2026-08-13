@@ -43,7 +43,7 @@ const TOOL_DEFS = [
   {
     name: 'create_plan_node',
     description:
-      'Create one step of a plan the user asked for. Call this once per step — each call shows up as a node in Sleipnir\'s Planning > CLAUDE tab for the user to review and approve individually. Use the SAME plan_id for every step of one plan so they group together in the graph.',
+      'Create one step of a plan the user asked for. Call this once per step — each call shows up as a node in Sleipnir\'s Planning > AI tab for the user to review and approve individually. Use the SAME plan_id for every step of one plan so they group together in the graph.',
     properties: {
       plan_id: { type: 'string', description: 'Same value for every step in this plan — a short slug, e.g. "hamburger-menu".' },
       label: { type: 'string', description: 'Short step title, e.g. "HamburgerMenu component".' },

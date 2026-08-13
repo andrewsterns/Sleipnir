@@ -192,6 +192,26 @@ async function commitLog(ref, maxCount) {
 
 const MAX_COMMITS_PER_BRANCH = 8
 const MAX_COMMITS_TOTAL = 30
+// The commit-graph view walks the real DAG (all branches + remotes at once),
+// so it gets a far larger budget than getBranchTree's per-branch divergence
+// summary. Still capped so a huge repo can't blow the execFile buffer/timeout.
+const MAX_GRAPH_COMMITS = 200
+
+// Parses git's `%D` ref-decoration field ("HEAD -> main, origin/main, tag: v1")
+// into a clean label list, pulling out whether HEAD points here.
+function parseDecorations(deco) {
+  if (!deco || !deco.trim()) return { refs: [], isHead: false }
+  let isHead = false
+  const refs = []
+  for (const raw of deco.split(',')) {
+    const part = raw.trim()
+    if (!part) continue
+    if (part === 'HEAD') { isHead = true; continue }
+    if (part.startsWith('HEAD -> ')) { isHead = true; refs.push(part.slice('HEAD -> '.length)); continue }
+    refs.push(part) // keeps 'origin/main', 'tag: v1.0', plain branch names as-is
+  }
+  return { refs, isHead }
+}
 
 // A simple branch list + divergence view (not a full multi-lane DAG): the
 // "primary" branch (main/master, or whatever's checked out if neither
@@ -247,6 +267,85 @@ export async function getBranchTree() {
   }
 
   return { primary, branches: result }
+}
+
+// The real commit DAG behind the graph view: every commit across all local
+// branches + remote-tracking branches, each with its parent hashes (so the
+// renderer can lay out lanes/merges), ref decorations, and push/fetch state.
+// "Pushed" = reachable from a remote-tracking ref; "local" = reachable from a
+// local branch. A commit that's remote-only (local === false) was fetched but
+// not yet merged into any local branch; one that's local-only (pushed ===
+// false) hasn't been pushed. Unlike getBranchTree this is the actual topology,
+// not a per-branch divergence summary.
+export async function getCommitGraph() {
+  await ensureRepo()
+
+  // Hash-only reachability sets — cheap even on large histories. `--remotes`
+  // yields every commit on any origin/* tracking branch (empty when there's no
+  // remote); `--branches` every commit on any local branch.
+  const revListSet = async (scope) => {
+    const { stdout, exitCode } = await git(['rev-list', scope])
+    if (exitCode !== 0 || !stdout.trim()) return new Set()
+    return new Set(stdout.trim().split('\n'))
+  }
+  const [remoteSet, localSet] = await Promise.all([revListSet('--remotes'), revListSet('--branches')])
+
+  const { stdout, exitCode, stderr } = await git([
+    'log', '--branches', '--remotes', '--date-order',
+    `--max-count=${MAX_GRAPH_COMMITS + 1}`,
+    `--pretty=format:%H${FIELD_SEP}%h${FIELD_SEP}%s${FIELD_SEP}%an${FIELD_SEP}%ad${FIELD_SEP}%P${FIELD_SEP}%D`,
+    '--date=short',
+  ])
+  if (exitCode !== 0) throw new Error(stderr || 'git log failed')
+
+  const rows = stdout.trim() ? stdout.trim().split('\n') : []
+  const truncated = rows.length > MAX_GRAPH_COMMITS
+  const commits = rows.slice(0, MAX_GRAPH_COMMITS).map((line) => {
+    const [hash, shortHash, subject, author, date, parentsStr, decoStr] = line.split(FIELD_SEP)
+    const parents = parentsStr && parentsStr.trim() ? parentsStr.trim().split(' ') : []
+    const { refs, isHead } = parseDecorations(decoStr)
+    return {
+      hash, shortHash, subject, author, date, parents, refs, isHead,
+      pushed: remoteSet.has(hash),
+      local: localSet.has(hash),
+    }
+  })
+
+  const branches = await getBranches()
+  const head = branches.find((b) => b.current)?.name ?? null
+
+  return { commits, head, truncated }
+}
+
+// Per-commit changed-file lists, keyed by full hash — the join key for the
+// constellation view (a plan node's workspace-relative filePath ↔ the commits
+// that touched it). One `--name-only` log walk over the same commit set as
+// getCommitGraph, parsed into { hash: [paths] }. Merge commits show no files
+// here (git doesn't diff merges without -m), which is fine — provenance
+// attributes to the real change commits, not the merges.
+export async function getCommitFileMap() {
+  await ensureRepo()
+  const { stdout, exitCode, stderr } = await git([
+    'log', '--branches', '--remotes', '--date-order',
+    `--max-count=${MAX_GRAPH_COMMITS}`,
+    '--name-only',
+    `--pretty=format:${FIELD_SEP}%H`,
+    '--date=short',
+  ])
+  if (exitCode !== 0) throw new Error(stderr || 'git log failed')
+
+  const files = {}
+  let current = null
+  for (const rawLine of stdout.split('\n')) {
+    const line = rawLine.replace(/\s+$/, '')
+    if (line.startsWith(FIELD_SEP)) {
+      current = line.slice(FIELD_SEP.length)
+      files[current] = []
+    } else if (line && current) {
+      files[current].push(line)
+    }
+  }
+  return { files }
 }
 
 export async function checkoutBranch(name) {

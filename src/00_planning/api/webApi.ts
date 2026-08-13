@@ -10,6 +10,8 @@ import type {
   GitStatus,
   GitBranch,
   GitBranchTree,
+  GitCommitGraph,
+  GitCommitFileMap,
   GitOpResult,
   GitIdentity,
   PreviewConfig,
@@ -291,6 +293,14 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ plan: SavedPlan }>(res))
   },
 
+  addPlanNodes(id: string, nodeIds: string[]): Promise<{ plan: SavedPlan }> {
+    return fetch('/api/sleipnir/plans/nodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, nodeIds }),
+    }).then((res) => asJson<{ plan: SavedPlan }>(res))
+  },
+
   deletePlan(id: string, opts?: { deleteFiles?: boolean }): Promise<void> {
     return fetch('/api/sleipnir/delete-plan', {
       method: 'POST',
@@ -356,6 +366,14 @@ export const webApi: PlatformAPI = {
 
   getBranchTree(): Promise<GitBranchTree> {
     return fetch('/api/sleipnir/git/branch-tree').then((res) => asJson<GitBranchTree>(res))
+  },
+
+  getCommitGraph(): Promise<GitCommitGraph> {
+    return fetch('/api/sleipnir/git/commit-graph').then((res) => asJson<GitCommitGraph>(res))
+  },
+
+  getCommitFileMap(): Promise<GitCommitFileMap> {
+    return fetch('/api/sleipnir/git/commit-files').then((res) => asJson<GitCommitFileMap>(res))
   },
 
   checkoutBranch(name: string): Promise<GitStatus> {

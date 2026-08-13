@@ -27,6 +27,8 @@
   --radius-2: .4rem;
   --radius-3: .7rem;
   --radius-4: 1rem;
+  /* Shared radius for interactive controls — see tactical.css. */
+  --radius-control: .7rem;
 
   --shadow-1: 0 14px 36px -18px rgba(5, 8, 14, 0.95);
 

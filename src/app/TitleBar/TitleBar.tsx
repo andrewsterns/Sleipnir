@@ -29,6 +29,10 @@ export interface TitleBarProps {
   onSaveAll?: () => void
   /** The currently open project's display name — null when none is open (blank/New Window state). Rendered next to the Logo since the OS title bar is hidden (see main.cjs's titleBarStyle). */
   projectName?: string | null
+  /** True when the project is the auto-provided "scratch" project (no real folder chosen yet) — shows an unsaved marker next to the name and enables "Save Project to Folder…". */
+  isScratch?: boolean
+  /** Relocates the scratch project into a real folder the user picks (see App's onSaveProjectToFolder). Only meaningful while `isScratch`. */
+  onSaveProjectToFolder?: () => void
   onOpenProject?: () => void
   recentProjects?: RecentProject[]
   onOpenRecentProject?: (path: string) => void
@@ -38,6 +42,8 @@ export interface TitleBarProps {
 function buildMenus({
   onSave,
   onSaveAll,
+  isScratch,
+  onSaveProjectToFolder,
   onOpenProject,
   recentProjects,
   onOpenRecentProject,
@@ -56,6 +62,9 @@ function buildMenus({
               : [{ label: 'No Recent Projects' }],
         },
         { label: 'New Window', onSelect: onNewWindow },
+        // Only actionable while unsaved (scratch) — a real project is already
+        // on disk, so there's nothing to relocate.
+        { label: 'Save Project to Folder…', onSelect: isScratch ? onSaveProjectToFolder : undefined },
         { label: 'Save', onSelect: onSave },
         { label: 'Save All', onSelect: onSaveAll },
         { label: 'Reload', onSelect: () => window.location.reload() },
@@ -107,6 +116,7 @@ const menuItemStyle = (active: boolean): React.CSSProperties => ({
 })
 
 export const TitleBar: React.FC<TitleBarProps> = (props) => {
+  const { projectName, isScratch } = props
   const MENUS = buildMenus(props)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
@@ -133,14 +143,16 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
       minH={TITLE_BAR_HEIGHT}
       shrink={0}
       fill={{ solid: 'bg-1' }}
-      stroke={{ bottom: { color: 'rgba(255,255,255,0.08)' } }}
+      stroke={{ bottom: { color: 'var(--border-1)' } }}
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       <div
         ref={rootRef}
         style={{ display: 'flex', alignItems: 'center', height: '100%', ...NO_DRAG }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px', color: 'var(--text-1)' }}>
+        {/* Fixed 44px box, centered — matches the NavRail's width so the logo
+            sits directly above (and centre-aligned with) the rail's icons. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, flexShrink: 0, color: 'var(--text-1)' }}>
           <Logo className="h-4 w-auto" />
         </div>
 
@@ -152,7 +164,7 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
                 setOpenSubmenu(null)
               }}
               style={{
-                background: openMenu === menu.label ? 'rgba(255,255,255,0.08)' : 'transparent',
+                background: openMenu === menu.label ? 'rgba(var(--item-ink, 255,255,255), 0.08)' : 'transparent',
                 border: 'none',
                 cursor: 'pointer',
                 color: 'var(--text-2)',
@@ -174,7 +186,7 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
                   minWidth: 160,
                   zIndex: 2000,
                   background: 'var(--bg-2)',
-                  border: '1px solid rgba(255,255,255,0.12)',
+                  border: '1px solid var(--border-2)',
                   boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                   padding: '4px 0',
                 }}
@@ -209,7 +221,7 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
                           overflowY: 'auto',
                           zIndex: 2001,
                           background: 'var(--bg-2)',
-                          border: '1px solid rgba(255,255,255,0.12)',
+                          border: '1px solid var(--border-2)',
                           boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                           padding: '4px 0',
                         }}
@@ -236,6 +248,16 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
             )}
           </div>
         ))}
+
+        {projectName && (
+          <span
+            title={isScratch ? 'Unsaved — File ▸ Save Project to Folder…' : projectName}
+            style={{ marginLeft: 10, fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}
+          >
+            {projectName}
+            {isScratch && <span style={{ color: '#e0a040' }}> ●</span>}
+          </span>
+        )}
       </div>
     </Frame>
   )

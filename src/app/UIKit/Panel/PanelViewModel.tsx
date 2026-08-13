@@ -31,7 +31,7 @@ export function usePanelViewModel({
   const resolvedFill = fill ?? (noLines
     ? [{ solid: bg }]
     : [
-        { lines: { angle: 135, spacing: 8, color: 'rgba(255,255,255,0.025)', width: 1 } },
+        { lines: { angle: 135, spacing: 8, color: 'var(--border-1)', width: 1 } },
         { solid: bg },
       ]
   );

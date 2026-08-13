@@ -7,11 +7,25 @@ import { useWorkspaceViewModel } from './WorkspaceView.ViewModel'
 import { NewWorkspacePlanModal } from './NewWorkspacePlanModal'
 import type { FolderBrowserHandle } from '../DesignSystem/iFolderBrowserView'
 import type { WorkspaceViewProps } from './iWorkspaceView'
-import { setNodeStatus, setNodeBorrows, createWorkspaceDir, getNotes } from '../../00_planning/api/sleipnirApi'
+import { setNodeStatus, setNodeBorrows, createWorkspaceDir, createWorkspaceFile, getNotes } from '../../00_planning/api/sleipnirApi'
 import { adapterForPath } from '../../00_planning/graph/importAdapters'
 import type { GraphNode } from '../../00_planning/graph/types'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+
+// Name-entry fields, styled to match the Search box (variant="surface"): a
+// bg-2 surface with a border-1 hairline, the shared control radius, and 10px
+// mono — theme-aware tokens, so they read correctly in light mode too.
+const FIELD_STYLE: React.CSSProperties = {
+  background: 'var(--bg-2)',
+  border: '1px solid var(--border-1)',
+  borderRadius: 'var(--radius-control)',
+  color: 'var(--text-1)',
+  fontSize: 10,
+  padding: '6px 10px',
+  outline: 'none',
+  ...MONO,
+}
 
 // Electron-only, same feature-detection convention as App.tsx's
 // electronDialogsAvailable — a plain browser dev tab has no native folder
@@ -66,16 +80,56 @@ function AddFolderButton({ onCreated }: { onCreated: () => void }) {
         }}
         onBlur={() => { if (!name) reset() }}
         placeholder="folder name"
-        style={{
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 'var(--radius-2)',
-          color: 'var(--text-1)',
-          fontSize: 12,
-          padding: '4px 6px',
-          width: 120,
-          ...MONO,
+        style={{ ...FIELD_STYLE, width: 120 }}
+      />
+      {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
+    </Frame>
+  )
+}
+
+// Sibling of AddFolderButton — creates a file at the project root instead of a
+// folder, same inline-input-on-click flow. Sits next to Add Folder in the
+// LeftRailing header so file/folder creation share one spot.
+function AddFileButton({ onCreated }: { onCreated: () => void }) {
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const reset = () => {
+    setAdding(false)
+    setName('')
+    setError(null)
+  }
+
+  const submit = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    try {
+      await createWorkspaceFile(trimmed, '')
+      reset()
+      onCreated()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  if (!adding) {
+    return <IconButton onClick={() => setAdding(true)} title="Add new file" icon="file-add" />
+  }
+
+  return (
+    <Frame flow="horizontal" align="center" gap={4}>
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') submit()
+          if (e.key === 'Escape') reset()
         }}
+        onBlur={() => { if (!name) reset() }}
+        placeholder="file name"
+        style={{ ...FIELD_STYLE, width: 120 }}
       />
       {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
     </Frame>
@@ -220,6 +274,7 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
         onLinkResolved={handleLinkResolved}
         headerAction={(refresh) => (
           <>
+            <AddFileButton onCreated={refresh} />
             <AddFolderButton onCreated={refresh} />
             <IconButton icon="plan-add" title="Add Plan…" onClick={() => setAddingPlan(true)} />
           </>

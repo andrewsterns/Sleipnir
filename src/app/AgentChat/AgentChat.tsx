@@ -20,7 +20,7 @@ ensureCursorCSS()
 
 const ROLE_LABEL: Record<string, string> = {
   user: 'YOU',
-  assistant: 'CLAUDE',
+  assistant: 'AI',
   system: 'SYSTEM',
 }
 
@@ -64,7 +64,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
       <ScrollWindow ref={scrollRef} axis="y" flow="vertical" gap={10} padding={12} style={{ flex: 1, minHeight: 0 }}>
         {messages.length === 0 && (
           <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
-            Ask for a plan and it'll show up as draft nodes in Planning's CLAUDE tab.
+            Ask for a plan and it'll show up as draft nodes in Planning's AI tab.
           </span>
         )}
         {messages.map((m, i) => (
@@ -77,7 +77,6 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
                 fontSize: 12,
                 lineHeight: 1.5,
                 color: m.role === 'system' ? 'var(--text-3)' : 'var(--text-1)',
-                fontStyle: m.role === 'system' ? 'italic' : 'normal',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 ...MONO,
@@ -109,12 +108,12 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
         align="center"
         gap={8}
         padding={10}
-        stroke={{ top: { color: 'rgba(255,255,255,0.08)' } }}
+        stroke={{ top: { color: 'var(--border-1)' } }}
       >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask Claude…"
+          placeholder="Ask AI…"
           disabled={streaming}
           style={{
             flex: 1,
@@ -132,8 +131,8 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
             type="button"
             onClick={cancel}
             style={{
-              background: 'rgba(255,255,255,0.10)',
-              border: '1px solid rgba(255,255,255,0.15)',
+              background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+              border: '1px solid var(--border-2)',
               color: 'var(--text-1)',
               fontSize: 9,
               letterSpacing: '0.08em',
@@ -149,8 +148,8 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
             type="submit"
             disabled={!input.trim()}
             style={{
-              background: input.trim() ? 'rgba(255,255,255,0.10)' : 'transparent',
-              border: '1px solid rgba(255,255,255,0.15)',
+              background: input.trim() ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
+              border: '1px solid var(--border-2)',
               color: 'var(--text-1)',
               fontSize: 9,
               letterSpacing: '0.08em',

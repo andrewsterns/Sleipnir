@@ -22,10 +22,9 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
     align   = 'center',
     gap     = 8,
     padding = { x: 10, y: 6 },
-    // Fixed rather than themed: tactical's --radius-3 is deliberately near-
-    // square (2px) for its HUD look, which would make Search read as
-    // unrounded wherever it's used inside that theme (Planning, Prototypes).
-    radius  = '0.7rem',
+    // The shared interactive-control radius — rounded in every theme,
+    // including tactical (whose panel radii stay square). See --radius-control.
+    radius  = 'var(--radius-control)',
     variant = 'surface',
 
     className,

@@ -1,12 +1,15 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../Frame/Frame'
+import { Icon, type IconName } from '../Icon/Icon'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
 export interface ContextMenuItem {
   label: string
   onSelect: () => void
+  /** Optional leading icon, rendered before the label. */
+  icon?: IconName
   /** Renders in red — for destructive actions like Delete. */
   destructive?: boolean
   /** Greyed out and non-clickable — e.g. "Paste" when the clipboard is empty. */
@@ -79,8 +82,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose, 
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
       fill={{ solid: 'bg-2' }}
-      stroke={{ color: 'rgba(255,255,255,0.15)' }}
-      radius={4}
+      stroke={{ color: 'var(--border-2)' }}
+      radius="var(--radius-control)"
       // Clip so each item's now-square, full-width hover fill respects the
       // panel's own rounded outer corners instead of poking past them.
       clipContent
@@ -89,7 +92,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose, 
       {items.map((item, i) => (
         <React.Fragment key={i}>
           {item.separator && i > 0 && (
-            <div style={{ height: 1, margin: '2px 4px', background: 'rgba(255,255,255,0.08)' }} />
+            <div style={{ height: 1, margin: '2px 4px', background: 'rgba(var(--item-ink, 255,255,255), 0.08)' }} />
           )}
           <Frame
             as="button"
@@ -108,9 +111,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose, 
             radius={0}
             padding={{ x: 10, y: 6 }}
             cursor={item.disabled ? 'default' : 'pointer'}
+            gap={8}
             textColor={item.disabled ? 'var(--text-3)' : item.destructive ? '#e07a7a' : 'var(--text-2)'}
             style={{ textAlign: 'left', fontSize: 11, letterSpacing: '0.02em', opacity: item.disabled ? 0.5 : 1, ...MONO }}
           >
+            {item.icon && <Icon name={item.icon} size={13} />}
             {item.label}
           </Frame>
         </React.Fragment>

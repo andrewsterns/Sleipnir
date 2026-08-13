@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlans: () => ipcRenderer.invoke('sleipnir:getPlans'),
   createPlan: (label, nodeIds, assetPaths, assetEdges) => ipcRenderer.invoke('sleipnir:createPlan', label, nodeIds, assetPaths, assetEdges),
   appendPlanGeneratedFiles: (id, paths) => ipcRenderer.invoke('sleipnir:appendPlanGeneratedFiles', id, paths),
+  addPlanNodes: (id, nodeIds) => ipcRenderer.invoke('sleipnir:addPlanNodes', id, nodeIds),
   deletePlan: (id, opts) => ipcRenderer.invoke('sleipnir:deletePlan', id, opts),
   runScript: (filePath) => ipcRenderer.invoke('sleipnir:runScript', filePath),
   getGitStatus: () => ipcRenderer.invoke('sleipnir:getGitStatus'),
@@ -53,6 +54,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   commitChanges: (message) => ipcRenderer.invoke('sleipnir:commitChanges', message),
   getBranches: () => ipcRenderer.invoke('sleipnir:getBranches'),
   getBranchTree: () => ipcRenderer.invoke('sleipnir:getBranchTree'),
+  getCommitGraph: () => ipcRenderer.invoke('sleipnir:getCommitGraph'),
+  getCommitFileMap: () => ipcRenderer.invoke('sleipnir:getCommitFileMap'),
   checkoutBranch: (name) => ipcRenderer.invoke('sleipnir:checkoutBranch', name),
   createBranch: (name) => ipcRenderer.invoke('sleipnir:createBranch', name),
   renameBranch: (oldName, newName) => ipcRenderer.invoke('sleipnir:renameBranch', oldName, newName),
@@ -64,11 +67,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Native folder picker — Electron-only, no web transport equivalent.
   openWorkspace: () => ipcRenderer.invoke('sleipnir:openWorkspace'),
+  saveScratchToFolder: () => ipcRenderer.invoke('sleipnir:saveScratchToFolder'),
   // Project switching — also Electron-only (see openWorkspace above).
   getRecentProjects: () => ipcRenderer.invoke('sleipnir:getRecentProjects'),
   openRecentProject: (projectPath) => ipcRenderer.invoke('sleipnir:openRecentProject', projectPath),
   newWindow: () => ipcRenderer.invoke('sleipnir:newWindow'),
   renameProject: (projectPath, name) => ipcRenderer.invoke('sleipnir:renameProject', projectPath, name),
+  // Recolors this window's native (OS-drawn) minimize/maximize/close overlay to
+  // match the active theme — fire-and-forget, Windows-only (no-op elsewhere).
+  setTitleBarTheme: (colors) => ipcRenderer.send('sleipnir:setTitleBarTheme', colors),
 })
 
 // Separate bridge — a streaming/event-based API, not request/response like

@@ -26,6 +26,8 @@ export interface ArchiveEntry {
 export interface WorkspaceInfo {
   root: string | null
   name: string | null
+  /** True (Electron only) when the window has no *chosen* project and is working in the auto-provided "scratch" project — plans/files persist to a per-user scratch dir until saved to a real folder via saveScratchToFolder. Absent/false for a real opened project (and always for the web transport, which has no scratch fallback). */
+  isScratch?: boolean
 }
 
 /** One entry in File > Open Recent — see electron/workspaceStore.cjs. `name` is the project's display name (custom, via Rename Project, or the folder's basename) as of when it was last opened; may be stale if renamed from disk elsewhere. */
@@ -108,6 +110,34 @@ export interface GitBranchTree {
   branches: GitBranchTreeEntry[]
 }
 
+/** One commit in the real DAG returned by getCommitGraph — a GitCommitSummary plus the topology (parent hashes), ref decorations, and remote/local reachability that getBranchTree's summary-only entries lack. */
+export interface GitCommitNode extends GitCommitSummary {
+  /** Full hashes of this commit's parents — 2+ for a merge, 0 for a root commit. */
+  parents: string[]
+  /** Branch/tag ref labels pointing at this commit, e.g. 'main', 'origin/main', 'tag: v1.0'. */
+  refs: string[]
+  /** This commit is the checked-out HEAD. */
+  isHead: boolean
+  /** Reachable from a remote-tracking branch (origin/*) — i.e. already pushed. */
+  pushed: boolean
+  /** Reachable from a local branch. `pushed && !local` means fetched-only (on a remote ref, not yet merged into any local branch); `local && !pushed` means an unpushed local commit. */
+  local: boolean
+}
+
+/** A real parent-linked commit DAG with per-commit push/fetch state, for the commit-graph visualization — distinct from getBranchTree's bounded divergence summary. Commits are newest-first (git --date-order). */
+export interface GitCommitGraph {
+  commits: GitCommitNode[]
+  /** Current branch name, or null in detached HEAD. */
+  head: string | null
+  /** True when history was capped before the full DAG was walked (see tools/git-control.mjs's MAX_GRAPH_COMMITS). */
+  truncated: boolean
+}
+
+/** Per-commit changed-file lists (keyed by full hash), the join key for the constellation view — a plan node's workspace-relative filePath against the commits that touched it. Merge commits map to an empty list. See tools/git-control.mjs's getCommitFileMap. */
+export interface GitCommitFileMap {
+  files: Record<string, string[]>
+}
+
 /** Structured result for push/pull/fetch — never a raw stdout/stderr dump, so the UI can render state without parsing git text. */
 export interface GitOpResult {
   ok: boolean
@@ -175,7 +205,7 @@ export interface PlatformAPI {
   addNote(map: string, label: string, description?: string): Promise<{ node: GraphNode }>
   /** The "Add Node" modal's file-scaffolding branch — creates every entry's real Workspace file plus a matching graph node, atomically, in one call. `links` are architecture-implied auto-links (indices into `entries`), see AddNodeModal.ViewModel. */
   scaffoldNodes(map: string, entries: ScaffoldEntry[], links?: ScaffoldLink[]): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }>
-  /** Created by the AI chat's create_plan_node tool — lands in the CLAUDE map as a draft node. */
+  /** Created by the AI chat's create_plan_node tool — lands in the AI map as a draft node. */
   createPlanNode(
     planId: string,
     label: string,
@@ -200,6 +230,8 @@ export interface PlatformAPI {
   createPlan(label: string, nodeIds?: string[], assetPaths?: string[], assetEdges?: { source: string; target: string }[]): Promise<{ plan: SavedPlan }>
   /** Merges workspace-relative paths into a plan's `generatedFiles`, recording what a "Generate Code" run produced while that plan's tab was active. */
   appendPlanGeneratedFiles(id: string, paths: string[]): Promise<{ plan: SavedPlan }>
+  /** Merges existing graph node ids into a plan's `nodeIds` (deduped) — used when a link drawn on a plan tab targets a node from another plan, pulling it in so the edge resolves on this plan's graph. Returns the updated plan. */
+  addPlanNodes(id: string, nodeIds: string[]): Promise<{ plan: SavedPlan }>
   /** `opts.deleteFiles` also deletes every path in the plan's `generatedFiles`, resolved against the open Workspace root. */
   deletePlan(id: string, opts?: { deleteFiles?: boolean }): Promise<void>
   /**
@@ -223,6 +255,10 @@ export interface PlatformAPI {
   getBranches(): Promise<GitBranch[]>
   /** Simple branch list + divergence view (not a full multi-lane DAG) — see tools/git-control.mjs's getBranchTree. */
   getBranchTree(): Promise<GitBranchTree>
+  /** The real parent-linked commit DAG with per-commit push/fetch state, for the commit-graph visualization. Heavier than getBranchTree (walks all branches + remotes); call it only for the graph view. See tools/git-control.mjs's getCommitGraph. */
+  getCommitGraph(): Promise<GitCommitGraph>
+  /** Per-commit changed-file lists, for the constellation view's plan-node↔commit provenance join. Separate from getCommitGraph so the plain commit graph stays light. See tools/git-control.mjs's getCommitFileMap. */
+  getCommitFileMap(): Promise<GitCommitFileMap>
   /** Refuses to switch while the working tree is dirty — commit or stash first. */
   checkoutBranch(name: string): Promise<GitStatus>
   createBranch(name: string): Promise<GitStatus>

@@ -40,8 +40,8 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
           width: 40,
           height: 40,
           borderRadius: '50%',
-          background: open ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)',
-          border: '1px solid rgba(255,255,255,0.18)',
+          background: open ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'rgba(var(--item-ink, 255,255,255), 0.08)',
+          border: '1px solid var(--border-2)',
           color: 'var(--text-1)',
           cursor: 'pointer',
           display: 'flex',
@@ -67,14 +67,14 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
             display: open ? 'flex' : 'none',
           }}
           fill={{ solid: 'bg-1' }}
-          stroke={{ top: { color: 'rgba(255,255,255,0.12)' } }}
+          stroke={{ top: { color: 'border-2' } }}
         >
           <Frame
             flow="horizontal"
             align="center"
             justify="between"
             padding={{ x: 14, y: 6 }}
-            stroke={{ bottom: { color: 'rgba(255,255,255,0.08)' } }}
+            stroke={{ bottom: { color: 'border-1' } }}
             shrink={0}
           >
             <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
+import { useAppTheme } from '../../00_themes/ThemeController'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -51,7 +52,7 @@ function NavRailButton({
       style={{
         position: 'relative',
         width: '100%',
-        background: active ? 'rgba(255,255,255,0.06)' : 'transparent',
+        background: active ? 'rgba(var(--item-ink, 255,255,255), 0.06)' : 'transparent',
         border: 'none',
         cursor: 'pointer',
         padding: '7px 0',
@@ -112,16 +113,18 @@ function NavRailButton({
   )
 }
 
-export const NavRail: React.FC<NavRailProps> = ({ items, activeId, secondaryId, onSelect, bottomAction }) => (
+export const NavRail: React.FC<NavRailProps> = ({ items, activeId, secondaryId, onSelect, bottomAction }) => {
+  const { theme } = useAppTheme()
+  return (
   <Frame
     as="nav"
-    theme="tactical"
+    theme={theme}
     flow="vertical"
     minW={44}
     w={44}
     h="fill"
     fill={{ solid: 'bg-1' }}
-    stroke={{ right: { color: 'rgba(255,255,255,0.08)' } }}
+    stroke={{ right: { color: 'var(--border-1)' } }}
     padding={{ y: 10 }}
     gap={2}
     align="center"
@@ -149,4 +152,5 @@ export const NavRail: React.FC<NavRailProps> = ({ items, activeId, secondaryId, 
       </>
     )}
   </Frame>
-)
+  )
+}

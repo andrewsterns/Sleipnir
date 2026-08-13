@@ -10,4 +10,6 @@ export interface WorkspaceHeaderProps {
   onCloseTab: (id: string) => void
   /** Passed straight through to WorkspaceTabStrip's own "+" — see its doc comment. */
   onAddTab?: (name: string) => void
+  /** Alternative "+" behavior with no inline input — see WorkspaceTabStrip's onAddTabClick. */
+  onAddTabClick?: () => void
 }

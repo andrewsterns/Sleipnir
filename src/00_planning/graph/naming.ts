@@ -35,6 +35,37 @@ export function extForLanguage(language: LanguageId): string {
   return LANGUAGES.find((l) => l.id === language)?.ext ?? 'txt'
 }
 
+// Reverse of extForLanguage: the language whose file extension is `ext` (a
+// leading dot is tolerated, case-insensitive), or null when nothing matches.
+// First match in LANGUAGES wins, so the shared-extension families resolve to
+// their canonical member — `js` → javascript (not jquery), `tsx` → react.
+export function languageForExt(ext: string): LanguageId | null {
+  const e = ext.toLowerCase().replace(/^\./, '')
+  return LANGUAGES.find((l) => l.ext === e)?.id ?? null
+}
+
+// Splits a user-typed node/file name into its base and the language its
+// trailing extension implies — so naming a node "MyFile.css" both selects the
+// CSS filetype AND drops the ".css" from the base, instead of scaffolding a
+// redundant "myFileCss.css". Strips repeated recognized extensions (a name
+// typed with the extension already doubled, "MyFile.css.css", still reduces to
+// "MyFile") and keeps the OUTERMOST recognized extension as the language.
+// Only recognized language extensions are stripped: "v1.2" or "app.config"
+// pass through untouched. Never strips a name down to nothing.
+export function splitLabelExtension(label: string): { base: string; language: LanguageId | null } {
+  let base = label.trim()
+  let language: LanguageId | null = null
+  for (;;) {
+    const m = base.match(/^(.+)\.([A-Za-z0-9]+)$/)
+    if (!m) break
+    const lang = languageForExt(m[2])
+    if (!lang || !m[1].trim()) break
+    base = m[1].trim()
+    language = language ?? lang
+  }
+  return { base, language }
+}
+
 // `<camelName><Role>.<ext>` — e.g. pineappleView.rs, pineappleViewModel.tsx,
 // pineapple.html (node role → no suffix).
 export function scaffoldFileName(language: LanguageId, role: NodeRole, label: string): string {

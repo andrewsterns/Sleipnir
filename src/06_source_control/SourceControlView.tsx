@@ -1,14 +1,23 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { Icon } from '../app/UIKit/Icon/Icon'
 import { Button } from '../app/UIKit/Button/Button'
 import { IconButton } from '../app/UIKit/IconButton/IconButton'
+import { Checkbox } from '../app/UIKit/Checkbox/Checkbox'
+import { ListRow } from '../app/UIKit/ListRow/ListRow'
+import { Search } from '../app/UIKit/Search/Search'
 import { ContextMenu } from '../app/UIKit/ContextMenu/ContextMenu'
 import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
 import { DiscardFileModal } from './DiscardFileModal'
+import { CommitGraphView } from './CommitGraphView'
+import { ConstellationView } from './ConstellationView'
 import { getWorkspaceInfo } from '../00_planning/api/sleipnirApi'
 import { useSourceControlViewModel } from './SourceControlView.ViewModel'
+import { useFileStages } from '../00_planning/useFileStages'
+import { StatusGlyph } from '../00_planning/graph/StatusGlyph'
+import type { NodeStage } from '../00_planning/graph/types'
 import type { GitFileStatus, GitBranchTree, GitBranchTreeEntry, GitCommitSummary } from '../00_planning/api/sleipnirApi'
+import { useAppTheme } from '../00_themes/ThemeController'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -25,68 +34,53 @@ function statusLabel(f: GitFileStatus): string {
   }
 }
 
-function statusColor(f: GitFileStatus): string {
-  if (f.conflicted) return '#e07a7a'
-  if (f.untracked) return 'var(--text-3)'
-  const code = f.staged ? f.indexStatus : f.worktreeStatus
-  if (code === 'A') return '#7ec98f'
-  if (code === 'D') return '#e07a7a'
-  return '#e0a458'
-}
-
 function FileRow({
-  file, active, onSelect, onToggleStage, onContextMenu, onMenuButton,
+  file, stage, active, onSelect, onToggleStage, onContextMenu, onMenuButton,
 }: {
   file: GitFileStatus
+  /** Planning stage of the plan node this file backs, if any — shown as the at-rest status. */
+  stage?: NodeStage
   active: boolean
   onSelect: () => void
   onToggleStage: () => void
   onContextMenu: (e: React.MouseEvent) => void
   onMenuButton: (e: React.MouseEvent) => void
 }) {
-  const [hovered, setHovered] = useState(false)
   return (
-    <Frame
-      flow="horizontal"
-      align="center"
-      gap={8}
-      padding={{ x: 8, y: 5 }}
-      radius="var(--radius-2)"
-      fill={{ solid: active ? 'rgba(255,255,255,0.10)' : hovered ? 'rgba(255,255,255,0.06)' : 'transparent' }}
-      style={{ cursor: 'pointer' }}
+    <ListRow
+      selected={active}
       onClick={onSelect}
       onContextMenu={onContextMenu}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleStage() }}
-        title={file.staged ? 'Unstage' : 'Stage'}
-        style={{
-          width: 14, height: 14, flexShrink: 0,
-          border: '1px solid rgba(255,255,255,0.3)',
-          background: file.staged ? 'var(--text-1)' : 'transparent',
-          cursor: 'pointer', padding: 0,
-        }}
-      />
-      <span style={{ fontSize: 10, color: 'var(--text-1)', ...MONO, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {file.path}
-      </span>
-      {hovered ? (
-        <IconButton
-          onClick={(e) => { e.stopPropagation(); onMenuButton(e) }}
-          title="More actions"
-          glyph="⋯"
-          iconSize={14}
-          size={18}
-          textColor="var(--text-3)"
+      // Git status (MODIFIED/ADDED/…) moves to the row tooltip now that the
+      // trailing shows planning status instead.
+      title={statusLabel(file)}
+      leading={
+        <Checkbox
+          checked={file.staged}
+          onChange={onToggleStage}
+          stopPropagation
+          title={file.staged ? 'Unstage' : 'Stage'}
         />
-      ) : (
-        <span style={{ fontSize: 8, letterSpacing: '0.06em', color: statusColor(file), ...MONO, flexShrink: 0 }}>
-          {statusLabel(file)}
-        </span>
-      )}
-    </Frame>
+      }
+      trailing={(hovered) =>
+        hovered ? (
+          <IconButton
+            onClick={(e) => { e.stopPropagation(); onMenuButton(e) }}
+            title="More actions"
+            glyph="⋯"
+            iconSize={14}
+            size={18}
+            textColor="var(--text-3)"
+          />
+        ) : (
+          // Planning status: the plan node this file backs, or 'proposed' by
+          // default (the universal default) when it backs no node.
+          <StatusGlyph stage={stage} title={stage ? `plan: ${stage}` : undefined} />
+        )
+      }
+    >
+      {file.path}
+    </ListRow>
   )
 }
 
@@ -107,7 +101,7 @@ const PRIMARY_ACCENT = '#7ec98f'
 
 function BranchRow({ branch, accent }: { branch: GitBranchTreeEntry; accent: string }) {
   return (
-    <Frame flow="vertical" gap={6} padding={{ y: 8 }} stroke={{ bottom: { color: 'rgba(255,255,255,0.06)' } }}>
+    <Frame flow="vertical" gap={6} padding={{ y: 8 }} stroke={{ bottom: { color: 'var(--border-1)' } }}>
       <Frame flow="horizontal" align="center" gap={6}>
         <Icon name="git-branch" size={11} />
         <span style={{ fontSize: 11, color: 'var(--text-1)', fontWeight: branch.current ? 700 : 500, ...MONO }}>
@@ -186,9 +180,34 @@ function DiffView({ diff, loading }: { diff: string; loading: boolean }) {
 
 export default function SourceControlView() {
   const vm = useSourceControlViewModel()
+  const { theme } = useAppTheme()
+  // Planning stage per file (by workspace-relative path) — lets a changed file
+  // show the status of the plan node it backs, same glyph as the planning list.
+  // Reloads with dataVersion so a file added/committed this session picks up.
+  const fileStages = useFileStages(vm.dataVersion)
   const [showBranches, setShowBranches] = useState(false)
+  // Which main-pane view is shown when no file is selected. 'commits' is the
+  // real commit DAG (CommitGraphView); 'constellation' weaves plan nodes into
+  // it (ConstellationView); 'branches' keeps the older per-branch divergence
+  // summary (BranchTreeView).
+  const [rightView, setRightView] = useState<'commits' | 'constellation' | 'branches'>('commits')
   const fileMenu = useContextMenu<GitFileStatus>()
   const [discardingFile, setDiscardingFile] = useState<GitFileStatus | null>(null)
+  const [fileSearchOpen, setFileSearchOpen] = useState(false)
+  const [fileQuery, setFileQuery] = useState('')
+  const fileSearchRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!fileSearchOpen) return
+    const onMouseDown = (e: MouseEvent) => {
+      const t = e.target as Element
+      if (fileSearchRef.current?.contains(t)) return
+      setFileSearchOpen(false)
+      setFileQuery('')
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [fileSearchOpen])
 
   const copyRelativePath = (f: GitFileStatus) => { void navigator.clipboard.writeText(f.path) }
   const copyAbsolutePath = async (f: GitFileStatus) => {
@@ -216,24 +235,52 @@ export default function SourceControlView() {
   const status = vm.status!
   const nothingStaged = vm.staged.length === 0
 
+  const filterFiles = (files: GitFileStatus[]) =>
+    fileQuery.trim() ? files.filter((f) => f.path.toLowerCase().includes(fileQuery.toLowerCase())) : files
+
   return (
-    <Frame theme="tactical" flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
+    <Frame theme={theme} flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
       {/* Left column — branch, sync actions, changed files, commit box */}
       <Frame flow="vertical" gap={0} w={320} shrink={0} h="fill" stroke={{ right: { color: 'border-1' } }}>
         <Frame flow="vertical" gap={10} padding={14} stroke={{ bottom: { color: 'border-1' } }}>
-          <Frame flow="horizontal" align="center" justify="between">
-            <Frame flow="horizontal" align="center" gap={6} style={{ cursor: 'pointer' }} onClick={() => setShowBranches((s) => !s)}>
-              <Icon name="git-branch" size={13} />
-              <span style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
-                {status.branch ?? 'detached HEAD'}
-              </span>
+          {(fileSearchOpen || fileQuery) ? (
+            // Opening search slides the input over the branch/title row instead
+            // of dropping a line beneath it \u2014 same cover-the-title interaction
+            // as Planning/LeftRailing (see SidebarHeader's search mode).
+            <Frame ref={fileSearchRef}>
+              <Search
+                value={fileQuery}
+                onChange={setFileQuery}
+                placeholder={`Search files\u2026`}
+                w="fill"
+                autoFocus={fileSearchOpen && !fileQuery}
+              />
             </Frame>
-            {(status.ahead > 0 || status.behind > 0) && (
-              <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>
-                {status.ahead > 0 ? `↑${status.ahead}` : ''}{status.behind > 0 ? ` ↓${status.behind}` : ''}
-              </span>
-            )}
-          </Frame>
+          ) : (
+            <Frame flow="horizontal" align="center" justify="between">
+              <Frame flow="horizontal" align="center" gap={6} style={{ cursor: 'pointer' }} onClick={() => setShowBranches((s) => !s)}>
+                <Icon name="git-branch" size={13} />
+                <span style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
+                  {status.branch ?? 'detached HEAD'}
+                </span>
+              </Frame>
+              <Frame flow="horizontal" align="center" gap={4}>
+                {(status.ahead > 0 || status.behind > 0) && (
+                  <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>
+                    {status.ahead > 0 ? `\u2191${status.ahead}` : ''}{status.behind > 0 ? ` \u2193${status.behind}` : ''}
+                  </span>
+                )}
+                <IconButton
+                  as="span"
+                  icon="search"
+                  iconSize={13}
+                  title="Search files"
+                  textColor="var(--text-3)"
+                  onClick={() => setFileSearchOpen(true)}
+                />
+              </Frame>
+            </Frame>
+          )}
 
           {showBranches && (
             <Frame flow="vertical" gap={4} padding={8} radius="var(--radius-2)" stroke={{ color: 'border-1' }}>
@@ -250,7 +297,7 @@ export default function SourceControlView() {
                       }}
                       disabled={vm.renamingInFlight}
                       style={{
-                        flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+                        flex: 1, background: 'var(--bg-2)', border: '1px solid var(--border-2)',
                         color: 'var(--text-1)', fontSize: 10, padding: '3px 5px', ...MONO,
                       }}
                     />
@@ -300,7 +347,7 @@ export default function SourceControlView() {
                   onChange={(e) => vm.setNewBranchName(e.target.value)}
                   placeholder="new-branch-name"
                   style={{
-                    flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+                    flex: 1, background: 'var(--bg-2)', border: '1px solid var(--border-2)',
                     color: 'var(--text-1)', fontSize: 10, padding: '4px 6px', ...MONO,
                   }}
                 />
@@ -311,7 +358,7 @@ export default function SourceControlView() {
             </Frame>
           )}
 
-          <Frame flow="horizontal" gap={6}>
+          <Frame flow="horizontal" gap={6} align="center">
             <Button variant="ghost" size="sm" onClick={vm.doFetch} isLoading={vm.fetching}>Fetch</Button>
             <Button variant="ghost" size="sm" onClick={vm.doPull} isLoading={vm.pulling}>Pull</Button>
             <Button
@@ -321,8 +368,16 @@ export default function SourceControlView() {
               isLoading={vm.pushing}
               disabled={status.ahead === 0 && !!status.upstream}
             >
-              {status.upstream && status.ahead === 0 ? 'Up to date' : 'Push'}
+              {/* "Publish" on first push (no upstream yet), "Push" thereafter.
+                  Never "Up to date" — that's a status, shown separately below so
+                  it can't be mistaken for a dead button. */}
+              {status.upstream ? 'Push' : 'Publish'}
             </Button>
+            {status.upstream && status.ahead === 0 && status.behind === 0 && !vm.pushing && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, letterSpacing: '0.06em', color: '#7ec98f', ...MONO }}>
+                {'✓'} Up to date
+              </span>
+            )}
           </Frame>
 
           {vm.opResult && (
@@ -341,8 +396,8 @@ export default function SourceControlView() {
             <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
               STAGED ({vm.staged.length})
             </span>
-            {vm.staged.map((f) => (
-              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+            {filterFiles(vm.staged).map((f) => (
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -350,8 +405,8 @@ export default function SourceControlView() {
             <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
               CHANGES ({vm.unstaged.length})
             </span>
-            {vm.unstaged.map((f) => (
-              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+            {filterFiles(vm.unstaged).map((f) => (
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -359,8 +414,8 @@ export default function SourceControlView() {
             <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
               UNTRACKED ({vm.untracked.length})
             </span>
-            {vm.untracked.map((f) => (
-              <FileRow key={f.path} file={f} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+            {filterFiles(vm.untracked).map((f) => (
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -376,7 +431,7 @@ export default function SourceControlView() {
             placeholder="Commit message"
             rows={3}
             style={{
-              resize: 'none', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+              resize: 'none', background: 'var(--bg-2)', border: '1px solid var(--border-2)',
               color: 'var(--text-1)', fontSize: 11, padding: '6px 8px', ...MONO,
             }}
           />
@@ -392,23 +447,39 @@ export default function SourceControlView() {
         </Frame>
       </Frame>
 
-      {/* Main area — the branch tree by default, or the selected file's diff */}
+      {/* Main area — the commit graph by default, or the selected file's diff */}
       <Frame flow="vertical" grow minW={0} h="fill" scroll="y">
         <Frame flow="horizontal" align="center" justify="between" padding={{ x: 16, y: 10 }} stroke={{ bottom: { color: 'border-1' } }}>
-          <span style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', ...MONO }}>
-            {vm.selected?.path ?? 'Branches'}
-          </span>
+          {vm.selected ? (
+            <span style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', ...MONO }}>
+              {vm.selected.path}
+            </span>
+          ) : (
+            <Frame flow="horizontal" gap={4} align="center">
+              <Button variant={rightView === 'commits' ? 'secondary' : 'ghost'} size="sm" onClick={() => setRightView('commits')}>Commits</Button>
+              <Button variant={rightView === 'constellation' ? 'secondary' : 'ghost'} size="sm" onClick={() => setRightView('constellation')}>Constellation</Button>
+              <Button variant={rightView === 'branches' ? 'secondary' : 'ghost'} size="sm" onClick={() => setRightView('branches')}>Branches</Button>
+            </Frame>
+          )}
           {vm.selected && (
             <Button variant="ghost" size="sm" onClick={vm.clearSelection}>
-              Back to branches
+              Back
             </Button>
           )}
         </Frame>
-        <Frame padding={vm.selected ? { y: 8 } : { x: 16, y: 4 }}>
-          {vm.selected
-            ? <DiffView diff={vm.diff} loading={vm.diffLoading} />
-            : <BranchTreeView tree={vm.branchTree} loading={vm.branchTreeLoading} />}
-        </Frame>
+        {vm.selected ? (
+          <Frame padding={{ y: 8 }}>
+            <DiffView diff={vm.diff} loading={vm.diffLoading} />
+          </Frame>
+        ) : rightView === 'commits' ? (
+          <CommitGraphView reloadToken={vm.dataVersion} />
+        ) : rightView === 'constellation' ? (
+          <ConstellationView reloadToken={vm.dataVersion} />
+        ) : (
+          <Frame padding={{ x: 16, y: 4 }}>
+            <BranchTreeView tree={vm.branchTree} loading={vm.branchTreeLoading} />
+          </Frame>
+        )}
       </Frame>
 
       {fileMenu.menu && (() => {

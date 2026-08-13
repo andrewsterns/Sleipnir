@@ -30,7 +30,10 @@ export interface StageConfig {
 // Review → Completed), with Blocked as the off-path exception right before
 // Completed. This order is what the card's toggle renders left-to-right.
 export const NODE_STAGES: StageConfig[] = [
-  { id: 'proposed',    label: 'Proposed',    color: '#8a94a3', fill: 'none',  dash: '3 2',   strokeWidth: 1.5, glyph: '◌' },
+  // Proposed is the universal default (every untagged node/file reads as this).
+  // A simple outline circle in the theme's ink — near-black on light, near-white
+  // on dark — the quiet baseline state (an empty ring, not a filled dot).
+  { id: 'proposed',    label: 'Proposed',    color: 'var(--text-1)', fill: 'none', dash: undefined, strokeWidth: 1.5, glyph: '○' },
   { id: 'todo',        label: 'To Do',       color: '#6fa8dc', fill: 'none',  dash: '1 2.5', strokeWidth: 1.5, glyph: '○' },
   { id: 'in-progress', label: 'In Progress', color: '#e0a040', fill: 'none',  dash: undefined, strokeWidth: 2, glyph: '◐' },
   { id: 'in-review',   label: 'In Review',   color: '#b48ead', fill: 'none',  dash: '5 3',   strokeWidth: 1.5, glyph: '◑' },

@@ -2,15 +2,16 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
-import { TacticalPanel } from '../UIKit/Panel/Panel'
+import { Checkbox } from '../UIKit/Checkbox/Checkbox'
+import { Card } from '../UIKit/Card/Card'
 import { useNewWorkspacePlanViewModel, type NewWorkspacePlanModalProps } from './NewWorkspacePlanModal.ViewModel'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
 function toggleStyle(active: boolean): React.CSSProperties {
   return {
-    background: active ? 'rgba(255,255,255,0.14)' : 'transparent',
-    border: '1px solid rgba(255,255,255,0.15)',
+    background: active ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
+    border: '1px solid var(--border-2)',
     color: active ? 'var(--text-1)' : 'var(--text-3)',
     fontSize: 11,
     letterSpacing: '0.02em',
@@ -48,7 +49,7 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
             onClick={vm.submitting ? undefined : vm.onClose}
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
-          <TacticalPanel flow="vertical" gap={14} padding={20} variant="default" chamfer={6} relative w={480} maxH="80vh" scroll="y">
+          <Card flow="vertical" gap={14} padding={20} relative w={480} maxH="80vh" scroll="y">
             <span style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
               ADD PLAN FROM WORKSPACE
             </span>
@@ -61,8 +62,8 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
                 onChange={(e) => vm.setLabel(e.target.value)}
                 placeholder="Plan name"
                 style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'var(--bg-2)',
+                  border: '1px solid var(--border-2)',
                   color: 'var(--text-1)',
                   fontSize: 11,
                   padding: '6px 8px',
@@ -95,11 +96,30 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
 
                 {vm.dirs.length > 0 && (
                   <Frame flow="vertical" gap={6}>
-                    <span style={{ fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>DIRECTORIES</span>
+                    <Frame flow="horizontal" align="center" justify="between">
+                      <span style={{ fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>DIRECTORIES</span>
+                      <button
+                        type="button"
+                        onClick={vm.toggleAllDirs}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-2)',
+                          fontSize: 9,
+                          letterSpacing: '0.06em',
+                          cursor: 'pointer',
+                          padding: 0,
+                          ...MONO,
+                        }}
+                      >
+                        {vm.allDirsSelected ? 'CLEAR' : 'SELECT ALL'}
+                      </button>
+                    </Frame>
                     <Frame flow="vertical" gap={2} style={{ maxHeight: 160, overflowY: 'auto' }}>
                       {vm.dirs.map((d) => (
-                        <label
+                        <div
                           key={d.path}
+                          onClick={() => vm.toggleDir(d.path)}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -111,13 +131,13 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
                             ...MONO,
                           }}
                         >
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={vm.activeDirs.includes(d.path)}
                             onChange={() => vm.toggleDir(d.path)}
+                            stopPropagation
                           />
                           {d.name} <span style={{ color: 'var(--text-3)' }}>({d.fileCount})</span>
-                        </label>
+                        </div>
                       ))}
                     </Frame>
                   </Frame>
@@ -148,7 +168,7 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
                 {vm.detectingEdges ? 'Detecting connections…' : vm.submitting ? 'Creating…' : 'Create Plan'}
               </Button>
             </Frame>
-          </TacticalPanel>
+          </Card>
         </Frame>,
         portalTarget,
       )}

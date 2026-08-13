@@ -12,7 +12,7 @@ interface AgentDockProps {
   /** Controlled from App.tsx so only one of Terminal/AgentDock's full-width bottom panels is ever open at once. */
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Forwarded to AgentChat — lets App.tsx jump to Planning's CLAUDE tab live as Claude builds nodes. */
+  /** Forwarded to AgentChat — lets App.tsx jump to Planning's AI tab live as AI builds nodes. */
   onPlanNodeCreated?: (node: GraphNode) => void
   /** True whenever any dock (this one or a sibling) is open — App.tsx reclaims DOCK_PANEL_HEIGHT from the layout above when that happens, so every dock's own toggle button shifts up in lockstep to stay clear of whichever panel is now occupying that space, rather than floating on top of it. */
   shiftUp?: boolean
@@ -56,8 +56,8 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
           width: 40,
           height: 40,
           borderRadius: '50%',
-          background: open ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)',
-          border: '1px solid rgba(255,255,255,0.18)',
+          background: open ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'rgba(var(--item-ink, 255,255,255), 0.08)',
+          border: '1px solid var(--border-2)',
           color: 'var(--text-1)',
           cursor: 'pointer',
           display: 'flex',
@@ -83,14 +83,14 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
             display: open ? 'flex' : 'none',
           }}
           fill={{ solid: 'bg-1' }}
-          stroke={{ top: { color: 'rgba(255,255,255,0.12)' } }}
+          stroke={{ top: { color: 'border-2' } }}
         >
           <Frame
             flow="horizontal"
             align="center"
             justify="between"
             padding={{ x: 14, y: 6 }}
-            stroke={{ bottom: { color: 'rgba(255,255,255,0.08)' } }}
+            stroke={{ bottom: { color: 'border-1' } }}
             shrink={0}
           >
             <Frame flow="horizontal" align="center" gap={10}>
@@ -110,7 +110,7 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
                 onClick={() => setSettingsOpen((v) => !v)}
                 title="AI chat settings — key & model"
                 style={{
-                  background: settingsOpen ? 'rgba(255,255,255,0.10)' : 'transparent',
+                  background: settingsOpen ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
                   border: 'none',
                   color: 'var(--text-3)',
                   cursor: 'pointer',

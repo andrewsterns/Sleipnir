@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
-import { TacticalPanel } from '../UIKit/Panel/Panel'
+import { Card } from '../UIKit/Card/Card'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -70,7 +70,7 @@ export function RenamePathModal({ name, isDir, rename, title, onClose, onRenamed
             onClick={submitting ? undefined : onClose}
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
-          <TacticalPanel flow="vertical" gap={14} padding={20} variant="default" chamfer={6} relative w={420}>
+          <Card flow="vertical" gap={14} padding={20} relative w={420}>
             <span style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
               {title ?? `RENAME ${isDir ? 'FOLDER' : 'FILE'}`}
             </span>
@@ -87,8 +87,8 @@ export function RenamePathModal({ name, isDir, rename, title, onClose, onRenamed
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.15)',
+                background: 'var(--bg-2)',
+                border: '1px solid var(--border-2)',
                 borderRadius: 'var(--radius-2)',
                 color: 'var(--text-1)',
                 fontSize: 12,
@@ -107,7 +107,7 @@ export function RenamePathModal({ name, isDir, rename, title, onClose, onRenamed
                 {submitting ? 'Renaming…' : 'Rename'}
               </Button>
             </Frame>
-          </TacticalPanel>
+          </Card>
         </Frame>,
         portalTarget,
       )}

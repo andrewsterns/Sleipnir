@@ -16,6 +16,7 @@ import {
   setNodeStage,
   readWorkspaceFile,
   writeWorkspaceFile,
+  addPlanNodes,
   type ArchiveEntry,
 } from './api/sleipnirApi'
 import { adapterForLanguage } from './graph/importAdapters'
@@ -78,8 +79,8 @@ function graphForPlan(plan: SavedPlan): GraphData {
 
 export function usePlanningViewModel(
   initialMapId: GraphMapId = 'welcome',
-  // Set by App.tsx right before switching into Planning (see jumpToClaudeTab)
-  // to force the CLAUDE tab open even when PlanningView is already mounted —
+  // Set by App.tsx right before switching into Planning (see jumpToAiTab)
+  // to force the AI tab open even when PlanningView is already mounted —
   // initialMapId alone only applies on first mount. Consumed once via the
   // paired setter, same pattern as App's pendingLibraryFile/pendingPrototypeId.
   focusMapId?: GraphMapId | null,
@@ -90,6 +91,16 @@ export function usePlanningViewModel(
   // be resolved specially wherever `data` gets set below, instead of falling
   // through to the normal getGraphForMap(mapId) path.
   plans: SavedPlan[] = [],
+  // Propagates a plan whose `nodeIds` this view just mutated (see addLink's
+  // cross-plan pull-in) back up to App.tsx's owning `plans` state, so the
+  // change is reflected app-wide and survives tab switches — same shape as
+  // App's onCodeGenerated → appendPlanGeneratedFiles update.
+  onPlanUpdated?: (plan: SavedPlan) => void,
+  // When the built-in Welcome guide has been permanently dismissed (see
+  // PlanningView's welcome-dismissed flag), it must not auto-open as the
+  // initial tab — a "deleted" map reappearing on next launch would defeat the
+  // point. Start with no tab open (the create-a-plan empty state) instead.
+  welcomeDismissed = false,
 ) {
   const planFor = (id: GraphMapId) => plans.find((p) => p.id === id)
   const graphForMap = (id: GraphMapId): GraphData => {
@@ -102,7 +113,9 @@ export function usePlanningViewModel(
   // closeMap) only removes it from this list, it never touches the
   // registry/graph, so every other map is still one click away via the left
   // "PLANS" list in PlanningView.tsx.
-  const [openMapIds, setOpenMapIds] = useState<GraphMapId[]>(() => [initialMapId])
+  const [openMapIds, setOpenMapIds] = useState<GraphMapId[]>(() =>
+    welcomeDismissed && initialMapId === 'welcome' ? [] : [initialMapId],
+  )
 
   // The single entry point for "go to this map" — opens it (if not already)
   // and makes it active. Used by tab clicks, the left PLANS list, and
@@ -142,7 +155,7 @@ export function usePlanningViewModel(
   // user sees the detail panel (and the "Open in Component Library" link)
   // immediately, instead of an empty panel until they click something.
   const [selectedId, setSelectedId] = useState<string | null>(
-    initialMapId === 'welcome' ? WELCOME_EXAMPLE_NODE_ID : null,
+    initialMapId === 'welcome' && !welcomeDismissed ? WELCOME_EXAMPLE_NODE_ID : null,
   )
   const [data, setData] = useState<GraphData>(() => graphForMap(mapId))
   const [archivedEntries, setArchivedEntries] = useState<ArchiveEntry[]>([])
@@ -194,14 +207,25 @@ export function usePlanningViewModel(
   // rides alongside as its own `stages` map instead — consumers look a node's
   // stage up by id (see GraphCanvas's `stages` prop, and the card/list below).
   const live = useMemo(() => {
-    const notesForMap = notes.filter((n) => n.map === mapId)
+    // A saved-plan tab renders notes two ways: those authored directly into
+    // it (map === plan id) PLUS any note the plan explicitly *references* by
+    // id — the latter is how a node linked in from another plan (see addLink)
+    // becomes part of this one. De-duped against liveGenerated so a node
+    // already resolved there (a build-time node the plan's nodeIds point at)
+    // isn't added twice.
+    const planNodeIds = new Set(planFor(mapId)?.nodeIds ?? [])
+    const generatedIds = new Set(liveGenerated.nodes.map((n) => n.id))
+    const notesForMap = notes.filter(
+      (n) => !generatedIds.has(n.id) && (n.map === mapId || planNodeIds.has(n.id)),
+    )
     const noteIds = new Set(notesForMap.map((n) => n.id))
     const notesEdgesForMap = notesEdges.filter((e) => noteIds.has(e.source) || noteIds.has(e.target))
     return {
       nodes: [...liveGenerated.nodes, ...notesForMap],
       edges: [...liveGenerated.edges, ...notesEdgesForMap],
     }
-  }, [liveGenerated, notes, notesEdges, mapId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveGenerated, notes, notesEdges, mapId, plans])
 
   // Jumping straight to a library right after creating it can't rely on
   // getGraphForMap's static import.meta.glob snapshot (it may not have
@@ -322,17 +346,44 @@ export function usePlanningViewModel(
     return byId
   }, [live, notes])
 
-  const borrowsFrom = useMemo(() => {
-    if (!selectedNode) return []
-    const targetIds = live.edges.filter((e) => e.source === selectedNode.id).map((e) => e.target)
-    return targetIds.map((id) => linkableNodesById.get(id)).filter((n): n is GraphNode => !!n)
-  }, [live, selectedNode, linkableNodesById])
-
-  const borrowedBy = useMemo(() => {
-    if (!selectedNode) return []
-    const sourceIds = live.edges.filter((e) => e.target === selectedNode.id).map((e) => e.source)
-    return sourceIds.map((id) => linkableNodesById.get(id)).filter((n): n is GraphNode => !!n)
-  }, [live, selectedNode, linkableNodesById])
+  // A node's linked neighbors, split by effective direction — one row per
+  // neighbor. Two subtleties the card depends on for its import/export toggle:
+  //  1. Notes are authoritative. A user-authored or flipped link lives in
+  //     notes.json (see setNodeBorrows); the parsed import graph
+  //     (getGraphForMap) is a static build-time snapshot that can't change at
+  //     runtime, so right after a flip it still reports the *old* direction.
+  //     Whenever notes has something to say about a pair it wins — otherwise a
+  //     flipped file row would keep showing the stale parsed direction and
+  //     appear not to toggle at all.
+  //  2. Deduped by neighbor id. A node that has a (stale) parsed edge one way
+  //     and a notes edge the other way must render once, in its true (notes)
+  //     direction — never as two contradictory rows.
+  const { borrowsFrom, borrowedBy } = useMemo(() => {
+    const empty = { borrowsFrom: [] as GraphNode[], borrowedBy: [] as GraphNode[] }
+    if (!selectedNode) return empty
+    const selId = selectedNode.id
+    const dir = new Map<string, 'out' | 'in'>()
+    // Parsed/generated edges first — first write wins within this pass, so a
+    // pair already claimed here isn't overwritten by a duplicate parsed edge.
+    for (const e of live.edges) {
+      if (e.source === selId && !dir.has(e.target)) dir.set(e.target, 'out')
+      else if (e.target === selId && !dir.has(e.source)) dir.set(e.source, 'in')
+    }
+    // ...then let notes override unconditionally, so a flip (which writes a
+    // notes edge) always wins over whatever the static parsed graph still shows.
+    for (const e of notesEdges) {
+      if (e.source === selId) dir.set(e.target, 'out')
+      else if (e.target === selId) dir.set(e.source, 'in')
+    }
+    const out: GraphNode[] = []
+    const inn: GraphNode[] = []
+    for (const [id, d] of dir) {
+      const node = linkableNodesById.get(id)
+      if (!node) continue
+      ;(d === 'out' ? out : inn).push(node)
+    }
+    return { borrowsFrom: out, borrowedBy: inn }
+  }, [live, selectedNode, linkableNodesById, notesEdges])
 
   // Node-card link editor — the reverse direction of graphLinkExtension's
   // "##token" (which edits the file and lets the graph catch up via
@@ -352,26 +403,49 @@ export function usePlanningViewModel(
   // removeLink/addImporter/removeImporter.
   const sameLanguage = (a: GraphNode, b: GraphNode) => !!a.language && a.language === b.language
 
+  // Splice a real import only when the source is itself a file whose language
+  // matches the target's — otherwise (a plain note, a cross-language pair, a
+  // file-less target) the link is a graph edge only, no file touched.
+  const canSpliceImport = (source: GraphNode, target: GraphNode) =>
+    !!source.filePath && !!source.language && !!target.filePath && sameLanguage(source, target)
+
   const addLink = async (target: GraphNode) => {
-    if (!selectedNode?.filePath || !selectedNode.language) return
+    // Any selected node can link to any target now — the edge itself is just a
+    // graph edge (setNodeBorrows works for any source id). Only a same-language
+    // file→file pair also gets a real import spliced in (canSpliceImport).
+    if (!selectedNode) return
     await setNodeBorrows(selectedNode.id, [...borrowsFrom.map((n) => n.id), target.id])
-    const adapter = adapterForLanguage(selectedNode.language)
-    if (adapter && target.filePath && sameLanguage(selectedNode, target)) {
-      const { content } = await readWorkspaceFile(selectedNode.filePath)
-      const next = adapter.insertImport(content, selectedNode.filePath, target.filePath, target.label, target.role)
-      await writeWorkspaceFile(selectedNode.filePath, next)
+    if (canSpliceImport(selectedNode, target)) {
+      const adapter = adapterForLanguage(selectedNode.language!)
+      if (adapter) {
+        const { content } = await readWorkspaceFile(selectedNode.filePath!)
+        const next = adapter.insertImport(content, selectedNode.filePath!, target.filePath!, target.label, target.role)
+        await writeWorkspaceFile(selectedNode.filePath!, next)
+      }
+    }
+    // Linking on a saved-plan tab to a node that lives in a *different* plan
+    // (target.map !== this plan) pulls that node into this plan's nodeIds —
+    // otherwise resolvePlanGraph/`live` would filter the target (and the new
+    // edge) right back out and the link would be invisible here. Skipped for
+    // real-map tabs (no plan to add to) and for targets already on this tab.
+    const activePlan = planFor(mapId)
+    if (activePlan && target.map !== mapId && !(activePlan.nodeIds ?? []).includes(target.id)) {
+      const { plan: updated } = await addPlanNodes(activePlan.id, [target.id])
+      onPlanUpdated?.(updated)
     }
     await refreshNotes()
   }
 
   const removeLink = async (target: GraphNode) => {
-    if (!selectedNode?.filePath || !selectedNode.language) return
+    if (!selectedNode) return
     await setNodeBorrows(selectedNode.id, borrowsFrom.filter((n) => n.id !== target.id).map((n) => n.id))
-    const adapter = adapterForLanguage(selectedNode.language)
-    if (adapter && target.filePath && sameLanguage(selectedNode, target)) {
-      const { content } = await readWorkspaceFile(selectedNode.filePath)
-      const next = adapter.removeImport(content, selectedNode.filePath, target.filePath)
-      await writeWorkspaceFile(selectedNode.filePath, next)
+    if (canSpliceImport(selectedNode, target)) {
+      const adapter = adapterForLanguage(selectedNode.language!)
+      if (adapter) {
+        const { content } = await readWorkspaceFile(selectedNode.filePath!)
+        const next = adapter.removeImport(content, selectedNode.filePath!, target.filePath!)
+        await writeWorkspaceFile(selectedNode.filePath!, next)
+      }
     }
     await refreshNotes()
   }
@@ -388,27 +462,35 @@ export function usePlanningViewModel(
   // them. Lets the detail panel's "Linked" list add/remove both directions
   // without forcing the user to go select the other node's own card first.
   const addImporter = async (source: GraphNode) => {
-    if (!selectedNode?.filePath || !selectedNode.role || !source.filePath || !source.language) return
+    // 'source imports selectedNode' — always recorded as a graph edge (works on
+    // bare ids, so any node/document type can be exported to another). The real
+    // import statement is only spliced into source's file for a same-language
+    // file pair (canSpliceImport); otherwise it's a pure edge, no file touched.
+    if (!selectedNode) return
     const sourceBorrows = notesEdges.filter((e) => e.source === source.id).map((e) => e.target)
     await setNodeBorrows(source.id, [...sourceBorrows, selectedNode.id])
-    const adapter = adapterForLanguage(source.language)
-    if (adapter && sameLanguage(source, selectedNode)) {
-      const { content } = await readWorkspaceFile(source.filePath)
-      const next = adapter.insertImport(content, source.filePath, selectedNode.filePath, selectedNode.label, selectedNode.role)
-      await writeWorkspaceFile(source.filePath, next)
+    if (canSpliceImport(source, selectedNode)) {
+      const adapter = adapterForLanguage(source.language!)
+      if (adapter) {
+        const { content } = await readWorkspaceFile(source.filePath!)
+        const next = adapter.insertImport(content, source.filePath!, selectedNode.filePath!, selectedNode.label, selectedNode.role)
+        await writeWorkspaceFile(source.filePath!, next)
+      }
     }
     await refreshNotes()
   }
 
   const removeImporter = async (source: GraphNode) => {
-    if (!selectedNode?.filePath || !selectedNode.role || !source.filePath || !source.language) return
+    if (!selectedNode) return
     const sourceBorrows = notesEdges.filter((e) => e.source === source.id && e.target !== selectedNode.id).map((e) => e.target)
     await setNodeBorrows(source.id, sourceBorrows)
-    const adapter = adapterForLanguage(source.language)
-    if (adapter && sameLanguage(source, selectedNode)) {
-      const { content } = await readWorkspaceFile(source.filePath)
-      const next = adapter.removeImport(content, source.filePath, selectedNode.filePath)
-      await writeWorkspaceFile(source.filePath, next)
+    if (canSpliceImport(source, selectedNode)) {
+      const adapter = adapterForLanguage(source.language!)
+      if (adapter) {
+        const { content } = await readWorkspaceFile(source.filePath!)
+        const next = adapter.removeImport(content, source.filePath!, selectedNode.filePath!)
+        await writeWorkspaceFile(source.filePath!, next)
+      }
     }
     await refreshNotes()
   }
@@ -420,40 +502,49 @@ export function usePlanningViewModel(
   // vanish then reappear (a topology change each time) and reheat gravity. A
   // lone same-endpoint update instead lets GraphCanvas keep every node fixed
   // and just redraw the arrow the other way (see its topologyKey). `other` is
-  // the node on the far end; both nodes need a real file+language to carry the
-  // spliced import, same preconditions as add/removeImporter.
+  // the node on the far end. The edge itself reverses for any pair of nodes; a
+  // real import statement is only rewritten when both ends are same-language
+  // files (canSpliceImport), so a note or a cross-language pair simply flips
+  // the arrow with no file touched — import/export is never blocked by type.
   const flipLink = async (other: GraphNode, direction: 'out' | 'in') => {
-    if (!selectedNode?.filePath || !selectedNode.language || !selectedNode.role) return
-    if (!other.filePath || !other.language) return
+    if (!selectedNode) return
     if (direction === 'out') {
       // selectedNode imports other  ->  other imports selectedNode
       await setNodeBorrows(selectedNode.id, borrowsFrom.filter((n) => n.id !== other.id).map((n) => n.id))
-      const selAdapter = adapterForLanguage(selectedNode.language)
-      if (selAdapter && sameLanguage(selectedNode, other)) {
-        const { content } = await readWorkspaceFile(selectedNode.filePath)
-        await writeWorkspaceFile(selectedNode.filePath, selAdapter.removeImport(content, selectedNode.filePath, other.filePath))
+      if (canSpliceImport(selectedNode, other)) {
+        const selAdapter = adapterForLanguage(selectedNode.language!)
+        if (selAdapter) {
+          const { content } = await readWorkspaceFile(selectedNode.filePath!)
+          await writeWorkspaceFile(selectedNode.filePath!, selAdapter.removeImport(content, selectedNode.filePath!, other.filePath!))
+        }
       }
       const otherBorrows = notesEdges.filter((e) => e.source === other.id).map((e) => e.target)
       await setNodeBorrows(other.id, [...otherBorrows, selectedNode.id])
-      const otherAdapter = adapterForLanguage(other.language)
-      if (otherAdapter && sameLanguage(other, selectedNode)) {
-        const { content } = await readWorkspaceFile(other.filePath)
-        await writeWorkspaceFile(other.filePath, otherAdapter.insertImport(content, other.filePath, selectedNode.filePath, selectedNode.label, selectedNode.role))
+      if (canSpliceImport(other, selectedNode)) {
+        const otherAdapter = adapterForLanguage(other.language!)
+        if (otherAdapter) {
+          const { content } = await readWorkspaceFile(other.filePath!)
+          await writeWorkspaceFile(other.filePath!, otherAdapter.insertImport(content, other.filePath!, selectedNode.filePath!, selectedNode.label, selectedNode.role))
+        }
       }
     } else {
       // other imports selectedNode  ->  selectedNode imports other
       const otherBorrows = notesEdges.filter((e) => e.source === other.id && e.target !== selectedNode.id).map((e) => e.target)
       await setNodeBorrows(other.id, otherBorrows)
-      const otherAdapter = adapterForLanguage(other.language)
-      if (otherAdapter && sameLanguage(other, selectedNode)) {
-        const { content } = await readWorkspaceFile(other.filePath)
-        await writeWorkspaceFile(other.filePath, otherAdapter.removeImport(content, other.filePath, selectedNode.filePath))
+      if (canSpliceImport(other, selectedNode)) {
+        const otherAdapter = adapterForLanguage(other.language!)
+        if (otherAdapter) {
+          const { content } = await readWorkspaceFile(other.filePath!)
+          await writeWorkspaceFile(other.filePath!, otherAdapter.removeImport(content, other.filePath!, selectedNode.filePath!))
+        }
       }
       await setNodeBorrows(selectedNode.id, [...borrowsFrom.map((n) => n.id), other.id])
-      const selAdapter = adapterForLanguage(selectedNode.language)
-      if (selAdapter && sameLanguage(selectedNode, other)) {
-        const { content } = await readWorkspaceFile(selectedNode.filePath)
-        await writeWorkspaceFile(selectedNode.filePath, selAdapter.insertImport(content, selectedNode.filePath, other.filePath, other.label, other.role))
+      if (canSpliceImport(selectedNode, other)) {
+        const selAdapter = adapterForLanguage(selectedNode.language!)
+        if (selAdapter) {
+          const { content } = await readWorkspaceFile(selectedNode.filePath!)
+          await writeWorkspaceFile(selectedNode.filePath!, selAdapter.insertImport(content, selectedNode.filePath!, other.filePath!, other.label, other.role))
+        }
       }
     }
     await refreshNotes()
@@ -534,8 +625,8 @@ export function usePlanningViewModel(
     // sidebar list's stage dot. Set via setStage below.
     stages,
     // Every note/scaffolded node across *every* plan, unscoped by mapId —
-    // the link search field's candidate pool needs this (see PlanningView's
-    // LinkSearchField usage), since `live.nodes` only ever holds the
+    // the link search menu's candidate pool needs this (see PlanningView's
+    // LinkAddDropdown usage), since `live.nodes` only ever holds the
     // currently active map's own nodes.
     notes,
     archivedEntries,

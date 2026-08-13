@@ -253,8 +253,8 @@ export const PROPOSED: Partial<Record<string, GraphData>> = {
         description: 'This graph view maps your whole project — plan steps, research docs, and TODOs — as one connected picture instead of scattered files. Each tab above is a different "map" of the same project.',
       },
       {
-        id: 'welcome/guide/claude',
-        label: 'What is the CLAUDE tab?',
+        id: 'welcome/guide/ai',
+        label: 'What is the AI tab?',
         kind: 'proposed',
         map: 'welcome',
         type: 'guide',
@@ -276,7 +276,7 @@ export const PROPOSED: Partial<Record<string, GraphData>> = {
     // than real import relationships.
     edges: [
       { source: 'welcome/guide/planning', target: 'welcome/guide/workspace', kind: 'borrows' },
-      { source: 'welcome/guide/claude', target: 'welcome/guide/workspace', kind: 'borrows' },
+      { source: 'welcome/guide/ai', target: 'welcome/guide/workspace', kind: 'borrows' },
       { source: 'welcome/guide/research', target: 'welcome/guide/workspace', kind: 'borrows' },
     ],
   },

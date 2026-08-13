@@ -78,7 +78,8 @@ export interface GraphData {
 export interface ScaffoldEntry {
   label: string
   role: NodeRole
-  language: LanguageId
+  /** Omitted for the Markdown root node — the "Node" role's `.md` doc has no programming language, so it's never same-language-linked to (or spliced into by) the code role files. See AddNodeModal.ViewModel. */
+  language?: LanguageId
   description?: string
   /** Workspace-relative. */
   filePath: string
@@ -104,7 +105,7 @@ const FIXED_GRAPH_MAPS: { id: FixedMapId; label: string }[] = [
   { id: 'research', label: 'Research Notes' },
   { id: 'validation', label: 'Validation' },
   { id: 'todo', label: 'TODO' },
-  { id: 'claude', label: 'CLAUDE' },
+  { id: 'claude', label: 'AI' },
 ]
 
 // Welcome first (the default landing tab for a fresh Planning session — see

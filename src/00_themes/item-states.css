@@ -1,0 +1,48 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Selectable-item states — the one hover/selection language shared by every
+   list row (Planning, Workspace/Research files, Git) and the graph node
+   labels. Drive a row by adding `srow` plus, optionally, `is-selected` or
+   `is-connected`; hover is handled here.
+
+   Colours come from the active theme (see tactical.css / light.css):
+     --item-ink    an "R, G, B" triple, so it composes at any alpha
+     --item-ground the ink's opposite — text colour on filled states
+
+   The ladder (matching the product spec):
+     idle       → no fill,          80% ink text
+     hover      → ink outline,     100% ink text
+     connected  → ink outline,     100% ink text   (graph neighbours)
+     selected   → solid ink fill,   ground text
+
+   Hover and connected read as a crisp inset outline in the theme's ink (white
+   on the dark tactical theme, near-black on light) rather than a fill wash — a
+   row/node highlights by its edge, not a background. Selected keeps the solid
+   ink fill as the strongest "you are here" state. The outline is drawn with
+   `outline` (never `border`) at `outline-offset: -1px`, so it sits just inside
+   the row and can never shift layout the way a border's box would — and a
+   transparent outline is reserved at rest so only its colour animates on hover.
+
+   Rows carry explicitly-coloured children, so `srow` sets `color` AND the
+   primary label must use `color: inherit` (or currentColor) to flip on the
+   selected fill — otherwise a near-white label stays invisible on a white
+   selection. Fallbacks keep the tactical look if a theme omits the tokens.
+   ───────────────────────────────────────────────────────────────────────── */
+.srow {
+  color: rgba(var(--item-ink, 255, 255, 255), 0.8);
+  background-color: transparent;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition: background-color 90ms ease, color 90ms ease, outline-color 90ms ease;
+}
+.srow:hover,
+.srow.is-connected {
+  background-color: transparent;
+  outline-color: rgb(var(--item-ink, 255, 255, 255));
+  color: rgba(var(--item-ink, 255, 255, 255), 1);
+}
+.srow.is-selected,
+.srow.is-selected:hover {
+  background-color: rgb(var(--item-ink, 255, 255, 255));
+  color: var(--item-ground, #000);
+  outline-color: transparent;
+}

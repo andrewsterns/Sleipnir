@@ -25,6 +25,8 @@ export {
   commit as commitChanges,
   getBranches,
   getBranchTree,
+  getCommitGraph,
+  getCommitFileMap,
   checkoutBranch,
   createBranch,
   renameBranch,
@@ -632,6 +634,16 @@ function isValidMapId(map) {
   return FIXED_MAP_IDS.has(map)
 }
 
+// A node can also be authored straight into a saved plan (Planning's "Add
+// node" on a plan tab) — a plan id isn't one of the fixed maps, so accept it
+// too as long as the plan actually exists. The created note carries
+// `map: <planId>` and the renderer surfaces it on that plan's own tab (see
+// usePlanningViewModel's `live`, which merges every note whose map matches the
+// open tab). `readPlansFile` is a hoisted function declaration below.
+function isNoteTarget(map) {
+  return isValidMapId(map) || readPlansFile().some((p) => p.id === map)
+}
+
 // Was a flat GraphNode[] array; now { nodes, edges } so plan-step nodes can
 // carry a `plan-step` edge back to their parent plan node. `readNotesFile`
 // transparently upgrades the old flat-array shape on read (still written on
@@ -666,7 +678,7 @@ export function getNotes() {
 // the graph), matching the same "not yet built" visual language as the
 // hand-authored PROPOSED nodes.
 export function addNote(map, label, description) {
-  if (!isValidMapId(map)) {
+  if (!isNoteTarget(map)) {
     throw new Error(`Unknown map "${map}"`)
   }
   if (!label || !label.trim()) {
@@ -702,7 +714,7 @@ export function addNote(map, label, description) {
 // computed client-side from architectures.ts's `linksTo` against whichever
 // roles were checked.
 export function scaffoldNodes(map, entries, links) {
-  if (!isValidMapId(map)) {
+  if (!isNoteTarget(map)) {
     throw new Error(`Unknown map "${map}"`)
   }
   if (!Array.isArray(entries) || entries.length === 0) {
@@ -811,6 +823,26 @@ export function appendPlanGeneratedFiles(id, paths) {
   const existing = new Set(plan.generatedFiles ?? [])
   for (const p of paths) existing.add(p)
   plan.generatedFiles = [...existing]
+  writePlansFile(plans)
+  return { plan }
+}
+
+// Merges existing graph node ids into a plan's `nodeIds` (deduped) — the
+// counterpart to createPlan's initial seed, used when a link drawn on a plan
+// tab points at a node from *another* plan: that node gets pulled into this
+// plan so the new edge actually resolves on its graph (see
+// src/00_planning/graph/resolvePlan.ts + usePlanningViewModel's `live`).
+// Idempotent: re-adding an id already present is a no-op.
+export function addPlanNodes(id, nodeIds) {
+  if (!Array.isArray(nodeIds)) {
+    throw new Error('nodeIds must be an array')
+  }
+  const plans = readPlansFile()
+  const plan = plans.find((p) => p.id === id)
+  if (!plan) throw new Error(`No plan with id "${id}"`)
+  const existing = new Set(plan.nodeIds ?? [])
+  for (const n of nodeIds) existing.add(String(n))
+  plan.nodeIds = [...existing]
   writePlansFile(plans)
   return { plan }
 }

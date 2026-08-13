@@ -108,7 +108,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
         justify="between"
         padding={trigger ? { x: 0, y: 0 } : { x: 12, y: 8 }}
         variant={variant}
-        radius="var(--radius-3)"
+        radius="var(--radius-control)"
         w={trigger ? 'hug' : 'fill'}
         effects={{ 'drop-shadow': { x: 0, y: 4, blur: 12, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
         activeScale={0.98}
@@ -116,7 +116,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
       >
         {trigger ?? (
           <>
-            <Text variant="small" weight="bold" italic transform="uppercase" tracking="tighter" noWrap>
+            <Text variant="small" color="text-2" noWrap>
               {selectedLabel}
             </Text>
             <span className={cn('transition-transform duration-200 text-[10px]', isOpen ? 'rotate-180' : '')}>
@@ -130,13 +130,14 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
         ReactDOM.createPortal(
           <Frame
             ref={menuRef as React.RefObject<HTMLElement>}
+            data-floating-menu
             fixed
             y={menuRect.top}
             x={menuRect.left}
             w={menuRect.width}
             z={200}
             variant="surface"
-            radius="var(--radius-3)"
+            radius="var(--radius-control)"
             clipContent
             effects={{ 'drop-shadow': { x: 0, y: 8, blur: 24, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
             animate="fade-in"
@@ -154,14 +155,14 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
                   flow="horizontal"
                   align="center"
                   gap={8}
-                  padding={{ x: 12, y: 8 }}
+                  minH={28}
+                  padding={{ x: 10, y: 6 }}
                   radius={0}
-                  stroke={{ bottom: { color: 'border-1' } }}
                   hoverFill="bg-3"
                   fill={{ solid: isSelected && !multiple ? 'bg-3' : 'transparent' }}
                 >
                   {multiple && <span>{isSelected ? '☑' : '☐'}</span>}
-                  <Text variant="small" weight="bold" italic transform="uppercase" tracking="tighter" color="text-1" align="left">
+                  <Text variant="small" color="text-2" align="left">
                     {option.label}
                   </Text>
                 </Frame>

@@ -126,6 +126,13 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
   const toggleDir = (path: string) =>
     setActiveDirs((prev) => (prev.includes(path) ? prev.filter((d) => d !== path) : [...prev, path]))
 
+  // One-click select-all / clear for the directory checkboxes — the whole
+  // point of the request (checking a dozen folders by hand is the slow path).
+  // "All selected" means every listed dir is active; the button then clears.
+  const allDirsSelected = dirs.length > 0 && activeDirs.length === dirs.length
+  const toggleAllDirs = () =>
+    setActiveDirs(allDirsSelected ? [] : dirs.map((d) => d.path))
+
   // Both filters narrow the set (AND) when active; either alone, or neither,
   // just applies whichever is active — no filter active at all means every
   // file in the Workspace matches.
@@ -168,6 +175,8 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
     dirs,
     activeDirs,
     toggleDir,
+    allDirsSelected,
+    toggleAllDirs,
     matchedPaths,
     submitting,
     detectingEdges,

@@ -19,11 +19,13 @@ export interface IconButtonProps extends Omit<FrameProps, 'children' | 'variant'
 // The one ghost icon-button implementation for dense areas (file trees,
 // sidebar rows, tab strips, docks) — every hover-revealed row action across
 // the app's ScrollWindow-based lists renders through this, not a hand-rolled
-// <button style={{}}>, so "invisible at rest, a rounded fill appears on
-// hover" is a property of the component instead of something each call site
-// has to remember to wire up itself. Built on Frame's own hoverFill (the
-// same mechanism Button's ghost/outline variants already use), not local
-// hover state — a real CSS :hover rule, not a JS-driven background swap.
+// <button style={{}}>, so "invisible at rest, brightens on hover" is a
+// property of the component instead of something each call site has to
+// remember to wire up itself. The hover cue is a colour swap, not a fill box:
+// the glyph brightens to `hoverTextColor` (defaults to full ink) on hover,
+// with no background — so a dense list of ⋯ / trash actions stays quiet until
+// reached. Pass `hoverFill` explicitly to opt a specific button back into a
+// filled hover. Built on Frame's own CSS :hover rules, not JS hover state.
 export const IconButton = React.forwardRef<HTMLElement, IconButtonProps>((
   {
     icon,
@@ -31,7 +33,8 @@ export const IconButton = React.forwardRef<HTMLElement, IconButtonProps>((
     iconSize = 16,
     size = 28,
     title,
-    hoverFill = 'bg-2',
+    hoverFill,
+    hoverTextColor = 'var(--text-1)',
     radius = 4,
     textColor = 'var(--text-1)',
     transition = 'colors',
@@ -61,6 +64,7 @@ export const IconButton = React.forwardRef<HTMLElement, IconButtonProps>((
     shrink={shrink}
     variant="none"
     hoverFill={hoverFill}
+    hoverTextColor={hoverTextColor}
     radius={radius}
     textColor={textColor}
     transition={transition}

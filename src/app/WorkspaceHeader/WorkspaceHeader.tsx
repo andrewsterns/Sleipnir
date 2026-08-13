@@ -9,18 +9,18 @@ import type { WorkspaceHeaderProps } from './iWorkspaceHeader'
 // row sits beside the rail/sidebar, not above it (see WidgetShell/
 // PlanningView, whose rail/sidebar now runs the full height instead of
 // starting below this row).
-export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ actions, tabs, activeTabId, onActivateTab, onCloseTab, onAddTab }) => {
-  if (tabs.length === 0 && !actions && !onAddTab) return null
+export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ actions, tabs, activeTabId, onActivateTab, onCloseTab, onAddTab, onAddTabClick }) => {
+  if (tabs.length === 0 && !actions && !onAddTab && !onAddTabClick) return null
 
   return (
     <Frame
       flow="horizontal"
       align="center"
       shrink={0}
-      stroke={{ bottom: { color: 'rgba(255,255,255,0.08)' } }}
+      stroke={{ bottom: { color: 'var(--border-1)' } }}
       fill={{ solid: 'bg-1' }}
     >
-      <WorkspaceTabStrip tabs={tabs} activeTabId={activeTabId} onActivate={onActivateTab} onClose={onCloseTab} onAddTab={onAddTab} />
+      <WorkspaceTabStrip tabs={tabs} activeTabId={activeTabId} onActivate={onActivateTab} onClose={onCloseTab} onAddTab={onAddTab} onAddTabClick={onAddTabClick} />
       {actions && (
         <Frame flow="horizontal" align="center" gap={16} shrink={0} padding={{ x: 16 }}>
           {actions}

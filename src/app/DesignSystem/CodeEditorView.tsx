@@ -96,8 +96,8 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
               disabled={running}
               title="Run"
               style={{
-                background: running ? 'transparent' : 'rgba(255,255,255,0.10)',
-                border: '1px solid rgba(255,255,255,0.15)',
+                background: running ? 'transparent' : 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                border: '1px solid var(--border-2)',
                 color: 'var(--text-1)',
                 fontSize: 9,
                 letterSpacing: '0.08em',
@@ -128,7 +128,7 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
           w="fill"
           maxH="35%"
           scroll="y"
-          stroke={{ top: { color: 'rgba(255,255,255,0.15)', width: 1 } }}
+          stroke={{ top: { color: 'var(--border-2)', width: 1 } }}
           fill={{ solid: 'rgba(0,0,0,0.35)' }}
           padding={8}
         >
