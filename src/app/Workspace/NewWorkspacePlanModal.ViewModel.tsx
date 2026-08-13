@@ -90,25 +90,47 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
   const [tree, setTree] = useState<FileTreeNode[]>([])
   const [loading, setLoading] = useState(true)
   const [label, setLabel] = useState('')
+  const [query, setQuery] = useState('')
   const [activeSuffixes, setActiveSuffixes] = useState<string[]>([])
-  const [activeDirs, setActiveDirs] = useState<string[]>([])
+  // The one source of truth for what the plan will contain: an explicit set of
+  // file paths. Directory checkboxes, the per-file checkboxes and Select-All
+  // all just mutate this set; query/suffix are pure *view* filters that never
+  // touch it. Seeded to "everything" once the tree loads (see the effect
+  // below) so the old "name it and go — all files match" flow still works with
+  // a single click to create.
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     listWorkspaceDir('')
-      .then(({ tree }) => setTree(tree))
+      .then(({ tree }) => {
+        setTree(tree)
+        // Default: every file selected (parity with the previous "no filter =
+        // all files match" behavior), the user then pares it down.
+        setSelectedPaths(new Set(flattenFiles(tree).map((f) => f.path)))
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   const files = useMemo(() => flattenFiles(tree), [tree])
-  // Top-level folders only — deep enough to be a useful coarse filter
-  // (src/, tests/, docs/, ...) without building a full recursive checkbox
-  // tree for an arbitrary project of unknown depth.
+  // Top-level folders only — deep enough to be a useful coarse bulk-select
+  // (src/, tests/, docs/, ...) without building a full recursive tree for an
+  // arbitrary project of unknown depth. `filePaths` is every file under the
+  // folder, so its checkbox can bulk-toggle and derive its tri-state from
+  // selectedPaths.
   const dirs = useMemo(
-    () => tree.filter((n) => n.type === 'dir').map((n) => ({ path: n.path, name: n.name, fileCount: countFiles(n) })),
-    [tree],
+    () =>
+      tree
+        .filter((n) => n.type === 'dir')
+        .map((n) => ({
+          path: n.path,
+          name: n.name,
+          fileCount: countFiles(n),
+          filePaths: files.filter((f) => f.path === n.path || f.path.startsWith(`${n.path}/`)).map((f) => f.path),
+        })),
+    [tree, files],
   )
 
   const suffixOptions = useMemo(
@@ -123,26 +145,67 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
   const toggleSuffix = (suffix: string) =>
     setActiveSuffixes((prev) => (prev.includes(suffix) ? prev.filter((s) => s !== suffix) : [...prev, suffix]))
 
-  const toggleDir = (path: string) =>
-    setActiveDirs((prev) => (prev.includes(path) ? prev.filter((d) => d !== path) : [...prev, path]))
+  // View-only narrowing of the file list — text query (matched against the
+  // whole relative path, so a folder name typed into search surfaces its
+  // files) AND the active suffix chips. Never affects selectedPaths directly;
+  // it only decides which rows are shown and what "Select all visible" spans.
+  const visibleFiles = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return files
+      .filter((f) => q === '' || f.path.toLowerCase().includes(q))
+      .filter((f) => activeSuffixes.length === 0 || activeSuffixes.some((s) => basenameNoExt(f.name).endsWith(s)))
+  }, [files, query, activeSuffixes])
 
-  // One-click select-all / clear for the directory checkboxes — the whole
-  // point of the request (checking a dozen folders by hand is the slow path).
-  // "All selected" means every listed dir is active; the button then clears.
-  const allDirsSelected = dirs.length > 0 && activeDirs.length === dirs.length
-  const toggleAllDirs = () =>
-    setActiveDirs(allDirsSelected ? [] : dirs.map((d) => d.path))
+  const isSelected = (path: string) => selectedPaths.has(path)
 
-  // Both filters narrow the set (AND) when active; either alone, or neither,
-  // just applies whichever is active — no filter active at all means every
-  // file in the Workspace matches.
+  const toggleFile = (path: string) =>
+    setSelectedPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+
+  // Tri-state for a directory row: 'all' of its files selected, 'some', or
+  // 'none'. Toggling clears the folder when it's fully selected, otherwise
+  // selects every file under it.
+  const dirState = (filePaths: string[]): 'all' | 'some' | 'none' => {
+    if (filePaths.length === 0) return 'none'
+    const selected = filePaths.filter((p) => selectedPaths.has(p)).length
+    return selected === 0 ? 'none' : selected === filePaths.length ? 'all' : 'some'
+  }
+  const toggleDir = (filePaths: string[]) =>
+    setSelectedPaths((prev) => {
+      const next = new Set(prev)
+      const fullySelected = filePaths.length > 0 && filePaths.every((p) => next.has(p))
+      for (const p of filePaths) {
+        if (fullySelected) next.delete(p)
+        else next.add(p)
+      }
+      return next
+    })
+
+  // Select-all applies to whatever is currently *visible* (post query/suffix
+  // filter), so the header checkbox reflects and controls exactly the rows on
+  // screen — the actual, interactive replacement for the old bare "SELECT ALL"
+  // text button.
+  const visiblePaths = useMemo(() => visibleFiles.map((f) => f.path), [visibleFiles])
+  const selectedVisibleCount = visiblePaths.filter((p) => selectedPaths.has(p)).length
+  const allVisibleSelected = visiblePaths.length > 0 && selectedVisibleCount === visiblePaths.length
+  const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected
+  const toggleAllVisible = () =>
+    setSelectedPaths((prev) => {
+      const next = new Set(prev)
+      if (allVisibleSelected) for (const p of visiblePaths) next.delete(p)
+      else for (const p of visiblePaths) next.add(p)
+      return next
+    })
+
+  // The plan's contents = the explicit selection, order-stable by the tree's
+  // own file order.
   const matchedPaths = useMemo(
-    () =>
-      files
-        .filter((f) => activeSuffixes.length === 0 || activeSuffixes.some((s) => basenameNoExt(f.name).endsWith(s)))
-        .filter((f) => activeDirs.length === 0 || activeDirs.some((d) => f.path === d || f.path.startsWith(`${d}/`)))
-        .map((f) => f.path),
-    [files, activeSuffixes, activeDirs],
+    () => files.map((f) => f.path).filter((p) => selectedPaths.has(p)),
+    [files, selectedPaths],
   )
 
   const [detectingEdges, setDetectingEdges] = useState(false)
@@ -169,14 +232,22 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
     loading,
     label,
     setLabel,
+    query,
+    setQuery,
     suffixOptions,
     activeSuffixes,
     toggleSuffix,
     dirs,
-    activeDirs,
+    dirState,
     toggleDir,
-    allDirsSelected,
-    toggleAllDirs,
+    visibleFiles,
+    isSelected,
+    toggleFile,
+    allVisibleSelected,
+    someVisibleSelected,
+    toggleAllVisible,
+    selectedCount: selectedPaths.size,
+    totalCount: files.length,
     matchedPaths,
     submitting,
     detectingEdges,

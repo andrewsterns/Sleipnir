@@ -15,6 +15,7 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
     onClear,
     autoFocus,
     filters,
+    sort,
 
     // ── Frame defaults — callers can override any of these ────────────────
     as      = 'div',
@@ -56,6 +57,18 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
         autoFocus={autoFocus}
         className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-[10px] text-[var(--text-1)] placeholder:text-[var(--text-3)]"
       />
+      {sort && (
+        <Dropdown
+          options={sort.options.map((o) => ({ value: o.id, label: o.label }))}
+          value={sort.active}
+          onChange={(v) => sort.onChange((Array.isArray(v) ? v[0] : v) as string)}
+          variant="none"
+          w="auto"
+          trigger={
+            <Icon name="sort" size={13} className="shrink-0 text-[var(--text-3)]" />
+          }
+        />
+      )}
       {filters && (
         <Dropdown
           options={filters.options.map((o) => ({ value: o.id, label: o.label }))}

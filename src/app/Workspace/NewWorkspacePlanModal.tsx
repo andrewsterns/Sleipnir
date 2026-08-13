@@ -4,9 +4,32 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
 import { Checkbox } from '../UIKit/Checkbox/Checkbox'
 import { Card } from '../UIKit/Card/Card'
+import { Search } from '../UIKit/Search/Search'
 import { useNewWorkspacePlanViewModel, type NewWorkspacePlanModalProps } from './NewWorkspacePlanModal.ViewModel'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+
+const SECTION_LABEL: React.CSSProperties = {
+  fontSize: 8,
+  letterSpacing: '0.1em',
+  color: 'var(--text-3)',
+  ...MONO,
+}
+
+// Shared checkbox-row style for the directory and file pick lists — a selected
+// row reads at full ink, an unselected one a step dimmer.
+function pickRowStyle(selected: boolean): React.CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '4px 2px',
+    cursor: 'pointer',
+    fontSize: 11,
+    color: selected ? 'var(--text-1)' : 'var(--text-2)',
+    ...MONO,
+  }
+}
 
 function toggleStyle(active: boolean): React.CSSProperties {
   return {
@@ -76,9 +99,20 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
               <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>Reading Workspace…</span>
             ) : (
               <>
+                {/* Text search over the file list — the same shared Search
+                    control used everywhere else, so filter chips/clear behave
+                    identically. Filters what's shown (and what "Select all"
+                    spans); it never changes the selection itself. */}
+                <Search
+                  value={vm.query}
+                  onChange={vm.setQuery}
+                  placeholder="Search files…"
+                  w="fill"
+                />
+
                 {vm.suffixOptions.length > 0 && (
                   <Frame flow="vertical" gap={6}>
-                    <span style={{ fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>ASSET TYPE</span>
+                    <span style={SECTION_LABEL}>ASSET TYPE</span>
                     <Frame flow="horizontal" gap={6} wrap="wrap">
                       {vm.suffixOptions.map((o) => (
                         <button
@@ -96,56 +130,72 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
 
                 {vm.dirs.length > 0 && (
                   <Frame flow="vertical" gap={6}>
-                    <Frame flow="horizontal" align="center" justify="between">
-                      <span style={{ fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>DIRECTORIES</span>
-                      <button
-                        type="button"
-                        onClick={vm.toggleAllDirs}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--text-2)',
-                          fontSize: 9,
-                          letterSpacing: '0.06em',
-                          cursor: 'pointer',
-                          padding: 0,
-                          ...MONO,
-                        }}
-                      >
-                        {vm.allDirsSelected ? 'CLEAR' : 'SELECT ALL'}
-                      </button>
-                    </Frame>
-                    <Frame flow="vertical" gap={2} style={{ maxHeight: 160, overflowY: 'auto' }}>
-                      {vm.dirs.map((d) => (
-                        <div
-                          key={d.path}
-                          onClick={() => vm.toggleDir(d.path)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '4px 2px',
-                            cursor: 'pointer',
-                            fontSize: 11,
-                            color: vm.activeDirs.includes(d.path) ? 'var(--text-1)' : 'var(--text-2)',
-                            ...MONO,
-                          }}
-                        >
-                          <Checkbox
-                            checked={vm.activeDirs.includes(d.path)}
-                            onChange={() => vm.toggleDir(d.path)}
-                            stopPropagation
-                          />
-                          {d.name} <span style={{ color: 'var(--text-3)' }}>({d.fileCount})</span>
-                        </div>
-                      ))}
+                    <span style={SECTION_LABEL}>DIRECTORIES</span>
+                    <Frame flow="vertical" gap={2} style={{ maxHeight: 120, overflowY: 'auto' }}>
+                      {vm.dirs.map((d) => {
+                        const state = vm.dirState(d.filePaths)
+                        return (
+                          <div key={d.path} onClick={() => vm.toggleDir(d.filePaths)} style={pickRowStyle(state !== 'none')}>
+                            <Checkbox
+                              checked={state === 'all'}
+                              indeterminate={state === 'some'}
+                              onChange={() => vm.toggleDir(d.filePaths)}
+                              stopPropagation
+                            />
+                            {d.name} <span style={{ color: 'var(--text-3)' }}>({d.fileCount})</span>
+                          </div>
+                        )
+                      })}
                     </Frame>
                   </Frame>
                 )}
 
+                <Frame flow="vertical" gap={6}>
+                  {/* Section header carries the real Select-All: a live tri-state
+                      Checkbox over the visible rows, replacing the old bare
+                      "SELECT ALL" text button. */}
+                  <Frame flow="horizontal" align="center" justify="between">
+                    <span style={SECTION_LABEL}>FILES</span>
+                    <div
+                      onClick={vm.toggleAllVisible}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: vm.visibleFiles.length ? 'pointer' : 'default' }}
+                    >
+                      <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-2)', ...MONO }}>Select all</span>
+                      <Checkbox
+                        checked={vm.allVisibleSelected}
+                        indeterminate={vm.someVisibleSelected}
+                        onChange={vm.toggleAllVisible}
+                        disabled={vm.visibleFiles.length === 0}
+                        stopPropagation
+                      />
+                    </div>
+                  </Frame>
+                  <Frame flow="vertical" gap={2} style={{ maxHeight: 220, overflowY: 'auto' }}>
+                    {vm.visibleFiles.length === 0 ? (
+                      <span style={{ fontSize: 10, color: 'var(--text-3)', padding: '4px 2px', ...MONO }}>No files match</span>
+                    ) : (
+                      vm.visibleFiles.map((f) => {
+                        const slash = f.path.lastIndexOf('/')
+                        const dir = slash >= 0 ? f.path.slice(0, slash + 1) : ''
+                        const base = slash >= 0 ? f.path.slice(slash + 1) : f.path
+                        const selected = vm.isSelected(f.path)
+                        return (
+                          <div key={f.path} onClick={() => vm.toggleFile(f.path)} style={pickRowStyle(selected)}>
+                            <Checkbox checked={selected} onChange={() => vm.toggleFile(f.path)} stopPropagation />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {dir && <span style={{ color: 'var(--text-3)' }}>{dir}</span>}
+                              {base}
+                            </span>
+                          </div>
+                        )
+                      })
+                    )}
+                  </Frame>
+                </Frame>
+
                 <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>
-                  {vm.matchedPaths.length} file{vm.matchedPaths.length === 1 ? '' : 's'} match
-                  {vm.matchedPaths.length === 0 && ' — nothing to add yet'}
+                  {vm.selectedCount} of {vm.totalCount} file{vm.totalCount === 1 ? '' : 's'} selected
+                  {vm.selectedCount === 0 && ' — nothing to add yet'}
                 </span>
               </>
             )}

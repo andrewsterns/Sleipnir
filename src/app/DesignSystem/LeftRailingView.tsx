@@ -3,7 +3,6 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import { ListRow } from '../UIKit/ListRow/ListRow'
-import { Dropdown } from '../UIKit/Dropdown/Dropdown'
 import { Chip } from '../UIKit/Chip/Chip'
 import { Search } from '../UIKit/Search/Search'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
@@ -658,14 +657,6 @@ export const LeftRailing = ({
         actions={
         <Frame flow="horizontal" align="center" gap={2} shrink={0}>
           {headerAction}
-          <Dropdown
-            options={[{ value: 'name', label: 'Name' }, { value: 'recent', label: 'Recently modified' }]}
-            value={sortOrder}
-            onChange={(v) => setSortOrder((Array.isArray(v) ? v[0] : v) as SortOrder)}
-            variant="none"
-            w="auto"
-            trigger={<IconButton as="span" icon="settings" iconSize={16} title="Sort order" textColor="var(--text-3)" />}
-          />
           {!searchOpen && !query && (
             <IconButton
               as="span"
@@ -694,6 +685,13 @@ export const LeftRailing = ({
             placeholder={`Search in ${rootLabel ?? rootPath}…`}
             w="fill"
             autoFocus={searchOpen && !query}
+            // Sort now rides inside the search box (its own sort-icon dropdown)
+            // instead of a separate settings-gear button in the header actions.
+            sort={{
+              options: [{ id: 'name', label: 'Name' }, { id: 'recent', label: 'Recently modified' }],
+              active: sortOrder,
+              onChange: (v) => setSortOrder(v as SortOrder),
+            }}
             filters={tierFilterOptions.length > 0 ? { options: tierFilterOptions, active: tierFilter, onChange: setTierFilter } : undefined}
           />
         }
