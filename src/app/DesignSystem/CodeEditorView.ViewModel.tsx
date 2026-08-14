@@ -6,7 +6,7 @@ import { lintGutter, diagnosticCount } from '@codemirror/lint'
 import { languageForPath, isRunnablePath } from './codeEditorLanguages'
 import { tacticalEditorTheme, tacticalCodeHighlighting } from './codeEditorTheme'
 import { writeFile as writeSrcFile, runScript, type RunResult } from '../../00_planning/api/sleipnirApi'
-import { getTypeScriptLspClient, lspLanguageIdForPath, uriForPath } from './lspClient'
+import { getTypeScriptLspClient, lspLanguageIdForPath, uriForPath, goToDefinitionOnModClick } from './lspClient'
 import { graphLinkExtension } from './graphLinkExtension'
 import type { GraphNode } from '../../00_planning/graph/types'
 
@@ -142,8 +142,13 @@ export function useCodeEditorViewModel({
     // at all for scope:'workspace' — see repoRelativePathForScope's comment.
     const repoRelPath = repoRelativePathForScope(scope, path)
     const lspLanguageId = repoRelPath ? lspLanguageIdForPath(path) : null
+    // goToDefinitionOnModClick rides alongside the LSP plugin so the Ctrl/Cmd+
+    // click "drill into" gesture is present exactly where go-to-definition can
+    // resolve — TS/JS files with a repo path (never scope:'workspace').
     const lspExtension =
-      lspLanguageId && repoRelPath ? [getTypeScriptLspClient().plugin(uriForPath(repoRelPath), lspLanguageId)] : []
+      lspLanguageId && repoRelPath
+        ? [getTypeScriptLspClient().plugin(uriForPath(repoRelPath), lspLanguageId), goToDefinitionOnModClick]
+        : []
 
     // "##token" linking — only meaningful for a real Workspace file with a
     // live node pool to resolve against (see graphLinkExtension's own doc

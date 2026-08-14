@@ -27,7 +27,16 @@ export function DeletePlanModal(props: DeletePlanModalProps) {
 
   if (!portalTarget) return <div ref={anchorRef} style={{ display: 'contents' }} />
 
+  const nodeCount = vm.plan.nodeIds.length
   const fileCount = vm.plan.generatedFiles?.length ?? 0
+  const hasContent = nodeCount > 0 || fileCount > 0
+  // Label the destructive button after exactly what it removes, so "everything"
+  // is never vague. Node count is always present when the button shows; files
+  // only when the plan actually generated some.
+  const everythingLabel =
+    fileCount > 0
+      ? `Delete Plan, ${nodeCount} Node${nodeCount === 1 ? '' : 's'} & ${fileCount} File${fileCount === 1 ? '' : 's'}`
+      : `Delete Plan & ${nodeCount} Node${nodeCount === 1 ? '' : 's'}`
 
   return (
     <div ref={anchorRef} style={{ display: 'contents' }}>
@@ -38,17 +47,30 @@ export function DeletePlanModal(props: DeletePlanModalProps) {
             onClick={vm.submitting ? undefined : vm.onClose}
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
-          <Card flow="vertical" gap={14} padding={20} relative w={440}>
+          <Card flow="vertical" gap={14} padding={20} relative w={460}>
             <span style={{ fontSize: 12, letterSpacing: '0.1em', color: '#e07a7a', fontWeight: 600, ...MONO }}>
               DELETE PLAN
             </span>
 
             <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
-              Delete <strong>{vm.plan.label}</strong>? It references {vm.plan.nodeIds.length} node
-              {vm.plan.nodeIds.length === 1 ? '' : 's'}.
-              {fileCount > 0 &&
-                ` It also generated ${fileCount} file${fileCount === 1 ? '' : 's'} in your Workspace — choose whether to delete those too.`}
+              Delete <strong>{vm.plan.label}</strong>? It groups {nodeCount} node
+              {nodeCount === 1 ? '' : 's'}
+              {fileCount > 0 ? ` and generated ${fileCount} file${fileCount === 1 ? '' : 's'} in your Workspace` : ''}.
             </span>
+
+            {hasContent && (
+              <Frame flow="vertical" gap={4}>
+                <span style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.6, ...MONO }}>
+                  <strong style={{ color: 'var(--text-2)' }}>Remove Plan Only</strong> keeps the nodes
+                  {fileCount > 0 ? ' and files' : ''} — it just deletes the plan grouping.
+                </span>
+                <span style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.6, ...MONO }}>
+                  <strong style={{ color: '#e07a7a' }}>{everythingLabel}</strong> permanently removes the node
+                  {nodeCount === 1 ? '' : 's'} and every connection to {nodeCount === 1 ? 'it' : 'them'}
+                  {fileCount > 0 ? ', and deletes the generated files from disk' : ''}. This can't be undone.
+                </span>
+              </Frame>
+            )}
 
             <Frame flow="horizontal" gap={8} justify="end" wrap="wrap">
               <Button variant="ghost" size="sm" onClick={vm.onClose} disabled={vm.submitting}>
@@ -57,9 +79,9 @@ export function DeletePlanModal(props: DeletePlanModalProps) {
               <Button variant="secondary" size="sm" onClick={() => vm.remove(false)} disabled={vm.submitting}>
                 Remove Plan Only
               </Button>
-              {fileCount > 0 && (
+              {hasContent && (
                 <Button variant="primary" size="sm" onClick={() => vm.remove(true)} disabled={vm.submitting}>
-                  Remove Plan + Delete Files
+                  {everythingLabel}
                 </Button>
               )}
             </Frame>

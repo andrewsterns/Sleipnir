@@ -33,6 +33,9 @@ export {
   push as gitPush,
   pull as gitPull,
   fetchRemote as gitFetch,
+  clone as gitClone,
+  initRepo as gitInit,
+  addRemote as gitAddRemote,
   getGitIdentity,
   setGitIdentity,
 } from './git-control.mjs'
@@ -854,13 +857,40 @@ export function addPlanNodes(id, nodeIds) {
 export function deletePlan(id, opts = {}) {
   const plans = readPlansFile()
   const plan = plans.find((p) => p.id === id)
-  if (opts.deleteFiles && plan?.generatedFiles?.length) {
-    const root = requireWorkspaceRoot()
-    for (const relPath of plan.generatedFiles) {
-      const filePath = resolveSafe(root, relPath)
-      fs.rmSync(filePath, { force: true })
+
+  if (plan && (opts.deleteFiles || opts.deleteNodes)) {
+    const nodeIds = new Set(plan.nodeIds ?? [])
+    const data = readNotesFile()
+
+    // Delete the workspace files this plan is responsible for: the ones it
+    // generated via "Generate Code" (plan.generatedFiles) plus the real file
+    // any of the plan's own graph nodes backs (node.filePath, e.g. a scaffolded
+    // View/ViewModel). Deduped so a path that is both is never removed twice;
+    // resolveSafe keeps every delete inside the open Workspace root. Permanent
+    // (fs.rmSync) — the modal warns before calling this.
+    if (opts.deleteFiles) {
+      const root = requireWorkspaceRoot()
+      const files = new Set(plan.generatedFiles ?? [])
+      if (opts.deleteNodes) {
+        for (const n of data.nodes) {
+          if (nodeIds.has(n.id) && n.filePath) files.add(n.filePath)
+        }
+      }
+      for (const relPath of files) {
+        fs.rmSync(resolveSafe(root, relPath), { force: true, recursive: true })
+      }
+    }
+
+    // Drop the plan's nodes from the graph and any edge touching one of them —
+    // edges key on source/target (not from/to), so filter both ends to leave
+    // nothing dangling.
+    if (opts.deleteNodes && nodeIds.size) {
+      data.nodes = data.nodes.filter((n) => !nodeIds.has(n.id))
+      data.edges = data.edges.filter((e) => !nodeIds.has(e.source) && !nodeIds.has(e.target))
+      writeNotesFile(data)
     }
   }
+
   writePlansFile(plans.filter((p) => p.id !== id))
 }
 

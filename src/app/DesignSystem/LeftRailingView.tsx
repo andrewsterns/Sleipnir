@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import ReactDOM from 'react-dom'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import { ListRow } from '../UIKit/ListRow/ListRow'
 import { Chip } from '../UIKit/Chip/Chip'
 import { Search } from '../UIKit/Search/Search'
+import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../UIKit/Search/iSearch'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { SidebarHeader } from '../UIKit/SidebarHeader/SidebarHeader'
 import { ContextMenu, type ContextMenuItem } from '../UIKit/ContextMenu/ContextMenu'
@@ -19,10 +21,12 @@ import {
   renameWorkspacePath,
   copyWorkspacePath,
   getWorkspaceInfo,
+  getPlans,
+  createPlanNode,
   type FileTreeNode,
   type ArchiveEntry,
 } from '../../00_planning/api/sleipnirApi'
-import type { GraphNode, NodeStage } from '../../00_planning/graph/types'
+import type { GraphNode, NodeStage, SavedPlan } from '../../00_planning/graph/types'
 import { useFileStages } from '../../00_planning/useFileStages'
 import { StatusGlyph } from '../../00_planning/graph/StatusGlyph'
 
@@ -106,6 +110,8 @@ interface LeftRailingProps {
   findPlanNodes?: (path: string, isDir: boolean) => Promise<GraphNode[]>
   /** Permanently deletes the given plan node ids — paired with findPlanNodes for the "…+ node" delete branch. */
   deletePlanNodes?: (ids: string[]) => Promise<void>
+  /** Adds an "Add node ▸" submenu to each row's context menu: pick an existing plan and a draft node named after the file/folder is created in it (createPlanNode), with a confirmation micro-animation. Opt-in (Workspace only) — undefined/false hides it entirely, same shape as the other workspace-scoped props. */
+  supportsAddNode?: boolean
 }
 
 function isAncestorOf(dirPath: string, targetPath: string): boolean {
@@ -175,7 +181,7 @@ function filterTreeByQuery(nodes: FileTreeNode[], query: string): FileTreeNode[]
   return walk(nodes)
 }
 
-type SortOrder = 'name' | 'recent'
+type SortOrder = SearchSortId
 
 // Same dirs-first grouping tools/sleipnir-backend.mjs's buildTree already
 // applies server-side — only the ordering *within* each group is
@@ -497,6 +503,88 @@ function TreeNodeRow({
   )
 }
 
+// The "confirmed" micro-animation after an Add-node → pick-plan: a small
+// checkmark chip that pops in at the click point, floats up and fades, then
+// unmounts itself (anim.onfinish → onDone). Portals into the nearest theme
+// scope so its tokens resolve, same reasoning as ContextMenu/Dropdown. Given a
+// fresh `key` per confirmation, it mounts clean and runs its animation once.
+function ConfirmPop({
+  x,
+  y,
+  label,
+  anchorEl,
+  onDone,
+}: {
+  x: number
+  y: number
+  label: string
+  anchorEl: HTMLElement | null
+  onDone: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [target] = useState<HTMLElement | null>(() => {
+    let node: HTMLElement | null = anchorEl
+    while (node && !Array.from(node.classList).some((c) => c.startsWith('theme-'))) node = node.parentElement
+    return node ?? (typeof document !== 'undefined' ? document.body : null)
+  })
+  useEffect(() => {
+    const el = ref.current
+    if (!el) {
+      onDone()
+      return
+    }
+    const anim = el.animate(
+      [
+        { opacity: 0, transform: 'translate(-50%, -40%) scale(0.8)' },
+        { opacity: 1, transform: 'translate(-50%, -70%) scale(1)', offset: 0.25 },
+        { opacity: 1, transform: 'translate(-50%, -90%) scale(1)', offset: 0.7 },
+        { opacity: 0, transform: 'translate(-50%, -120%) scale(0.96)' },
+      ],
+      { duration: 1150, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+    )
+    anim.onfinish = onDone
+    return () => {
+      try {
+        anim.cancel()
+      } catch {
+        /* animation already gone */
+      }
+    }
+    // Run once on mount — `key` gives each confirmation a fresh instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  if (!target) return null
+  return ReactDOM.createPortal(
+    <div
+      ref={ref}
+      style={{
+        position: 'fixed',
+        left: x,
+        top: y,
+        zIndex: 1200,
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 10px',
+        borderRadius: 'var(--radius-control)',
+        background: 'var(--bg-2)',
+        border: '1px solid var(--border-2)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+        color: 'var(--text-1)',
+        fontSize: 10,
+        letterSpacing: '0.02em',
+        whiteSpace: 'nowrap',
+        fontFamily: 'var(--font-mono)',
+      }}
+    >
+      <span style={{ color: '#7ec98f', fontWeight: 700 }}>✓</span>
+      Added to {label}
+    </div>,
+    target,
+  )
+}
+
 export const LeftRailing = ({
   tree,
   archivedEntries,
@@ -523,6 +611,7 @@ export const LeftRailing = ({
   onDeleted,
   findPlanNodes,
   deletePlanNodes,
+  supportsAddNode,
 }: LeftRailingProps) => {
   // filePath → planning stage of the plan node a file backs — so every file row
   // shows its planning status at rest, the same glyph the planning list and git
@@ -551,6 +640,12 @@ export const LeftRailing = ({
   // same as this component's other view-only state (treeWidth etc.).
   const [sortOrder, setSortOrder] = useState<SortOrder>('name')
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; anchorEl: HTMLElement; node: FileTreeNode } | null>(null)
+  // Plans offered in the context menu's "Add node ▸" submenu — fetched fresh
+  // each time a menu opens (only when supportsAddNode), so the list reflects
+  // any plan created this session. `confirm` drives the one-shot checkmark
+  // micro-animation after a node is added; `id` gives each pop a fresh mount.
+  const [plans, setPlans] = useState<SavedPlan[]>([])
+  const [confirm, setConfirm] = useState<{ id: number; x: number; y: number; label: string; anchorEl: HTMLElement } | null>(null)
 
   useEffect(() => {
     if (!searchOpen) return
@@ -597,6 +692,19 @@ export const LeftRailing = ({
 
   const handleRowContextMenu = (e: React.MouseEvent, node: FileTreeNode) => {
     setContextMenu({ x: e.clientX, y: e.clientY, anchorEl: e.currentTarget as HTMLElement, node })
+    // Refresh the plan list for the "Add node ▸" submenu each open, so a plan
+    // created earlier this session is pickable without a full remount.
+    if (supportsAddNode) getPlans().then((r) => setPlans(r.plans)).catch(() => {})
+  }
+
+  // Creates a draft plan-step node named after the file/folder in the chosen
+  // plan (createPlanNode — the same primitive the AI chat uses), then fires the
+  // confirmation pop at the click point. A folder yields a single node named
+  // after the folder, matching the "one node per item" behavior.
+  const handleAddNode = (node: FileTreeNode, plan: SavedPlan, x: number, y: number, anchorEl: HTMLElement) => {
+    createPlanNode(plan.id, node.name)
+      .then(() => setConfirm({ id: Date.now(), x, y, label: plan.label || 'plan', anchorEl }))
+      .catch(() => {})
   }
 
   const childrenOf = (dir: string): FileTreeNode[] =>
@@ -687,8 +795,10 @@ export const LeftRailing = ({
             autoFocus={searchOpen && !query}
             // Sort now rides inside the search box (its own sort-icon dropdown)
             // instead of a separate settings-gear button in the header actions.
+            // Shared option set (see SEARCH_SORT_OPTIONS) so every left-rail
+            // search's sort dropdown reads identically.
             sort={{
-              options: [{ id: 'name', label: 'Name' }, { id: 'recent', label: 'Recently modified' }],
+              options: SEARCH_SORT_OPTIONS,
               active: sortOrder,
               onChange: (v) => setSortOrder(v as SortOrder),
             }}
@@ -786,26 +896,41 @@ export const LeftRailing = ({
           // Create target: inside a folder row, or in a file row's parent folder
           // (a root-level row's parent is the root — routed via pendingCreate).
           const createDir = contextMenu.node.type === 'dir' ? contextMenu.node.path : parentDir(contextMenu.node.path)
-          return [
-          { label: 'Add file', icon: 'file-add', onSelect: () => setPendingCreate({ path: createDir, kind: 'file' }) },
-          { label: 'Add folder', icon: 'folder-add', onSelect: () => setPendingCreate({ path: createDir, kind: 'folder' }) },
-          { label: 'Rename', separator: true, onSelect: () => setRenamingNode(contextMenu.node) },
-          { label: 'Cut', separator: true, onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'cut' }) },
-          { label: 'Copy', onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'copy' }) },
-          {
-            label: 'Paste',
-            disabled: !clipboard,
-            onSelect: () => pasteInto(contextMenu.node.type === 'dir' ? contextMenu.node.path : parentDir(contextMenu.node.path)),
-          },
-          { label: 'Copy path', separator: true, onSelect: () => copyAbsolutePath(contextMenu.node) },
-          { label: 'Copy relative path', onSelect: () => copyRelativePath(contextMenu.node) },
-          {
-            label: contextMenu.node.type === 'dir' ? 'Delete Folder' : 'Delete File',
-            separator: true,
-            destructive: true,
-            onSelect: () => setDeletingNode(contextMenu.node),
-          },
-        ]
+          const menuItems: ContextMenuItem[] = []
+          if (supportsAddNode) {
+            menuItems.push({
+              label: 'Add node',
+              icon: 'plan-node-add',
+              children: plans.length
+                ? plans.map((p): ContextMenuItem => ({
+                    label: p.label || '(untitled plan)',
+                    icon: 'plan-node',
+                    onSelect: () => handleAddNode(contextMenu.node, p, contextMenu.x, contextMenu.y, contextMenu.anchorEl),
+                  }))
+                : [{ label: 'No plans yet', disabled: true }],
+            })
+          }
+          menuItems.push(
+            { label: 'Add file', icon: 'file-add', separator: supportsAddNode, onSelect: () => setPendingCreate({ path: createDir, kind: 'file' }) },
+            { label: 'Add folder', icon: 'folder-add', onSelect: () => setPendingCreate({ path: createDir, kind: 'folder' }) },
+            { label: 'Rename', separator: true, onSelect: () => setRenamingNode(contextMenu.node) },
+            { label: 'Cut', separator: true, onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'cut' }) },
+            { label: 'Copy', onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'copy' }) },
+            {
+              label: 'Paste',
+              disabled: !clipboard,
+              onSelect: () => pasteInto(contextMenu.node.type === 'dir' ? contextMenu.node.path : parentDir(contextMenu.node.path)),
+            },
+            { label: 'Copy path', separator: true, onSelect: () => copyAbsolutePath(contextMenu.node) },
+            { label: 'Copy relative path', onSelect: () => copyRelativePath(contextMenu.node) },
+            {
+              label: contextMenu.node.type === 'dir' ? 'Delete Folder' : 'Delete File',
+              separator: true,
+              destructive: true,
+              onSelect: () => setDeletingNode(contextMenu.node),
+            },
+          )
+          return menuItems
         })()}
       />
     )}
@@ -838,6 +963,17 @@ export const LeftRailing = ({
           onDeleted?.(path, type === 'dir')
           await afterMutation(onMutated, onChanged)
         }}
+      />
+    )}
+
+    {confirm && (
+      <ConfirmPop
+        key={confirm.id}
+        x={confirm.x}
+        y={confirm.y}
+        label={confirm.label}
+        anchorEl={confirm.anchorEl}
+        onDone={() => setConfirm(null)}
       />
     )}
     </>

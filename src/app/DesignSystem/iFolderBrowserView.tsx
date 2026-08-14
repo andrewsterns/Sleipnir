@@ -43,6 +43,8 @@ export interface FolderBrowserViewProps {
   fileAction?: (path: string, name: string) => { icon: IconName; title: string; onClick: () => void } | null | undefined
   /** "Add to plan" — passed straight through to LeftRailing, see its own doc comment. Present on every real-repo widget (App.tsx supplies one implementation for each); omitted for scope:'workspace', where an arbitrary external file has no relationship to Sleipnir's own graph/notes system. */
   onAddToPlan?: (label: string, paths: string[]) => void
+  /** Adds an "Add node ▸" submenu to each row's context menu (pick a plan → a draft node named after the file/folder is created in it, with a confirmation animation). Passed straight through to LeftRailing; Workspace only. */
+  supportsAddNode?: boolean
   /** Opens (or focuses, if already open) this file as a tab on mount and whenever it changes — see DesignLibrary.view.tsx's reactive-effect comment for why "changes after mount" matters now that browsers stay mounted across NavRail switches. `line` (1-based) scrolls/positions the cursor there once loaded — set by search-result and quick-open jumps (see App.tsx's jumpToProjectFile). */
   initialFile?: { name: string; path: string; line?: number } | null
   /**

@@ -9,7 +9,7 @@ export const Terminal: React.FC<TerminalProps> = ({ onExit }) => {
   const { containerRef, exitCode } = useTerminalViewModel({ onExit })
 
   return (
-    <Frame flow="vertical" h="fill" w="fill" fill={{ solid: '#0b0d11' }} padding={8}>
+    <Frame flow="vertical" h="fill" w="fill" fill={{ solid: 'bg-1' }} padding={8}>
       <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
       {exitCode !== null && (
         <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', padding: '4px 2px', ...MONO }}>

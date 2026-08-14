@@ -62,6 +62,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitPush: () => ipcRenderer.invoke('sleipnir:gitPush'),
   gitPull: () => ipcRenderer.invoke('sleipnir:gitPull'),
   gitFetch: () => ipcRenderer.invoke('sleipnir:gitFetch'),
+  gitInit: () => ipcRenderer.invoke('sleipnir:gitInit'),
+  gitAddRemote: (url, name) => ipcRenderer.invoke('sleipnir:gitAddRemote', url, name),
+  cloneRepo: (url) => ipcRenderer.invoke('sleipnir:cloneRepo', url),
   getGitIdentity: () => ipcRenderer.invoke('sleipnir:getGitIdentity'),
   setGitIdentity: (name, email) => ipcRenderer.invoke('sleipnir:setGitIdentity', name, email),
 

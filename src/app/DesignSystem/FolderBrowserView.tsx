@@ -33,7 +33,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   props,
   ref,
 ) {
-  const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, onImportsChanged, getGraphNodes, onLinkResolved } = props
+  const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, supportsAddNode, onImportsChanged, getGraphNodes, onLinkResolved } = props
   const { liveTree, archivedEntries, newPaths, tabs, activeTabPath, setActiveTabPath, openTab, closeTab, closeTabsUnder, contentByPath, refresh } =
     useFolderBrowserViewModel(props)
   const editorRefs = useRef<Map<string, CodeEditorHandle | null>>(new Map())
@@ -124,6 +124,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
           onDeleted={closeTabsUnder}
           findPlanNodes={scope === 'workspace' ? findPlanNodes : undefined}
           deletePlanNodes={scope === 'workspace' ? deletePlanNodes : undefined}
+          supportsAddNode={supportsAddNode}
         />
       )}
       header={

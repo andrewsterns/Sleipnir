@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { Terminal } from '../Terminal/Terminal'
@@ -14,18 +14,49 @@ interface TerminalDockProps {
   shiftUp?: boolean
 }
 
-// Mounted once at the App shell level, not per-page. The panel's contents
-// (<Terminal />) only ever mount once — the first time the user opens it —
-// and then stay mounted (just hidden via CSS) for the rest of the app's
-// lifetime, so the underlying shell process survives closing the panel.
+// Mounted once at the App shell level, not per-page. Each terminal tab's
+// <Terminal /> stays mounted for the app's lifetime (hidden via CSS when it
+// isn't the active tab, and the whole panel is hidden — not unmounted — when
+// closed), so every shell process survives tab-switching and panel-hiding.
+// Closing a tab explicitly is the only thing that unmounts a <Terminal /> and
+// kills its shell.
 export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, shiftUp }) => {
   const [everOpened, setEverOpened] = useState(false)
+  // Open terminal tabs, in order — each entry is a stable id (an ever-growing
+  // counter, so a closed tab's id is never reused for a different shell).
+  const [terminals, setTerminals] = useState<number[]>([])
+  const [activeId, setActiveId] = useState<number | null>(null)
+  const nextId = useRef(1)
   const available = isTerminalAvailable()
+
+  const addTerminal = () => {
+    const id = nextId.current++
+    setTerminals((ts) => [...ts, id])
+    setActiveId(id)
+  }
+
+  const closeTerminal = (id: number) => {
+    setTerminals((ts) => {
+      const idx = ts.indexOf(id)
+      const next = ts.filter((t) => t !== id)
+      // If the active tab closed, fall back to its left neighbour; closing the
+      // last tab collapses the whole panel.
+      setActiveId((cur) => (cur === id ? (next[Math.max(0, idx - 1)] ?? null) : cur))
+      if (next.length === 0) onOpenChange(false)
+      return next
+    })
+  }
 
   const toggle = () => {
     onOpenChange(!open)
-    setEverOpened(true)
+    if (!open) setEverOpened(true)
   }
+
+  // First open (or reopening after every tab was closed) spawns one terminal.
+  useEffect(() => {
+    if (open && everOpened && available && terminals.length === 0) addTerminal()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, everOpened, available, terminals.length])
 
   return (
     <>
@@ -69,28 +100,77 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
           fill={{ solid: 'bg-1' }}
           stroke={{ top: { color: 'border-2' } }}
         >
+          {/* Tab strip — one tab per shell, a "+" to spawn another, and the
+              panel-collapse × pinned right. */}
           <Frame
             flow="horizontal"
             align="center"
             justify="between"
-            padding={{ x: 14, y: 6 }}
             stroke={{ bottom: { color: 'border-1' } }}
             shrink={0}
           >
-            <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-              TERMINAL
-            </span>
+            <div className="no-scrollbar" style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflowX: 'auto' }}>
+              {terminals.map((id, i) => {
+                const active = id === activeId
+                return (
+                  <div
+                    key={id}
+                    onClick={() => setActiveId(id)}
+                    onAuxClick={(e) => { if (e.button === 1) closeTerminal(id) }}
+                    title={`Terminal ${i + 1}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 8px 6px 10px',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      borderRight: '1px solid var(--border-1)',
+                      background: active ? 'var(--bg-2)' : 'transparent',
+                    }}
+                  >
+                    <Icon name="terminal" size={11} />
+                    <span style={{ fontSize: 10, color: active ? 'var(--text-1)' : 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}>
+                      Terminal {i + 1}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); closeTerminal(id) }}
+                      title="Close terminal"
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0, ...MONO }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
+              {available && (
+                <button
+                  onClick={addTerminal}
+                  title="New terminal"
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '4px 12px', flexShrink: 0, ...MONO }}
+                >
+                  +
+                </button>
+              )}
+            </div>
             <button
               onClick={() => onOpenChange(false)}
-              title="Close"
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13, ...MONO }}
+              title="Close panel"
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13, padding: '6px 12px', flexShrink: 0, ...MONO }}
             >
               ×
             </button>
           </Frame>
-          <Frame grow minH={0}>
+
+          {/* Bodies — every shell stays mounted; only the active one is shown.
+              A shell exiting (typed `exit`) auto-closes its tab. */}
+          <Frame grow minH={0} style={{ position: 'relative' }}>
             {available ? (
-              <Terminal />
+              terminals.map((id) => (
+                <div key={id} style={{ position: 'absolute', inset: 0, display: id === activeId ? 'flex' : 'none' }}>
+                  <Terminal onExit={() => closeTerminal(id)} />
+                </div>
+              ))
             ) : (
               <Frame flow="vertical" align="center" justify="center" h="fill">
                 <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>

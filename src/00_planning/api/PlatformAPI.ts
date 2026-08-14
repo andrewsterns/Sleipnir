@@ -70,6 +70,8 @@ export interface GitFileStatus {
   staged: boolean
   untracked: boolean
   conflicted: boolean
+  /** Worktree modified time (ms epoch) — backs the search's "Recently modified" sort. 0 if the file is gone/unstattable. */
+  mtime: number
 }
 
 export interface GitStatus {
@@ -78,6 +80,10 @@ export interface GitStatus {
   ahead: number
   behind: number
   files: GitFileStatus[]
+  /** Configured remote names (e.g. ['origin']) — empty means Publish has nowhere to go, so the UI can offer "Add remote…". */
+  remotes: string[]
+  /** The git top-level directory this status is for (an ancestor of the open folder if it sits inside a larger repo) — shown so a workspace-root mismatch is diagnosable. Null if not resolvable. */
+  root?: string | null
 }
 
 export interface GitBranch {
@@ -146,6 +152,8 @@ export interface GitOpResult {
   conflictedFiles?: string[]
   ahead?: number
   behind?: number
+  /** Push failed because the repo has no remote — the UI can offer "Add remote…". */
+  noRemote?: boolean
 }
 
 /** `git config user.name`/`user.email` as currently effective for this repo (local override, else global) — empty string when unset at either scope. */
@@ -232,8 +240,8 @@ export interface PlatformAPI {
   appendPlanGeneratedFiles(id: string, paths: string[]): Promise<{ plan: SavedPlan }>
   /** Merges existing graph node ids into a plan's `nodeIds` (deduped) — used when a link drawn on a plan tab targets a node from another plan, pulling it in so the edge resolves on this plan's graph. Returns the updated plan. */
   addPlanNodes(id: string, nodeIds: string[]): Promise<{ plan: SavedPlan }>
-  /** `opts.deleteFiles` also deletes every path in the plan's `generatedFiles`, resolved against the open Workspace root. */
-  deletePlan(id: string, opts?: { deleteFiles?: boolean }): Promise<void>
+  /** The plan record is always removed. `opts.deleteFiles` also deletes the plan's `generatedFiles` (and, with `deleteNodes`, each removed node's backing file), resolved against the open Workspace root. `opts.deleteNodes` also removes the plan's nodes from the graph and every edge touching them. */
+  deletePlan(id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }): Promise<void>
   /**
    * Runs a file through its language's local interpreter/compiler and
    * captures output. Desktop/local-trusted only: the web transport's runner
@@ -268,6 +276,10 @@ export interface PlatformAPI {
   /** Returns `conflicted: true` (with the file list) on a merge conflict rather than attempting any automatic resolution — resolve in the Terminal panel. */
   gitPull(): Promise<GitOpResult>
   gitFetch(): Promise<GitOpResult>
+  /** `git init` (main as initial branch) — turns the open non-repo folder into a git repo. Optional: provided by the Electron shell, absent on the web-dev transport (feature-detect with `?.`). */
+  gitInit?(): Promise<GitOpResult>
+  /** Adds or updates a remote (defaults to 'origin') so a freshly init'd / remote-less repo can publish. Optional (Electron shell only). */
+  gitAddRemote?(url: string, name?: string): Promise<GitOpResult>
   /** Writes always target this repo's local git config — see tools/git-control.mjs's getGitIdentity/setGitIdentity comment for why global is deliberately never touched. */
   getGitIdentity(): Promise<GitIdentity>
   setGitIdentity(name: string, email: string): Promise<GitIdentity>

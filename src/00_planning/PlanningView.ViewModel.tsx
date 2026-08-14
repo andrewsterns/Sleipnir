@@ -21,6 +21,7 @@ import {
 } from './api/sleipnirApi'
 import { adapterForLanguage } from './graph/importAdapters'
 import { fuzzyScore } from '../utils/fuzzyMatch'
+import type { SearchSortId } from '../app/UIKit/Search/iSearch'
 
 // One node plus which map/library/plan it lives in — the unit global search
 // (usePlanningViewModel's nodeRows, see below) operates over, since a node's
@@ -41,6 +42,19 @@ const GLOBAL_SEARCH_LIMIT = 100
 // graph/proposed-nodes.ts's `welcome` entry — kept as a literal in both
 // places rather than a shared export, since it's a single string used twice.
 const WELCOME_EXAMPLE_NODE_ID = 'welcome/guide/workspace'
+
+// Best-effort node creation time (ms epoch) for the search's "Recently
+// modified" sort. GraphNode carries no timestamp, but note/plan/scaffold nodes
+// embed their creation `Date.now()` in the id (see addNote/createPlanNode/
+// scaffoldNodes in tools/sleipnir-backend.mjs — e.g. `note/<map>/<slug>-<ms>`
+// or `note/<map>/<slug>-<ms>-<index>`). Build-generated library nodes have no
+// creation concept and fall back to 0, sorting to the bottom of a
+// recency-descending list. The 13-digit match is unambiguous for any
+// millisecond timestamp between 2001 and 2286.
+function nodeCreatedAt(node: GraphNode): number {
+  const m = /(\d{13})(?:-\d+)?$/.exec(node.id)
+  return m ? Number(m[1]) : 0
+}
 
 // A node's containing folder — archiving a node archives its whole
 // View/ViewModel/interface "series" as one manifest entry.
@@ -168,6 +182,10 @@ export function usePlanningViewModel(
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<string[]>([])
+  // Node-list sort, mirroring the Workspace file tree's own sort dropdown so
+  // both left-rail searches offer the same control (see SEARCH_SORT_OPTIONS).
+  // 'name' is the historical default; 'recent' orders by node createdAt.
+  const [sortOrder, setSortOrder] = useState<SearchSortId>('name')
 
   useEffect(() => {
     setData(graphForMap(mapId))
@@ -551,8 +569,11 @@ export function usePlanningViewModel(
   }
 
   const sortedNodes = useMemo(
-    () => [...live.nodes].sort((a, b) => a.label.localeCompare(b.label)),
-    [live],
+    () =>
+      [...live.nodes].sort((a, b) =>
+        sortOrder === 'name' ? a.label.localeCompare(b.label) : nodeCreatedAt(b) - nodeCreatedAt(a),
+      ),
+    [live, sortOrder],
   )
   const kindFilteredNodes = useMemo(
     () => (kindFilter.length === 0 ? sortedNodes : sortedNodes.filter((n) => kindFilter.includes(n.kind))),
@@ -651,6 +672,8 @@ export function usePlanningViewModel(
     setQuery,
     kindFilter,
     setKindFilter,
+    sortOrder,
+    setSortOrder,
     nodeRows,
     isGlobalSearch,
     mapLabelFor,

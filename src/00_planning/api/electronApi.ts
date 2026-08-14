@@ -29,6 +29,8 @@ export interface ElectronBridge extends PlatformAPI {
   renameProject?(projectPath: string, name: string): Promise<{ name: string }>
   /** Recolors this window's native (OS-drawn) minimize/maximize/close overlay to match the active theme. Fire-and-forget; Windows-only (a no-op elsewhere). Called by ThemeController whenever the theme changes. */
   setTitleBarTheme?(colors: { color: string; symbolColor: string }): void
+  /** Clones a repo from `url` into a user-picked folder (native picker), then opens it as this window's project — same repoint flow as openWorkspace. `null` if canceled, `{error}` on failure. Electron-only. */
+  cloneRepo?(url: string): Promise<WorkspaceInfo | { error: string } | null>
 }
 
 declare global {

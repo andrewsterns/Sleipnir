@@ -289,6 +289,20 @@ export function gitFetch(...args: Parameters<PlatformAPI['gitFetch']>) {
   return getPlatformAPI().gitFetch(...args)
 }
 
+export function gitInit() {
+  return getPlatformAPI().gitInit?.()
+}
+
+export function gitAddRemote(url: string, name?: string) {
+  return getPlatformAPI().gitAddRemote?.(url, name)
+}
+
+// Clone a repo from a URL, then open it as this window's project — Electron-only
+// (native destination picker), same reasoning as openWorkspace above.
+export function cloneRepo(url: string) {
+  return window.electronAPI?.cloneRepo?.(url)
+}
+
 export function getGitIdentity(...args: Parameters<PlatformAPI['getGitIdentity']>) {
   return getPlatformAPI().getGitIdentity(...args)
 }

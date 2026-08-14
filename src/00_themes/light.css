@@ -110,4 +110,21 @@
      Dark ink on the light ground; ground text (light) on filled states. */
   --item-ink:    20, 22, 26;
   --item-ground: #f4f5f7;
+
+  /* ── Code editor syntax palette — restrained grey/black/blue ──────────────
+     Mirror of tactical's --code-* tokens, but deliberately quieter for the
+     light ground: structural syntax (keywords, elements, types) reads blue,
+     content (functions, numbers, variables via --text-1) reads near-black,
+     and strings/attributes sit in a muted slate so the whole editor stays
+     grey/black/blue. Red is reserved exclusively for invalid tokens (and the
+     lint underline), so the only red a reader sees means "error". */
+  --code-keyword:   #1750a3;           /* blue — import/const/return/etc. */
+  --code-string:    #4a5560;           /* muted slate — string content */
+  --code-number:    #1a1c20;           /* near-black — numeric/atom literals */
+  --code-tag:       #1750a3;           /* blue — <element> names read structural */
+  --code-attribute: #5a7391;           /* steel-blue — props, distinct from tags */
+  --code-type:      #1750a3;           /* blue — type / class / namespace */
+  --code-function:  #14161a;           /* near-black — function names */
+  --code-property:  #3a5f86;           /* slate-blue — object property names */
+  --code-invalid:   #c62828;           /* red — the sole error colour */
 }

@@ -301,11 +301,11 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ plan: SavedPlan }>(res))
   },
 
-  deletePlan(id: string, opts?: { deleteFiles?: boolean }): Promise<void> {
+  deletePlan(id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }): Promise<void> {
     return fetch('/api/sleipnir/delete-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, deleteFiles: opts?.deleteFiles }),
+      body: JSON.stringify({ id, deleteFiles: opts?.deleteFiles, deleteNodes: opts?.deleteNodes }),
     }).then((res) => asJson<void>(res))
   },
 

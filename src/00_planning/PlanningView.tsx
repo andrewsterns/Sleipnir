@@ -16,6 +16,7 @@ import { createPlan, getWorkspaceInfo, listWorkspaceDir } from './api/sleipnirAp
 import type { FileTreeNode } from './api/PlatformAPI'
 import { usePlanningViewModel, folderPathForNode, type PlanningNodeRow } from './PlanningView.ViewModel'
 import { Search } from '../app/UIKit/Search/Search'
+import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../app/UIKit/Search/iSearch'
 import { ListRow } from '../app/UIKit/ListRow/ListRow'
 import { SidebarHeader } from '../app/UIKit/SidebarHeader/SidebarHeader'
 import { Dropdown } from '../app/UIKit/Dropdown/Dropdown'
@@ -761,7 +762,7 @@ export interface PlanningViewProps {
   /** Owned by App.tsx (fetched once, appended to locally on create) — see its `plans` state doc comment. */
   plans: SavedPlan[]
   onCreatePlan: (plan: SavedPlan) => void
-  onDeletePlan: (id: string, opts?: { deleteFiles?: boolean }) => void
+  onDeletePlan: (id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }) => void | Promise<void>
   /** Reflects a plan whose `nodeIds` changed in-view (see the ViewModel's addLink cross-plan pull-in) back into App.tsx's owning `plans` state. */
   onUpdatePlan: (plan: SavedPlan) => void
   /** Opens a Workspace-relative file path in the Workspace Code Editor (App.tsx's jumpToProjectFile) — powers the card's file links and double-click-to-open on graph nodes / the NODES list. No-op when omitted or no Workspace is open. */
@@ -834,6 +835,8 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     setQuery,
     kindFilter,
     setKindFilter,
+    sortOrder,
+    setSortOrder,
     nodeRows,
     isGlobalSearch,
     mapLabelFor,
@@ -1138,6 +1141,13 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 placeholder="Search in Planning…"
                 w="fill"
                 autoFocus={nodeSearchOpen && !query}
+                // Same sort dropdown the Workspace file tree uses, so both
+                // left-rail searches present an identical sort control.
+                sort={{
+                  options: SEARCH_SORT_OPTIONS,
+                  active: sortOrder,
+                  onChange: (v) => setSortOrder(v as SearchSortId),
+                }}
                 filters={{ options: KIND_FILTER_OPTIONS, active: kindFilter, onChange: setKindFilter }}
               />
             }
@@ -1416,6 +1426,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
               // isn't open is a no-op here (closeMap ignores an unknown id).
               closeMap(deletingPlan.id)
               setDeletingPlan(null)
+              // A "delete everything" removes the plan's nodes from notes.json;
+              // reload so they vanish from every open map at once instead of
+              // lingering until the next remount. Harmless for a plan-only
+              // delete — notes are unchanged, so the graph re-reads identically.
+              void refreshAll()
             }}
           />
         )}

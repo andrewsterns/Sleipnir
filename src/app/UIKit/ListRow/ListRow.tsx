@@ -13,8 +13,10 @@ export interface ListRowProps {
   /** Outline highlight without the solid fill — item-states.css `.is-connected`. */
   connected?: boolean
   /**
-   * Left padding in px — the tree-depth indent, the sidebar's base inset, etc.
-   * Defaults to 8. (Right padding is a fixed 8; override via `style` if needed.)
+   * Left indent in px — the tree-depth indent, the sidebar's base inset, etc.
+   * Defaults to 8. A fixed `LIST_ROW_PAD_X - 8` gutter is added on top of this
+   * on the left, and `LIST_ROW_PAD_X` is the right padding; override via `style`
+   * if needed.
    */
   indent?: number
   /** Fixed content before the label: icon, chevron, checkbox, status glyphs. */
@@ -49,8 +51,12 @@ export interface ListRowProps {
 }
 
 // Shared so every list reads at the same height/rhythm.
-export const LIST_ROW_MIN_H = 28
+export const LIST_ROW_MIN_H = 22
 const ROW_GAP = 6
+// Horizontal breathing room, both sides. Callers already fold an 8px base
+// gutter into `indent`, so the left only needs the difference on top of it
+// (a depth-0 row then lands at LIST_ROW_PAD_X); the right uses it directly.
+const LIST_ROW_PAD_X = 14
 
 export const ListRow: React.FC<ListRowProps> = ({
   selected,
@@ -96,11 +102,16 @@ export const ListRow: React.FC<ListRowProps> = ({
         // panel padding with negative margins — actually reach the far edge;
         // an explicit width can't grow into a negative margin.
         alignSelf: 'stretch',
-        minHeight: LIST_ROW_MIN_H,
-        paddingLeft: indent,
-        paddingRight: 8,
+        // Fixed height (not min-height) so the taller controls that only appear
+        // on hover — the row's action IconButtons are 28px, larger than the row
+        // — overflow the row invisibly (transparent hit area, centered glyphs)
+        // instead of stretching it and shoving every row below down on hover.
+        height: LIST_ROW_MIN_H,
+        boxSizing: 'border-box',
+        paddingLeft: indent + (LIST_ROW_PAD_X - 8),
+        paddingRight: LIST_ROW_PAD_X,
         cursor: onClick ? 'pointer' : undefined,
-        fontSize: 12,
+        fontSize: 11,
         letterSpacing: '0.02em',
         fontFamily: 'var(--font-mono)',
         ...style,

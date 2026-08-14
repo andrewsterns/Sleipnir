@@ -248,6 +248,8 @@ function registerIpcHandlers() {
   ws('sleipnir:gitPush', (b) => b.gitPush())
   ws('sleipnir:gitPull', (b) => b.gitPull())
   ws('sleipnir:gitFetch', (b) => b.gitFetch())
+  ws('sleipnir:gitInit', (b) => b.gitInit())
+  ws('sleipnir:gitAddRemote', (b, _e, url, name) => b.gitAddRemote(url, name))
   ws('sleipnir:getGitIdentity', (b) => b.getGitIdentity())
   ws('sleipnir:setGitIdentity', (b, _e, name, email) => b.setGitIdentity(name, email))
 
@@ -382,6 +384,38 @@ function registerIpcHandlers() {
       windowRoots.set(event.sender.id, info.root)
       workspaceStore.touchProject(info.root, info.name)
       setWindowTitle(BrowserWindow.fromWebContents(event.sender), info.name)
+      return info
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
+  // Clone `url` into a folder the user picks, then open the result as this
+  // window's project — same "repoint the window" flow as openWorkspace, just
+  // preceded by a git clone. Returns WorkspaceInfo (or { error }).
+  ipcMain.handle('sleipnir:cloneRepo', async (event, url) => {
+    if (!url || !String(url).trim()) return { error: 'Enter a repository URL to clone.' }
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const picked = await dialog.showOpenDialog(win, {
+      title: 'Choose a folder to clone into',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (picked.canceled || !picked.filePaths[0]) return null
+    const parent = picked.filePaths[0]
+    // Repo name from the URL (…/Sleipnir.git → Sleipnir, git@host:u/r.git → r),
+    // de-conflicted so a clone never lands on top of an existing folder.
+    const base = String(url).trim().replace(/\.git$/i, '').replace(/[/\\]+$/, '').split(/[/:]/).pop() || 'repo'
+    const name = base.replace(/[^A-Za-z0-9._-]/g, '') || 'repo'
+    let dest = path.join(parent, name)
+    for (let i = 1; fs.existsSync(dest); i++) dest = path.join(parent, `${name}-${i}`)
+    const b = await getBackend()
+    try {
+      const cloned = await b.gitClone(url, dest)
+      if (!cloned.ok) return { error: cloned.message }
+      const info = b.openWorkspace(dest)
+      windowRoots.set(event.sender.id, info.root)
+      workspaceStore.touchProject(info.root, info.name)
+      setWindowTitle(win, info.name)
       return info
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) }

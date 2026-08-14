@@ -102,6 +102,23 @@
        selected → solid ink, all with ground-coloured text on fills. */
   --item-ink:    255, 255, 255;
   --item-ground: #000000;
+
+  /* ── Code editor syntax palette (CodeMirror highlight tokens) ─────────────
+     Read by codeEditorTheme.ts's HighlightStyle so syntax colours invert with
+     the app theme. Tactical's scheme: soft grey/white base (comments,
+     variables and punctuation reuse --text-*), light blue for
+     keywords/types/properties, light green for strings/attributes, soft
+     salmon (never red) for numbers/atoms/tags. Red is reserved for --code-
+     invalid. Keep these in lockstep with light.css. */
+  --code-keyword:   #a8c8ff;           /* keywords / control / module / operator kw */
+  --code-string:    #a8e6b2;           /* strings / regexp */
+  --code-number:    #ffa89d;           /* numbers / bool / null / atom */
+  --code-tag:       #ffa89d;           /* JSX/HTML element names + self */
+  --code-attribute: #a8e6b2;           /* JSX/HTML attribute (prop) names */
+  --code-type:      #a8c8ff;           /* type / class / namespace names */
+  --code-function:  #f4f5f7;           /* function names */
+  --code-property:  #a8c8ff;           /* object property names */
+  --code-invalid:   #ffa89d;           /* lexically invalid tokens */
 }
 
 .no-scrollbar {

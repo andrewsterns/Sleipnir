@@ -56,6 +56,8 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
               {tab.label}
             </span>
             {tab.closable && (
+              // Extra left margin (on top of the row's gap) pushes the close
+              // clear of the label toward the tab's right edge.
               <IconButton
                 onClick={(e) => {
                   e.stopPropagation()
@@ -66,6 +68,7 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
                 iconSize={13}
                 size={22}
                 textColor="var(--text-3)"
+                style={{ marginLeft: 6 }}
               />
             )}
           </Frame>

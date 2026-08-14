@@ -1,6 +1,6 @@
-import { LSPClient, languageServerExtensions, Workspace, LSPPlugin, type Transport, type WorkspaceFile } from '@codemirror/lsp-client'
+import { LSPClient, languageServerExtensions, Workspace, LSPPlugin, jumpToDefinition, type Transport, type WorkspaceFile } from '@codemirror/lsp-client'
 import { Text, type TransactionSpec, type ChangeSet } from '@codemirror/state'
-import type { EditorView } from '@codemirror/view'
+import { EditorView } from '@codemirror/view'
 import { readRepoFile } from '../../00_planning/api/sleipnirApi'
 
 // Must match tools/lsp-proxy.mjs's FAKE_ROOT_URI exactly — the proxy
@@ -221,6 +221,43 @@ class SleipnirWorkspace extends Workspace {
     })
   }
 }
+
+// Ctrl/Cmd+click a symbol to jump to its definition — the "drill into" gesture
+// from VS Code. The lsp-client library only ships F12 (jumpToDefinitionKeymap);
+// this layers the pointer gesture on top. Two things worth knowing:
+//   • CodeMirror's own default for Ctrl/Cmd+click is "add a selection range"
+//     (multi-cursor). We claim the gesture at mousedown and return true, which
+//     makes CodeMirror preventDefault and skip its built-in mouse handler (core
+//     mouse handling is always appended last in the handler chain, so a plugin
+//     handler that returns true short-circuits it).
+//   • jumpToDefinition reads the *main selection head*, not the click, so we
+//     move the caret to the clicked position first, then invoke it. Cross-file
+//     targets open a tab via SleipnirWorkspace.displayFile.
+// The mousemove/mouseleave pair toggles a class so the caret renders as a
+// pointer while the modifier is held (discoverability — see codeEditorTheme.ts
+// for the matching cursor rule). Only added for LSP-backed files (see
+// CodeEditorView.ViewModel), so with no language server jumpToDefinition can't
+// be a no-op gesture.
+export const goToDefinitionOnModClick = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    if (event.button !== 0 || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey)) return false
+    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+    if (pos == null) return false
+    view.dispatch({ selection: { anchor: pos } })
+    view.focus()
+    jumpToDefinition(view)
+    return true
+  },
+  mousemove(event, view) {
+    const active = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey
+    if (active !== view.dom.classList.contains('cm-goToDef')) view.dom.classList.toggle('cm-goToDef', active)
+    return false
+  },
+  mouseleave(_event, view) {
+    view.dom.classList.remove('cm-goToDef')
+    return false
+  },
+})
 
 function createWebSocketTransport(url: string): Transport {
   const socket = new WebSocket(url)

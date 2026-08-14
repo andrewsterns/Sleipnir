@@ -6,6 +6,7 @@ import { IconButton } from '../app/UIKit/IconButton/IconButton'
 import { Checkbox } from '../app/UIKit/Checkbox/Checkbox'
 import { ListRow } from '../app/UIKit/ListRow/ListRow'
 import { Search } from '../app/UIKit/Search/Search'
+import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../app/UIKit/Search/iSearch'
 import { ContextMenu } from '../app/UIKit/ContextMenu/ContextMenu'
 import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
 import { DiscardFileModal } from './DiscardFileModal'
@@ -178,7 +179,15 @@ function DiffView({ diff, loading }: { diff: string; loading: boolean }) {
   )
 }
 
-export default function SourceControlView() {
+export default function SourceControlView({
+  active = true,
+  refreshToken = 0,
+}: {
+  /** True while Source Control is the visible category (primary or split pane). */
+  active?: boolean
+  /** Bumped by App on every in-app save so a just-saved file shows immediately. */
+  refreshToken?: number
+} = {}) {
   const vm = useSourceControlViewModel()
   const { theme } = useAppTheme()
   // Planning stage per file (by workspace-relative path) — lets a changed file
@@ -195,7 +204,28 @@ export default function SourceControlView() {
   const [discardingFile, setDiscardingFile] = useState<GitFileStatus | null>(null)
   const [fileSearchOpen, setFileSearchOpen] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
+  // Changed-file sort, sharing the Workspace/Planning search sort control
+  // (see SEARCH_SORT_OPTIONS). 'recent' orders by worktree mtime (GitFileStatus.mtime).
+  const [fileSort, setFileSort] = useState<SearchSortId>('name')
+  const [showAddRemote, setShowAddRemote] = useState(false)
+  const [remoteUrl, setRemoteUrl] = useState('')
   const fileSearchRef = useRef<HTMLElement>(null)
+
+  // Re-read git state whenever Source Control becomes the visible category, and
+  // whenever an in-app save bumps refreshToken. App keeps every category mounted
+  // and just toggles `display`, so switching TO this view is neither a remount
+  // (the only thing that fires the ViewModel's own mount refresh) nor a
+  // window-focus change — without this, a file created/edited/saved in another
+  // category (e.g. a new file in Workspace) never shows up here until the app
+  // loses and regains focus. Driven by an explicit App prop rather than an
+  // IntersectionObserver because IO firing on a display:none→flex toggle is
+  // unreliable; a prop change is deterministic. refresh/refreshBranchTree are
+  // stable (useCallback), so the effect only re-runs when active/refreshToken
+  // actually change.
+  const { refresh, refreshBranchTree } = vm
+  useEffect(() => {
+    if (active) { refresh(); refreshBranchTree() }
+  }, [active, refreshToken, refresh, refreshBranchTree])
 
   useEffect(() => {
     if (!fileSearchOpen) return
@@ -224,19 +254,46 @@ export default function SourceControlView() {
   }
 
   if (vm.error && !vm.status) {
+    const notARepo = /not a git repository/i.test(vm.error)
     return (
-      <Frame flow="vertical" h="fill" w="fill" align="center" justify="center" gap={8}>
-        <span style={{ fontSize: 11, color: '#e07a7a', ...MONO }}>{vm.error}</span>
-        <Button variant="ghost" size="sm" onClick={vm.refresh}>Retry</Button>
+      <Frame theme={theme} flow="vertical" h="fill" w="fill" align="center" justify="center" gap={10} fill={{ solid: 'bg-1' }}>
+        <span style={{ fontSize: 11, color: notARepo ? 'var(--text-2)' : '#e07a7a', ...MONO }}>
+          {notARepo ? 'This folder is not a Git repository yet.' : vm.error}
+        </span>
+        <Frame flow="horizontal" align="center" gap={8}>
+          {notARepo && (
+            <Button variant="primary" size="sm" onClick={vm.doInit} disabled={vm.initializing} isLoading={vm.initializing}>
+              {vm.initializing ? 'Initializing…' : 'Initialize repository'}
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={vm.refresh}>Retry</Button>
+        </Frame>
+        {notARepo && (
+          <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>
+            Or clone a repo from the Workspace tab.
+          </span>
+        )}
       </Frame>
     )
   }
 
   const status = vm.status!
   const nothingStaged = vm.staged.length === 0
+  // Last two path segments of the repo git status is actually reading — shown
+  // so "my changes aren't showing" is obviously a wrong-folder problem when it
+  // is one (full path on hover).
+  const repoLabel = status.root
+    ? status.root.replace(/\\/g, '/').split('/').filter(Boolean).slice(-2).join('/')
+    : null
 
-  const filterFiles = (files: GitFileStatus[]) =>
-    fileQuery.trim() ? files.filter((f) => f.path.toLowerCase().includes(fileQuery.toLowerCase())) : files
+  const filterFiles = (files: GitFileStatus[]) => {
+    const matched = fileQuery.trim()
+      ? files.filter((f) => f.path.toLowerCase().includes(fileQuery.toLowerCase()))
+      : files
+    return [...matched].sort((a, b) =>
+      fileSort === 'name' ? a.path.localeCompare(b.path) : b.mtime - a.mtime,
+    )
+  }
 
   return (
     <Frame theme={theme} flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
@@ -254,6 +311,12 @@ export default function SourceControlView() {
                 placeholder={`Search files\u2026`}
                 w="fill"
                 autoFocus={fileSearchOpen && !fileQuery}
+                // Same sort dropdown as the Workspace/Planning searches.
+                sort={{
+                  options: SEARCH_SORT_OPTIONS,
+                  active: fileSort,
+                  onChange: (v) => setFileSort(v as SearchSortId),
+                }}
               />
             </Frame>
           ) : (
@@ -272,6 +335,14 @@ export default function SourceControlView() {
                 )}
                 <IconButton
                   as="span"
+                  glyph="\u27f3"
+                  iconSize={15}
+                  title="Refresh \u2014 re-read git status (needed after committing in the terminal or editing outside Sleipnir)"
+                  textColor="var(--text-3)"
+                  onClick={() => { vm.refresh(); vm.refreshBranchTree() }}
+                />
+                <IconButton
+                  as="span"
                   icon="search"
                   iconSize={13}
                   title="Search files"
@@ -280,6 +351,15 @@ export default function SourceControlView() {
                 />
               </Frame>
             </Frame>
+          )}
+
+          {repoLabel && (
+            <span
+              title={`Source Control is tracking this repository:\n${status.root}\n\nIf your changes aren't here, this is the wrong folder — open the right project via File ▸ Open Project.`}
+              style={{ fontSize: 9, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...MONO }}
+            >
+              ▸ tracking …/{repoLabel}
+            </span>
           )}
 
           {showBranches && (
@@ -358,27 +438,55 @@ export default function SourceControlView() {
             </Frame>
           )}
 
-          <Frame flow="horizontal" gap={6} align="center">
-            <Button variant="ghost" size="sm" onClick={vm.doFetch} isLoading={vm.fetching}>Fetch</Button>
-            <Button variant="ghost" size="sm" onClick={vm.doPull} isLoading={vm.pulling}>Pull</Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={vm.doPush}
-              isLoading={vm.pushing}
-              disabled={status.ahead === 0 && !!status.upstream}
-            >
-              {/* "Publish" on first push (no upstream yet), "Push" thereafter.
-                  Never "Up to date" — that's a status, shown separately below so
-                  it can't be mistaken for a dead button. */}
-              {status.upstream ? 'Push' : 'Publish'}
-            </Button>
-            {status.upstream && status.ahead === 0 && status.behind === 0 && !vm.pushing && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, letterSpacing: '0.06em', color: '#7ec98f', ...MONO }}>
-                {'✓'} Up to date
-              </span>
-            )}
-          </Frame>
+          {status.remotes && status.remotes.length > 0 ? (
+            <Frame flow="horizontal" gap={6} align="center">
+              <Button variant="ghost" size="sm" onClick={vm.doFetch} isLoading={vm.fetching}>Fetch</Button>
+              <Button variant="ghost" size="sm" onClick={vm.doPull} isLoading={vm.pulling}>Pull</Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={vm.doPush}
+                isLoading={vm.pushing}
+                disabled={status.ahead === 0 && !!status.upstream}
+              >
+                {/* "Publish" on first push (no upstream yet), "Push" thereafter.
+                    Never "Up to date" — that's a status, shown separately below so
+                    it can't be mistaken for a dead button. */}
+                {status.upstream ? 'Push' : 'Publish'}
+              </Button>
+              {status.upstream && status.ahead === 0 && status.behind === 0 && !vm.pushing && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, letterSpacing: '0.06em', color: '#7ec98f', ...MONO }}>
+                  {'✓'} Up to date
+                </span>
+              )}
+            </Frame>
+          ) : showAddRemote ? (
+            /* No remote → let the user wire an 'origin' so Publish has a target. */
+            <Frame flow="vertical" gap={6}>
+              <input
+                autoFocus
+                value={remoteUrl}
+                onChange={(e) => setRemoteUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && remoteUrl.trim()) { vm.doAddRemote(remoteUrl); setShowAddRemote(false) }
+                  if (e.key === 'Escape') setShowAddRemote(false)
+                }}
+                placeholder="https://github.com/user/repo.git"
+                style={{ background: 'var(--bg-2)', border: '1px solid var(--border-2)', borderRadius: 'var(--radius-control)', color: 'var(--text-1)', fontSize: 10, padding: '5px 8px', outline: 'none', ...MONO }}
+              />
+              <Frame flow="horizontal" gap={6}>
+                <Button variant="ghost" size="sm" onClick={() => setShowAddRemote(false)} disabled={vm.addingRemote}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={() => { vm.doAddRemote(remoteUrl); setShowAddRemote(false) }} disabled={vm.addingRemote || !remoteUrl.trim()} isLoading={vm.addingRemote}>
+                  Add remote
+                </Button>
+              </Frame>
+            </Frame>
+          ) : (
+            <Frame flow="horizontal" gap={8} align="center">
+              <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>No remote — commits stay local.</span>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddRemote(true)}>Add remote…</Button>
+            </Frame>
+          )}
 
           {vm.opResult && (
             <span style={{ fontSize: 9, color: vm.opResult.ok ? '#7ec98f' : '#e07a7a', ...MONO }}>

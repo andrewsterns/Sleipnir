@@ -14,6 +14,8 @@ import {
   gitPush,
   gitPull,
   gitFetch,
+  gitInit,
+  gitAddRemote,
   type GitStatus,
   type GitFileStatus,
   type GitBranch,
@@ -52,6 +54,8 @@ export function useSourceControlViewModel() {
   const [pulling, setPulling] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [opResult, setOpResult] = useState<GitOpResult | null>(null)
+  const [initializing, setInitializing] = useState(false)
+  const [addingRemote, setAddingRemote] = useState(false)
 
   const [newBranchName, setNewBranchName] = useState('')
   const [switchingBranch, setSwitchingBranch] = useState(false)
@@ -91,6 +95,21 @@ export function useSourceControlViewModel() {
   useEffect(() => {
     refresh()
     refreshBranchTree()
+  }, [refresh, refreshBranchTree])
+
+  // Re-read git state whenever the app regains focus / becomes visible — the
+  // view can't see changes made outside its own buttons (a commit in the
+  // in-app terminal, an external editor, the git CLI) until something tells it
+  // to look again. This catches the "came back from another app" case; the
+  // header's Refresh button covers "committed in the terminal without leaving".
+  useEffect(() => {
+    const reload = () => { if (!document.hidden) { refresh(); refreshBranchTree() } }
+    window.addEventListener('focus', reload)
+    document.addEventListener('visibilitychange', reload)
+    return () => {
+      window.removeEventListener('focus', reload)
+      document.removeEventListener('visibilitychange', reload)
+    }
   }, [refresh, refreshBranchTree])
 
   // Keep the diff pane in sync with whichever file is selected — reload it
@@ -199,6 +218,37 @@ export function useSourceControlViewModel() {
     }
   }
 
+  // Turn the open folder into a git repo — after this, getGitStatus stops
+  // throwing "Not a git repository" and the normal view takes over.
+  const doInit = async () => {
+    setInitializing(true)
+    setError(null)
+    try {
+      const result = await gitInit()
+      if (result && !result.ok) { setError(result.message); return }
+      await Promise.all([refresh(), refreshBranchTree()])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setInitializing(false)
+    }
+  }
+
+  // Wire an 'origin' so a remote-less repo can Publish.
+  const doAddRemote = async (url: string) => {
+    setAddingRemote(true)
+    setOpResult(null)
+    try {
+      const result = await gitAddRemote(url.trim())
+      if (result) setOpResult(result)
+      await refresh()
+    } catch (e) {
+      setOpResult({ ok: false, message: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setAddingRemote(false)
+    }
+  }
+
   const switchBranch = async (name: string) => {
     setSwitchingBranch(true)
     setError(null)
@@ -273,9 +323,10 @@ export function useSourceControlViewModel() {
     toggleStage, discard,
     commitMessage, setCommitMessage, committing, commit,
     pushing, pulling, fetching, opResult, doPush, doPull, doFetch,
+    initializing, doInit, addingRemote, doAddRemote,
     newBranchName, setNewBranchName, switchingBranch, switchBranch, submitNewBranch,
     renamingBranch, renameValue, setRenameValue, renamingInFlight,
     startRenameBranch, cancelRenameBranch, submitRenameBranch,
-    refresh,
+    refresh, refreshBranchTree,
   }
 }

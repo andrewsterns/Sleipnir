@@ -6,22 +6,29 @@
 // plain plumbing-command calls. Host-agnostic: works against whatever
 // `origin` a project actually has (GitHub here), never a specific host's API.
 import { execFile } from 'node:child_process'
+import { statSync } from 'node:fs'
+import path from 'node:path'
 import { getWorkspaceRoot } from './workspace-root.mjs'
 
 const GIT_TIMEOUT_MS = 15_000
+// Network ops (clone/push/pull/fetch) can legitimately run much longer than a
+// local status/log — the 15s cap would kill a real transfer or a credential
+// prompt mid-flight, which is what made "sync" look broken.
+const GIT_NET_TIMEOUT_MS = 120_000
 
 // Source Control visualizes/manages whichever project is currently open
 // (see tools/workspace-root.mjs) rather than Sleipnir's own repo — unlike
 // Planning/Research, it has no data of its own to bundle per-project; git
 // itself already is that store, just pointed at a different working tree.
-function git(args) {
-  const cwd = getWorkspaceRoot()
+// `cwd` defaults to the open project; clone passes an explicit dir since it
+// runs before any project is open there.
+function git(args, cwd = getWorkspaceRoot(), timeout = GIT_TIMEOUT_MS) {
   if (!cwd) throw new Error('No project is open')
   return new Promise((resolve) => {
     execFile(
       'git',
       args,
-      { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 20 * 1024 * 1024 },
+      { cwd, timeout, maxBuffer: 64 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (!err) {
           resolve({ stdout, stderr, exitCode: 0 })
@@ -90,7 +97,33 @@ export async function getStatus() {
   await ensureRepo()
   const { stdout, exitCode, stderr } = await git(['status', '--porcelain', '-b'])
   if (exitCode !== 0) throw new Error(stderr || 'git status failed')
-  return parseStatus(stdout)
+  const status = parseStatus(stdout)
+  // Remote names — lets the UI offer "Add remote…" (and enable Publish) only
+  // when there's somewhere to push to.
+  const remotesRes = await git(['remote'])
+  status.remotes = remotesRes.exitCode === 0
+    ? remotesRes.stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+    : []
+  // The actual repo this status is for — surfaced in the UI so a
+  // workspace-root mismatch ("my changes aren't showing") is diagnosable at a
+  // glance rather than invisible. This is the git top-level, which may be an
+  // ancestor of the open folder if the folder sits inside a larger repo.
+  const rootRes = await git(['rev-parse', '--show-toplevel'])
+  status.root = rootRes.exitCode === 0 ? rootRes.stdout.trim() : null
+  // Per-file worktree modified time — lets the Source Control search offer the
+  // same "Recently modified" sort the Workspace/Planning searches do (git
+  // status carries no timestamp of its own). A deleted file (or any stat
+  // failure) yields 0, which sorts to the bottom of a recency-descending list.
+  if (status.root) {
+    for (const f of status.files) {
+      try {
+        f.mtime = statSync(path.join(status.root, f.path)).mtimeMs
+      } catch {
+        f.mtime = 0
+      }
+    }
+  }
+  return status
 }
 
 export async function getDiff(filePath, staged = false) {
@@ -382,9 +415,12 @@ export async function push() {
   await ensureRepo()
   const status = await getStatus()
   if (!status.branch) throw new Error('Not on a branch (detached HEAD) — nothing to push.')
-  let result = await git(['push'])
+  if (!status.remotes || status.remotes.length === 0) {
+    return { ok: false, noRemote: true, message: "No remote configured — add one (e.g. 'origin') before publishing." }
+  }
+  let result = await git(['push'], undefined, GIT_NET_TIMEOUT_MS)
   if (result.exitCode !== 0 && /no upstream branch/i.test(result.stderr)) {
-    result = await git(['push', '--set-upstream', 'origin', status.branch])
+    result = await git(['push', '--set-upstream', 'origin', status.branch], undefined, GIT_NET_TIMEOUT_MS)
   }
   if (result.exitCode !== 0) {
     return { ok: false, message: result.stderr || 'git push failed' }
@@ -394,7 +430,7 @@ export async function push() {
 
 export async function pull() {
   await ensureRepo()
-  const result = await git(['pull'])
+  const result = await git(['pull'], undefined, GIT_NET_TIMEOUT_MS)
   if (result.exitCode !== 0) {
     const status = await getStatus()
     const conflictedFiles = status.files.filter((f) => f.conflicted).map((f) => f.path)
@@ -414,10 +450,49 @@ export async function pull() {
 // Named `fetchRemote`, not `fetch`, so it doesn't shadow the global fetch API.
 export async function fetchRemote() {
   await ensureRepo()
-  const result = await git(['fetch'])
+  const result = await git(['fetch'], undefined, GIT_NET_TIMEOUT_MS)
   if (result.exitCode !== 0) return { ok: false, message: result.stderr || 'git fetch failed' }
   const status = await getStatus()
   return { ok: true, message: result.stderr.trim() || 'Fetched.', ahead: status.ahead, behind: status.behind }
+}
+
+// ── Repo on-ramp: clone / init / remote ────────────────────────────────────
+
+// Clones `url` into `destPath` (which must not exist yet). Runs from the parent
+// dir with the network timeout since a real clone streams data. Caller opens
+// the result as the project (see main.cjs's cloneRepo handler).
+export async function clone(url, destPath) {
+  const trimmed = String(url || '').trim()
+  if (!trimmed) return { ok: false, message: 'Enter a repository URL to clone.' }
+  const result = await git(['clone', '--', trimmed, destPath], path.dirname(destPath), GIT_NET_TIMEOUT_MS)
+  if (result.exitCode !== 0) return { ok: false, message: result.stderr || 'git clone failed' }
+  return { ok: true, path: destPath }
+}
+
+// Turns the open folder into a git repo (main as the initial branch). No
+// ensureRepo — the whole point is that it isn't one yet.
+export async function initRepo() {
+  let result = await git(['init', '-b', 'main'])
+  // Git < 2.28 has no `-b`; fall back to a plain init (whatever default branch).
+  if (result.exitCode !== 0 && /unknown (option|switch)|error: unknown|-b/i.test(result.stderr)) {
+    result = await git(['init'])
+  }
+  if (result.exitCode !== 0) return { ok: false, message: result.stderr || 'git init failed' }
+  return { ok: true, message: 'Initialized repository.' }
+}
+
+// Adds (or updates) a remote — defaults to 'origin' — so a freshly init'd or
+// remote-less repo has somewhere to publish.
+export async function addRemote(url, name = 'origin') {
+  await ensureRepo()
+  const trimmed = String(url || '').trim()
+  if (!trimmed) return { ok: false, message: 'Enter a remote URL.' }
+  const exists = await git(['remote', 'get-url', name])
+  const result = exists.exitCode === 0
+    ? await git(['remote', 'set-url', name, trimmed])
+    : await git(['remote', 'add', name, trimmed])
+  if (result.exitCode !== 0) return { ok: false, message: result.stderr || 'git remote failed' }
+  return { ok: true, message: `Remote '${name}' set.` }
 }
 
 // `git config user.name`/`user.email` with no --local/--global already

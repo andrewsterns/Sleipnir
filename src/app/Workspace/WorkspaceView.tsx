@@ -146,8 +146,10 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
   { initialFile, pendingOverride, onOverrideSaved, onPlanCreated, onProjectOpened, recentProjects, onOpenRecentProject },
   ref,
 ) {
-  const { info, loading, error, chooseFolder } = useWorkspaceViewModel(onProjectOpened)
+  const { info, loading, error, chooseFolder, cloneAndOpen, cloning } = useWorkspaceViewModel(onProjectOpened)
   const [addingPlan, setAddingPlan] = useState(false)
+  const [showClone, setShowClone] = useState(false)
+  const [cloneUrl, setCloneUrl] = useState('')
 
   // Live candidate pool for the "##token" editor extension (graphLinkExtension)
   // — a ref, not state, since CodeEditorView reads it synchronously via
@@ -223,6 +225,33 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
             Choose Workspace Folder…
           </Button>
         )}
+        {workspaceAvailable && (
+          showClone ? (
+            <Frame flow="vertical" align="center" gap={8} style={{ width: 340 }}>
+              <input
+                autoFocus
+                value={cloneUrl}
+                onChange={(e) => setCloneUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && cloneUrl.trim()) cloneAndOpen(cloneUrl)
+                  if (e.key === 'Escape') setShowClone(false)
+                }}
+                placeholder="https://github.com/user/repo.git"
+                disabled={cloning}
+                style={{ ...FIELD_STYLE, width: '100%' }}
+              />
+              <Frame flow="horizontal" align="center" gap={8}>
+                <Button variant="ghost" size="sm" onClick={() => setShowClone(false)} disabled={cloning}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={() => cloneAndOpen(cloneUrl)} disabled={cloning || !cloneUrl.trim()} isLoading={cloning}>
+                  {cloning ? 'Cloning…' : 'Clone'}
+                </Button>
+              </Frame>
+              <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>You'll pick a destination folder next.</span>
+            </Frame>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => setShowClone(true)}>Clone Repository…</Button>
+          )
+        )}
         {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
         {workspaceAvailable && recentProjects && recentProjects.length > 0 && (
           <Frame flow="vertical" align="center" gap={4} style={{ marginTop: 8 }}>
@@ -266,6 +295,7 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
         root=""
         rootLabel={info.name ?? undefined}
         supportsCreate
+        supportsAddNode
         initialFile={initialFile}
         pendingOverride={pendingOverride}
         onOverrideSaved={handleOverrideSaved}

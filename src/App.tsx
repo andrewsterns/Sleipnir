@@ -74,6 +74,12 @@ function App() {
   // split is open, in which case the primary pane fills the whole width.
   const [secondaryCategory, setSecondaryCategory] = useState<string | null>(null)
   const [mountedCategories, setMountedCategories] = useState<string[]>(['planning'])
+  // Bumped on every in-app save (see onSave/onSaveAll) so Source Control —
+  // which stays mounted-but-hidden like every other category and therefore
+  // never remounts on a plain category switch — re-reads `git status` the
+  // instant a file is written, instead of showing stale state until focus
+  // changes. Passed to SourceControlView as `refreshToken`.
+  const [gitRefreshToken, setGitRefreshToken] = useState(0)
   // Saved plans (see graph/types.ts's SavedPlan doc comment) — fetched once
   // and appended to locally on create, same "runtime, not statically
   // imported" pattern used elsewhere for state with no build-time JSON to
@@ -199,9 +205,12 @@ function App() {
     setPlans((prev) => [...prev, plan])
   }
 
-  const onDeletePlan = (id: string, opts?: { deleteFiles?: boolean }) => {
-    deletePlan(id, opts).catch(() => {})
+  const onDeletePlan = (id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }) => {
     setPlans((prev) => prev.filter((p) => p.id !== id))
+    // Returned (not fire-and-forget) so the modal can await the real delete
+    // before reloading the graph — a deleteNodes delete mutates notes.json, and
+    // the Planning view must re-read it to drop the removed nodes on screen.
+    return deletePlan(id, opts)
   }
 
   // Reflects an in-view plan mutation (Planning's addLink pulls a cross-plan
@@ -278,10 +287,14 @@ function App() {
 
   const onSave = async () => {
     await browserRefs.current.get(activeCategory)?.save()
+    // A save wrote to disk — tell Source Control to re-read status even if it's
+    // sitting hidden behind the current category (see gitRefreshToken).
+    setGitRefreshToken((v) => v + 1)
   }
 
   const onSaveAll = async () => {
     await browserRefs.current.get(activeCategory)?.saveAll()
+    setGitRefreshToken((v) => v + 1)
   }
 
   const navItems: NavRailItem[] = NAV_ITEMS
@@ -358,6 +371,12 @@ function App() {
             // tools/git-control.mjs) instead of showing the previous
             // project's stale git state.
             key={activeProject?.path ?? 'no-project'}
+            // Becomes true when this category is the visible pane (primary or
+            // split) — the view refreshes git status on that transition, since
+            // switching TO it is only a display toggle, never a remount.
+            active={activeCategory === 'source-control' || secondaryCategory === 'source-control'}
+            // Re-read status the moment any in-app save writes to disk.
+            refreshToken={gitRefreshToken}
           />
         )
       case 'settings':

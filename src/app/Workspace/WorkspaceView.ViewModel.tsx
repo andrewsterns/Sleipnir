@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getWorkspaceInfo, openWorkspace } from '../../00_planning/api/sleipnirApi'
+import { getWorkspaceInfo, openWorkspace, cloneRepo } from '../../00_planning/api/sleipnirApi'
 import type { WorkspaceInfo } from '../../00_planning/api/PlatformAPI'
 
 // `onProjectOpened`, when given, fires after a successful chooseFolder() —
@@ -31,5 +31,23 @@ export function useWorkspaceViewModel(onProjectOpened?: (info: WorkspaceInfo) =>
     onProjectOpened?.(result)
   }
 
-  return { info, loading, error, chooseFolder }
+  const [cloning, setCloning] = useState(false)
+  // Clone a repo, then open it as this project (same repoint path as
+  // chooseFolder). The native destination picker happens in the main process;
+  // `null` means canceled (or not the Electron shell).
+  const cloneAndOpen = async (url: string) => {
+    setError(null)
+    setCloning(true)
+    try {
+      const result = await cloneRepo(url.trim())
+      if (!result) return
+      if ('error' in result) { setError(result.error); return }
+      setInfo(result)
+      onProjectOpened?.(result)
+    } finally {
+      setCloning(false)
+    }
+  }
+
+  return { info, loading, error, chooseFolder, cloneAndOpen, cloning }
 }

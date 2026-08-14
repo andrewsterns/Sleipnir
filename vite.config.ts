@@ -471,8 +471,8 @@ function sleipnirApiPlugin() {
 
         if (url.pathname === '/api/sleipnir/delete-plan' && req.method === 'POST') {
           try {
-            const { id, deleteFiles } = await readJsonBody(req)
-            backend.deletePlan(String(id ?? ''), { deleteFiles: !!deleteFiles })
+            const { id, deleteFiles, deleteNodes } = await readJsonBody(req)
+            backend.deletePlan(String(id ?? ''), { deleteFiles: !!deleteFiles, deleteNodes: !!deleteNodes })
             sendJson(res, 200, { success: true })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
