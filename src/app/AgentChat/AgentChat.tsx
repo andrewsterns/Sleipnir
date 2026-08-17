@@ -3,7 +3,15 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { SleipnirLoader } from '../UIKit/SleipnirLoader/SleipnirLoader'
 import { useAgentChatViewModel } from './AgentChat.ViewModel'
+import { CommandConfirmModal } from './CommandConfirmModal'
 import type { AgentChatProps } from './iAgentChat'
+
+const COMMAND_STATUS_LABEL: Record<string, string> = {
+  pending: 'Awaiting approval…',
+  declined: 'Declined',
+  running: 'Running…',
+  done: 'Finished',
+}
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -31,8 +39,10 @@ const ROLE_COLOR: Record<string, string> = {
 }
 
 export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
-  const { messages, input, setInput, sendMessage, cancel, streaming, available } = useAgentChatViewModel(onPlanNodeCreated)
+  const { messages, input, setInput, sendMessage, cancel, streaming, available, decideCommand } =
+    useAgentChatViewModel(onPlanNodeCreated)
   const scrollRef = useRef<HTMLElement>(null)
+  const pendingCommand = messages.find((m) => m.command?.status === 'pending')?.command
 
   // Gap between "sent" and the first token: no assistant message exists yet
   // to show a streaming cursor on, so show the gallop here instead.
@@ -72,23 +82,51 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
             <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR[m.role], opacity: 0.7, ...MONO }}>
               {ROLE_LABEL[m.role]}
             </span>
-            <span
-              style={{
-                fontSize: 12,
-                lineHeight: 1.5,
-                color: m.role === 'system' ? 'var(--text-3)' : 'var(--text-1)',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                ...MONO,
-              }}
-            >
-              {m.content}
-              {m.streaming && (
-                <span style={{ display: 'inline-block', width: 7, animation: 'agent-cursor-blink 1s step-start infinite' }}>
-                  ▌
+            {m.command ? (
+              <Frame
+                flow="vertical"
+                gap={4}
+                padding={8}
+                fill={{ solid: 'bg-0' }}
+                stroke={{ color: 'var(--border-1)' }}
+              >
+                <span style={{ fontSize: 11, color: 'var(--text-1)', wordBreak: 'break-all', ...MONO }}>
+                  $ {[m.command.command, ...m.command.args].join(' ')}
                 </span>
-              )}
-            </span>
+                {m.command.output && (
+                  <span
+                    style={{ fontSize: 10, color: 'var(--text-2)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', ...MONO }}
+                  >
+                    {m.command.output}
+                  </span>
+                )}
+                <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-3)', ...MONO }}>
+                  {m.command.status === 'done'
+                    ? m.command.timedOut
+                      ? 'Timed out'
+                      : `Exit code: ${m.command.exitCode}`
+                    : COMMAND_STATUS_LABEL[m.command.status]}
+                </span>
+              </Frame>
+            ) : (
+              <span
+                style={{
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: m.role === 'system' ? 'var(--text-3)' : 'var(--text-1)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  ...MONO,
+                }}
+              >
+                {m.content}
+                {m.streaming && (
+                  <span style={{ display: 'inline-block', width: 7, animation: 'agent-cursor-blink 1s step-start infinite' }}>
+                    ▌
+                  </span>
+                )}
+              </span>
+            )}
           </div>
         ))}
         {waitingForFirstToken && (
@@ -163,6 +201,14 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
           </button>
         )}
       </Frame>
+
+      {pendingCommand && (
+        <CommandConfirmModal
+          command={pendingCommand.command}
+          args={pendingCommand.args}
+          onDecide={(approved) => decideCommand(pendingCommand.requestId, approved)}
+        />
+      )}
     </Frame>
   )
 }

@@ -6,7 +6,7 @@ import { lintGutter, diagnosticCount } from '@codemirror/lint'
 import { languageForPath, isRunnablePath } from './codeEditorLanguages'
 import { tacticalEditorTheme, tacticalCodeHighlighting } from './codeEditorTheme'
 import { writeFile as writeSrcFile, runScript, type RunResult } from '../../00_planning/api/sleipnirApi'
-import { getTypeScriptLspClient, lspLanguageIdForPath, uriForPath, goToDefinitionOnModClick } from './lspClient'
+import { getTypeScriptLspClient, lspLanguageIdForPath, uriForPath, goToDefinitionOnModClick, modHoverDefinitionLink, lspHoverTooltips, type LspRoot } from './lspClient'
 import { graphLinkExtension } from './graphLinkExtension'
 import type { GraphNode } from '../../00_planning/graph/types'
 
@@ -21,16 +21,30 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 export const LOADING_PLACEHOLDER = '// Loading source…'
 
 // `path`'s meaning depends on which scope's FolderBrowserView hosts this
-// editor (see CodeEditorViewProps.scope's doc comment) but the LSP URI
-// scheme (lspClient.ts's uriForPath) always wants a REPO_ROOT-relative path.
-// Returns null to mean "don't attach LSP at all" — scope:'workspace' files
-// live under a completely different root tsserver (fixed at REPO_ROOT) has
-// never heard of; attempting to open them under a fabricated REPO_ROOT path
-// used to silently send a bogus didOpen for a nonexistent/wrong file.
-function repoRelativePathForScope(scope: 'src' | 'repo' | 'workspace', path: string): string | null {
-  if (scope === 'workspace') return null
-  if (scope === 'repo') return path
-  return `src/${path}`
+// editor (see CodeEditorViewProps.scope's doc comment). Resolves it to which
+// language-server project to attach to (see lspClient.ts's LspRoot) plus the
+// path relative to THAT root — or null to mean "don't attach LSP at all".
+// scope:'repo'/'src' always resolve to Sleipnir's own repo (kind:'self').
+// scope:'workspace' resolves to kind:'self' too when repoRelativeRoot says
+// the open Workspace is (or is inside) Sleipnir's own repo — e.g. developing
+// Sleipnir with Sleipnir — using repoRelativeRoot as the prefix onto a real
+// REPO_ROOT-relative path. Otherwise, if a Workspace is open at all, it's a
+// genuinely external project: kind:'external', rooted at its own absolute
+// path (workspaceRoot) with no prefixing needed (`path` is already relative
+// to it). No workspace open at all → null, same as today.
+function lspTargetForScope(
+  scope: 'src' | 'repo' | 'workspace',
+  path: string,
+  repoRelativeRoot?: string | null,
+  workspaceRoot?: string | null,
+): { root: LspRoot; relPath: string } | null {
+  if (scope === 'repo') return { root: { kind: 'self' }, relPath: path }
+  if (scope === 'src') return { root: { kind: 'self' }, relPath: `src/${path}` }
+  if (repoRelativeRoot != null) {
+    return { root: { kind: 'self' }, relPath: repoRelativeRoot ? `${repoRelativeRoot}/${path}` : path }
+  }
+  if (workspaceRoot == null) return null
+  return { root: { kind: 'external', root: workspaceRoot }, relPath: path }
 }
 
 export function useCodeEditorViewModel({
@@ -41,6 +55,8 @@ export function useCodeEditorViewModel({
   startDirty,
   writeFile = writeSrcFile,
   scope = 'src',
+  repoRelativeRoot,
+  workspaceRoot,
   revealLine,
   onImportsChanged,
   getGraphNodes,
@@ -55,8 +71,12 @@ export function useCodeEditorViewModel({
   startDirty?: boolean
   /** Overrides the save target — defaults to the SRC_ROOT-scoped writeFile every existing caller relies on. OpenEditorsView passes writeRepoFile instead, since File-menu-opened files can live anywhere in the repo. */
   writeFile?: (path: string, content: string) => Promise<void>
-  /** See CodeEditorViewProps.scope — determines LSP path resolution (or disables LSP entirely for 'workspace'). Defaults to 'src', matching every pre-existing caller's actual usage. */
+  /** See CodeEditorViewProps.scope — determines LSP path resolution. Defaults to 'src', matching every pre-existing caller's actual usage. */
   scope?: 'src' | 'repo' | 'workspace'
+  /** See CodeEditorViewProps.repoRelativeRoot / WorkspaceInfo.repoRelativeRoot — scope:'workspace' only. */
+  repoRelativeRoot?: string | null
+  /** See CodeEditorViewProps.workspaceRoot / WorkspaceInfo.root — scope:'workspace' only, consulted when repoRelativeRoot is null (an external project, not Sleipnir's own repo). */
+  workspaceRoot?: string | null
   /** See CodeEditorViewProps.revealLine. */
   revealLine?: number
   /** Fired right after a successful save with the path and the just-saved content — WorkspaceView uses this to re-scan the file's real imports and reconcile the corresponding node's graph edges (see tools/sleipnir-backend.mjs#setNodeBorrows). No-op when omitted (every pre-existing caller). */
@@ -137,17 +157,24 @@ export function useCodeEditorViewModel({
     if (!container) return
 
     // TypeScript/JavaScript files get real language-server-backed
-    // completion/hover/etc. via the shared LSP client. Other languages get
-    // syntax highlighting only for now (see codeEditorLanguages.ts). No LSP
-    // at all for scope:'workspace' — see repoRelativePathForScope's comment.
-    const repoRelPath = repoRelativePathForScope(scope, path)
-    const lspLanguageId = repoRelPath ? lspLanguageIdForPath(path) : null
-    // goToDefinitionOnModClick rides alongside the LSP plugin so the Ctrl/Cmd+
-    // click "drill into" gesture is present exactly where go-to-definition can
-    // resolve — TS/JS files with a repo path (never scope:'workspace').
+    // completion/hover/etc. via the shared LSP client — either Sleipnir's own
+    // repo, or (for a genuinely external Workspace project) a second
+    // language-server rooted at that project instead. Other languages get
+    // syntax highlighting only for now (see codeEditorLanguages.ts). See
+    // lspTargetForScope's comment for exactly which files qualify.
+    const target = lspTargetForScope(scope, path, repoRelativeRoot, workspaceRoot)
+    const lspLanguageId = target ? lspLanguageIdForPath(path) : null
+    // goToDefinitionOnModClick/modHoverDefinitionLink/lspHoverTooltips ride
+    // alongside the LSP plugin so they're present exactly where go-to-
+    // definition can resolve.
     const lspExtension =
-      lspLanguageId && repoRelPath
-        ? [getTypeScriptLspClient().plugin(uriForPath(repoRelPath), lspLanguageId), goToDefinitionOnModClick]
+      lspLanguageId && target
+        ? [
+            getTypeScriptLspClient(target.root).plugin(uriForPath(target.root, target.relPath), lspLanguageId),
+            goToDefinitionOnModClick,
+            modHoverDefinitionLink,
+            lspHoverTooltips,
+          ]
         : []
 
     // "##token" linking — only meaningful for a real Workspace file with a

@@ -6,6 +6,36 @@ export interface ChatMessage {
   timestamp: number
   /** True while an assistant message is still receiving tokens — shows a blinking cursor, and is the one appended to as more `chat:token` events arrive. */
   streaming?: boolean
+  /** Present on the synthetic message representing a run_command proposal — see CommandConfirmModal / AgentChat.tsx's inline output block. */
+  command?: ProposedCommandState
+}
+
+export interface ProposedCommandState {
+  requestId: string
+  command: string
+  args: string[]
+  status: 'pending' | 'declined' | 'running' | 'done'
+  output: string
+  exitCode?: number | null
+  timedOut?: boolean
+}
+
+export interface ProposedCommand {
+  requestId: string
+  command: string
+  args: string[]
+}
+
+export interface CommandOutputPayload {
+  requestId: string
+  stream: 'stdout' | 'stderr'
+  text: string
+}
+
+export interface CommandDonePayload {
+  requestId: string
+  exitCode: number | null
+  timedOut: boolean
 }
 
 export interface AgentChatProps {
@@ -35,6 +65,11 @@ export interface ChatAPI {
   onCodeGenerated: (sessionId: string, callback: (payload: CodeGeneratedPayload) => void) => () => void
   onDone: (sessionId: string, callback: (fullText: string) => void) => () => void
   onError: (sessionId: string, callback: (message: string) => void) => () => void
+  /** Answers a pending run_command proposal — nothing runs until this is called with approved=true. */
+  sendCommandDecision: (requestId: string, approved: boolean) => void
+  onCommandProposed: (sessionId: string, callback: (payload: ProposedCommand) => void) => () => void
+  onCommandOutput: (sessionId: string, callback: (payload: CommandOutputPayload) => void) => () => void
+  onCommandDone: (sessionId: string, callback: (payload: CommandDonePayload) => void) => () => void
 }
 
 declare global {

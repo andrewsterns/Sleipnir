@@ -7,6 +7,7 @@ import './00_themes/light.css'
 import './00_themes/item-states.css'
 import { ThemeProvider } from './00_themes/ThemeProvider'
 import { ThemeController, useAppTheme } from './00_themes/ThemeController'
+import { KeybindingsController } from './00_keybindings/KeybindingsController'
 import { Frame } from './app/UIKit/Frame/Frame'
 import { NavRail, type NavRailItem } from './app/NavRail/NavRail'
 import { TerminalDock } from './app/TerminalDock/TerminalDock'
@@ -19,6 +20,7 @@ import { CommandPalette } from './app/CommandPalette/CommandPalette'
 import { PlanningView } from './00_planning/PlanningView'
 import { ResearchView } from './01_research/ResearchView'
 import SourceControlView from './06_source_control/SourceControlView'
+import ValidationView from './04_validation/ValidationView'
 import type { GraphMapId, SavedPlan } from './00_planning/graph/types'
 import {
   getPlans,
@@ -34,6 +36,7 @@ import {
 import type { RecentProject, WorkspaceInfo } from './00_planning/api/PlatformAPI'
 import type { FolderBrowserHandle } from './app/DesignSystem/iFolderBrowserView'
 import type { GeneratedFile } from './app/AgentChat/iAgentChat'
+import { registerLspFileOpener } from './app/DesignSystem/lspClient'
 
 export type { Page } from './types'
 
@@ -44,15 +47,15 @@ export type { Page } from './types'
 // in a genuine gap instead of covering real content.
 const DOCK_PANEL_HEIGHT = 320
 
-// Validation and Analytics are hidden for now, not removed — src/05_analytics/
-// stays untouched on disk (Validation had no dedicated module, just the local
-// PlaceholderView stub below, since deleted along with its only call site).
-// Bringing either back is restoring its entry here, its case in
-// renderCategory, and — for Validation — a one-line placeholder view.
+// Analytics is still hidden for now, not removed — src/05_analytics/ stays
+// untouched on disk. Bringing it back is restoring its entry here and its
+// case in renderCategory. (Validation was restored the same way — see the
+// 'validation' entry below and its case in renderCategory.)
 const NAV_ITEMS: NavRailItem[] = [
   { id: 'planning',    tag: '00',  title: 'Planning',    icon: 'network' },
   { id: 'research',    tag: '01',  title: 'Research',    icon: 'research' },
   { id: 'workspace',   tag: 'WS',  title: 'Workspace',   icon: 'folder' },
+  { id: 'validation',  tag: '04',  title: 'Validation',  icon: 'check' },
   { id: 'source-control', tag: 'GIT', title: 'Source Control', icon: 'git-branch' },
 ]
 
@@ -136,6 +139,33 @@ function App() {
       })
       .catch(() => {})
     refreshRecentProjects()
+  }, [])
+
+  // Ref, not a dep — the listener below is registered once, but needs to
+  // read whatever pendingOverride is current at close time, which can be
+  // long after this effect first ran.
+  const pendingOverrideRef = useRef(pendingOverride)
+  pendingOverrideRef.current = pendingOverride
+
+  // Save-on-close: answers electron/main.cjs's handleCloseAttempt, which
+  // blocks the actual window close until this responds. pendingOverride is
+  // the one place staged-but-unsaved AI content lives (see its own doc
+  // comment above) — this is desktop-only (window.electronAPI undefined in
+  // browser/web-transport mode, where there's no native close to intercept).
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api?.onBeforeClose) return
+    const unsubBeforeClose = api.onBeforeClose(() => {
+      api.respondBeforeClose?.(pendingOverrideRef.current !== null)
+    })
+    const unsubSaveBeforeClose = api.onSaveBeforeClose?.(async () => {
+      await browserRefs.current.get('workspace')?.saveAll()
+      await api.saveBeforeCloseDone?.()
+    })
+    return () => {
+      unsubBeforeClose()
+      unsubSaveBeforeClose?.()
+    }
   }, [])
 
   // Refetches Planning's board (Notes/Plans/Archive) whenever the active
@@ -285,6 +315,37 @@ function App() {
     switchTo('workspace')
   }
 
+  // Bridges lspClient.ts's SleipnirWorkspace (go-to-definition/rename landing
+  // on a file that isn't already an open tab) to jumpToProjectFile above.
+  // Which scheme produced `relPath` depends on which language server
+  // resolved it (see CodeEditorView.ViewModel's lspTargetForScope /
+  // lspClient.ts's LspRoot):
+  //   - Sleipnir's own repo (repoRelativeRoot non-null): `relPath` is
+  //     REPO_ROOT-relative, so strip the current repoRelativeRoot prefix to
+  //     recover the workspace-relative path jumpToProjectFile expects — a
+  //     no-op slice(0) when the Workspace root IS REPO_ROOT itself.
+  //   - An external Workspace project (repoRelativeRoot null): `relPath` is
+  //     already workspace-relative (that scheme has no prefix to strip).
+  // Silently no-ops with no workspace open at all — LSP wouldn't have been
+  // attached to produce this path in the first place.
+  const openLspTarget = async (relPath: string) => {
+    const info = await getWorkspaceInfo()
+    if (!info.root) return
+    if (info.repoRelativeRoot == null) {
+      jumpToProjectFile(relPath)
+      return
+    }
+    const prefix = info.repoRelativeRoot ? `${info.repoRelativeRoot}/` : ''
+    if (!relPath.startsWith(prefix)) return
+    jumpToProjectFile(relPath.slice(prefix.length))
+  }
+  // No deps array — cheap (just reassigns a module-level variable in
+  // lspClient.ts), and always closes over the latest jumpToProjectFile
+  // without risking staleness.
+  useEffect(() => {
+    registerLspFileOpener((path) => { void openLspTarget(path) })
+  })
+
   const onSave = async () => {
     await browserRefs.current.get(activeCategory)?.save()
     // A save wrote to disk — tell Source Control to re-read status even if it's
@@ -358,10 +419,18 @@ function App() {
               switchTo('planning')
               setFocusMapId(plan.id)
             }}
+            onPlanUpdated={onUpdatePlan}
             onProjectOpened={applyProjectInfo}
             recentProjects={recentProjects}
             onOpenRecentProject={onOpenRecentProject}
           />
+        )
+      case 'validation':
+        return (
+          // Remounts on project switch — a fresh Validation session per
+          // project, same reasoning as every other remount-on-switch case
+          // here (a stale instance can't leak a previous project's results).
+          <ValidationView key={activeProject?.path ?? 'no-project'} />
         )
       case 'source-control':
         return (
@@ -377,6 +446,7 @@ function App() {
             active={activeCategory === 'source-control' || secondaryCategory === 'source-control'}
             // Re-read status the moment any in-app save writes to disk.
             refreshToken={gitRefreshToken}
+            onOpenFile={(path) => jumpToProjectFile(path)}
           />
         )
       case 'settings':
@@ -501,11 +571,14 @@ function App() {
 }
 
 // ThemeController owns the app-wide theme (persisted) and must sit above App
-// so App and every view can read the selection via useAppTheme().
+// so App and every view can read the selection via useAppTheme(). KeybindingsController
+// is the same shape for keybindings — see 00_keybindings/KeybindingsController.tsx.
 export default function AppRoot() {
   return (
     <ThemeController>
-      <App />
+      <KeybindingsController>
+        <App />
+      </KeybindingsController>
     </ThemeController>
   )
 }

@@ -30,7 +30,9 @@ const STATIC_MIME = {
   '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.ico': 'image/x-icon',
 }
 
-// id -> { kind: 'static', server } | { kind: 'process', proc }
+// id -> { kind: 'static', server, wcId } | { kind: 'process', proc, wcId }.
+// wcId (the owning window's webContents.id) is what killForWindow() sweeps
+// by when that window closes.
 const sessions = new Map()
 
 function getFreePort() {
@@ -98,7 +100,7 @@ async function start(sender, folderRepoRelativePath, config) {
   if (config.command === '__static__') {
     const port = await getFreePort()
     const server = serveStatic(folderPath, port)
-    sessions.set(id, { kind: 'static', server })
+    sessions.set(id, { kind: 'static', server, wcId: sender.id })
     send({ phase: 'ready', url: `http://localhost:${port}` })
     return
   }
@@ -115,7 +117,7 @@ async function start(sender, folderRepoRelativePath, config) {
       env: { ...process.env, PORT: String(port) },
       shell: useShell,
     })
-    sessions.set(id, { kind: 'process', proc: child })
+    sessions.set(id, { kind: 'process', proc: child, wcId: sender.id })
 
     let output = ''
     let discoveredUrl = null
@@ -170,7 +172,7 @@ async function start(sender, folderRepoRelativePath, config) {
 
   send({ phase: 'installing' })
   const install = spawn('npm', ['install'], { cwd: folderPath, shell: useShell })
-  sessions.set(id, { kind: 'process', proc: install })
+  sessions.set(id, { kind: 'process', proc: install, wcId: sender.id })
   let installOutput = ''
   install.stdout?.on('data', (c) => { installOutput = (installOutput + c).slice(-OUTPUT_CAP) })
   install.stderr?.on('data', (c) => { installOutput = (installOutput + c).slice(-OUTPUT_CAP) })
@@ -197,8 +199,14 @@ function stop(id) {
   sessions.delete(id)
 }
 
+function killForWindow(wcId) {
+  for (const [id, session] of sessions) {
+    if (session.wcId === wcId) stop(id)
+  }
+}
+
 function killAll() {
   for (const id of [...sessions.keys()]) stop(id)
 }
 
-module.exports = { start, stop, killAll }
+module.exports = { start, stop, killForWindow, killAll }

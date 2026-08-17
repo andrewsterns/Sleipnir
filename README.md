@@ -23,15 +23,10 @@ The same app runs three ways with (almost) identical behavior:
   source-control panel outside the sequence. See [ARCHITECTURE.md](ARCHITECTURE.md).
 - **AI agent chat** — Anthropic Claude by default (bring your own API key, or
   fall back to a local Ollama model with no key at all). The agent can create
-  planning nodes, register new libraries, and generate code — but generated
-  code is always staged into an editor tab for you to review and save, never
-  written to disk automatically.
-- **Multi-library registry** — the default component library (`02_components`)
-  and prototype library (`03_prototypes`) are just the seeded entries; register
-  as many additional component/prototype libraries as you want, each with its
-  own folder layout (Atomic, MVVM, MVC, or MVP) and language.
-- **Widget system** — install a read-only browser onto any folder (via *File →
-  Open Folder…* or the built-in Widget Store) as its own entry in the nav rail.
+  planning nodes, read files in the open Workspace, generate code, and propose
+  shell commands — but generated code always stages into an editor tab for you
+  to review and save, and a proposed command only runs after you explicitly
+  confirm it in a dialog. Nothing writes to disk or executes unattended.
 - **Live component editor** — a CodeMirror-based code editor with real
   TypeScript language-server support (hover, diagnostics, go-to-definition) via
   a local LSP proxy, plus a live component preview pane.
@@ -39,8 +34,11 @@ The same app runs three ways with (almost) identical behavior:
   component library (Atomic ↔ MVVM ↔ MVC ↔ MVP) without hand-editing imports.
 - **Planning graph** — a force-directed graph of every component/prototype and
   its import relationships, generated from the actual source tree.
-- **Integrated terminal and Git panel** — a real shell and a status/diff/stage/
-  commit/branch/push/pull UI, without leaving the app.
+- **In-app Validation** — run the open Workspace's own Vitest suite and see
+  structured pass/fail results without leaving the app.
+- **Integrated terminal and Git panel** — any number of terminal tabs, and a
+  status/diff (unified or side-by-side)/stage/commit/branch/stash/push/pull UI
+  with a merge-conflict banner, without leaving the app.
 
 ## Install (desktop app)
 
@@ -144,7 +142,7 @@ npm run docker:down       # docker-compose down
 | `npm run lint` | ESLint over the repo |
 | `npm run preview` | Serve the built `dist/` output |
 | `npm run generate:mvvm` | Scaffold a View/ViewModel/interface triplet (`tools/generate-mvvm.mjs`) |
-| `npm run generate:graph` | Regenerate the planning graph JSON for every registered library (`tools/generate-graph.mjs`) |
+| `npm run generate:graph` | Regenerate the planning graph JSON from the current source tree (`tools/generate-graph.mjs`) |
 | `npm run docker:up` / `docker:down` | Start/stop the dev container |
 | `npm run docker:nx <target>` | Run an Nx target inside the dev container |
 | `npm run docker:test` | Run `npm test` inside the dev container |
@@ -157,7 +155,7 @@ Pre-commit hooks (Husky + lint-staged) run ESLint and Prettier on staged
 ```
 electron/     Electron main process, IPC handlers, terminal/chat/key-store backends
 src/
-  00_planning/  Roadmap engine, planning graph, library + widget registries
+  00_planning/  Roadmap engine, planning graph
   01_research/  Docs-only research graph (personas, proposals, analytics)
   02_components/  Default component library (atoms -> molecules -> organisms -> templates)
   03_prototypes/  Default prototype library
@@ -171,10 +169,9 @@ docker/       Dev/prod Dockerfiles
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how these actually fit together —
-the dual Electron/web transport, the library and widget extensibility model,
-the planning graph pipeline, and the AI agent's tool-use loop. Most
-directories also carry their own `README.md` with directory-specific
-conventions.
+the dual Electron/web transport, the planning graph pipeline, and the AI
+agent's tool-use loop. Most directories also carry their own `README.md` with
+directory-specific conventions.
 
 ## For AI agents working in this repo
 

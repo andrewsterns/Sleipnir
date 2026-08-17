@@ -17,7 +17,9 @@ import { useSourceControlViewModel } from './SourceControlView.ViewModel'
 import { useFileStages } from '../00_planning/useFileStages'
 import { StatusGlyph } from '../00_planning/graph/StatusGlyph'
 import type { NodeStage } from '../00_planning/graph/types'
-import type { GitFileStatus, GitBranchTree, GitBranchTreeEntry, GitCommitSummary } from '../00_planning/api/sleipnirApi'
+import type { GitFileStatus, GitBranch, GitBranchTree, GitBranchTreeEntry, GitCommitSummary, GitStash } from '../00_planning/api/sleipnirApi'
+import { StashDropModal } from './StashDropModal'
+import { DiffView } from './DiffView'
 import { useAppTheme } from '../00_themes/ThemeController'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
@@ -152,55 +154,37 @@ function BranchTreeView({ tree, loading }: { tree: GitBranchTree | null; loading
   )
 }
 
-function DiffView({ diff, loading }: { diff: string; loading: boolean }) {
-  if (loading) {
-    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>Loading diff…</span>
-  }
-  if (!diff) {
-    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>Select a changed file to view its diff.</span>
-  }
-  const lines = diff.split('\n')
-  return (
-    <Frame flow="vertical" gap={0} style={{ ...MONO, fontSize: 11, lineHeight: '18px' }}>
-      {lines.map((line, i) => {
-        let color = 'var(--text-2)'
-        let bg = 'transparent'
-        if (line.startsWith('+') && !line.startsWith('+++')) { color = '#7ec98f'; bg = 'rgba(126,201,143,0.08)' }
-        else if (line.startsWith('-') && !line.startsWith('---')) { color = '#e07a7a'; bg = 'rgba(224,122,122,0.08)' }
-        else if (line.startsWith('@@')) { color = '#7aa8e0' }
-        else if (line.startsWith('diff --git') || line.startsWith('index ')) { color = 'var(--text-3)' }
-        return (
-          <div key={i} style={{ color, background: bg, whiteSpace: 'pre', padding: '0 8px' }}>
-            {line || ' '}
-          </div>
-        )
-      })}
-    </Frame>
-  )
-}
-
 export default function SourceControlView({
   active = true,
   refreshToken = 0,
+  onOpenFile,
 }: {
   /** True while Source Control is the visible category (primary or split pane). */
   active?: boolean
   /** Bumped by App on every in-app save so a just-saved file shows immediately. */
   refreshToken?: number
+  /** Opens a file in the Workspace editor — used by the merge-conflict banner's "Open" action. */
+  onOpenFile?: (path: string) => void
 } = {}) {
   const vm = useSourceControlViewModel()
   const { theme } = useAppTheme()
   // Planning stage per file (by workspace-relative path) — lets a changed file
   // show the status of the plan node it backs, same glyph as the planning list.
   // Reloads with dataVersion so a file added/committed this session picks up.
-  const fileStages = useFileStages(vm.dataVersion)
+  const { stages: fileStages } = useFileStages(vm.dataVersion)
   const [showBranches, setShowBranches] = useState(false)
+  const [showStashes, setShowStashes] = useState(false)
+  const [droppingStash, setDroppingStash] = useState<GitStash | null>(null)
+  const [diffMode, setDiffMode] = useState<'unified' | 'side-by-side'>('unified')
   // Which main-pane view is shown when no file is selected. 'commits' is the
   // real commit DAG (CommitGraphView); 'constellation' weaves plan nodes into
   // it (ConstellationView); 'branches' keeps the older per-branch divergence
   // summary (BranchTreeView).
   const [rightView, setRightView] = useState<'commits' | 'constellation' | 'branches'>('commits')
   const fileMenu = useContextMenu<GitFileStatus>()
+  // Right-click / "⋯" menu for the branch list rows — same useContextMenu
+  // pattern as fileMenu above and PlanningView's node/plan menus.
+  const branchMenu = useContextMenu<GitBranch>()
   const [discardingFile, setDiscardingFile] = useState<GitFileStatus | null>(null)
   const [fileSearchOpen, setFileSearchOpen] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
@@ -222,10 +206,10 @@ export default function SourceControlView({
   // unreliable; a prop change is deterministic. refresh/refreshBranchTree are
   // stable (useCallback), so the effect only re-runs when active/refreshToken
   // actually change.
-  const { refresh, refreshBranchTree } = vm
+  const { refresh, refreshBranchTree, refreshStashes } = vm
   useEffect(() => {
-    if (active) { refresh(); refreshBranchTree() }
-  }, [active, refreshToken, refresh, refreshBranchTree])
+    if (active) { refresh(); refreshBranchTree(); refreshStashes() }
+  }, [active, refreshToken, refresh, refreshBranchTree, refreshStashes])
 
   useEffect(() => {
     if (!fileSearchOpen) return
@@ -407,17 +391,19 @@ export default function SourceControlView({
                     padding={{ x: 4, y: 3 }}
                     style={{ cursor: b.current ? 'default' : 'pointer' }}
                     onClick={() => !b.current && !vm.switchingBranch && vm.switchBranch(b.name)}
+                    onContextMenu={(e) => branchMenu.openFromEvent(e, b)}
                   >
                     <span style={{ fontSize: 10, color: b.current ? 'var(--text-1)' : 'var(--text-2)', ...MONO }}>
                       {b.current ? '● ' : ''}{b.name}
                     </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); vm.startRenameBranch(b.name) }}
-                      title="Rename branch"
-                      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 10, ...MONO }}
-                    >
-                      ✎
-                    </button>
+                    <IconButton
+                      as="span"
+                      onClick={(e) => { e.stopPropagation(); branchMenu.openFromButton(e, b) }}
+                      title="More actions"
+                      glyph="⋯"
+                      iconSize={14}
+                      textColor="var(--text-3)"
+                    />
                   </Frame>
                 ),
               )}
@@ -495,10 +481,88 @@ export default function SourceControlView({
                 ? ` (${vm.opResult.conflictedFiles.join(', ')})` : ''}
             </span>
           )}
+
+          <Frame flow="horizontal" align="center" gap={6} style={{ cursor: 'pointer' }} onClick={() => setShowStashes((s) => !s)}>
+            <Icon name="folder" size={12} />
+            <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
+              STASH{vm.stashes.length > 0 ? ` (${vm.stashes.length})` : ''}
+            </span>
+          </Frame>
+
+          {showStashes && (
+            <Frame flow="vertical" gap={6} padding={8} radius="var(--radius-2)" stroke={{ color: 'border-1' }}>
+              <Frame flow="horizontal" gap={4}>
+                <input
+                  value={vm.stashMessage}
+                  onChange={(e) => vm.setStashMessage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && status.files.length > 0) vm.doStashPush() }}
+                  placeholder="Stash message (optional)"
+                  style={{
+                    flex: 1, background: 'var(--bg-2)', border: '1px solid var(--border-2)',
+                    color: 'var(--text-1)', fontSize: 10, padding: '4px 6px', ...MONO,
+                  }}
+                />
+                <Button variant="ghost" size="sm" onClick={vm.doStashPush} disabled={vm.stashing || status.files.length === 0} isLoading={vm.stashing}>
+                  Stash
+                </Button>
+              </Frame>
+
+              {vm.stashes.length === 0 ? (
+                <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>
+                  {vm.stashesLoading ? 'Loading…' : 'No stashes.'}
+                </span>
+              ) : (
+                vm.stashes.map((s) => {
+                  const busy = vm.stashActionRef === s.ref
+                  return (
+                    <Frame key={s.ref} flow="horizontal" align="center" justify="between" gap={6} padding={{ y: 3 }}>
+                      <span
+                        title={`${s.ref} — ${s.author}, ${s.date}`}
+                        style={{ flex: 1, minWidth: 0, fontSize: 10, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...MONO }}
+                      >
+                        {s.message || s.ref}
+                      </span>
+                      <Frame flow="horizontal" gap={2} shrink={0}>
+                        <IconButton as="span" glyph="↩" iconSize={12} title="Apply (keep the stash)" disabled={busy} onClick={() => vm.doStashApply(s.ref)} />
+                        <IconButton as="span" glyph="⏏" iconSize={12} title="Pop (apply and remove)" disabled={busy} onClick={() => vm.doStashPop(s.ref)} />
+                        <IconButton as="span" icon="trash" iconSize={12} title="Drop" textColor="#e07a7a" disabled={busy} onClick={() => setDroppingStash(s)} />
+                      </Frame>
+                    </Frame>
+                  )
+                })
+              )}
+            </Frame>
+          )}
         </Frame>
 
         <Frame flow="vertical" gap={10} grow minH={0} scroll="y" padding={14}>
           {vm.error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{vm.error}</span>}
+
+          {vm.conflicted.length > 0 && (
+            <Frame flow="vertical" gap={6} padding={8} radius="var(--radius-2)" fill={{ solid: 'rgba(224,122,122,0.08)' }} stroke={{ color: '#e07a7a' }}>
+              <span style={{ fontSize: 9, letterSpacing: '0.08em', color: '#e07a7a', ...MONO }}>
+                MERGE CONFLICT — {vm.conflicted.length} {vm.conflicted.length === 1 ? 'FILE' : 'FILES'}
+              </span>
+              {vm.conflicted.map((f) => (
+                <Frame key={f.path} flow="horizontal" align="center" justify="between" gap={6}>
+                  <span
+                    title={f.path}
+                    style={{ flex: 1, minWidth: 0, fontSize: 10, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...MONO }}
+                  >
+                    {f.path}
+                  </span>
+                  <Frame flow="horizontal" gap={4} shrink={0}>
+                    <Button variant="ghost" size="sm" onClick={() => onOpenFile?.(f.path)} disabled={!onOpenFile}>
+                      Open
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => vm.resolveConflict(f)}>
+                      Mark Resolved
+                    </Button>
+                  </Frame>
+                </Frame>
+              ))}
+            </Frame>
+          )}
 
           <Frame flow="vertical" gap={2}>
             <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
@@ -570,14 +634,22 @@ export default function SourceControlView({
             </Frame>
           )}
           {vm.selected && (
-            <Button variant="ghost" size="sm" onClick={vm.clearSelection}>
-              Back
-            </Button>
+            <Frame flow="horizontal" gap={6} align="center">
+              <Button variant={diffMode === 'unified' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDiffMode('unified')}>
+                Unified
+              </Button>
+              <Button variant={diffMode === 'side-by-side' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDiffMode('side-by-side')}>
+                Side-by-side
+              </Button>
+              <Button variant="ghost" size="sm" onClick={vm.clearSelection}>
+                Back
+              </Button>
+            </Frame>
           )}
         </Frame>
         {vm.selected ? (
           <Frame padding={{ y: 8 }}>
-            <DiffView diff={vm.diff} loading={vm.diffLoading} />
+            <DiffView diff={vm.diff} loading={vm.diffLoading} mode={diffMode} />
           </Frame>
         ) : rightView === 'commits' ? (
           <CommitGraphView reloadToken={vm.dataVersion} />
@@ -609,6 +681,16 @@ export default function SourceControlView({
         )
       })()}
 
+      {branchMenu.menu && (
+        <ContextMenu
+          x={branchMenu.menu.x}
+          y={branchMenu.menu.y}
+          anchorEl={branchMenu.menu.anchorEl}
+          onClose={branchMenu.close}
+          items={[{ label: 'Rename', onSelect: () => vm.startRenameBranch(branchMenu.menu!.data.name) }]}
+        />
+      )}
+
       {discardingFile && (
         <DiscardFileModal
           path={discardingFile.path}
@@ -616,6 +698,15 @@ export default function SourceControlView({
           discard={() => vm.discard(discardingFile)}
           onClose={() => setDiscardingFile(null)}
           onDiscarded={() => setDiscardingFile(null)}
+        />
+      )}
+
+      {droppingStash && (
+        <StashDropModal
+          stash={droppingStash}
+          drop={() => vm.doStashDrop(droppingStash.ref)}
+          onClose={() => setDroppingStash(null)}
+          onDropped={() => setDroppingStash(null)}
         />
       )}
     </Frame>

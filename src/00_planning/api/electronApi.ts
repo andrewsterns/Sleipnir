@@ -31,6 +31,12 @@ export interface ElectronBridge extends PlatformAPI {
   setTitleBarTheme?(colors: { color: string; symbolColor: string }): void
   /** Clones a repo from `url` into a user-picked folder (native picker), then opens it as this window's project — same repoint flow as openWorkspace. `null` if canceled, `{error}` on failure. Electron-only. */
   cloneRepo?(url: string): Promise<WorkspaceInfo | { error: string } | null>
+  /** Fired when this window's close button/Cmd+Q is pressed — the handler must call respondBeforeClose so main knows whether to warn about unsaved staged AI content (see App.tsx's pendingOverride). */
+  onBeforeClose?(callback: () => void): () => void
+  respondBeforeClose?(hasUnsavedChanges: boolean): Promise<void>
+  /** Fired only when the human picked "Save && Close" in the resulting warning dialog — save everything, then call saveBeforeCloseDone. */
+  onSaveBeforeClose?(callback: () => void): () => void
+  saveBeforeCloseDone?(): Promise<void>
 }
 
 declare global {

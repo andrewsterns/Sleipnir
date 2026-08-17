@@ -439,7 +439,7 @@ export async function pull() {
         ok: false,
         conflicted: true,
         conflictedFiles,
-        message: 'Pull hit a merge conflict — resolve it in the Terminal panel, then commit.',
+        message: 'Pull hit a merge conflict — resolve it below, then commit.',
       }
     }
     return { ok: false, message: result.stderr || 'git pull failed' }
@@ -493,6 +493,56 @@ export async function addRemote(url, name = 'origin') {
     : await git(['remote', 'add', name, trimmed])
   if (result.exitCode !== 0) return { ok: false, message: result.stderr || 'git remote failed' }
   return { ok: true, message: `Remote '${name}' set.` }
+}
+
+// ── Stash ────────────────────────────────────────────────────────────────
+
+export async function stashPush(message) {
+  await ensureRepo()
+  const status = await getStatus()
+  if (status.files.length === 0) throw new Error('Nothing to stash — the working tree is clean.')
+  const args = ['stash', 'push']
+  if (message && message.trim()) args.push('-m', message.trim())
+  const { exitCode, stderr, stdout } = await git(args)
+  if (exitCode !== 0) throw new Error(stderr || stdout || 'git stash push failed')
+  return getStatus()
+}
+
+export async function stashList() {
+  await ensureRepo()
+  const { stdout, exitCode } = await git([
+    'stash', 'list', `--pretty=format:%gd${FIELD_SEP}%s${FIELD_SEP}%an${FIELD_SEP}%ad`, '--date=short',
+  ])
+  if (exitCode !== 0 || !stdout.trim()) return []
+  return stdout.trim().split('\n').map((line) => {
+    const [ref, message, author, date] = line.split(FIELD_SEP)
+    return { ref, message, author, date }
+  })
+}
+
+export async function stashApply(ref) {
+  await ensureRepo()
+  if (!ref) throw new Error('No stash entry given to apply.')
+  const { exitCode, stderr, stdout } = await git(['stash', 'apply', ref])
+  if (exitCode !== 0) throw new Error(stderr || stdout || `Failed to apply ${ref}`)
+  return getStatus()
+}
+
+// Apply + drop in one step — the common case once you're done with a stash.
+export async function stashPop(ref) {
+  await ensureRepo()
+  if (!ref) throw new Error('No stash entry given to pop.')
+  const { exitCode, stderr, stdout } = await git(['stash', 'pop', ref])
+  if (exitCode !== 0) throw new Error(stderr || stdout || `Failed to pop ${ref}`)
+  return getStatus()
+}
+
+export async function stashDrop(ref) {
+  await ensureRepo()
+  if (!ref) throw new Error('No stash entry given to drop.')
+  const { exitCode, stderr, stdout } = await git(['stash', 'drop', ref])
+  if (exitCode !== 0) throw new Error(stderr || stdout || `Failed to drop ${ref}`)
+  return stashList()
 }
 
 // `git config user.name`/`user.email` with no --local/--global already

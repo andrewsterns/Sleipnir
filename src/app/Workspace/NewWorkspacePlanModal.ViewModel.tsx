@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { listWorkspaceDir, readWorkspaceFile, createPlan } from '../../00_planning/api/sleipnirApi'
 import type { FileTreeNode } from '../../00_planning/api/PlatformAPI'
 import type { SavedPlan } from '../../00_planning/graph/types'
-import { adapterForPath } from '../../00_planning/graph/importAdapters'
+import { detectEdgesForPaths } from '../../00_planning/graph/importAdapters/detectEdges'
 
 export interface NewWorkspacePlanModalProps {
   onClose: () => void
@@ -32,58 +32,16 @@ function basenameNoExt(name: string): string {
   return name.replace(/\.[^./]+$/, '')
 }
 
-// Best-effort import scan, run once at plan-creation time against just the
-// matched files (not the whole Workspace) — this is a renderer-side regex
-// scan, not a real per-language module resolver, so treat it as "a helpful
-// hint," not a guarantee of completeness or correctness.
-//
-// Every one of the app's 4 supported languages (TSX, Python, Rust, Go) now
-// has a real adapter (see graph/importAdapters) with proper relative-path
-// resolution — the same one scaffold-time auto-linking, the "##token"
-// editor extension, and the node-card link editor all use, so this stays
-// the one place that logic lives instead of a private copy per caller.
-// Anything with no adapter (a language this feature doesn't cover, or a
-// non-code file like markdown/JSON) falls back to a coarse "does an
-// imported name match another matched file's basename" heuristic — no real
-// module-path resolution, can both miss real edges and occasionally match
-// on a common name.
-const GENERIC_IMPORT_RE = /^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w."/]+))/gm
-
+// Import scan for the plan's initial-paint snapshot (assetEdges) — the live
+// graph re-scans this itself on every view thereafter (see
+// graph/resolveAssetPlan.ts), so this call only has to be right once, at
+// submit time. detectEdgesForPaths (graph/importAdapters/detectEdges.ts) is
+// the same shared, multi-language detector that live re-scan uses too — a
+// real per-language ImportAdapter where one exists (TSX/Python/Rust/Go, with
+// proper relative-path resolution), a coarse basename-match fallback for
+// every other extension.
 async function detectEdges(paths: string[]): Promise<{ source: string; target: string }[]> {
-  const edges: { source: string; target: string }[] = []
-  const seen = new Set<string>()
-  const addEdge = (source: string, target: string) => {
-    if (target === source) return
-    const key = `${source}>${target}`
-    if (seen.has(key)) return
-    seen.add(key)
-    edges.push({ source, target })
-  }
-
-  const contents = await Promise.all(paths.map((p) => readWorkspaceFile(p).then((r) => r.content).catch(() => '')))
-
-  paths.forEach((fromPath, i) => {
-    const content = contents[i]
-    if (!content) return
-    const adapter = adapterForPath(fromPath)
-
-    if (adapter) {
-      for (const spec of adapter.detectImports(content)) {
-        const target = adapter.resolveSpecifier(fromPath, spec.raw, paths)
-        if (target) addEdge(fromPath, target)
-      }
-    } else {
-      for (const m of content.matchAll(GENERIC_IMPORT_RE)) {
-        const raw = m[1] ?? m[2] ?? ''
-        const mod = raw.split(/[./]/).filter(Boolean).pop()
-        if (!mod) continue
-        const target = paths.find((p) => p !== fromPath && basenameNoExt(p.split('/').pop() ?? p) === mod)
-        if (target) addEdge(fromPath, target)
-      }
-    }
-  })
-
-  return edges
+  return detectEdgesForPaths(paths, (p) => readWorkspaceFile(p).then((r) => r.content))
 }
 
 export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspacePlanModalProps) {
@@ -95,9 +53,11 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
   // The one source of truth for what the plan will contain: an explicit set of
   // file paths. Directory checkboxes, the per-file checkboxes and Select-All
   // all just mutate this set; query/suffix are pure *view* filters that never
-  // touch it. Seeded to "everything" once the tree loads (see the effect
-  // below) so the old "name it and go — all files match" flow still works with
-  // a single click to create.
+  // touch it. Starts empty — a suffix chip or search query only narrows what's
+  // *shown*, so if selection started as "everything" a filtered-out file would
+  // stay silently selected and get submitted anyway. Starting empty means
+  // "checked" always matches "will be in the plan"; Select-All (which respects
+  // the current filter) is one click away for the old "just take everything" case.
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -106,9 +66,6 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
     listWorkspaceDir('')
       .then(({ tree }) => {
         setTree(tree)
-        // Default: every file selected (parity with the previous "no filter =
-        // all files match" behavior), the user then pares it down.
-        setSelectedPaths(new Set(flattenFiles(tree).map((f) => f.path)))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -208,6 +165,18 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
     [files, selectedPaths],
   )
 
+  // Top-level folders that are *fully* selected right now (dirState === 'all')
+  // — passed to createPlan as assetFolders so the live graph (see
+  // graph/resolveAssetPlan.ts) re-lists them on every future view/refresh,
+  // picking up files added under them after this plan is created. A folder
+  // only 'some'-selected doesn't qualify: there's no way to distinguish
+  // "everything under here, present and future" from "just these specific
+  // picks" once individual files are excluded, so it's treated as loose picks.
+  const matchedFolders = useMemo(
+    () => dirs.filter((d) => d.filePaths.length > 0 && d.filePaths.every((p) => selectedPaths.has(p))).map((d) => d.path),
+    [dirs, selectedPaths],
+  )
+
   const [detectingEdges, setDetectingEdges] = useState(false)
 
   const submit = async () => {
@@ -218,7 +187,7 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspac
       setDetectingEdges(true)
       const assetEdges = await detectEdges(matchedPaths).catch(() => [])
       setDetectingEdges(false)
-      const { plan } = await createPlan(label.trim(), [], matchedPaths, assetEdges)
+      const { plan } = await createPlan(label.trim(), [], matchedPaths, assetEdges, matchedFolders)
       onCreated(plan)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

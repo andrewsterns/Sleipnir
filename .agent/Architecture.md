@@ -3,17 +3,17 @@
 Sleipnir is organized as a linear execution pipeline to ensure "vibe coding" —
 by a human or by the built-in AI agent — is always research-grounded. This is
 the short directory map for agents; see the root [`ARCHITECTURE.md`](../ARCHITECTURE.md)
-for the full technical architecture (transport parity, the library/widget
-registries, the planning graph pipeline, the AI agent's tool-use loop, and the
-refactor engine).
+for the full technical architecture (transport parity, the planning graph
+pipeline, the AI agent's tool-use loop, and the refactor engine). Note:
+`ARCHITECTURE.md` §5–6 also documents a library/widget registry that was
+designed but never implemented — don't assume it exists.
 
 ## Directory structure
 - `.agent/` — **Meta-Architecture**. Conventions, rules, and system mandates (this directory).
-- `src/00_planning/` — **Execution Roadmaps + Live Registries**. Roadmap docs, the
-  planning graph, and the library/widget registries that make Components and
-  Prototypes extensible beyond their default folders.
+- `src/00_planning/` — **Execution Roadmaps + Live Registries**. Roadmap docs and
+  the planning graph.
 - `src/01_research/` — **Research Documentation**. Personas, proposals, and journey maps. Docs only.
-- `src/02_components/` — **Default Component Library**. `00_themes/ → 01_atoms/ → 02_molecules/ → 03_organisms/ → 04_templates/`. One of potentially many registered component libraries (see `src/00_planning/graph/libraries.json`).
+- `src/02_components/` — **Default Component Library**. `00_themes/ → 01_atoms/ → 02_molecules/ → 03_organisms/ → 04_templates/`. Currently the only component library — there's no registry to add more (see the note above).
 - `src/03_prototypes/` — **Default Prototype Library**. Consolidated area for all experimental prototypes.
 - `src/04_validation/` — **Session Validation**. Vitest logic for running and verifying prototype tests.
 - `src/05_analytics/` — **Result Data**. Output from testing sessions for further research.
@@ -25,8 +25,8 @@ refactor engine).
 ## Key boundaries
 1. **01_research is docs only:** No logic in research; a dropped `.md` file becomes a graph node automatically.
 2. **00_planning is the trigger:** Implementation only starts after a roadmap is defined in `00_planning/roadmaps/`.
-3. **02_components is the default source, not the only one:** All UI in a prototype must come from *a* registered component library — `02_components` by default, or another library registered via `src/00_planning/graph/libraries.json`.
-4. **`generate_code` never writes to disk:** The AI agent's code-generation tool always stages content in an editor tab for human review/save — see `.agent/RULES.md`.
+3. **02_components is the current source:** All UI in a prototype must come from `02_components` — it's the only registered component library today.
+4. **`generate_code` never writes to disk; `run_command` never runs unconfirmed:** The AI agent's code-generation tool always stages content in an editor tab for human review/save, and its command-execution tool blocks on an explicit human confirmation before anything runs — see `.agent/RULES.md`.
 
 ## Getting started
 - `npm install`

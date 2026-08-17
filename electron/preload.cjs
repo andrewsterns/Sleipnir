@@ -41,9 +41,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNodeStages: () => ipcRenderer.invoke('sleipnir:getNodeStages'),
   setNodeStage: (id, stage) => ipcRenderer.invoke('sleipnir:setNodeStage', id, stage),
   getPlans: () => ipcRenderer.invoke('sleipnir:getPlans'),
-  createPlan: (label, nodeIds, assetPaths, assetEdges) => ipcRenderer.invoke('sleipnir:createPlan', label, nodeIds, assetPaths, assetEdges),
+  createPlan: (label, nodeIds, assetPaths, assetEdges, assetFolders) => ipcRenderer.invoke('sleipnir:createPlan', label, nodeIds, assetPaths, assetEdges, assetFolders),
   appendPlanGeneratedFiles: (id, paths) => ipcRenderer.invoke('sleipnir:appendPlanGeneratedFiles', id, paths),
   addPlanNodes: (id, nodeIds) => ipcRenderer.invoke('sleipnir:addPlanNodes', id, nodeIds),
+  addPlanAssets: (id, paths, folders) => ipcRenderer.invoke('sleipnir:addPlanAssets', id, paths, folders),
   deletePlan: (id, opts) => ipcRenderer.invoke('sleipnir:deletePlan', id, opts),
   runScript: (filePath) => ipcRenderer.invoke('sleipnir:runScript', filePath),
   getGitStatus: () => ipcRenderer.invoke('sleipnir:getGitStatus'),
@@ -62,6 +63,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitPush: () => ipcRenderer.invoke('sleipnir:gitPush'),
   gitPull: () => ipcRenderer.invoke('sleipnir:gitPull'),
   gitFetch: () => ipcRenderer.invoke('sleipnir:gitFetch'),
+  gitStashPush: (message) => ipcRenderer.invoke('sleipnir:gitStashPush', message),
+  gitStashList: () => ipcRenderer.invoke('sleipnir:gitStashList'),
+  gitStashApply: (ref) => ipcRenderer.invoke('sleipnir:gitStashApply', ref),
+  gitStashPop: (ref) => ipcRenderer.invoke('sleipnir:gitStashPop', ref),
+  gitStashDrop: (ref) => ipcRenderer.invoke('sleipnir:gitStashDrop', ref),
   gitInit: () => ipcRenderer.invoke('sleipnir:gitInit'),
   gitAddRemote: (url, name) => ipcRenderer.invoke('sleipnir:gitAddRemote', url, name),
   cloneRepo: (url) => ipcRenderer.invoke('sleipnir:cloneRepo', url),
@@ -79,6 +85,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Recolors this window's native (OS-drawn) minimize/maximize/close overlay to
   // match the active theme — fire-and-forget, Windows-only (no-op elsewhere).
   setTitleBarTheme: (colors) => ipcRenderer.send('sleipnir:setTitleBarTheme', colors),
+
+  // Save-on-close round trip (see electron/main.cjs's handleCloseAttempt) —
+  // main pushes 'app:beforeClose'/'app:saveBeforeClose' when the window's
+  // close button/Cmd+Q is pressed, and blocks the actual close until the
+  // renderer answers via these two invoke() calls.
+  onBeforeClose: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('app:beforeClose', listener)
+    return () => ipcRenderer.removeListener('app:beforeClose', listener)
+  },
+  respondBeforeClose: (hasUnsavedChanges) => ipcRenderer.invoke('app:beforeCloseResponse', hasUnsavedChanges),
+  onSaveBeforeClose: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('app:saveBeforeClose', listener)
+    return () => ipcRenderer.removeListener('app:saveBeforeClose', listener)
+  },
+  saveBeforeCloseDone: () => ipcRenderer.invoke('app:saveBeforeCloseDone'),
 })
 
 // Separate bridge — a streaming/event-based API, not request/response like
@@ -144,6 +167,40 @@ contextBridge.exposeInMainWorld('chatAPI', {
     const listener = (_e, id, message) => { if (id === sessionId) callback(message) }
     ipcRenderer.on('chat:error', listener)
     return () => ipcRenderer.removeListener('chat:error', listener)
+  },
+  // run_command's propose/confirm/stream round-trip (see electron/chat.cjs).
+  sendCommandDecision: (requestId, approved) => ipcRenderer.send('chat:commandDecision', requestId, approved),
+  onCommandProposed: (sessionId, callback) => {
+    const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
+    ipcRenderer.on('chat:commandProposed', listener)
+    return () => ipcRenderer.removeListener('chat:commandProposed', listener)
+  },
+  onCommandOutput: (sessionId, callback) => {
+    const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
+    ipcRenderer.on('chat:commandOutput', listener)
+    return () => ipcRenderer.removeListener('chat:commandOutput', listener)
+  },
+  onCommandDone: (sessionId, callback) => {
+    const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
+    ipcRenderer.on('chat:commandDone', listener)
+    return () => ipcRenderer.removeListener('chat:commandDone', listener)
+  },
+})
+
+// Validation — same shape as previewAPI above (fire-and-forget start/stop,
+// push-event status filtered by id). No web equivalent (see electron/validation.cjs).
+contextBridge.exposeInMainWorld('validationAPI', {
+  run: (sessionId) => ipcRenderer.send('validation:run', sessionId),
+  stop: (sessionId) => ipcRenderer.send('validation:stop', sessionId),
+  onOutput: (sessionId, callback) => {
+    const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
+    ipcRenderer.on('validation:output', listener)
+    return () => ipcRenderer.removeListener('validation:output', listener)
+  },
+  onDone: (sessionId, callback) => {
+    const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
+    ipcRenderer.on('validation:done', listener)
+    return () => ipcRenderer.removeListener('validation:done', listener)
   },
 })
 

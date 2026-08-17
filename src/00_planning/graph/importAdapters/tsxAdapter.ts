@@ -1,6 +1,7 @@
 import type { NodeRole } from '../architectures'
 import { jsExportName } from '../naming'
 import type { ImportAdapter, ImportSpecifier } from './types'
+import { expandAlias, type PathAliasConfig } from './pathAliases'
 
 // Extracted from NewWorkspacePlanModal.ViewModel.tsx's own detectEdges,
 // which now calls this adapter instead of keeping a private copy — same
@@ -8,34 +9,65 @@ import type { ImportAdapter, ImportSpecifier } from './types'
 // scaffold-time auto-linking and the `##token`/node-card link-editor's
 // write direction (see AddNodeModal.ViewModel / graphLinkExtension /
 // PlanningView's node-card link editor).
-const JS_IMPORT_RE = /(?:import|export)\s+(?:type\s+)?[\s\S]*?from\s+['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)|import\(\s*['"]([^'"]+)['"]\s*\)/g
+//
+// Four alternatives, tried in order at each position:
+//   1. `import ... from '...'`  (default/named/namespace, optionally `type`)
+//   2. `export ... from '...'`  (re-export, optionally `type`)
+//   3. `import '...'`           (side-effect only — no bindings, no `from`)
+//   4/5. `require('...')` / `import('...')`
+// The `[^'";]` middle of 1/2 is deliberate, not just `[\s\S]`: it can only
+// cross whitespace/identifiers/braces, never a quote or semicolon — so it
+// can't run past the CURRENT statement into a later, unrelated `from`
+// clause. Without that guard, a side-effect import with no `from` of its
+// own (e.g. `import './Foo.css'`) gets silently swallowed into whichever
+// `from`-bearing import happens to follow it in the file — its own target
+// never captured, and worse, a stray "from" inside a later string literal
+// or comment could make the match span arbitrarily far. Branch 3 exists so
+// a side-effect import that DOES stop at its own quote still gets caught.
+const JS_IMPORT_RE =
+  /import\s+(?:type\s+)?[^'";]*?from\s+['"]([^'"]+)['"]|export\s+(?:type\s+)?[^'";]*?from\s+['"]([^'"]+)['"]|import\s+(?:type\s+)?['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)|import\(\s*['"]([^'"]+)['"]\s*\)/g
 
 function detectImports(content: string): ImportSpecifier[] {
   const specs: ImportSpecifier[] = []
   for (const m of content.matchAll(JS_IMPORT_RE)) {
-    const spec = m[1] ?? m[2] ?? m[3]
+    const spec = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5]
     if (!spec || m.index === undefined) continue
     specs.push({ raw: spec, index: m.index, length: m[0].length })
   }
   return specs
 }
 
-// Relative specifiers only ('./Foo', '../bar/Baz') — bare package imports
-// have no file in this project to point a graph edge at, so they're left
-// unresolved (null) rather than guessed at.
-function resolveSpecifier(fromPath: string, raw: string, candidatePaths: string[]): string | null {
-  if (!raw.startsWith('.')) return null
-  const fromDir = fromPath.split('/').slice(0, -1)
-  const stack = [...fromDir]
-  for (const part of raw.split('/')) {
-    if (part === '.' || part === '') continue
-    if (part === '..') stack.pop()
-    else stack.push(part)
-  }
-  const base = stack.join('/')
-  const candidates = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`, `${base}/index.ts`, `${base}/index.tsx`, `${base}/index.js`]
+// Relative ('./Foo', '../bar/Baz') and tsconfig/jsconfig-aliased
+// ('@molecules/Foo') specifiers resolve against the file pool; a genuine
+// bare package import (no leading '.', no matching `paths` entry) has no
+// file in this project to point a graph edge at, so it's left unresolved
+// (null) rather than guessed at.
+function resolveSpecifier(fromPath: string, raw: string, candidatePaths: string[], aliases?: PathAliasConfig): string | null {
   const pool = new Set(candidatePaths)
-  return candidates.find((c) => pool.has(c)) ?? null
+  const resolveBase = (base: string): string | null => {
+    const candidates = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`, `${base}/index.ts`, `${base}/index.tsx`, `${base}/index.js`]
+    return candidates.find((c) => pool.has(c)) ?? null
+  }
+
+  if (raw.startsWith('.')) {
+    const fromDir = fromPath.split('/').slice(0, -1)
+    const stack = [...fromDir]
+    for (const part of raw.split('/')) {
+      if (part === '.' || part === '') continue
+      if (part === '..') stack.pop()
+      else stack.push(part)
+    }
+    return resolveBase(stack.join('/'))
+  }
+
+  if (aliases) {
+    for (const base of expandAlias(raw, aliases)) {
+      const hit = resolveBase(base)
+      if (hit) return hit
+    }
+  }
+
+  return null
 }
 
 // './a/b/C.tsx' relative to 'a/x/Y.tsx' -> '../b/C' (extension stripped —

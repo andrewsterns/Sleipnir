@@ -2,11 +2,13 @@
 
 All execution in Sleipnir MUST start here. A roadmap is a Markdown file that
 defines the **Why**, the **What**, and the **How** before any code is written.
-This directory also hosts the app's live registries — the planning graph, the
-component/prototype library registry, and the widget registry — that make
-Components and Prototypes extensible beyond their default folders. See the
-root [`ARCHITECTURE.md`](../../ARCHITECTURE.md) (§5–§8) for the full technical
-picture; this file covers just what lives in `00_planning/` itself.
+This directory also hosts the app's one live registry — the planning graph.
+(A library/widget registry that would make Components and Prototypes
+extensible beyond their default folders was designed but never built — see
+`ARCHITECTURE.md` §5–6 for what that would take.) See the root
+[`ARCHITECTURE.md`](../../ARCHITECTURE.md) (§7–§8) for the planning-graph and
+AI-agent technical picture; this file covers just what lives in
+`00_planning/` itself.
 
 ## 1. Roadmap mandates
 - **Markdown only:** All plans are `.md` files under `roadmaps/`. No logic, no code.
@@ -27,21 +29,12 @@ opened via the File menu that have no other graph presence). `graph/notes.json`
 persists the runtime-created `claude`/note nodes; `graph/proposed-nodes.ts`
 holds hand-authored aspirational nodes merged into every map.
 
-## 3. Library registry
-`graph/libraries.json` (backed by `tools/library-registry.mjs`) lists every
-registered component or prototype library — `dsm` (`../02_components`) and
-`prototypes` (`../03_prototypes`) are seeded and protected from deletion.
-Create one via `CreateLibraryModal` (name, kind, architecture, language);
-remove one from Planning without deleting files via the library dropdown, or
-permanently via `DeleteLibraryModal` (type-to-confirm). See
-`../../ARCHITECTURE.md` §5.
-
-## 4. Widget registry
-`graph/widgets.json` (installed) and `graph/widget-catalog.json` (browsable
-catalog) back the widget system — folder-browser entries that appear as their
-own nav-rail icon, one level above libraries. Install via *File → Open
-Folder…* (`OpenFolderModal.tsx`) or the Widget Store
-(`WidgetStore.view.tsx`/`.ViewModel.tsx`). See `../../ARCHITECTURE.md` §6.
+## 3–4. Library/widget registry — not implemented
+Neither exists today: `02_components` and `03_prototypes` are the two fixed
+default libraries with no way to register a third, and there is no widget
+system or Widget Store. `src/App.tsx`'s `NAV_ITEMS` is a hardcoded 4-entry
+array. See `../../ARCHITECTURE.md` §5–6 for what was designed and what
+building it for real would take.
 
 ## 5. PlatformAPI
 `api/PlatformAPI.ts` declares the one interface every filesystem/graph/git/
@@ -54,13 +47,12 @@ picks the right one at call time). See `../../ARCHITECTURE.md` §1.
 - `roadmaps/` — Specific feature/theme/test plans.
 - `archive/` — Completed roadmaps, read-only.
 - `PLAN_TEMPLATE.md` — The blueprint for all new plans.
-- `graph/` — Planning graph data/rendering, library registry, widget registry.
+- `graph/` — Planning graph data/rendering (types, generated JSON, canvas,
+  layout, `notes.json`/`proposed-nodes.ts`).
 - `api/` — The `PlatformAPI` dual-transport abstraction.
 - `PlanningView.tsx` / `.ViewModel.tsx` — The Planning page: roadmaps, the
   graph canvas, and the per-library/doc tabs (including the `claude` tab
   where the AI agent's own plan nodes land).
-- `CreateLibraryModal.*`, `DeleteLibraryModal.*`, `OpenFolderModal.*`,
-  `WidgetStore.*` — The registry UIs described above.
 - `scaffoldOptions.ts` — Tier/language/part options for the component
   scaffolder (`scaffoldComponent`, wired through `PlatformAPI`).
 

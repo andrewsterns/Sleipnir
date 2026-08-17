@@ -13,6 +13,6 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/04_validation/setup.ts'],
-    exclude: ['node_modules/**', '.claude/**'],
+    exclude: ['node_modules/**', '.claude/**', 'release/**'],
   },
 })

@@ -6,6 +6,8 @@ import { ANTHROPIC_MODELS, type KeyStatus, type ModelStatus } from '../AgentChat
 import { getGitIdentity, setGitIdentity, type GitIdentity } from '../../00_planning/api/sleipnirApi'
 import { useAppTheme } from '../../00_themes/ThemeController'
 import { THEME_OPTIONS, type Theme } from '../../00_themes'
+import { useKeybindings } from '../../00_keybindings/KeybindingsController'
+import { DEFAULT_KEYBINDINGS } from '../../00_keybindings'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -22,6 +24,7 @@ const SECTIONS: SettingsSection[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'api-keys', label: 'API Keys' },
   { id: 'git-identity', label: 'Git Identity' },
+  { id: 'keybindings', label: 'Keybindings' },
 ]
 
 // A live, in-theme preview of a theme's own palette — the swatch itself is
@@ -256,6 +259,67 @@ function GitIdentitySection() {
   )
 }
 
+// Deliberately minimal — only one real hotkey exists anywhere in the app
+// today (CommandPalette's Ctrl/Cmd+P, via Frame's onHotkey), so this just
+// remaps that one, built to extend as more commands register hotkeys later
+// (see 00_keybindings/index.ts). Not a general modifier-remapping UI.
+function KeybindingsSection() {
+  const { bindings, setBinding } = useKeybindings()
+  const [listeningId, setListeningId] = useState<string | null>(null)
+
+  const onCaptureKeyDown = (id: string) => (e: React.KeyboardEvent) => {
+    e.preventDefault()
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return // wait for a real key
+    setBinding(id, e.key.toLowerCase())
+    setListeningId(null)
+  }
+
+  return (
+    <Frame flow="vertical" gap={12} style={{ maxWidth: 420 }}>
+      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
+        KEYBINDINGS
+      </span>
+      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+        Remaps to both Ctrl and Cmd, so it works the same on every platform. Applies instantly and is remembered on this device.
+      </span>
+      <Frame flow="vertical" gap={4}>
+        {DEFAULT_KEYBINDINGS.map((b) => {
+          const current = bindings[b.id] ?? b.key
+          const listening = listeningId === b.id
+          return (
+            <Frame key={b.id} flow="horizontal" align="center" justify="between" gap={10} padding={{ y: 4 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-1)', ...MONO }}>{b.label}</span>
+              {listening ? (
+                <input
+                  autoFocus
+                  readOnly
+                  value="Press a key…"
+                  onKeyDown={onCaptureKeyDown(b.id)}
+                  onBlur={() => setListeningId(null)}
+                  style={{
+                    width: 140, textAlign: 'center', background: 'var(--bg-2)', border: '1px solid var(--border-2)',
+                    color: 'var(--text-2)', fontSize: 10, padding: '5px 8px', outline: 'none', ...MONO,
+                  }}
+                />
+              ) : (
+                <button
+                  onClick={() => setListeningId(b.id)}
+                  style={{
+                    background: 'transparent', border: '1px solid var(--border-2)', color: 'var(--text-1)',
+                    fontSize: 10, letterSpacing: '0.04em', padding: '5px 10px', cursor: 'pointer', ...MONO,
+                  }}
+                >
+                  Ctrl/Cmd + {current.toUpperCase()}
+                </button>
+              )}
+            </Frame>
+          )
+        })}
+      </Frame>
+    </Frame>
+  )
+}
+
 // A full page, not a bottom dock — settings is a growing list of sections
 // (API keys today, appearance/themes and keyboard shortcuts planned), and a
 // 320px terminal-style strip doesn't scale the way a real page with a
@@ -312,6 +376,7 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'appearance' && <AppearanceSection />}
           {activeSection === 'api-keys' && <ApiKeysSection />}
           {activeSection === 'git-identity' && <GitIdentitySection />}
+          {activeSection === 'keybindings' && <KeybindingsSection />}
         </Frame>
       </Frame>
     </Frame>

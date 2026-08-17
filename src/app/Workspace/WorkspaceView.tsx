@@ -7,8 +7,9 @@ import { useWorkspaceViewModel } from './WorkspaceView.ViewModel'
 import { NewWorkspacePlanModal } from './NewWorkspacePlanModal'
 import type { FolderBrowserHandle } from '../DesignSystem/iFolderBrowserView'
 import type { WorkspaceViewProps } from './iWorkspaceView'
-import { setNodeStatus, setNodeBorrows, createWorkspaceDir, createWorkspaceFile, getNotes } from '../../00_planning/api/sleipnirApi'
+import { setNodeStatus, setNodeBorrows, createWorkspaceDir, createWorkspaceFile, getNotes, readWorkspaceFile } from '../../00_planning/api/sleipnirApi'
 import { adapterForPath } from '../../00_planning/graph/importAdapters'
+import { loadPathAliases } from '../../00_planning/graph/importAdapters/pathAliases'
 import type { GraphNode } from '../../00_planning/graph/types'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
@@ -140,10 +141,15 @@ function AddFileButton({ onCreated }: { onCreated: () => void }) {
 // disk (ROADMAP.md's Phase 0) — a wholly separate, independently-rooted
 // scope:'workspace' alongside Components/Prototypes/Docker's scope:'src'|
 // 'repo', which stay pinned to Sleipnir's own install. No onAddToPlan (an
-// arbitrary external file has no relationship to Sleipnir's own graph), no
-// LSP (tsserver's project root isn't parameterized per-workspace yet).
+// arbitrary external file has no relationship to Sleipnir's own graph). LSP
+// attaches either way: to Sleipnir's own shared language server when the
+// open folder is (or is inside) Sleipnir's own repo (repoRelativeRoot below),
+// or to a second, per-project language server rooted at the open folder
+// itself otherwise (workspaceRoot below) — see CodeEditorView.ViewModel's
+// lspTargetForScope and lspClient.ts's LspRoot/tools/lsp-proxy.mjs's
+// per-connection routing for how the two are told apart.
 export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>(function WorkspaceView(
-  { initialFile, pendingOverride, onOverrideSaved, onPlanCreated, onProjectOpened, recentProjects, onOpenRecentProject },
+  { initialFile, pendingOverride, onOverrideSaved, onPlanCreated, onPlanUpdated, onProjectOpened, recentProjects, onOpenRecentProject },
   ref,
 ) {
   const { info, loading, error, chooseFolder, cloneAndOpen, cloning } = useWorkspaceViewModel(onProjectOpened)
@@ -188,9 +194,10 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
     const sourceNode = nodes.find((n) => n.filePath === path)
     if (!sourceNode) return
     const candidatePaths = nodes.filter((n): n is typeof n & { filePath: string } => !!n.filePath).map((n) => n.filePath)
+    const aliases = await loadPathAliases((p) => readWorkspaceFile(p).then((r) => r.content)).catch(() => undefined)
     const targetIds = new Set<string>()
     for (const spec of adapter.detectImports(content)) {
-      const targetPath = adapter.resolveSpecifier(path, spec.raw, candidatePaths)
+      const targetPath = adapter.resolveSpecifier(path, spec.raw, candidatePaths, aliases)
       const targetNode = targetPath ? nodes.find((n) => n.filePath === targetPath) : undefined
       if (targetNode) targetIds.add(targetNode.id)
     }
@@ -294,8 +301,11 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
         scope="workspace"
         root=""
         rootLabel={info.name ?? undefined}
+        repoRelativeRoot={info.repoRelativeRoot}
+        workspaceRoot={info.root}
         supportsCreate
         supportsAddNode
+        onPlanUpdated={onPlanUpdated}
         initialFile={initialFile}
         pendingOverride={pendingOverride}
         onOverrideSaved={handleOverrideSaved}
@@ -304,9 +314,9 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
         onLinkResolved={handleLinkResolved}
         headerAction={(refresh) => (
           <>
-            <AddFileButton onCreated={refresh} />
-            <AddFolderButton onCreated={refresh} />
             <IconButton icon="plan-add" title="Add Plan…" onClick={() => setAddingPlan(true)} />
+            <AddFolderButton onCreated={refresh} />
+            <AddFileButton onCreated={refresh} />
           </>
         )}
       />

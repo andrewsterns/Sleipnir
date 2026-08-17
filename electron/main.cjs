@@ -11,9 +11,31 @@ const { pathToFileURL } = require('node:url')
 const terminal = require('./terminal.cjs')
 const chat = require('./chat.cjs')
 const preview = require('./preview.cjs')
+const commandRunner = require('./commandRunner.cjs')
+const validation = require('./validation.cjs')
 const apiKeyStore = require('./apiKeyStore.cjs')
 const modelStore = require('./modelStore.cjs')
 const workspaceStore = require('./workspaceStore.cjs')
+
+// Two Sleipnir processes sharing one userData dir (e.g. the app launched
+// twice, or a leftover dev instance still running when a packaged build
+// starts) race each other for the same GPU/disk cache and can corrupt or
+// lock it out from under one another — observed firsthand as "Access is
+// denied" GPU cache errors when a second instance came up. Bail out of the
+// loser immediately (top-level `return` is valid here only because this
+// file is genuinely CommonJS, per the file-level note above) and just focus
+// the window that's already open instead of standing up a second one.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+  return
+}
+app.on('second-instance', () => {
+  const [win] = BrowserWindow.getAllWindows()
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  }
+})
 
 // Last-resort main-process error handlers. Without these, a stray throw or
 // rejected promise surfaces Electron's raw "A JavaScript error occurred in
@@ -51,6 +73,13 @@ let backend
 // (workspace-root.mjs), so `ws` sets it to the caller's root right before
 // each synchronous backend call.
 const windowRoots = new Map()
+
+// wcId -> resolve fn, for the save-on-close round-trip (see createWindow's
+// 'close' handler / handleCloseAttempt below). Keyed by window so responses
+// from one window's renderer can't be consumed by another window's pending
+// close, since ipcMain.handle callbacks are registered once globally.
+const pendingBeforeClose = new Map()
+const pendingSaveBeforeClose = new Map()
 
 // A stable per-user "scratch" project, used whenever a window has no real
 // folder open — so plans/notes/files can be created immediately (nothing errors
@@ -106,6 +135,17 @@ async function startLspProxy() {
   const lspProxyPath = path.join(__dirname, '..', 'tools', 'lsp-proxy.mjs')
   const { startLspProxy: start } = await import(pathToFileURL(lspProxyPath).href)
   start(7081)
+}
+
+// Kills the proxy's tsserver child(ren) on quit — only meaningful when THIS
+// process actually started the proxy (see the `!isDev` guards below and at
+// startLspProxy's own call site: in dev, the Vite dev server owns the proxy
+// instead, and killing it from here would be a no-op on a different process's
+// module state anyway).
+async function stopLspProxy() {
+  const lspProxyPath = path.join(__dirname, '..', 'tools', 'lsp-proxy.mjs')
+  const { stopLspProxy: stop } = await import(pathToFileURL(lspProxyPath).href)
+  stop()
 }
 
 // Auto-update via electron-updater against GitHub Releases (see package.json's
@@ -226,9 +266,10 @@ function registerIpcHandlers() {
   ws('sleipnir:getNodeStages', (b) => b.getNodeStages())
   ws('sleipnir:setNodeStage', (b, _e, id, stage) => b.setNodeStage(id, stage))
   ws('sleipnir:getPlans', (b) => b.getPlans())
-  ws('sleipnir:createPlan', (b, _e, label, nodeIds, assetPaths, assetEdges) => b.createPlan(label, nodeIds, assetPaths, assetEdges))
+  ws('sleipnir:createPlan', (b, _e, label, nodeIds, assetPaths, assetEdges, assetFolders) => b.createPlan(label, nodeIds, assetPaths, assetEdges, assetFolders))
   ws('sleipnir:appendPlanGeneratedFiles', (b, _e, id, paths) => b.appendPlanGeneratedFiles(id, paths))
   ws('sleipnir:addPlanNodes', (b, _e, id, nodeIds) => b.addPlanNodes(id, nodeIds))
+  ws('sleipnir:addPlanAssets', (b, _e, id, paths, folders) => b.addPlanAssets(id, paths, folders))
   ws('sleipnir:deletePlan', (b, _e, id, opts) => b.deletePlan(id, opts))
   ws('sleipnir:runScript', (b, _e, filePath) => b.runScript(filePath))
 
@@ -248,6 +289,11 @@ function registerIpcHandlers() {
   ws('sleipnir:gitPush', (b) => b.gitPush())
   ws('sleipnir:gitPull', (b) => b.gitPull())
   ws('sleipnir:gitFetch', (b) => b.gitFetch())
+  ws('sleipnir:gitStashPush', (b, _e, message) => b.gitStashPush(message))
+  ws('sleipnir:gitStashList', (b) => b.gitStashList())
+  ws('sleipnir:gitStashApply', (b, _e, ref) => b.gitStashApply(ref))
+  ws('sleipnir:gitStashPop', (b, _e, ref) => b.gitStashPop(ref))
+  ws('sleipnir:gitStashDrop', (b, _e, ref) => b.gitStashDrop(ref))
   ws('sleipnir:gitInit', (b) => b.gitInit())
   ws('sleipnir:gitAddRemote', (b, _e, url, name) => b.gitAddRemote(url, name))
   ws('sleipnir:getGitIdentity', (b) => b.getGitIdentity())
@@ -259,7 +305,7 @@ function registerIpcHandlers() {
   ipcMain.handle('terminal:spawn', (event, cols, rows) => {
     // Open the shell in the calling window's project (falling back to the
     // app's own cwd when that window has none) — part of per-window isolation.
-    const { id, term } = terminal.spawnSession(cols, rows, rootForSender(event.sender) || process.cwd())
+    const { id, term } = terminal.spawnSession(cols, rows, rootForSender(event.sender) || process.cwd(), event.sender.id)
     const sender = event.sender
     term.onData((data) => {
       if (!sender.isDestroyed()) sender.send('terminal:data', id, data)
@@ -280,9 +326,32 @@ function registerIpcHandlers() {
   // push events tagged with the session id, since a single Anthropic
   // streaming call has a clear start and end (unlike a long-lived shell).
   ipcMain.handle('chat:sendMessage', (event, sessionId, history, message) =>
-    chat.sendMessage(event.sender, sessionId, history, message),
+    chat.sendMessage(event.sender, sessionId, history, message, rootForSender(event.sender)),
   )
   ipcMain.on('chat:cancel', (_e, sessionId) => chat.cancel(sessionId))
+  ipcMain.on('chat:commandDecision', (_e, requestId, approved) => chat.resolveCommandDecision(requestId, approved))
+
+  // Validation — runs the open Workspace's own `vitest run --reporter=json`
+  // via commandRunner (see validation.cjs). Same fire-and-forget + push-events
+  // shape as preview:start/preview:stop above.
+  ipcMain.on('validation:run', (event, sessionId) => {
+    validation.run(event.sender, sessionId, rootForSender(event.sender))
+  })
+  ipcMain.on('validation:stop', (_e, sessionId) => validation.stop(sessionId))
+
+  // Save-on-close round trip (see handleCloseAttempt below) — the renderer
+  // answers a pushed 'app:beforeClose'/'app:saveBeforeClose' event via these
+  // invoke() calls, resolved against THIS window's own pending map entry
+  // (event.sender.id), so concurrent close attempts in different windows
+  // can't cross-resolve each other's promise.
+  ipcMain.handle('app:beforeCloseResponse', (event, hasUnsavedChanges) => {
+    pendingBeforeClose.get(event.sender.id)?.(hasUnsavedChanges)
+    pendingBeforeClose.delete(event.sender.id)
+  })
+  ipcMain.handle('app:saveBeforeCloseDone', (event) => {
+    pendingSaveBeforeClose.get(event.sender.id)?.()
+    pendingSaveBeforeClose.delete(event.sender.id)
+  })
 
   // Prototype live preview — same streaming/event-based shape as terminal
   // above. `start` is fire-and-forget (like terminal:write, not
@@ -468,6 +537,39 @@ function isDarkHex(hex) {
   return 0.299 * r + 0.587 * g + 0.114 * b < 128
 }
 
+// Intercepted by 'close' (below) — asks the renderer whether this window has
+// unsaved staged AI content (App.tsx's pendingOverride) before really
+// closing, so it can't be silently lost. Only forceCloses (win.__forceClose,
+// checked by the 'close' listener) once the human has decided.
+async function handleCloseAttempt(win, wcId) {
+  win.webContents.send('app:beforeClose')
+  const hasUnsaved = await new Promise((resolve) => pendingBeforeClose.set(wcId, resolve))
+  if (!hasUnsaved) {
+    win.__forceClose = true
+    win.close()
+    return
+  }
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'warning',
+    buttons: ['Cancel', 'Discard', 'Save && Close'],
+    defaultId: 2,
+    cancelId: 0,
+    message: 'You have unsaved AI-generated changes.',
+    detail: 'Discard them, or save and close the window?',
+  })
+  if (response === 0) return // Cancel
+  if (response === 1) {
+    win.__forceClose = true
+    win.close()
+    return
+  }
+  // Save && Close
+  win.webContents.send('app:saveBeforeClose')
+  await new Promise((resolve) => pendingSaveBeforeClose.set(wcId, resolve))
+  win.__forceClose = true
+  win.close()
+}
+
 // initialRoot/initialName seed the window's own project (see windowRoots) —
 // the restored-on-launch project for the first window, or null/null for a
 // blank File > New Window. Its webContents id is what every workspace IPC
@@ -507,9 +609,34 @@ function createWindow(initialRoot = null, initialName = null) {
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
   }
+  // Both fire on genuine renderer failures (bad load, GPU/OOM crash) that
+  // otherwise surface as nothing but a stuck or blank window with zero trace
+  // in main.log — the only other error hooks (top-level uncaughtException/
+  // unhandledRejection above) live in the main process and can't see across
+  // to the renderer.
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    logMainError('did-fail-load', new Error(`${code} ${desc} ${url}`))
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    logMainError('render-process-gone', new Error(JSON.stringify(details)))
+  })
+
+  win.on('close', (event) => {
+    if (win.__forceClose) return
+    event.preventDefault()
+    handleCloseAttempt(win, wcId)
+  })
 
   win.on('closed', () => {
     windowRoots.delete(wcId)
+    // This window's own terminal/chat/preview/commandRunner sessions would
+    // otherwise leak until the whole app quits (window-all-closed/before-quit
+    // are the only other place these get killed) — see ROADMAP.md's
+    // "Per-window resource cleanup" gap.
+    terminal.killForWindow(wcId)
+    chat.killForWindow(wcId)
+    preview.killForWindow(wcId)
+    commandRunner.killForWindow(wcId)
   })
   return win
 }
@@ -579,6 +706,8 @@ app.on('window-all-closed', () => {
   terminal.killAll()
   chat.killAll()
   preview.killAll()
+  commandRunner.killAll()
+  if (!isDev) stopLspProxy()
   if (process.platform !== 'darwin') app.quit()
 })
 
@@ -586,4 +715,6 @@ app.on('before-quit', () => {
   terminal.killAll()
   chat.killAll()
   preview.killAll()
+  commandRunner.killAll()
+  if (!isDev) stopLspProxy()
 })

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { IconName } from '../UIKit/Icon/Icon'
-import type { GraphNode } from '../../00_planning/graph/types'
+import type { GraphNode, SavedPlan } from '../../00_planning/graph/types'
 
 /** One open tab within a single FolderBrowserView instance — local to that instance, never shared across categories. */
 export interface BrowserTab {
@@ -43,8 +43,10 @@ export interface FolderBrowserViewProps {
   fileAction?: (path: string, name: string) => { icon: IconName; title: string; onClick: () => void } | null | undefined
   /** "Add to plan" — passed straight through to LeftRailing, see its own doc comment. Present on every real-repo widget (App.tsx supplies one implementation for each); omitted for scope:'workspace', where an arbitrary external file has no relationship to Sleipnir's own graph/notes system. */
   onAddToPlan?: (label: string, paths: string[]) => void
-  /** Adds an "Add node ▸" submenu to each row's context menu (pick a plan → a draft node named after the file/folder is created in it, with a confirmation animation). Passed straight through to LeftRailing; Workspace only. */
+  /** Adds an "Add node ▸" submenu to each row's context menu (pick a plan → pulls the real file/folder straight into it as a live asset, with a confirmation animation). Passed straight through to LeftRailing; Workspace only. */
   supportsAddNode?: boolean
+  /** Fired right after "Add node ▸" pulls a file/folder into a plan, with the updated SavedPlan — passed straight through to LeftRailing, see its own doc comment. */
+  onPlanUpdated?: (plan: SavedPlan) => void
   /** Opens (or focuses, if already open) this file as a tab on mount and whenever it changes — see DesignLibrary.view.tsx's reactive-effect comment for why "changes after mount" matters now that browsers stay mounted across NavRail switches. `line` (1-based) scrolls/positions the cursor there once loaded — set by search-result and quick-open jumps (see App.tsx's jumpToProjectFile). */
   initialFile?: { name: string; path: string; line?: number } | null
   /**
@@ -60,6 +62,10 @@ export interface FolderBrowserViewProps {
   /** Passed straight through to every open tab's CodeEditorView — see its own getGraphNodes/onLinkResolved doc comments (the "##token" editor extension). */
   getGraphNodes?: () => GraphNode[]
   onLinkResolved?: (path: string, target: GraphNode) => void
+  /** REPO_ROOT-relative path to the open Workspace root — see WorkspaceInfo.repoRelativeRoot. Passed straight through to every open tab's CodeEditorView to gate LSP for scope:'workspace'; omitted for Research's `.research`-rooted instance (never TS/JS content). */
+  repoRelativeRoot?: string | null
+  /** The open Workspace's own absolute root — see WorkspaceInfo.root. Passed straight through alongside repoRelativeRoot; roots LSP at this external project itself when repoRelativeRoot is null. Omitted wherever repoRelativeRoot is (Research). */
+  workspaceRoot?: string | null
 }
 
 /**

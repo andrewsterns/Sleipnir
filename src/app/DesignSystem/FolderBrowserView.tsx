@@ -33,7 +33,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   props,
   ref,
 ) {
-  const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, supportsAddNode, onImportsChanged, getGraphNodes, onLinkResolved } = props
+  const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, supportsAddNode, onPlanUpdated, onImportsChanged, getGraphNodes, onLinkResolved, repoRelativeRoot, workspaceRoot } = props
   const { liveTree, archivedEntries, newPaths, tabs, activeTabPath, setActiveTabPath, openTab, closeTab, closeTabsUnder, contentByPath, refresh } =
     useFolderBrowserViewModel(props)
   const editorRefs = useRef<Map<string, CodeEditorHandle | null>>(new Map())
@@ -125,6 +125,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
           findPlanNodes={scope === 'workspace' ? findPlanNodes : undefined}
           deletePlanNodes={scope === 'workspace' ? deletePlanNodes : undefined}
           supportsAddNode={supportsAddNode}
+          onPlanUpdated={onPlanUpdated}
         />
       )}
       header={
@@ -170,6 +171,8 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
                     suppressAutoSave={isOverrideActive}
                     onSaved={isOverrideActive ? () => onOverrideSaved?.(pendingOverride!.planNodeId) : undefined}
                     scope={scope}
+                    repoRelativeRoot={repoRelativeRoot}
+                    workspaceRoot={workspaceRoot}
                     revealLine={tab.line}
                     onImportsChanged={onImportsChanged}
                     getGraphNodes={getGraphNodes}

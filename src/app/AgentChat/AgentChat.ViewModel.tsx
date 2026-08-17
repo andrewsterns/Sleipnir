@@ -65,13 +65,53 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
       setStreaming(false)
     })
 
+    // run_command's propose/confirm/stream sequence — one new chat message
+    // per proposal, updated in place by the output/done events that follow.
+    const unsubCommandProposed = api.onCommandProposed(sessionId, ({ requestId, command, args }) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+          command: { requestId, command, args, status: 'pending', output: '' },
+        },
+      ])
+    })
+    const unsubCommandOutput = api.onCommandOutput(sessionId, ({ requestId, text }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.command?.requestId === requestId ? { ...m, command: { ...m.command, output: m.command.output + text } } : m,
+        ),
+      )
+    })
+    const unsubCommandDone = api.onCommandDone(sessionId, ({ requestId, exitCode, timedOut }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.command?.requestId === requestId ? { ...m, command: { ...m.command, status: 'done', exitCode, timedOut } } : m,
+        ),
+      )
+    })
+
     return () => {
       unsubToken()
       unsubPlanNode()
       unsubDone()
       unsubError()
+      unsubCommandProposed()
+      unsubCommandOutput()
+      unsubCommandDone()
     }
   }, [])
+
+  const decideCommand = (requestId: string, approved: boolean) => {
+    window.chatAPI?.sendCommandDecision(requestId, approved)
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.command?.requestId === requestId ? { ...m, command: { ...m.command, status: approved ? 'running' : 'declined' } } : m,
+      ),
+    )
+  }
 
   const sendMessage = async () => {
     const api = window.chatAPI
@@ -93,5 +133,5 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
     setStreaming(false)
   }
 
-  return { messages, input, setInput, sendMessage, cancel, streaming, available }
+  return { messages, input, setInput, sendMessage, cancel, streaming, available, decideCommand }
 }

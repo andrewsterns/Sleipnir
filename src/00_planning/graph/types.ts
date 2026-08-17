@@ -20,9 +20,11 @@ export interface SavedPlan {
   nodeIds: string[]
   /** Workspace-relative paths written via "Generate Code" while this plan's tab was the active Planning tab. Optional — absent/empty for plans with no AI-generated files yet. See DeletePlanModal's "also delete workspace files" option. */
   generatedFiles?: string[]
-  /** Workspace-relative paths this plan was seeded with via Workspace's "Add Plan" asset-filter flow — a snapshot of what matched at creation time, not a live query. Mutually exclusive with `nodeIds` in practice (a plan is either graph-node-based or asset-based), but both fields always exist on the type since a plan could in principle reference a mix. */
+  /** Workspace-relative paths this plan was seeded with via Workspace's "Add Plan" asset-filter flow, at creation time. Mutually exclusive with `nodeIds` in practice (a plan is either graph-node-based or asset-based), but both fields always exist on the type since a plan could in principle reference a mix. Superseded at view time by resolveAssetPlanGraph (graph/resolveAssetPlan.ts), which re-lists `assetFolders` fresh and re-scans every path's current content — this field is only the fallback for paths that were hand-picked outside any selected folder. */
   assetPaths?: string[]
-  /** Import/require connections detected between `assetPaths` entries at creation time (see NewWorkspacePlanModal.ViewModel's detectEdges) — a snapshot alongside assetPaths, not recomputed on every view. Best-effort: precise for JS/TS relative imports, coarser (basename-matched) for other languages. */
+  /** Top-level directories that were fully selected (every file under them checked) when this plan was created — see NewWorkspacePlanModal.ViewModel's `dirs`/`dirState`. Re-listed live by resolveAssetPlanGraph on every view/refresh, so files added under one of these folders after plan creation show up as new nodes automatically. Absent for plans seeded entirely from individually hand-picked files. */
+  assetFolders?: string[]
+  /** Import/require connections detected between `assetPaths` entries at creation time (see NewWorkspacePlanModal.ViewModel's detectEdges) — an initial-paint snapshot only. graphForPlan (PlanningView.ViewModel.tsx) renders this immediately for a flash-free first paint, then resolveAssetPlanGraph replaces it with a live re-scan of current file content. Best-effort: precise for JS/TS relative imports, coarser (basename-matched) for other languages — see graph/importAdapters/detectEdges.ts. */
   assetEdges?: { source: string; target: string }[]
   createdAt: number
 }
@@ -58,6 +60,8 @@ export interface GraphNode {
   language?: LanguageId
   /** Which architecture this node's batch was scaffolded under — informational (drives the node-card link editor's candidate filtering), not enforced afterward. */
   architecture?: ArchitectureId
+  /** True only on an asset-plan node pulled in by the reference walk (see resolveAssetPlan.ts) rather than explicitly added to the plan — e.g. an atom a card component imports, never hand-picked itself. Absent (not false) on every explicitly-added node. */
+  discovered?: boolean
 }
 
 export interface GraphEdge {

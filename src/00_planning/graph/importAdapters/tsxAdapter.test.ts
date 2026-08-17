@@ -11,10 +11,35 @@ describe('tsxAdapter', () => {
     expect(specs).toEqual(expect.arrayContaining(['./Foo', 'react', '../Bar']))
   })
 
+  it('detects side-effect imports (no `from`, e.g. CSS) without swallowing the import after them', () => {
+    const content = `import './cards.css'\nimport { CardViewModel } from './CardViewModel'\nimport React from 'react'\n`
+    const specs = tsxAdapter.detectImports(content).map((s) => s.raw)
+    expect(specs).toEqual(['./cards.css', './CardViewModel', 'react'])
+  })
+
+  it('detects a lone side-effect import with no later `from` import in the file at all', () => {
+    const content = `import './only-side-effect.css'\nexport function Bar() {}\n`
+    expect(tsxAdapter.detectImports(content).map((s) => s.raw)).toEqual(['./only-side-effect.css'])
+  })
+
+  it('does not let the word "from" inside a string literal bridge into an unrelated later import', () => {
+    const content = `export const greeting = "hello from the app"\nimport { X } from './x'\n`
+    expect(tsxAdapter.detectImports(content).map((s) => s.raw)).toEqual(['./x'])
+  })
+
   it('resolves a relative specifier to a real candidate and leaves bare packages null', () => {
     const candidates = ['feature/Foo.tsx', 'feature/Bar.tsx']
     expect(tsxAdapter.resolveSpecifier('feature/Bar.tsx', './Foo', candidates)).toBe('feature/Foo.tsx')
     expect(tsxAdapter.resolveSpecifier('feature/Bar.tsx', 'react', candidates)).toBeNull()
+  })
+
+  it('resolves an aliased specifier via a tsconfig-style paths map, and still leaves an unmapped bare package null', () => {
+    const candidates = ['feature/Bar.tsx', 'src/molecules/nav-circle/NavCircleView.tsx']
+    const aliases = { baseUrl: '', paths: { '@molecules/*': ['src/molecules/*'] } }
+    expect(tsxAdapter.resolveSpecifier('feature/Bar.tsx', '@molecules/nav-circle/NavCircleView', candidates, aliases)).toBe(
+      'src/molecules/nav-circle/NavCircleView.tsx',
+    )
+    expect(tsxAdapter.resolveSpecifier('feature/Bar.tsx', 'react', candidates, aliases)).toBeNull()
   })
 
   it('inserts an import for a target and is idempotent (no duplicate on re-insert)', () => {

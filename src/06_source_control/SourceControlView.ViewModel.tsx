@@ -16,11 +16,17 @@ import {
   gitFetch,
   gitInit,
   gitAddRemote,
+  gitStashPush,
+  gitStashList,
+  gitStashApply,
+  gitStashPop,
+  gitStashDrop,
   type GitStatus,
   type GitFileStatus,
   type GitBranch,
   type GitBranchTree,
   type GitOpResult,
+  type GitStash,
 } from '../00_planning/api/sleipnirApi'
 
 interface SelectedFile {
@@ -67,6 +73,14 @@ export function useSourceControlViewModel() {
   const [renameValue, setRenameValue] = useState('')
   const [renamingInFlight, setRenamingInFlight] = useState(false)
 
+  const [stashes, setStashes] = useState<GitStash[]>([])
+  const [stashesLoading, setStashesLoading] = useState(false)
+  const [stashMessage, setStashMessage] = useState('')
+  const [stashing, setStashing] = useState(false)
+  // ref of the stash row currently being applied/popped/dropped — per-row
+  // loading state, same "one field, not a Set" shape as renamingBranch above.
+  const [stashActionRef, setStashActionRef] = useState<string | null>(null)
+
   const refresh = useCallback(async () => {
     try {
       const [s, b] = await Promise.all([getGitStatus(), getBranches()])
@@ -89,6 +103,17 @@ export function useSourceControlViewModel() {
       // Non-critical — the file-status side of the view still works without it.
     } finally {
       setBranchTreeLoading(false)
+    }
+  }, [])
+
+  const refreshStashes = useCallback(async () => {
+    setStashesLoading(true)
+    try {
+      setStashes(await gitStashList())
+    } catch {
+      // Non-critical, same tolerance as refreshBranchTree above.
+    } finally {
+      setStashesLoading(false)
     }
   }, [])
 
@@ -144,6 +169,18 @@ export function useSourceControlViewModel() {
     try {
       const next = file.staged ? await unstageFiles([file.path]) : await stageFiles([file.path])
       setStatus(next)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  // Always stages, regardless of current staged state — unlike toggleStage,
+  // which flips based on it. A conflicted file's indexStatus is already 'U'
+  // (so `staged` reads true), so toggleStage would unstage it instead; `git
+  // add` on a conflicted path IS what marks it resolved.
+  const resolveConflict = async (file: GitFileStatus) => {
+    try {
+      setStatus(await stageFiles([file.path]))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -249,6 +286,58 @@ export function useSourceControlViewModel() {
     }
   }
 
+  const doStashPush = async () => {
+    setStashing(true)
+    setError(null)
+    try {
+      const next = await gitStashPush(stashMessage.trim() || undefined)
+      setStatus(next)
+      setStashMessage('')
+      await refreshStashes()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setStashing(false)
+    }
+  }
+
+  const doStashApply = async (ref: string) => {
+    setStashActionRef(ref)
+    setError(null)
+    try {
+      setStatus(await gitStashApply(ref))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setStashActionRef(null)
+    }
+  }
+
+  const doStashPop = async (ref: string) => {
+    setStashActionRef(ref)
+    setError(null)
+    try {
+      setStatus(await gitStashPop(ref))
+      await refreshStashes()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setStashActionRef(null)
+    }
+  }
+
+  const doStashDrop = async (ref: string) => {
+    setStashActionRef(ref)
+    setError(null)
+    try {
+      setStashes(await gitStashDrop(ref))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setStashActionRef(null)
+    }
+  }
+
   const switchBranch = async (name: string) => {
     setSwitchingBranch(true)
     setError(null)
@@ -314,19 +403,25 @@ export function useSourceControlViewModel() {
   const staged = status?.files.filter((f) => f.staged) ?? []
   const unstaged = status?.files.filter((f) => !f.staged && !f.untracked) ?? []
   const untracked = status?.files.filter((f) => f.untracked) ?? []
+  // Always sourced from the live status (refreshed on every refresh(), not
+  // just a one-off post-pull snapshot) so it stays accurate if a conflict is
+  // resolved outside the app (e.g. in the terminal) and the user hits Refresh.
+  const conflicted = status?.files.filter((f) => f.conflicted) ?? []
 
   return {
     status, branches, loading, error,
     branchTree, branchTreeLoading, dataVersion,
-    staged, unstaged, untracked,
+    staged, unstaged, untracked, conflicted,
     selected, diff, diffLoading, selectFile, clearSelection,
-    toggleStage, discard,
+    toggleStage, discard, resolveConflict,
     commitMessage, setCommitMessage, committing, commit,
     pushing, pulling, fetching, opResult, doPush, doPull, doFetch,
     initializing, doInit, addingRemote, doAddRemote,
     newBranchName, setNewBranchName, switchingBranch, switchBranch, submitNewBranch,
     renamingBranch, renameValue, setRenameValue, renamingInFlight,
     startRenameBranch, cancelRenameBranch, submitRenameBranch,
-    refresh, refreshBranchTree,
+    stashes, stashesLoading, stashMessage, setStashMessage, stashing, stashActionRef,
+    doStashPush, doStashApply, doStashPop, doStashDrop,
+    refresh, refreshBranchTree, refreshStashes,
   }
 }

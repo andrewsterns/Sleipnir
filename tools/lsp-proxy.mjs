@@ -7,11 +7,19 @@
 // directions. Shared by vite.config.ts (web dev server) and
 // electron/main.cjs (desktop) — both just call startLspProxy() once.
 //
-// Known simplification: one shared typescript-language-server process for
-// all connections, matching this dev tool's single-local-user assumption
-// (see tools/sleipnir-backend.mjs). Concurrent editors from independent
-// clients aren't isolated from each other's request IDs — fine for one
-// person with one app window open, not safe to generalize beyond that yet.
+// Two roots, per connection: a WebSocket whose `initialize` request's
+// rootUri is FAKE_ROOT_URI is Sleipnir editing itself — routed to the one
+// shared, page-lifetime tsserver rooted at REPO_ROOT (unchanged from the
+// original single-server design, including the fake/real URI rewriting
+// below, which only that case needs — the renderer already knows an
+// external workspace's real absolute path, see lspClient.ts, so those
+// connections send real file:// URIs and need no rewriting at all).
+// A connection with any other rootUri is an external Workspace project —
+// routed to a second, single-slot tsserver rooted at that folder instead
+// (see getExternalTsServer). Still a single-local-user, single-window
+// simplification: one shared self-host server, one external server replaced
+// whenever a different external root shows up (see tools/sleipnir-backend.mjs
+// and CodeEditorView.ViewModel.tsx's LspRoot for the client-side half).
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -81,14 +89,15 @@ function frame(json) {
   return Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, 'utf8'), body])
 }
 
+const CLI_PATH = path.join(REPO_ROOT, 'node_modules', 'typescript-language-server', 'lib', 'cli.mjs')
+
 let tsServerProcess = null
 
 function getTsServer() {
   if (tsServerProcess) return tsServerProcess
-  const cliPath = path.join(REPO_ROOT, 'node_modules', 'typescript-language-server', 'lib', 'cli.mjs')
   // Spawn via the current Node binary directly rather than the npm .bin
   // shim — sidesteps .cmd/.ps1 wrapper differences across platforms.
-  tsServerProcess = spawn(process.execPath, [cliPath, '--stdio'], {
+  tsServerProcess = spawn(process.execPath, [CLI_PATH, '--stdio'], {
     cwd: REPO_ROOT,
     stdio: ['pipe', 'pipe', 'pipe'],
   })
@@ -102,27 +111,120 @@ function getTsServer() {
   return tsServerProcess
 }
 
+// Single-slot: at most one external-project tsserver alive at a time (one
+// Sleipnir window, one open Workspace at a time — see the file-level comment).
+// Replaced whenever a different root is requested, and torn down when its
+// owning connection closes (see startLspProxy's ws.on('close') below) — a
+// deleted/renamed external root, unlike REPO_ROOT, is a real possibility, so
+// this (unlike getTsServer) also needs an 'error' handler rather than hanging
+// silently on a bad spawn.
+let externalServer = null // { root, process }
+
+function killExternalServer() {
+  if (!externalServer) return
+  externalServer.process.kill()
+  externalServer = null
+}
+
+function getExternalTsServer(root) {
+  if (externalServer && externalServer.root === root) return externalServer.process
+  killExternalServer()
+  const proc = spawn(process.execPath, [CLI_PATH, '--stdio'], {
+    cwd: root,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  proc.stderr.on('data', (d) => {
+    console.error('[typescript-language-server:external]', d.toString())
+  })
+  proc.on('error', (err) => {
+    console.error('[typescript-language-server:external] failed to start', err)
+  })
+  proc.on('exit', (code) => {
+    console.log(`[typescript-language-server:external] exited (${code})`)
+    if (externalServer?.process === proc) externalServer = null
+  })
+  externalServer = { root, process: proc }
+  return proc
+}
+
 let wss = null
 
 export function startLspProxy(port = 7071) {
   if (wss) return wss
   wss = new WebSocketServer({ port })
   wss.on('connection', (ws) => {
-    const server = getTsServer()
-    const reader = createLspReader((json) => {
-      if (ws.readyState === ws.OPEN) ws.send(toFakeUris(json))
+    // Routing is decided once, from the first message (guaranteed to be the
+    // client's `initialize` request — @codemirror/lsp-client sends it
+    // synchronously from connect(), before any other request can be queued).
+    // `external` tracks whether THIS connection owns the external slot, so
+    // its close can tear that server down without racing a newer connection
+    // that may have already replaced it (see getExternalTsServer above).
+    let server = null
+    let rewrite = true
+    let reader = null
+    let external = false
+
+    const bind = (chosenServer, useRewrite, isExternal) => {
+      server = chosenServer
+      rewrite = useRewrite
+      external = isExternal
+      reader = createLspReader((json) => {
+        if (ws.readyState === ws.OPEN) ws.send(rewrite ? toFakeUris(json) : json)
+      })
+      server.stdout.on('data', reader)
+    }
+
+    ws.once('message', (data) => {
+      const raw = data.toString()
+      let rootUri = null
+      try {
+        rootUri = JSON.parse(raw)?.params?.rootUri ?? null
+      } catch {
+        // Malformed first message — fall through to the self-host default.
+      }
+
+      let externalRoot = null
+      if (rootUri && rootUri !== FAKE_ROOT_URI) {
+        try {
+          externalRoot = fileURLToPath(rootUri)
+        } catch {
+          externalRoot = null // not a real file:// URI either — self-host default
+        }
+      }
+
+      if (externalRoot) {
+        bind(getExternalTsServer(externalRoot), false, true)
+        server.stdin.write(frame(raw))
+      } else {
+        bind(getTsServer(), true, false)
+        server.stdin.write(frame(toRealUris(raw)))
+      }
+
+      ws.on('message', (nextData) => {
+        const json = nextData.toString()
+        server.stdin.write(frame(rewrite ? toRealUris(json) : json))
+      })
     })
-    server.stdout.on('data', reader)
-    ws.on('message', (data) => {
-      server.stdin.write(frame(toRealUris(data.toString())))
-    })
+
     ws.on('close', () => {
-      server.stdout.off('data', reader)
+      server?.stdout.off('data', reader)
+      if (external && externalServer?.process === server) killExternalServer()
     })
     ws.on('error', () => {
-      server.stdout.off('data', reader)
+      server?.stdout.off('data', reader)
     })
   })
   console.log(`[lsp-proxy] typescript-language-server bridge listening on ws://localhost:${port}`)
   return wss
+}
+
+// Kills any live tsserver children — called on app quit (see electron/main.cjs)
+// so a packaged build doesn't leave orphaned language-server processes behind
+// (Windows doesn't clean up non-detached children when the parent exits).
+export function stopLspProxy() {
+  if (tsServerProcess) {
+    tsServerProcess.kill()
+    tsServerProcess = null
+  }
+  killExternalServer()
 }

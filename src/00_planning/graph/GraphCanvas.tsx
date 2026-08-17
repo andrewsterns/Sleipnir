@@ -13,11 +13,31 @@ const MAX_SCALE = 4
 const CLICK_DRAG_THRESHOLD = 4
 
 // Camera easing for selected-node centering: a very soft lerp with a deadzone
-// so tiny node jitter does not shake the viewport.
-const CAMERA_FOLLOW_LERP = 0.045
+// so tiny node jitter does not shake the viewport. The lerp fraction and the
+// per-frame max-step are both scaled per-flight by how far the camera has to
+// travel (see followParamsForDistance) — a nearby node gets a slow, visible
+// glide; a distant one cruises fast so it doesn't take forever to arrive.
 const CAMERA_FOLLOW_DEADZONE = 2.5
 const CAMERA_FOLLOW_EPSILON = 0.25
-const CAMERA_FOLLOW_MAX_STEP = 8
+
+// Screen-space distance (px) below which a flight counts as "near" (slowest,
+// most deliberate glide) and above which it counts as "far" (fastest cruise).
+// Distances in between interpolate linearly across the NEAR/FAR pairs below.
+const CAMERA_FOLLOW_NEAR_DISTANCE = 150
+const CAMERA_FOLLOW_FAR_DISTANCE = 1500
+const CAMERA_FOLLOW_NEAR_MAX_STEP = 3
+const CAMERA_FOLLOW_FAR_MAX_STEP = 70
+const CAMERA_FOLLOW_NEAR_LERP = 0.02
+const CAMERA_FOLLOW_FAR_LERP = 0.09
+
+function followParamsForDistance(distance: number): { lerp: number; maxStep: number } {
+  const span = CAMERA_FOLLOW_FAR_DISTANCE - CAMERA_FOLLOW_NEAR_DISTANCE
+  const t = Math.min(1, Math.max(0, (distance - CAMERA_FOLLOW_NEAR_DISTANCE) / span))
+  return {
+    lerp: CAMERA_FOLLOW_NEAR_LERP + t * (CAMERA_FOLLOW_FAR_LERP - CAMERA_FOLLOW_NEAR_LERP),
+    maxStep: CAMERA_FOLLOW_NEAR_MAX_STEP + t * (CAMERA_FOLLOW_FAR_MAX_STEP - CAMERA_FOLLOW_NEAR_MAX_STEP),
+  }
+}
 
 // Nodes render at a 4-6px radius, too small to click comfortably — pad the
 // actual hit target well beyond the visible circle.
@@ -55,22 +75,31 @@ export function nodeIconName(node: Pick<GraphNode, 'filePath'>, linked: boolean)
 }
 
 // The name shown for a node in the plan (graph label, NODES list, detail card,
-// link lists). Normally the plain label — but a scaffolded node (an
-// architectural role + backing file, created via Planning's Add Node) shows its
-// file's base name instead, so a View, ViewModel, and Interface that share one
-// base label read distinctly ("cartView", "cartViewModel", "cartInterface")
-// and match the files on disk. `role` is present ONLY on those scaffolded nodes
-// (see GraphNode.role), so notes/plan-steps/generated nodes fall through to the
-// plain label. The stored `label` deliberately stays the base name — the import
-// adapters re-derive each file's symbol from it (jsExportName/typeExportName
-// append the role suffix), so baking the suffix in would double it. fileExtLabel
-// still appends the extension separately, giving the full filename.
+// link lists) — always WITHOUT its file extension, since every call site
+// appends fileExtLabel's badge right after (see the `${nodeDisplayLabel(node)}
+// ${ext}` sites below); returning it here too would double it up on screen
+// ("HelveticaNeueLight.ttf" + ".ttf").
+//
+// A scaffolded node (an architectural role + backing file, created via
+// Planning's Add Node) shows its file's base name instead of the stored
+// label, so a View, ViewModel, and Interface that share one base label read
+// distinctly ("cartView", "cartViewModel", "cartInterface") and match the
+// files on disk. `role` is present ONLY on those scaffolded nodes (see
+// GraphNode.role) — the stored `label` deliberately stays the base name
+// there (the import adapters re-derive each file's symbol from it via
+// jsExportName/typeExportName, which append the role suffix themselves), so
+// showing `label` directly would drop the role suffix, not double it.
+//
+// Everything else — notes, plan-steps, generated nodes, and workspace-asset
+// nodes pulled in via "Add Assets" (resolveAssetPlan.ts, which sets `label`
+// to the file's raw basename, extension included) — falls through to
+// `label`, stripped of a trailing extension if it has one.
 export function nodeDisplayLabel(node: Pick<GraphNode, 'label' | 'role' | 'filePath'>): string {
   if (node.role && node.filePath) {
     const base = node.filePath.split('/').pop() ?? node.filePath
     return base.replace(/\.[^./]+$/, '')
   }
-  return node.label
+  return node.filePath ? node.label.replace(/\.[^./]+$/, '') : node.label
 }
 
 export interface GraphCanvasProps {
@@ -94,6 +123,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
   const pan = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null)
   const drag = useRef<{ id: string } | null>(null)
   const followNodeIdRef = useRef<string | null>(null)
+  // Set once per flight (when a new node is selected — see the effect below),
+  // not recomputed every frame, so the speed reflects the distance at the
+  // moment of selection rather than easing as the camera gets closer.
+  const followParamsRef = useRef<{ lerp: number; maxStep: number }>({
+    lerp: CAMERA_FOLLOW_NEAR_LERP,
+    maxStep: CAMERA_FOLLOW_NEAR_MAX_STEP,
+  })
 
   // Hover only drives the node-label fill (see the item-state ladder below);
   // it's plain React state because enter/leave fire on boundary crossings, not
@@ -238,11 +274,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
             return
           }
 
-          let stepX = dx * CAMERA_FOLLOW_LERP
-          let stepY = dy * CAMERA_FOLLOW_LERP
+          const { lerp, maxStep } = followParamsRef.current
+          let stepX = dx * lerp
+          let stepY = dy * lerp
           const stepMag = Math.hypot(stepX, stepY)
-          if (stepMag > CAMERA_FOLLOW_MAX_STEP) {
-            const s = CAMERA_FOLLOW_MAX_STEP / stepMag
+          if (stepMag > maxStep) {
+            const s = maxStep / stepMag
             stepX *= s
             stepY *= s
           }
@@ -293,7 +330,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
     if (selectedId === prevSelectedForFollowRef.current) return
     prevSelectedForFollowRef.current = selectedId
     followNodeIdRef.current = selectedId || null
-    if (selectedId) wake()
+    if (selectedId) {
+      // Distance from where the camera is right now to the selected node —
+      // "how far away" it is from the current view, in screen px — sets this
+      // flight's speed (see followParamsForDistance): far = fast, near = slow.
+      const target = simNodes.find((n) => n.id === selectedId)
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (target && rect) {
+        const tx = rect.width / 2 - (target.x ?? 0) * view.current.k
+        const ty = rect.height / 2 - (target.y ?? 0) * view.current.k
+        const distance = Math.hypot(tx - view.current.x, ty - view.current.y)
+        followParamsRef.current = followParamsForDistance(distance)
+      }
+      wake()
+    }
   }, [selectedId, simNodes])
 
   const toGraphPoint = (clientX: number, clientY: number) => {
@@ -512,7 +562,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 onDoubleClick={() => onActivateNode?.(node.id)}
                 onPointerEnter={() => setHoveredId(node.id)}
                 onPointerLeave={() => setHoveredId((h) => (h === node.id ? null : h))}
-                opacity={dimmed ? 0.25 : 1}
+                // A discovered node (pulled in by the reference walk, never
+                // explicitly added — see GraphNode.discovered) reads as
+                // "context" rather than a first-class member of the plan: a
+                // touch dimmer at rest, same full brightness as any other
+                // node once it's selected or a selected node's neighbor.
+                opacity={dimmed ? 0.25 : node.discovered && !isHighlighted ? 0.6 : 1}
                 style={{ cursor: 'pointer' }}
               >
                 <circle r={radius + NODE_HIT_PADDING} fill="transparent" pointerEvents="all" />

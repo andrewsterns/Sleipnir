@@ -13,9 +13,9 @@ This document is the technical map. For setup and day-to-day commands, see
 
 Sleipnir runs as an Electron desktop app or as a plain browser tab against the
 Vite dev server, and almost every feature behaves identically in both. This
-works because all real logic — filesystem access, the library/widget
-registries, the refactor engine, and Git — lives in **framework-agnostic Node
-modules under `tools/`**, imported by *both* transports:
+works because all real logic — filesystem access, the planning graph, the
+refactor engine, and Git — lives in **framework-agnostic Node modules under
+`tools/`**, imported by *both* transports:
 
 ```
  React renderer (src/)
@@ -39,8 +39,7 @@ modules under `tools/`**, imported by *both* transports:
                      |
                      v
           tools/sleipnir-backend.mjs
-   (+ refactor-engine.mjs, library-registry.mjs,
-      git-control.mjs, widget-registry.mjs)
+   (+ refactor-engine.mjs, git-control.mjs)
                      |
                      v
         filesystem (src/, repo root) + git CLI
@@ -74,7 +73,7 @@ protecting the filesystem API from both transports.
 
 | Dir | Role | Notes |
 | --- | --- | --- |
-| `src/00_planning/` | Roadmaps, the planning graph, and the library/widget registries | The only place implementation work is authorized to start from — see §5, §6 |
+| `src/00_planning/` | Roadmaps and the planning graph | The only place implementation work is authorized to start from. (§5–§6 previously described a library/widget registry layer here — it was designed but never implemented; see the note at the top of §5.) |
 | `src/01_research/` | Docs-only research graph (personas, proposals, demographics, analytics writeups) | Any `.md` dropped here becomes a graph node automatically — no registration step |
 | `src/02_components/` | The **default** component library | `00_themes/ → 01_atoms/ → 02_molecules/ → 03_organisms/ → 04_templates/`; one of potentially many registered libraries (§5) |
 | `src/03_prototypes/` | The **default** prototype library | Experimental sandboxes, built only from components in a registered component library |
@@ -95,10 +94,8 @@ electron/
   chatProviders/
     anthropic.cjs, ollama.cjs  Per-provider chat adapters
 tools/
-  sleipnir-backend.mjs         Shared filesystem/graph/library backend (both transports)
+  sleipnir-backend.mjs         Shared filesystem/graph backend (both transports)
   refactor-engine.mjs          Architecture (folder-layout) migration engine
-  library-registry.mjs         Component/prototype library registry (libraries.json)
-  widget-registry.mjs / widget-catalog.mjs   Installed widgets + browsable catalog
   git-control.mjs              git CLI wrapper (status/diff/stage/commit/branches/push/pull)
   generate-graph.mjs           Walks each library, emits graph/generated/*.json
   generate-mvvm.mjs            CLI scaffolder for View/ViewModel/interface triplets
@@ -131,7 +128,7 @@ itself a reusable library:
 | `RefactorPanel/` | Preview/apply UI for the refactor engine (§8) |
 | `OpenEditors/` | Tabbed editor for files opened via the File menu |
 | `PrototypeRail/` | Search/filter navigation for prototypes |
-| `DesignSystem/` | The code-editor/component-browser view **onto** a library — `DesignLibrary.view.tsx` (file tree + live preview + CodeMirror editor), generalized for arbitrary folders as `FolderWidget`/`WidgetShell` |
+| `DesignSystem/` | The code-editor/component-browser view **onto** a project — `FolderBrowserView` (file tree + tabs + CodeMirror editor) laid out inside `WidgetShell` (rail + optional preview + code regions). Today only ever instantiated with `scope="workspace"` (fully read/write); its `scope="src"/"repo"` and `readOnly` prop paths exist but have no live caller yet |
 
 `AgentDock` and `TerminalDock` share one bottom-dock slot in `App.tsx` (only
 one open at a time) but each stays mounted-and-hidden rather than unmounting,
@@ -142,54 +139,26 @@ some folders split cleanly into `.view.tsx`/`.ViewModel.tsx`/`i*.tsx` (e.g.
 `Terminal/`), others keep state inline in a single file (e.g. `TitleBar`,
 `AgentDock`). Treat `src/02_components` as the strict MVVM reference.
 
-## 5. Library registry — the component/prototype extensibility layer
+## 5–6. Library/widget registry — designed, not built
 
-A **library** (`LibraryEntry`, `src/00_planning/graph/types.ts`) is a
-registered component or prototype library root:
-`{ id, kind: 'component' | 'prototype', label, root, architecture, language, createdAt }`.
-The registry is `src/00_planning/graph/libraries.json`, backed by
-`tools/library-registry.mjs`. Two entries are seeded and protected from
-deletion: `dsm` (`02_components`) and `prototypes` (`03_prototypes`).
+Earlier drafts of this document (and `src/00_planning/README.md`) described a
+two-layer extensibility system here: a **library registry**
+(`tools/library-registry.mjs`, `graph/libraries.json`) letting users register
+additional component/prototype libraries beyond the seeded `02_components`/
+`03_prototypes`, and a **widget registry** (`tools/widget-registry.mjs`,
+`graph/widgets.json`, a Widget Store) letting users install read-only folder
+browsers or `'tool'`-kind dashboards (Docker, Nx) as new nav-rail entries.
 
-Each library becomes its own tab in Planning. Creating one
-(`CreateLibraryModal`) picks a name, kind, `architecture` (Atomic/MVVM/MVC/MVP
-— see §8), and `language`; deleting one (`DeleteLibraryModal`) requires typing
-the library's exact label to confirm, mirroring GitHub's repo-deletion
-pattern, and is refused server-side for the two protected IDs.
-
-`LIBRARIES` is statically imported from `libraries.json` at build time
-(mirroring how `combine.ts` sources the generated graph JSON, §6) rather than
-fetched at runtime — unlike widgets (§6), which must always be fetched live.
-
-## 6. Widget registry — the nav-rail extensibility layer
-
-A **widget** (`WidgetEntry`) sits one level above a library: libraries add
-tabs *inside* Components/Prototypes, widgets add whole new **nav-rail
-entries**. A widget is `kind: 'folder'` (a read-only file-tree browser over a
-directory, `rootScope: 'src' | 'repo'`) or `kind: 'tool'` (reserved for a
-`toolId` like `docker`/`nx`; not yet implemented — every shipped catalog entry
-is `folder`-kind). Installed widgets live in
-`src/00_planning/graph/widgets.json`, backed by `tools/widget-registry.mjs`.
-
-Two install paths, both converging on `PlatformAPI.installWidget()`:
-- **File → Open Folder…** — a native picker (Electron only) sets a pending
-  path; `OpenFolderModal` derives a name/tag, auto-detects `rootScope` (paths
-  under `src/` are editable, everything else is forced read-only), and
-  installs it.
-- **Widget Store** (the `+` nav-rail entry) — a VS-Code-Extensions-style
-  browser over `tools/widget-catalog.mjs`'s curated `widget-catalog.json`
-  (e.g. Docker, Nx, Project Config, Electron Shell). Installing flips the
-  entry to "Installed" in place.
-
-Widgets must be fetched at runtime (`listWidgets()`), never statically
-imported — a static import only appears to work in Vite dev mode because of
-HMR reloads, and breaks in a packaged build. `App.tsx` holds installed widgets
-in React state and appends to it on install, so a new rail icon appears
-without navigating away.
-
-Note: the "Docker" widget is just a read-only browser onto `docker/` +
-`docker-compose.yml` — it is not a Docker integration. Actual container
-lifecycle is the separate `docker:up`/`docker:down` npm scripts (README §Docker).
+**None of it exists in code today** — no `LibraryEntry`/`WidgetEntry` types,
+no registry files, no `CreateLibraryModal`/`OpenFolderModal`/`WidgetStore`,
+no `installWidget`/`listWidgets` on `PlatformAPI`. `src/App.tsx`'s
+`NAV_ITEMS` is a hardcoded 4-entry array (`planning`, `research`, `workspace`,
+`source-control`) with no registry-driven extensibility. `02_components` and
+`03_prototypes` are simply the two fixed default libraries; there is no way
+to register a third today. Treat this as a real, from-scratch subsystem to
+design and build later (see `ROADMAP.md` Phase 3), not a small gap to patch.
+`FolderBrowserView`'s `scope`/`readOnly` props (§4) are the one piece of live
+plumbing that a future "read-only browser" widget kind could build on.
 
 ## 7. Planning graph
 
@@ -198,13 +167,12 @@ and `GraphEdge` (`{source, target, kind: 'borrows' | 'plan-step'}`) are the
 graph's two primitives; `GraphMapId` is keyed to a registered library or a
 fixed doc map (`research`, `validation`, `todo`, `claude`, `open`).
 
-**Generation:** `tools/generate-graph.mjs` walks each registered library's
-root (via `library-registry.mjs`), extracts import/export specifiers by
-regex to build `borrows` edges, infers a `type` from path segments (atom /
-molecule / organism / template / page / theme / prototype / other), and emits
-one JSON file per map to `src/00_planning/graph/generated/`. Run it directly
-with `npm run generate:graph`, or it's triggered automatically after
-scaffolding/library creation.
+**Generation:** `tools/generate-graph.mjs` walks source directories under
+`src/`, extracts import/export specifiers by regex to build `borrows` edges,
+infers a `type` from path segments (atom / molecule / organism / template /
+page / theme / prototype / other), and emits one JSON file per map to
+`src/00_planning/graph/generated/`. Run it directly with
+`npm run generate:graph`.
 
 **Assembly:** `combine.ts`'s `getGraphForMap()` loads the generated JSON via
 `import.meta.glob('./generated/*.json', { eager: true })` (build-time,
@@ -248,10 +216,12 @@ convenience fallback, lower precedence than a saved key.
 **Tools available to the model** (defined once in `chat.cjs`, converted to
 each provider's schema by e.g. `anthropic.cjs`'s `toProviderTools()`):
 - `create_plan_node` — adds a node to the `claude` planning map
-- `create_library` — registers a new library (§5), then the renderer jumps to it
 - `generate_code` — **never writes to disk.** It emits a `chat:codeGenerated`
   event; the renderer stages the content into an unsaved Code Editor tab
   (`App.tsx`'s `pendingOverride`) for a human to review and explicitly save.
+
+(A `create_library` tool was previously documented here — it doesn't exist;
+there is no library registry for it to register into, see §5–6.)
 
 This human-in-the-loop gate on `generate_code` is the load-bearing safety
 property of the whole agent design — every other tool only ever registers
@@ -308,10 +278,10 @@ whatever remote the current repo actually has.
 ## 12. Build & packaging
 
 `npm run build` runs `tsc -b && vite build` → `dist/`. `npm run electron:build`
-does that, then `electron-builder`, producing a `dmg` (mac), `nsis`
+does that, then `electron-builder`, producing a `dmg`/`zip` (mac), `nsis`
 installer (win), or `AppImage` (linux) into `release/`. The packaged app
-bundles `dist/`, `electron/`, `tools/sleipnir-backend.mjs`,
-`tools/generate-graph.mjs`, `tools/refactor-engine.mjs`,
-`tools/library-registry.mjs`, `src/00_planning/graph/libraries.json`, and
-`package.json` (see the `build.files` list in `package.json`) — everything the
-shared backend needs at runtime, without the rest of the source tree.
+bundles `dist/**/*`, `electron/**/*`, `tools/**/*`, and `package.json` (see
+`build.files` in `package.json`), and unpacks `node-pty` from the asar
+archive (native `.node` binaries can't load from inside it) — everything the
+shared backend and terminal need at runtime, without the rest of the source
+tree.

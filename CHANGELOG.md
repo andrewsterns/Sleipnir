@@ -10,15 +10,36 @@ breaking changes. Pre-`1.0.0` signals "early, expect change."
 ## [Unreleased]
 
 ### Added
+- AI agent: `read_file` and `run_command` tools — the agent can now inspect
+  existing files and propose shell commands (tests, installs, build scripts),
+  each gated behind an explicit confirmation dialog before anything executes,
+  with live streamed output. Previously the agent could only create plan nodes
+  and stage generated code.
+- Validation view (Workspace nav rail) — runs the open project's own Vitest
+  suite via `vitest run --reporter=json` and shows structured pass/fail
+  results in-app, instead of only via the CLI.
+- Git: stash (push/apply/pop/drop), an optional side-by-side diff mode, and a
+  merge-conflict banner (open the file, then mark it resolved) surfacing data
+  the backend already computed but the UI previously discarded.
+- Settings → Keybindings — remap Quick Open's hotkey (Ctrl/Cmd+P).
 - Multi-window support: File > New Window opens a brand-new window with its own
   independent project.
 - Auto-update via GitHub Releases (electron-updater) — downloads in the
   background, installs on next quit. (macOS requires a signed build to apply.)
 - Source-available licensing under PolyForm Noncommercial 1.0.0.
 - CI (typecheck, lint, test, build) and first smoke tests (import adapters,
-  workspace path-containment).
+  workspace path-containment, diff-hunk parsing).
 
 ### Fixed
+- AI agent tool calls (`read_file`, `generate_code`, `run_command`) now resolve
+  against the calling window's own project root — previously they raced
+  against whichever window's root a renderer call had most recently set,
+  which only mattered once multi-window support existed.
+- Closing a non-last window no longer leaks that window's terminal/chat/preview/
+  command-runner child processes; they're killed when the window closes,
+  instead of only at app quit.
+- Closing a window (or the app) while it has unsaved AI-generated content now
+  prompts (Cancel / Discard / Save & Close) instead of silently discarding it.
 - Packaged builds now bundle all backend `tools/` modules and unpack `node-pty`
   from the asar archive, so git/preview/file-tree/LSP/terminal work when
   installed (previously crashed).

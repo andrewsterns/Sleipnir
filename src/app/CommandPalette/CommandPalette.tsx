@@ -5,6 +5,8 @@ import { Card } from '../UIKit/Card/Card'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { useCommandPaletteViewModel, type PaletteResultItem } from './CommandPalette.ViewModel'
 import type { CommandPaletteProps } from './iCommandPalette'
+import { useKeybindings } from '../../00_keybindings/KeybindingsController'
+import { DEFAULT_KEYBINDINGS } from '../../00_keybindings'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -12,8 +14,12 @@ const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 // the open Workspace's files. Mounted once at the App shell level alongside
 // TerminalDock/AgentDock/ProblemsDock — fully self-contained, no App-level
 // open/close coordination needed (no mutual exclusion with the docks).
+const DEFAULT_OPEN_KEY = DEFAULT_KEYBINDINGS.find((b) => b.id === 'commandPalette.open')!.key
+
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) => {
   const [open, setOpen] = useState(false)
+  const { bindings } = useKeybindings()
+  const openKey = bindings['commandPalette.open'] ?? DEFAULT_OPEN_KEY
   const anchorRef = useRef<HTMLDivElement>(null)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,8 +52,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
       ref={anchorRef}
       style={{ display: 'contents' }}
       onHotkey={[
-        { key: 'p', modifiers: ['ctrl'], scope: 'global', handler: () => setOpen(true) },
-        { key: 'p', modifiers: ['meta'], scope: 'global', handler: () => setOpen(true) },
+        { key: openKey, modifiers: ['ctrl'], scope: 'global', handler: () => setOpen(true) },
+        { key: openKey, modifiers: ['meta'], scope: 'global', handler: () => setOpen(true) },
       ]}
     >
       {open && portalTarget &&

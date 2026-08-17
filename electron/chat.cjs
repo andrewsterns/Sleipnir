@@ -4,9 +4,11 @@
 // of pty processes. Provider-agnostic: delegates the actual model call to
 // chatProviders/anthropic.cjs or chatProviders/ollama.cjs, selected below.
 const path = require('node:path')
+const crypto = require('node:crypto')
 const { pathToFileURL } = require('node:url')
 const anthropicProvider = require('./chatProviders/anthropic.cjs')
 const ollamaProvider = require('./chatProviders/ollama.cjs')
+const commandRunner = require('./commandRunner.cjs')
 
 // SLEIPNIR_MODEL_PROVIDER=anthropic|ollama forces a provider. Left unset,
 // this defaults to Anthropic when a key is present (better tool-use quality
@@ -37,6 +39,15 @@ async function getBackend() {
 // request settles (done/error) or is explicitly cancelled.
 const requests = new Map()
 
+// requestId -> { resolve, sessionId }. One entry per run_command proposal
+// awaiting a human decision (see the 'run_command' branch of executeTool).
+const pendingApprovals = new Map()
+
+// sessionId -> Set<commandRunner id>. Tracks in-flight (already-approved)
+// commandRunner runs per session so cancel() can kill them, not just abort
+// the model stream.
+const runningCommands = new Map()
+
 // Canonical tool definitions, translated into each provider's own schema
 // shape by that provider's toProviderTools() (see chatProviders/*.cjs).
 const TOOL_DEFS = [
@@ -54,6 +65,15 @@ const TOOL_DEFS = [
       },
     },
     required: ['plan_id', 'label'],
+  },
+  {
+    name: 'read_file',
+    description:
+      'Read a file in the currently open Workspace project. Use this to inspect existing code before editing it with generate_code, or to answer questions about the project.',
+    properties: {
+      path: { type: 'string', description: 'Workspace-relative path, no leading slash, e.g. "src/components/Button.tsx".' },
+    },
+    required: ['path'],
   },
   {
     name: 'generate_code',
@@ -77,15 +97,38 @@ const TOOL_DEFS = [
     },
     required: ['files'],
   },
+  {
+    name: 'run_command',
+    description:
+      'Propose running a shell command in the currently open Workspace (e.g. running tests, installing a dependency, running a build script). ' +
+      'The human is shown a confirmation dialog and must explicitly approve it before anything executes — nothing runs silently. ' +
+      'Returns the captured stdout/stderr and exit code once the command finishes, or a decline notice if the human refused.',
+    properties: {
+      command: { type: 'string', description: 'The executable to run, e.g. "npm".' },
+      args: { type: 'array', items: { type: 'string' }, description: 'Arguments, e.g. ["run", "test:run"].' },
+    },
+    required: ['command'],
+  },
 ]
 
 const MAX_TOOL_TURNS = 6
 
-async function executeTool(call) {
+async function executeTool(call, ctx) {
+  const b = await getBackend()
+  // The backend tracks one workspace root at a time (workspace-root.mjs), so
+  // it must be set to THIS message's calling window right before dispatch —
+  // same safety property as main.cjs's `ws()` wrapper (set + synchronous
+  // call, no await between), so two windows' concurrent in-flight messages
+  // can't clobber each other's root mid-tool-call.
+  b.setWorkspaceRoot(ctx.workspaceRoot)
+
   if (call.name === 'create_plan_node') {
-    const b = await getBackend()
     const { node } = b.createPlanNode(call.input.plan_id, call.input.label, call.input.description, call.input.parent_id)
     return { node, result: { created: true, node_id: node.id } }
+  }
+  if (call.name === 'read_file') {
+    const { content } = b.readWorkspaceFile(call.input.path)
+    return { result: { content } }
   }
   if (call.name === 'generate_code') {
     const files = call.input.files || []
@@ -95,13 +138,51 @@ async function executeTool(call) {
     // human hits Save.
     return { codeGenerated: { files }, result: { staged: true, fileCount: files.length } }
   }
+  if (call.name === 'run_command') {
+    const { sender, sessionId } = ctx
+    const { command, args = [] } = call.input
+    const requestId = crypto.randomUUID()
+
+    if (!sender.isDestroyed()) sender.send('chat:commandProposed', sessionId, { requestId, command, args })
+    // Resolved by resolveCommandDecision() once the renderer answers (or by
+    // cancel()/killAll() below if the chat is cancelled/the app quits first)
+    // — nothing runs until a human explicitly approves.
+    const approved = await new Promise((resolve) => pendingApprovals.set(requestId, { resolve, sessionId }))
+    if (!approved) return { result: { ran: false, reason: 'Declined by the user.' } }
+
+    return new Promise((resolve) => {
+      const runId = commandRunner.run(sender, {
+        command,
+        args,
+        cwd: ctx.workspaceRoot,
+        timeoutMs: 60_000,
+        onChunk: (stream, text) => {
+          if (!sender.isDestroyed()) sender.send('chat:commandOutput', sessionId, { requestId, stream, text })
+        },
+        onExit: ({ exitCode, output, timedOut }) => {
+          runningCommands.get(sessionId)?.delete(runId)
+          if (!sender.isDestroyed()) sender.send('chat:commandDone', sessionId, { requestId, exitCode, timedOut })
+          resolve({ result: { ran: true, exitCode, timedOut, output: output.slice(-4000) } })
+        },
+      })
+      if (!runningCommands.has(sessionId)) runningCommands.set(sessionId, new Set())
+      runningCommands.get(sessionId).add(runId)
+    })
+  }
   throw new Error(`Unknown tool: ${call.name}`)
 }
 
-async function sendMessage(sender, sessionId, history, userMessage) {
+function resolveCommandDecision(requestId, approved) {
+  const pending = pendingApprovals.get(requestId)
+  if (!pending) return // already resolved (e.g. the chat was cancelled first)
+  pendingApprovals.delete(requestId)
+  pending.resolve(approved)
+}
+
+async function sendMessage(sender, sessionId, history, userMessage, workspaceRoot) {
   const provider = selectProvider()
   const controller = new AbortController()
-  requests.set(sessionId, controller)
+  requests.set(sessionId, { controller, wcId: sender.id })
 
   let messages = [...history, { role: 'user', content: userMessage }]
   let finalText = ''
@@ -126,7 +207,7 @@ async function sendMessage(sender, sessionId, history, userMessage) {
       const results = []
       for (const call of toolCalls) {
         try {
-          const { node, codeGenerated, result } = await executeTool(call)
+          const { node, codeGenerated, result } = await executeTool(call, { sender, sessionId, workspaceRoot })
           if (node && !sender.isDestroyed()) sender.send('chat:planNodeCreated', sessionId, node)
           if (codeGenerated && !sender.isDestroyed()) sender.send('chat:codeGenerated', sessionId, codeGenerated)
           results.push({ id: call.id, name: call.name, result })
@@ -150,19 +231,32 @@ async function sendMessage(sender, sessionId, history, userMessage) {
 }
 
 function cancel(sessionId) {
-  requests.get(sessionId)?.abort()
+  requests.get(sessionId)?.controller.abort()
   requests.delete(sessionId)
+  // Without this, a run_command awaiting approval (or already running) for a
+  // cancelled chat would hang its executeTool() promise forever — cancel
+  // must fail it closed, same as an explicit decline.
+  for (const [requestId, pending] of pendingApprovals) {
+    if (pending.sessionId === sessionId) {
+      pendingApprovals.delete(requestId)
+      pending.resolve(false)
+    }
+  }
+  const running = runningCommands.get(sessionId)
+  if (running) {
+    for (const runId of running) commandRunner.stop(runId)
+    runningCommands.delete(sessionId)
+  }
+}
+
+function killForWindow(wcId) {
+  for (const [sessionId, request] of requests) {
+    if (request.wcId === wcId) cancel(sessionId)
+  }
 }
 
 function killAll() {
-  for (const controller of requests.values()) {
-    try {
-      controller.abort()
-    } catch {
-      /* already settled */
-    }
-  }
-  requests.clear()
+  for (const sessionId of [...requests.keys()]) cancel(sessionId)
 }
 
-module.exports = { sendMessage, cancel, killAll }
+module.exports = { sendMessage, cancel, killForWindow, killAll, resolveCommandDecision }

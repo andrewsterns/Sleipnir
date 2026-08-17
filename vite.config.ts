@@ -433,12 +433,13 @@ function sleipnirApiPlugin() {
 
         if (url.pathname === '/api/sleipnir/plans' && req.method === 'POST') {
           try {
-            const { label, nodeIds, assetPaths, assetEdges } = await readJsonBody(req)
+            const { label, nodeIds, assetPaths, assetEdges, assetFolders } = await readJsonBody(req)
             const result = backend.createPlan(
               String(label ?? ''),
               Array.isArray(nodeIds) ? nodeIds.map(String) : [],
               Array.isArray(assetPaths) ? assetPaths.map(String) : undefined,
               Array.isArray(assetEdges) ? assetEdges : undefined,
+              Array.isArray(assetFolders) ? assetFolders.map(String) : undefined,
             )
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
@@ -462,6 +463,21 @@ function sleipnirApiPlugin() {
           try {
             const { id, nodeIds } = await readJsonBody(req)
             const result = backend.addPlanNodes(String(id ?? ''), Array.isArray(nodeIds) ? nodeIds.map(String) : [])
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/plans/assets' && req.method === 'POST') {
+          try {
+            const { id, paths, folders } = await readJsonBody(req)
+            const result = backend.addPlanAssets(
+              String(id ?? ''),
+              Array.isArray(paths) ? paths.map(String) : [],
+              Array.isArray(folders) ? folders.map(String) : [],
+            )
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
@@ -627,6 +643,55 @@ function sleipnirApiPlugin() {
         if (url.pathname === '/api/sleipnir/git/fetch' && req.method === 'POST') {
           try {
             sendJson(res, 200, { success: true, ...(await backend.gitFetch()) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/stash-list' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, stashes: await backend.gitStashList() })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/stash-push' && req.method === 'POST') {
+          try {
+            const { message } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...(await backend.gitStashPush(message)) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/stash-apply' && req.method === 'POST') {
+          try {
+            const { ref } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...(await backend.gitStashApply(ref)) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/stash-pop' && req.method === 'POST') {
+          try {
+            const { ref } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...(await backend.gitStashPop(ref)) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/git/stash-drop' && req.method === 'POST') {
+          try {
+            const { ref } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, stashes: await backend.gitStashDrop(ref) })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
           }

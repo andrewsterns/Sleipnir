@@ -44,6 +44,24 @@ export const tacticalEditorTheme = EditorView.theme(
     '&.cm-goToDef .cm-content': {
       cursor: 'pointer',
     },
+    // Ctrl/Cmd-hover "definition confirmed here" underline (see lspClient.ts's
+    // modHoverDefinitionLink) — only ever applied to a word the language
+    // server has actually confirmed resolves, so this is direct visual proof
+    // the LSP connection is alive and definitions are resolving correctly.
+    '.cm-hoverDefLink': {
+      textDecoration: 'underline',
+      textDecorationColor: 'var(--code-keyword, #a8c8ff)',
+      cursor: 'pointer',
+    },
+    // Native hover tooltip (lspClient.ts's lspHoverTooltips) — match the
+    // app's own panel styling instead of CodeMirror's plain default box.
+    '.cm-tooltip': {
+      backgroundColor: 'var(--bg-2)',
+      border: '1px solid var(--border-2)',
+      color: 'var(--text-1)',
+      fontSize: '11px',
+      fontFamily: 'var(--font-mono)',
+    },
   },
   { dark: true },
 )

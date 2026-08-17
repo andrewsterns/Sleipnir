@@ -6,9 +6,9 @@ AI assistant working on this repo, or Sleipnir's own built-in chat agent
 **Linear Numbered Pipeline (00–05)** to bridge research and "vibe coding."
 
 ## 1. The 00–05 execution pipeline
-- **00_planning:** The "Roadmap Engine" and the live library/widget
-  registries. Roadmaps are **MANDATORY** Markdown (`.md`) instruction sets for
-  any implementation task. Each roadmap must contain:
+- **00_planning:** The "Roadmap Engine" and the planning graph. Roadmaps are
+  **MANDATORY** Markdown (`.md`) instruction sets for any implementation task.
+  Each roadmap must contain:
   - Citations from `01_research` (Why).
   - Citations from `02_components` (or whichever component library applies) (How).
   - Explicit **Execution Targets** (target directories).
@@ -16,8 +16,8 @@ AI assistant working on this repo, or Sleipnir's own built-in chat agent
 - **01_research:** Canonical source of truth for the "Why." Documentation only
   (`.md`, `.json`). No code. Any `.md` dropped here becomes a graph node
   automatically — no registration step.
-- **02_components:** The default Sleipnir component library — one of
-  potentially many registered libraries (`src/00_planning/graph/libraries.json`).
+- **02_components:** The default (and, today, only) Sleipnir component
+  library — there's no registry to add more (see ARCHITECTURE.md §5–6).
   Tiers: `00_themes/`, `01_atoms/`, `02_molecules/`, `03_organisms/`, `04_templates/`.
   - All reusable UI elements MUST reside in a registered component library.
   - MVVM pattern: `.view.tsx`, `.viewModel.ts`, `i*.tsx`. Enforced strictly
@@ -40,8 +40,10 @@ AI assistant working on this repo, or Sleipnir's own built-in chat agent
 - **MVVM pattern:** Follow `.view.tsx` / `.viewModel.ts` / `i*.tsx` separation
   for non-atomic components in a component library. ViewModels are React
   hooks colocated with their component.
-- **Two protected libraries:** `dsm` (`02_components`) and `prototypes`
-  (`03_prototypes`) cannot be deleted via the library registry.
+- **Two default libraries:** `02_components` and `03_prototypes` are the
+  seeded component/prototype libraries. There is no library registry to
+  register additional ones today — don't assume one exists (see
+  ARCHITECTURE.md §5–6: designed, never implemented).
 - **Path containment:** Any filesystem operation must stay under its
   authorized root (`src/` or the repo root) — never construct a path that
   could escape it, matching `tools/sleipnir-backend.mjs`'s `resolveSafe()`
@@ -54,10 +56,13 @@ a human's coding assistant working on the repo:
   content for human review in an editor tab (`chat:codeGenerated` →
   `pendingOverride`) and stop there. Do not add a path that writes model
   output straight to the filesystem.
-- **`create_library`/`create_plan_node`** only ever register metadata (a
-  library entry, a graph node) — never file contents.
-- **Never target the two protected libraries** (`dsm`, `prototypes`) for
-  deletion.
+- **`create_plan_node`** only ever registers metadata (a graph node) — never
+  file contents. (There is no `create_library` tool — see the note above.)
+- **`run_command` never executes without an explicit human confirmation.**
+  It proposes a command (`chat:commandProposed`), then blocks on the
+  renderer's decision (`chat:commandDecision`) before running anything via
+  `commandRunner.cjs`. Do not add a path that runs a proposed command before
+  that confirmation resolves.
 - Prefer the least surprising provider behavior: respect
   `SLEIPNIR_MODEL_PROVIDER` if set, otherwise Anthropic-if-keyed else Ollama.
 

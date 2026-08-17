@@ -38,10 +38,42 @@ export {
   addRemote as gitAddRemote,
   getGitIdentity,
   setGitIdentity,
+  stashPush as gitStashPush,
+  stashList as gitStashList,
+  stashApply as gitStashApply,
+  stashPop as gitStashPop,
+  stashDrop as gitStashDrop,
 } from './git-control.mjs'
 
 export const REPO_ROOT = process.cwd()
 export const SRC_ROOT = path.resolve(REPO_ROOT, 'src')
+
+// REPO_ROOT itself is never realpath'd (just process.cwd() above), while
+// openWorkspace's `root` always is (fs.realpathSync, see below) — comparing
+// the raw REPO_ROOT against a realpath'd root risks a symlink/junction or
+// drive-letter-casing mismatch on Windows making path.relative wrongly treat
+// REPO_ROOT as "outside itself". Resolved once; REPO_ROOT can't change at
+// runtime.
+const REPO_ROOT_REAL = (() => {
+  try { return fs.realpathSync(REPO_ROOT) } catch { return REPO_ROOT }
+})()
+
+// Maps the open Workspace root onto Sleipnir's own REPO_ROOT, when possible —
+// read by getWorkspaceInfo below and consumed by CodeEditorView.ViewModel's
+// repoRelativePathForScope to gate LSP for scope:'workspace': tsserver's
+// project root is hardcoded to REPO_ROOT (tools/lsp-proxy.mjs's getTsServer),
+// so it has no knowledge of a genuinely unrelated external project. Returns
+// null when `root` is outside REPO_ROOT (or unset); '' when the Workspace
+// root IS REPO_ROOT itself (the default state seeded on first launch, e.g.
+// developing Sleipnir with Sleipnir); otherwise the forward-slashed relative
+// path prefix.
+function computeRepoRelativeRoot(root) {
+  if (!root) return null
+  const relative = path.relative(REPO_ROOT_REAL, root)
+  if (relative === '') return ''
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return null
+  return relative.split(path.sep).join('/')
+}
 
 // Where a project's own Planning board (Notes graph / Saved Plans / Archive /
 // its custom display name) lives, relative to whichever folder is open as
@@ -213,7 +245,7 @@ export function closeWorkspace() {
 
 export function getWorkspaceInfo() {
   const root = getWorkspaceRoot()
-  return { root, name: root ? readProjectName(root) : null }
+  return { root, name: root ? readProjectName(root) : null, repoRelativeRoot: computeRepoRelativeRoot(root) }
 }
 
 // An arbitrary opened project needs its own tree walk, not buildTree above —
@@ -268,6 +300,14 @@ function buildWorkspaceTree(absDir, relDir) {
 export function listWorkspaceDir(relPath) {
   const root = requireWorkspaceRoot()
   const dirPath = relPath ? resolveSafe(root, relPath) : root
+  // Unlike the project root itself (always present), a bundled subfolder like
+  // Research's `.research/` (see ResearchView.tsx) may not exist yet on a
+  // project that's never used that feature — not an error, just an empty
+  // browser until something's created into it (createWorkspaceFile/
+  // createWorkspaceDir below both mkdirSync it into existence on demand).
+  // Same "missing == empty, not thrown" convention as readNotesFile/
+  // readPlansFile above.
+  if (!fs.existsSync(dirPath)) return { tree: [] }
   return { tree: buildWorkspaceTree(dirPath, relPath || '') }
 }
 
@@ -793,7 +833,7 @@ export function getPlans() {
   return { plans: readPlansFile() }
 }
 
-export function createPlan(label, nodeIds = [], assetPaths, assetEdges) {
+export function createPlan(label, nodeIds = [], assetPaths, assetEdges, assetFolders) {
   if (!label || !label.trim()) {
     throw new Error('Label is required')
   }
@@ -807,6 +847,7 @@ export function createPlan(label, nodeIds = [], assetPaths, assetEdges) {
     nodeIds,
     ...(Array.isArray(assetPaths) && assetPaths.length ? { assetPaths } : {}),
     ...(Array.isArray(assetEdges) && assetEdges.length ? { assetEdges } : {}),
+    ...(Array.isArray(assetFolders) && assetFolders.length ? { assetFolders } : {}),
     createdAt: Date.now(),
   }
   const plans = readPlansFile()
@@ -846,6 +887,38 @@ export function addPlanNodes(id, nodeIds) {
   const existing = new Set(plan.nodeIds ?? [])
   for (const n of nodeIds) existing.add(String(n))
   plan.nodeIds = [...existing]
+  writePlansFile(plans)
+  return { plan }
+}
+
+// Merges Workspace-relative file paths and/or whole folders into a plan's
+// assetPaths/assetFolders (deduped) — the "pull this real file/folder from
+// Workspace straight into an existing plan" primitive (see LeftRailingView's
+// "Add node ▸" context-menu action). Unlike createPlanNode, this never
+// invents a draft node with a made-up name: the file itself becomes a real,
+// file-backed asset node the next time the plan is viewed (see
+// src/00_planning/graph/resolveAssetPlan.ts), with its actual current
+// imports/exports detected fresh — nothing is renamed, duplicated, or
+// generated. Additive alongside any existing nodeIds (see graphForPlan in
+// PlanningView.ViewModel.tsx) — a plan can hold both curated graph nodes and
+// loose pulled-in files at once.
+export function addPlanAssets(id, paths = [], folders = []) {
+  if (!Array.isArray(paths) || !Array.isArray(folders)) {
+    throw new Error('paths and folders must be arrays')
+  }
+  const plans = readPlansFile()
+  const plan = plans.find((p) => p.id === id)
+  if (!plan) throw new Error(`No plan with id "${id}"`)
+  if (paths.length) {
+    const existing = new Set(plan.assetPaths ?? [])
+    for (const p of paths) existing.add(String(p))
+    plan.assetPaths = [...existing]
+  }
+  if (folders.length) {
+    const existing = new Set(plan.assetFolders ?? [])
+    for (const f of folders) existing.add(String(f))
+    plan.assetFolders = [...existing]
+  }
   writePlansFile(plans)
   return { plan }
 }

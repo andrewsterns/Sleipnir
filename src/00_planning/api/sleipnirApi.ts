@@ -22,6 +22,7 @@ export type {
   GitCommitFileMap,
   GitOpResult,
   GitIdentity,
+  GitStash,
   PreviewConfig,
   PreviewConfigEntry,
   RecentProject,
@@ -183,6 +184,10 @@ export function addPlanNodes(...args: Parameters<PlatformAPI['addPlanNodes']>) {
   return getPlatformAPI().addPlanNodes(...args)
 }
 
+export function addPlanAssets(...args: Parameters<PlatformAPI['addPlanAssets']>) {
+  return getPlatformAPI().addPlanAssets(...args)
+}
+
 export function deletePlan(...args: Parameters<PlatformAPI['deletePlan']>) {
   return getPlatformAPI().deletePlan(...args)
 }
@@ -287,6 +292,26 @@ export function gitPull(...args: Parameters<PlatformAPI['gitPull']>) {
 
 export function gitFetch(...args: Parameters<PlatformAPI['gitFetch']>) {
   return getPlatformAPI().gitFetch(...args)
+}
+
+export function gitStashPush(...args: Parameters<PlatformAPI['gitStashPush']>) {
+  return getPlatformAPI().gitStashPush(...args)
+}
+
+export function gitStashList(...args: Parameters<PlatformAPI['gitStashList']>) {
+  return getPlatformAPI().gitStashList(...args)
+}
+
+export function gitStashApply(...args: Parameters<PlatformAPI['gitStashApply']>) {
+  return getPlatformAPI().gitStashApply(...args)
+}
+
+export function gitStashPop(...args: Parameters<PlatformAPI['gitStashPop']>) {
+  return getPlatformAPI().gitStashPop(...args)
+}
+
+export function gitStashDrop(...args: Parameters<PlatformAPI['gitStashDrop']>) {
+  return getPlatformAPI().gitStashDrop(...args)
 }
 
 export function gitInit() {

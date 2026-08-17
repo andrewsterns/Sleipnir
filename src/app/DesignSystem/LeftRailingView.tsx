@@ -22,13 +22,14 @@ import {
   copyWorkspacePath,
   getWorkspaceInfo,
   getPlans,
-  createPlanNode,
+  addPlanAssets,
   type FileTreeNode,
   type ArchiveEntry,
 } from '../../00_planning/api/sleipnirApi'
 import type { GraphNode, NodeStage, SavedPlan } from '../../00_planning/graph/types'
 import { useFileStages } from '../../00_planning/useFileStages'
 import { StatusGlyph } from '../../00_planning/graph/StatusGlyph'
+import { NODE_STAGES } from '../../00_planning/graph/stages'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -110,8 +111,10 @@ interface LeftRailingProps {
   findPlanNodes?: (path: string, isDir: boolean) => Promise<GraphNode[]>
   /** Permanently deletes the given plan node ids — paired with findPlanNodes for the "…+ node" delete branch. */
   deletePlanNodes?: (ids: string[]) => Promise<void>
-  /** Adds an "Add node ▸" submenu to each row's context menu: pick an existing plan and a draft node named after the file/folder is created in it (createPlanNode), with a confirmation micro-animation. Opt-in (Workspace only) — undefined/false hides it entirely, same shape as the other workspace-scoped props. */
+  /** Adds an "Add node ▸" submenu to each row's context menu: pick an existing plan and pull the real file (or, for a folder, every file under it) straight into it as a live, file-backed asset (addPlanAssets) — no draft node, no renaming, imports/exports detected fresh from the real file the next time the plan is viewed. Shows a confirmation micro-animation. Opt-in (Workspace only) — undefined/false hides it entirely, same shape as the other workspace-scoped props. */
   supportsAddNode?: boolean
+  /** Fired right after "Add node ▸" successfully pulls a file/folder into a plan, with the updated SavedPlan — lets the caller keep its own plans state (e.g. App.tsx's) in sync so a Planning tab already open on that plan picks up the addition. Only meaningful alongside supportsAddNode. */
+  onPlanUpdated?: (plan: SavedPlan) => void
 }
 
 function isAncestorOf(dirPath: string, targetPath: string): boolean {
@@ -612,11 +615,12 @@ export const LeftRailing = ({
   findPlanNodes,
   deletePlanNodes,
   supportsAddNode,
+  onPlanUpdated,
 }: LeftRailingProps) => {
   // filePath → planning stage of the plan node a file backs — so every file row
   // shows its planning status at rest, the same glyph the planning list and git
   // view use. Empty for files that back no node.
-  const fileStages = useFileStages()
+  const { stages: fileStages, setStatus: setFileStatus } = useFileStages()
   // null = not creating; 'auto' = the "." heuristic (the root "+"); 'file'/
   // 'folder' = an explicit kind routed here from a root-level row's menu.
   const [rootCreating, setRootCreating] = useState<'file' | 'folder' | 'auto' | null>(null)
@@ -697,14 +701,26 @@ export const LeftRailing = ({
     if (supportsAddNode) getPlans().then((r) => setPlans(r.plans)).catch(() => {})
   }
 
-  // Creates a draft plan-step node named after the file/folder in the chosen
-  // plan (createPlanNode — the same primitive the AI chat uses), then fires the
-  // confirmation pop at the click point. A folder yields a single node named
-  // after the folder, matching the "one node per item" behavior.
+  // Pulls the real file (or, for a folder, the whole folder as a live-
+  // rescanned assetFolders entry — see graph/resolveAssetPlan.ts) straight
+  // into the chosen plan via addPlanAssets, then fires the confirmation pop
+  // at the click point. Never invents a draft node or touches the file
+  // itself — its real name, content, and detected imports/exports are what
+  // show up in the plan, not a renamed/generated stand-in.
   const handleAddNode = (node: FileTreeNode, plan: SavedPlan, x: number, y: number, anchorEl: HTMLElement) => {
-    createPlanNode(plan.id, node.name)
-      .then(() => setConfirm({ id: Date.now(), x, y, label: plan.label || 'plan', anchorEl }))
+    const isDir = node.type === 'dir'
+    addPlanAssets(plan.id, isDir ? [] : [node.path], isDir ? [node.path] : [])
+      .then(({ plan: updated }) => {
+        onPlanUpdated?.(updated)
+        setConfirm({ id: Date.now(), x, y, label: plan.label || 'plan', anchorEl })
+      })
       .catch(() => {})
+  }
+
+  // Works whether or not `path` backs a real plan node — see useFileStages'
+  // setStatus for the file:-key fallback used when it doesn't.
+  const handleSetStatus = (path: string, stage: NodeStage | null) => {
+    setFileStatus(path, stage).catch(() => {})
   }
 
   const childrenOf = (dir: string): FileTreeNode[] =>
@@ -765,6 +781,15 @@ export const LeftRailing = ({
         actions={
         <Frame flow="horizontal" align="center" gap={2} shrink={0}>
           {headerAction}
+          {!readOnly && !hideRootCreate && (
+            <IconButton
+              onClick={() => setRootCreating((v) => (v ? null : 'auto'))}
+              title="New file/folder"
+              glyph="+"
+              iconSize={17}
+              textColor="var(--text-2)"
+            />
+          )}
           {!searchOpen && !query && (
             <IconButton
               as="span"
@@ -773,15 +798,6 @@ export const LeftRailing = ({
               title="Search files"
               textColor="var(--text-3)"
               onClick={() => setSearchOpen(true)}
-            />
-          )}
-          {!readOnly && !hideRootCreate && (
-            <IconButton
-              onClick={() => setRootCreating((v) => (v ? null : 'auto'))}
-              title="New file/folder"
-              glyph="+"
-              iconSize={17}
-              textColor="var(--text-2)"
             />
           )}
         </Frame>
@@ -910,8 +926,30 @@ export const LeftRailing = ({
                 : [{ label: 'No plans yet', disabled: true }],
             })
           }
+          // File rows only — status isn't a folder concept. Works with or
+          // without a backing plan node (handleSetStatus/useFileStages).
+          const isFile = contextMenu.node.type !== 'dir'
+          if (isFile) {
+            const currentStage = fileStages.get(contextMenu.node.path)
+            menuItems.push({
+              label: 'Set status',
+              separator: supportsAddNode,
+              children: [
+                ...NODE_STAGES.map((s): ContextMenuItem => ({
+                  label: s.label,
+                  onSelect: () => handleSetStatus(contextMenu.node.path, s.id),
+                })),
+                {
+                  label: 'Clear status',
+                  separator: true,
+                  disabled: !currentStage,
+                  onSelect: () => handleSetStatus(contextMenu.node.path, null),
+                },
+              ],
+            })
+          }
           menuItems.push(
-            { label: 'Add file', icon: 'file-add', separator: supportsAddNode, onSelect: () => setPendingCreate({ path: createDir, kind: 'file' }) },
+            { label: 'Add file', icon: 'file-add', separator: supportsAddNode || isFile, onSelect: () => setPendingCreate({ path: createDir, kind: 'file' }) },
             { label: 'Add folder', icon: 'folder-add', onSelect: () => setPendingCreate({ path: createDir, kind: 'folder' }) },
             { label: 'Rename', separator: true, onSelect: () => setRenamingNode(contextMenu.node) },
             { label: 'Cut', separator: true, onSelect: () => setFileClipboard({ path: contextMenu.node.path, isDir: contextMenu.node.type === 'dir', mode: 'cut' }) },
@@ -960,6 +998,10 @@ export const LeftRailing = ({
         onDeleted={async () => {
           const { path, type } = deletingNode
           setDeletingNode(null)
+          // Node-backed stages are cleaned up server-side on node deletion
+          // (deletePlanNodes); this clears the file:-keyed fallback so a
+          // status set with no plan node doesn't linger under a dead path.
+          if (type !== 'dir') handleSetStatus(path, null)
           onDeleted?.(path, type === 'dir')
           await afterMutation(onMutated, onChanged)
         }}

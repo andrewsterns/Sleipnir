@@ -532,6 +532,8 @@ function PlanRow({
   onOpen,
   onDelete,
   icon,
+  onContextMenu,
+  onMenuButton,
 }: {
   map: { id: string; label: string }
   active: boolean
@@ -540,6 +542,10 @@ function PlanRow({
   onDelete?: () => void
   /** Prefixed before the label — every row gets the same 'network' icon (NavRail's own Planning icon), Welcome included, so any open tab reads as the same identifiable type at a glance. */
   icon?: IconName
+  /** Right-click — same {x,y,anchorEl}-via-useContextMenu pattern as the NODES list below. Omitted for rows with no menu (Welcome keeps its old direct trash-only affordance). */
+  onContextMenu?: (e: React.MouseEvent) => void
+  /** Hover-revealed "⋯" trigger, paired with onContextMenu — when provided it replaces the plain trash icon so a row's menu opens the same way whether you right-click or click "⋯" (matches the NODES list). */
+  onMenuButton?: (e: React.MouseEvent) => void
 }) {
   // Full-bleed row: negative margins cancel the sidebar's 8px padding so the
   // hover/active fill spans edge-to-edge — same ListRow the file tree uses.
@@ -549,9 +555,22 @@ function PlanRow({
       indent={8}
       style={{ marginLeft: -8, marginRight: -8, flexShrink: 0 }}
       onClick={onOpen}
+      onContextMenu={onContextMenu}
       leading={icon ? <span style={{ display: 'flex', opacity: 0.7 }}><Icon name={icon} size={12} /></span> : undefined}
-      trailing={(hovered) =>
-        onDelete && hovered ? (
+      trailing={(hovered) => {
+        if (!hovered) return null
+        if (onMenuButton) {
+          return (
+            <IconButton
+              onClick={(e) => { e.stopPropagation(); onMenuButton(e) }}
+              title="More actions"
+              glyph="⋯"
+              iconSize={16}
+              textColor="var(--text-3)"
+            />
+          )
+        }
+        return onDelete ? (
           <IconButton
             onClick={(e) => { e.stopPropagation(); onDelete() }}
             title="Delete plan"
@@ -560,7 +579,7 @@ function PlanRow({
             textColor="var(--text-3)"
           />
         ) : null
-      }
+      }}
     >
       <span style={{ fontWeight: active ? 700 : 400 }}>{map.label}</span>
     </ListRow>
@@ -575,12 +594,17 @@ function PlanGroup({
   onOpen,
   onDelete,
   icon,
+  onContextMenu,
+  onMenuButton,
 }: {
   plans: SavedPlan[]
   mapId: string
   onOpen: (id: string) => void
   onDelete: (plan: SavedPlan) => void
   icon?: IconName
+  /** Same right-click / "⋯" pattern as the NODES list — see PlanningView's planMenu (useContextMenu). */
+  onContextMenu?: (e: React.MouseEvent, plan: SavedPlan) => void
+  onMenuButton?: (e: React.MouseEvent, plan: SavedPlan) => void
 }) {
   if (plans.length === 0) return null
   return (
@@ -593,6 +617,8 @@ function PlanGroup({
           onOpen={() => onOpen(plan.id)}
           onDelete={() => onDelete(plan)}
           icon={icon}
+          onContextMenu={onContextMenu ? (e) => onContextMenu(e, plan) : undefined}
+          onMenuButton={onMenuButton ? (e) => onMenuButton(e, plan) : undefined}
         />
       ))}
     </Frame>
@@ -849,6 +875,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   const [renamingNode, setRenamingNode] = useState<GraphNode | null>(null)
   // Right-click / ⋯ menu for the NODES list rows (see nodeMenuItems below).
   const nodeMenu = useContextMenu<GraphNode>()
+  // Same pattern for the PLANS list — saved plans only (not the pinned
+  // Welcome row, which keeps its own dismiss flow/trash icon).
+  const planMenu = useContextMenu<SavedPlan>()
 
   const copyNodeRelativePath = (node: GraphNode) => {
     if (node.filePath) void navigator.clipboard.writeText(node.filePath)
@@ -876,6 +905,14 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   const [isAddingNode, setIsAddingNode] = useState(false)
   const [nodeSearchOpen, setNodeSearchOpen] = useState(false)
   const nodeSearchRef = useRef<HTMLElement>(null)
+  // The RESULTS/NODES list lives outside nodeSearchRef (it's a separate
+  // section further down the sidebar, not nested inside the search input's
+  // own Frame) — without also excluding it below, a mousedown on a search
+  // *result* row counted as "outside" the search, clearing the query (and
+  // therefore collapsing RESULTS back to the current map's NODES list) a
+  // beat before the row's own onClick could select it, so the click either
+  // hit nothing or landed on whatever row ended up in its place.
+  const nodeResultsRef = useRef<HTMLElement>(null)
   // Bumped by the node ⋯ menu's "Link" action to pop the selected node's
   // add-link search open (see LinkAddDropdown's openSignal).
   const [linkOpenSignal, setLinkOpenSignal] = useState(0)
@@ -885,6 +922,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     const onMouseDown = (e: MouseEvent) => {
       const t = e.target as Element
       if (nodeSearchRef.current?.contains(t)) return
+      if (nodeResultsRef.current?.contains(t)) return
       if (t.closest('[data-floating-menu]')) return
       setNodeSearchOpen(false)
       setQuery('')
@@ -1042,7 +1080,14 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
       unsubCode()
       unsubDone()
       unsubError()
+      unsubCommandProposed()
     }
+    // This session has no chat UI mounted to show a run_command confirmation
+    // in — auto-decline so the model's executeTool() call fails closed
+    // instead of hanging forever waiting for a human who'll never see it.
+    const unsubCommandProposed = api.onCommandProposed(sessionId, ({ requestId }) => {
+      api.sendCommandDecision(requestId, false)
+    })
     const unsubCode = api.onCodeGenerated(sessionId, (payload) => {
       cleanup()
       setGeneratingNodeId(null)
@@ -1214,7 +1259,15 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 icon="network"
               />
             )}
-            <PlanGroup plans={plans} mapId={mapId} onOpen={activateMap} onDelete={setDeletingPlan} icon="network" />
+            <PlanGroup
+              plans={plans}
+              mapId={mapId}
+              onOpen={activateMap}
+              onDelete={setDeletingPlan}
+              icon="network"
+              onContextMenu={(e, plan) => planMenu.openFromEvent(e, plan)}
+              onMenuButton={(e, plan) => planMenu.openFromButton(e, plan)}
+            />
           </Frame>
         </Frame>
         <div style={{ height: 1, background: 'var(--border-1)', flexShrink: 0, marginBottom: 10 }} />
@@ -1241,7 +1294,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
           />
         </Frame>
         {!nodesCollapsed && (
-          <>
+          <Frame ref={nodeResultsRef} flow="vertical" gap={0} shrink={0}>
         {visibleNodeRows.map((row) => {
             const n = row.node
             // The ⋯ menu is meaningless during a global search (a row there may
@@ -1327,14 +1380,19 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 )
               }}
             >
-              {nodeDisplayLabel(n)}
-              {/* Same ".tsx"/".rs" suffix (dimmer) the graph label shows, so a
-                  node reads identically in both places. */}
-              {fileExtLabel(n.filePath) && <span style={{ opacity: 0.5 }}>{fileExtLabel(n.filePath)}</span>}
+              {/* A discovered node (pulled in by the asset-plan reference walk,
+                  never explicitly added — see GraphNode.discovered) reads as
+                  context here too, same treatment as the graph canvas. */}
+              <span style={n.discovered ? { opacity: 0.6 } : undefined}>
+                {nodeDisplayLabel(n)}
+                {/* Same ".tsx"/".rs" suffix (dimmer) the graph label shows, so a
+                    node reads identically in both places. */}
+                {fileExtLabel(n.filePath) && <span style={{ opacity: 0.5 }}>{fileExtLabel(n.filePath)}</span>}
+              </span>
             </ListRow>
             )
           })}
-          </>
+          </Frame>
         )}
 
         {archivedEntries.length > 0 && (
@@ -1489,6 +1547,18 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             />
           )
         })()}
+
+        {planMenu.menu && (
+          <ContextMenu
+            x={planMenu.menu.x}
+            y={planMenu.menu.y}
+            anchorEl={planMenu.menu.anchorEl}
+            onClose={planMenu.close}
+            items={[
+              { label: 'Delete plan', destructive: true, onSelect: () => setDeletingPlan(planMenu.menu!.data) },
+            ]}
+          />
+        )}
 
         {isAddingNode && (
           <AddNodeModal

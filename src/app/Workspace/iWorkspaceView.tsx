@@ -17,6 +17,8 @@ export interface WorkspaceViewProps {
   onOverrideSaved?: (planNodeId: string) => void
   /** Fired when the "Add Plan" asset-filter flow (NewWorkspacePlanModal) creates a new plan — App.tsx both records it in `plans` state and jumps to it in Planning. */
   onPlanCreated?: (plan: SavedPlan) => void
+  /** Fired when the file browser's "Add node ▸" context-menu action pulls a file/folder into an EXISTING plan (see LeftRailingView's onPlanUpdated) — App.tsx merges the change into `plans` state so a Planning tab already open on that plan picks up the addition without a reload. */
+  onPlanUpdated?: (plan: SavedPlan) => void
   /** Fired after this view's own "Choose/Switch Folder…" button successfully opens a different project — lets App.tsx keep its own activeProject/recentProjects state (the TitleBar label, Planning's per-project board) in sync with a change that didn't originate from the File menu. */
   onProjectOpened?: (info: WorkspaceInfo) => void
   /** File > Open Recent's list, threaded down for the "No folder open" empty state's own quick-reopen shortcuts — App.tsx is the single fetch point, same reasoning as `plans`. */

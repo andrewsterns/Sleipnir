@@ -28,6 +28,8 @@ export interface WorkspaceInfo {
   name: string | null
   /** True (Electron only) when the window has no *chosen* project and is working in the auto-provided "scratch" project — plans/files persist to a per-user scratch dir until saved to a real folder via saveScratchToFolder. Absent/false for a real opened project (and always for the web transport, which has no scratch fallback). */
   isScratch?: boolean
+  /** Null when the open Workspace root is outside Sleipnir's own repo (or none is open) — otherwise the REPO_ROOT-relative path to it, forward-slashed ('' when the Workspace root IS REPO_ROOT itself — the default first-launch state). Gates the code editor's LSP attachment for scope:'workspace' (tsserver's project root is hardcoded to REPO_ROOT — see tools/lsp-proxy.mjs's getTsServer). */
+  repoRelativeRoot?: string | null
 }
 
 /** One entry in File > Open Recent — see electron/workspaceStore.cjs. `name` is the project's display name (custom, via Rename Project, or the folder's basename) as of when it was last opened; may be stale if renamed from disk elsewhere. */
@@ -162,6 +164,14 @@ export interface GitIdentity {
   email: string
 }
 
+/** One `git stash` entry — `ref` is the addressable form (`stash@{0}`) apply/pop/drop take. */
+export interface GitStash {
+  ref: string
+  message: string
+  author: string
+  date: string
+}
+
 export interface PlatformAPI {
   /** Re-runs tools/generate-graph.mjs's research/validation doc-graph scan — refreshes Planning's Research Notes/Validation maps after an archive/restore. */
   regenerateGraph(): Promise<{ stdout: string }>
@@ -234,12 +244,14 @@ export interface PlatformAPI {
   setNodeStage(id: string, stage: NodeStage | null): Promise<{ stages: Record<string, NodeStage> }>
   /** Named, persisted lists of existing node ids. See src/00_planning/graph/resolvePlan.ts for the client-side neighbor-expansion this backs. */
   getPlans(): Promise<{ plans: SavedPlan[] }>
-  /** `assetPaths`, when given, seeds the plan from a Workspace asset-filter selection (see NewWorkspacePlanModal) instead of/alongside real graph node ids. `assetEdges` are the import connections detected between those paths at creation time. */
-  createPlan(label: string, nodeIds?: string[], assetPaths?: string[], assetEdges?: { source: string; target: string }[]): Promise<{ plan: SavedPlan }>
+  /** `assetPaths`, when given, seeds the plan from a Workspace asset-filter selection (see NewWorkspacePlanModal) instead of/alongside real graph node ids. `assetEdges` are the import connections detected between those paths at creation time (an initial-paint snapshot only — see graph/resolveAssetPlan.ts for the live re-scan). `assetFolders` are the top-level directories that were fully selected, re-listed live on every view so files added under them later show up automatically. */
+  createPlan(label: string, nodeIds?: string[], assetPaths?: string[], assetEdges?: { source: string; target: string }[], assetFolders?: string[]): Promise<{ plan: SavedPlan }>
   /** Merges workspace-relative paths into a plan's `generatedFiles`, recording what a "Generate Code" run produced while that plan's tab was active. */
   appendPlanGeneratedFiles(id: string, paths: string[]): Promise<{ plan: SavedPlan }>
   /** Merges existing graph node ids into a plan's `nodeIds` (deduped) — used when a link drawn on a plan tab targets a node from another plan, pulling it in so the edge resolves on this plan's graph. Returns the updated plan. */
   addPlanNodes(id: string, nodeIds: string[]): Promise<{ plan: SavedPlan }>
+  /** Merges real Workspace-relative file paths and/or whole folders into a plan's `assetPaths`/`assetFolders` (deduped) — pulls an existing file/folder straight into a plan (see LeftRailingView's "Add node ▸" action) as a real, file-backed asset node, additive alongside any existing `nodeIds`. Returns the updated plan. */
+  addPlanAssets(id: string, paths?: string[], folders?: string[]): Promise<{ plan: SavedPlan }>
   /** The plan record is always removed. `opts.deleteFiles` also deletes the plan's `generatedFiles` (and, with `deleteNodes`, each removed node's backing file), resolved against the open Workspace root. `opts.deleteNodes` also removes the plan's nodes from the graph and every edge touching them. */
   deletePlan(id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }): Promise<void>
   /**
@@ -273,9 +285,16 @@ export interface PlatformAPI {
   renameBranch(oldName: string, newName: string): Promise<GitStatus>
   /** Auto-sets upstream on a branch's first push instead of surfacing git's raw "no upstream" error. */
   gitPush(): Promise<GitOpResult>
-  /** Returns `conflicted: true` (with the file list) on a merge conflict rather than attempting any automatic resolution — resolve in the Terminal panel. */
+  /** Returns `conflicted: true` (with the file list) on a merge conflict rather than attempting any automatic resolution — the Source Control view surfaces this as a banner (open the file, then "Mark Resolved" to stage it). */
   gitPull(): Promise<GitOpResult>
   gitFetch(): Promise<GitOpResult>
+  /** Fails if the working tree is clean — nothing to stash. */
+  gitStashPush(message?: string): Promise<GitStatus>
+  gitStashList(): Promise<GitStash[]>
+  gitStashApply(ref: string): Promise<GitStatus>
+  /** Apply + drop in one step. */
+  gitStashPop(ref: string): Promise<GitStatus>
+  gitStashDrop(ref: string): Promise<GitStash[]>
   /** `git init` (main as initial branch) — turns the open non-repo folder into a git repo. Optional: provided by the Electron shell, absent on the web-dev transport (feature-detect with `?.`). */
   gitInit?(): Promise<GitOpResult>
   /** Adds or updates a remote (defaults to 'origin') so a freshly init'd / remote-less repo can publish. Optional (Electron shell only). */

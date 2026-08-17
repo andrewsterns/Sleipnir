@@ -14,6 +14,7 @@ import type {
   GitCommitFileMap,
   GitOpResult,
   GitIdentity,
+  GitStash,
   PreviewConfig,
   PreviewConfigEntry,
   WorkspaceInfo,
@@ -277,11 +278,12 @@ export const webApi: PlatformAPI = {
     nodeIds: string[] = [],
     assetPaths?: string[],
     assetEdges?: { source: string; target: string }[],
+    assetFolders?: string[],
   ): Promise<{ plan: SavedPlan }> {
     return fetch('/api/sleipnir/plans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, nodeIds, assetPaths, assetEdges }),
+      body: JSON.stringify({ label, nodeIds, assetPaths, assetEdges, assetFolders }),
     }).then((res) => asJson<{ plan: SavedPlan }>(res))
   },
 
@@ -298,6 +300,14 @@ export const webApi: PlatformAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, nodeIds }),
+    }).then((res) => asJson<{ plan: SavedPlan }>(res))
+  },
+
+  addPlanAssets(id: string, paths?: string[], folders?: string[]): Promise<{ plan: SavedPlan }> {
+    return fetch('/api/sleipnir/plans/assets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, paths, folders }),
     }).then((res) => asJson<{ plan: SavedPlan }>(res))
   },
 
@@ -410,6 +420,46 @@ export const webApi: PlatformAPI = {
 
   gitFetch(): Promise<GitOpResult> {
     return fetch('/api/sleipnir/git/fetch', { method: 'POST' }).then((res) => asJson<GitOpResult>(res))
+  },
+
+  gitStashPush(message?: string): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/stash-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  gitStashList(): Promise<GitStash[]> {
+    return fetch('/api/sleipnir/git/stash-list')
+      .then((res) => asJson<{ stashes: GitStash[] }>(res))
+      .then((data) => data.stashes)
+  },
+
+  gitStashApply(ref: string): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/stash-apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  gitStashPop(ref: string): Promise<GitStatus> {
+    return fetch('/api/sleipnir/git/stash-pop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref }),
+    }).then((res) => asJson<GitStatus>(res))
+  },
+
+  gitStashDrop(ref: string): Promise<GitStash[]> {
+    return fetch('/api/sleipnir/git/stash-drop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref }),
+    })
+      .then((res) => asJson<{ stashes: GitStash[] }>(res))
+      .then((data) => data.stashes)
   },
 
   getGitIdentity(): Promise<GitIdentity> {

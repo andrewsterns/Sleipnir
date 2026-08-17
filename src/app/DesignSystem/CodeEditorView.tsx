@@ -1,6 +1,5 @@
 import React, { forwardRef, useImperativeHandle } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
-import { Dropdown } from '../UIKit/Dropdown/Dropdown'
 import { useCodeEditorViewModel } from './CodeEditorView.ViewModel'
 import type { GraphNode } from '../../00_planning/graph/types'
 
@@ -20,10 +19,16 @@ export interface CodeEditorViewProps {
    * Which root `path` is relative to — determines whether/how LSP attaches
    * (see ROADMAP.md's Phase 1 fix): `'src'` (default, matches every
    * pre-existing caller) means `path` is SRC_ROOT-relative; `'repo'` means
-   * `path` is already REPO_ROOT-relative; `'workspace'` disables LSP
-   * entirely (tsserver has no knowledge of an arbitrary opened folder's root).
+   * `path` is already REPO_ROOT-relative; `'workspace'` attaches to
+   * Sleipnir's own repo when `repoRelativeRoot` says the open Workspace is
+   * (or is inside) it, otherwise to a language server rooted at
+   * `workspaceRoot` itself — a genuinely external project.
    */
   scope?: 'src' | 'repo' | 'workspace'
+  /** scope:'workspace' only — see WorkspaceInfo.repoRelativeRoot. Determines whether/how LSP attaches for this tab. */
+  repoRelativeRoot?: string | null
+  /** scope:'workspace' only — see WorkspaceInfo.root. Consulted when repoRelativeRoot is null: roots this tab's LSP at the external project itself instead of Sleipnir's own repo. */
+  workspaceRoot?: string | null
   /** Scrolls/positions the cursor to this line (1-based) once real content loads — set by search-result and quick-open jumps. Re-fires if this changes while the tab stays open (e.g. a second search-result click). */
   revealLine?: number
   /** See useCodeEditorViewModel's own doc comment — fired after a successful save with the just-saved content. */
@@ -44,11 +49,11 @@ export interface CodeEditorHandle {
 }
 
 export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(function CodeEditorView(
-  { path, value, readOnly, onSaved, suppressAutoSave, writeFile, scope, revealLine, onImportsChanged, getGraphNodes, onLinkResolved },
+  { path, value, readOnly, onSaved, suppressAutoSave, writeFile, scope, repoRelativeRoot, workspaceRoot, revealLine, onImportsChanged, getGraphNodes, onLinkResolved },
   ref,
 ) {
   const { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run, problemCount } =
-    useCodeEditorViewModel({ path, value, readOnly, suppressAutoSave, startDirty: suppressAutoSave, writeFile, scope, revealLine, onImportsChanged, getGraphNodes, onLinkResolved })
+    useCodeEditorViewModel({ path, value, readOnly, suppressAutoSave, startDirty: suppressAutoSave, writeFile, scope, repoRelativeRoot, workspaceRoot, revealLine, onImportsChanged, getGraphNodes, onLinkResolved })
 
   const handleSave = async () => {
     await save()
@@ -110,15 +115,6 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
               {running ? 'RUNNING…' : 'RUN'}
             </button>
           )}
-          <Dropdown
-            options={[{ value: 'save', label: 'Save (Ctrl/Cmd+S)' }]}
-            onChange={() => handleSave()}
-            trigger={
-              <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-1)', ...MONO }}>
-                FILE
-              </span>
-            }
-          />
         </Frame>
       )}
       <div ref={containerRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }} />

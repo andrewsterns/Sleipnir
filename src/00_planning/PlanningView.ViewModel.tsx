@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getGraphForMap, refreshGraphForMap, partitionArchived } from './graph/combine'
 import { resolvePlanGraph } from './graph/resolvePlan'
+import { resolveAssetPlanGraph } from './graph/resolveAssetPlan'
 import { getGraphMaps, type GraphData, type GraphEdge, type GraphMapId, type GraphNode, type NodeStage, type NodeStatus, type SavedPlan } from './graph/types'
 import {
   regenerateGraph,
@@ -12,13 +13,12 @@ import {
   updateNote,
   deleteNote,
   deleteWorkspacePath,
-  getNodeStages,
-  setNodeStage,
   readWorkspaceFile,
   writeWorkspaceFile,
   addPlanNodes,
   type ArchiveEntry,
 } from './api/sleipnirApi'
+import { useStages, setStage as setStageStore, refreshStages as refreshStagesStore } from './stagesStore'
 import { adapterForLanguage } from './graph/importAdapters'
 import { fuzzyScore } from '../utils/fuzzyMatch'
 import type { SearchSortId } from '../app/UIKit/Search/iSearch'
@@ -67,28 +67,36 @@ export function folderPathForNode(node: GraphNode): string | null {
 // A plan is either graph-node-based (nodeIds, resolved against the real
 // repo graph) or asset-based (assetPaths, a Workspace file selection with no
 // corresponding graph node anywhere — see NewWorkspacePlanModal) — this
-// synthesizes plain, informational GraphNodes for the latter so the rest of
-// PlanningView (tab content, global search) doesn't need to know which kind
-// of plan it's looking at.
+// synthesizes plain, informational GraphNodes for the asset side so the rest
+// of PlanningView (tab content, global search) doesn't need to know which
+// kind of plan it's looking at. The two sources are additive, not exclusive
+// — a plan can hold curated graph nodes (nodeIds) AND loose Workspace files
+// pulled straight in (assetPaths, e.g. via LeftRailingView's "Add node ▸"
+// context-menu action), and both contribute nodes/edges at once. This is the
+// fast/frozen first-paint version (assetEdges as detected at creation/last
+// add); resolveAssetPlanGraph (graph/resolveAssetPlan.ts) replaces the asset
+// half with a live re-scan right after (see the effect below).
 function graphForPlan(plan: SavedPlan): GraphData {
-  if (plan.assetPaths?.length) {
-    const idFor = (path: string) => `workspace-asset/${plan.id}/${path}`
-    return {
-      nodes: plan.assetPaths.map((path) => ({
-        id: idFor(path),
-        label: path.split('/').pop() ?? path,
-        kind: 'built',
-        map: plan.id,
-        filePath: path,
-        type: 'workspace-file',
-      })),
-      // Detected once at creation time (see NewWorkspacePlanModal.ViewModel's
-      // detectEdges) — a snapshot, like assetPaths itself, not recomputed on
-      // every view.
-      edges: (plan.assetEdges ?? []).map((e) => ({ source: idFor(e.source), target: idFor(e.target), kind: 'borrows' })),
-    }
+  const nodeGraph = resolvePlanGraph(plan.nodeIds)
+  if (!plan.assetPaths?.length) return nodeGraph
+  const idFor = (path: string) => `workspace-asset/${plan.id}/${path}`
+  const assetNodes: GraphNode[] = plan.assetPaths.map((path) => ({
+    id: idFor(path),
+    label: path.split('/').pop() ?? path,
+    kind: 'built',
+    map: plan.id,
+    filePath: path,
+    type: 'workspace-file',
+  }))
+  const assetEdges: GraphEdge[] = (plan.assetEdges ?? []).map((e) => ({
+    source: idFor(e.source),
+    target: idFor(e.target),
+    kind: 'borrows',
+  }))
+  return {
+    nodes: [...nodeGraph.nodes, ...assetNodes],
+    edges: [...nodeGraph.edges, ...assetEdges],
   }
-  return resolvePlanGraph(plan.nodeIds)
 }
 
 export function usePlanningViewModel(
@@ -177,8 +185,10 @@ export function usePlanningViewModel(
   const [notesEdges, setNotesEdges] = useState<GraphEdge[]>([])
   // Per-node sprint stage overlay ({ [nodeId]: stage }) — hydrated onto every
   // node in `live` below, drives the card toggle + graph visuals. Kept apart
-  // from the node records so build-generated nodes can be tagged too.
-  const [stages, setStages] = useState<Record<string, NodeStage>>({})
+  // from the node records so build-generated nodes can be tagged too. Backed
+  // by the shared stagesStore (not local state) so a stage set from any other
+  // view — Workspace's file tree, Source Control — shows up here live too.
+  const stages = useStages()
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<string[]>([])
@@ -192,6 +202,35 @@ export function usePlanningViewModel(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapId])
 
+  // A plan's asset half (see graph/resolveAssetPlan.ts) is never resolved
+  // from just the assetPaths/assetEdges snapshot on `plan` itself — the
+  // effect above renders that snapshot immediately (via graphForPlan) for a
+  // flash-free first paint, then this one replaces it with a live re-scan of
+  // the plan's current Workspace file content, so an import added or edited
+  // (or a file dropped into an assetFolders directory) since the plan was
+  // last touched shows up without needing anything resolved ahead of time.
+  // Merged back in alongside the plan's own nodeIds graph (resolvePlanGraph
+  // is already cheap/fresh, no async needed there) since the two are
+  // additive — see graphForPlan's doc comment. Runs on every mapId switch
+  // and whenever `plans` itself changes; refreshAll additionally re-triggers
+  // this resolve directly since a manual refresh doesn't change mapId.
+  useEffect(() => {
+    const plan = planFor(mapId)
+    if (!plan?.assetPaths?.length && !plan?.assetFolders?.length) return
+    let cancelled = false
+    resolveAssetPlanGraph(plan)
+      .then((liveAsset) => {
+        if (cancelled) return
+        const nodeGraph = resolvePlanGraph(plan.nodeIds)
+        setData({ nodes: [...nodeGraph.nodes, ...liveAsset.nodes], edges: [...nodeGraph.edges, ...liveAsset.edges] })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapId, plans])
+
   useEffect(() => {
     getArchivedPaths().then(({ entries }) => setArchivedEntries(entries)).catch(() => {})
   }, [])
@@ -202,14 +241,8 @@ export function usePlanningViewModel(
     setNotesEdges(edges)
   }
 
-  const refreshStages = async () => {
-    const { stages: fresh } = await getNodeStages()
-    setStages(fresh)
-  }
-
   useEffect(() => {
     refreshNotes().catch(() => {})
-    refreshStages().catch(() => {})
   }, [])
 
   const { live: liveGenerated } = useMemo(() => partitionArchived(data, archivedEntries), [data, archivedEntries])
@@ -273,9 +306,19 @@ export function usePlanningViewModel(
       plan ? Promise.resolve(graphForPlan(plan)) : refreshGraphForMap(mapId),
       getArchivedPaths().then(({ entries }) => setArchivedEntries(entries)),
       refreshNotes(),
-      refreshStages(),
+      refreshStagesStore(),
     ])
     setData(fresh)
+    // A manual refresh doesn't change mapId, so the asset-plan live-resolve
+    // effect above won't re-fire on its own — trigger it directly here too.
+    if (plan?.assetPaths?.length || plan?.assetFolders?.length) {
+      resolveAssetPlanGraph(plan)
+        .then((liveAsset) => {
+          const nodeGraph = resolvePlanGraph(plan.nodeIds)
+          setData({ nodes: [...nodeGraph.nodes, ...liveAsset.nodes], edges: [...nodeGraph.edges, ...liveAsset.edges] })
+        })
+        .catch(() => {})
+    }
   }
 
   // Only meaningful for plan nodes (created via the AI chat's
@@ -287,22 +330,13 @@ export function usePlanningViewModel(
   }
 
   // Tags (or, passing null, clears) a node's sprint stage — the card toggle's
-  // action. Optimistically updates the local overlay so the graph + card
-  // recolor instantly, then writes through; on failure it refetches to snap
-  // back to the persisted truth. Works for any node id, generated ones
-  // included (the whole reason stage lives in an overlay, not on the record).
+  // action. Delegates to the shared stagesStore, which optimistically updates
+  // its cache (recoloring the graph + card, and any other mounted view, e.g.
+  // Workspace's file tree, instantly) then writes through, rolling back on
+  // failure. Works for any node id, generated ones included (the whole reason
+  // stage lives in an overlay, not on the record).
   const setStage = async (node: GraphNode, stage: NodeStage | null) => {
-    setStages((prev) => {
-      const next = { ...prev }
-      if (stage) next[node.id] = stage
-      else delete next[node.id]
-      return next
-    })
-    try {
-      await setNodeStage(node.id, stage)
-    } catch {
-      await refreshStages().catch(() => {})
-    }
+    await setStageStore(node.id, stage).catch(() => {})
   }
 
   const archiveNode = async (node: GraphNode) => {
