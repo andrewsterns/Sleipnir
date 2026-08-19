@@ -10,6 +10,15 @@ export interface BrowserTab {
   line?: number
 }
 
+/** `'primary'` is the always-present left pane; `'secondary'` is the optional split-right pane (see ROADMAP.md's "split editor panes"). */
+export type PaneId = 'primary' | 'secondary'
+
+/** One pane's own tab list + active tab — a path is never open in more than one pane at once (see CodeEditorView.ViewModel.tsx's LSP didOpen comment for why: two mounted editors on the same path would double-register with the language server). */
+export interface PaneState {
+  tabs: BrowserTab[]
+  activeTabPath: string | null
+}
+
 export interface FolderBrowserViewProps {
   /**
    * `scope: 'src'` — root and every path are SRC_ROOT-relative (no `src/`
@@ -77,12 +86,12 @@ export interface FolderBrowserViewProps {
  * a second, imperative path to the same effect.
  */
 export interface FolderBrowserHandle {
-  /** Saves the active tab only. */
+  /** Saves the active tab of whichever pane last had focus. */
   save: () => Promise<void>
-  /** Saves every dirty tab. */
+  /** Saves every dirty tab, across both panes if split. */
   saveAll: () => Promise<void>
-  /** LSP diagnostic counts across this instance's own open tabs — see ProblemsDock. Only tabs with at least one diagnostic are included. */
+  /** LSP diagnostic counts across this instance's own open tabs, across both panes if split — see ProblemsDock. Only tabs with at least one diagnostic are included. */
   getProblems: () => { path: string; count: number }[]
-  /** Activates an already-open tab by path — used by ProblemsDock's click-to-jump. No-ops if `path` isn't currently open. */
+  /** Activates and focuses `path` in whichever pane already has it open; if it isn't open anywhere, opens it into the currently-focused pane (same as a tree click). */
   focusTab: (path: string) => void
 }

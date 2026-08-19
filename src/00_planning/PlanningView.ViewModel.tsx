@@ -147,6 +147,12 @@ export function usePlanningViewModel(
   const openMap = (id: GraphMapId) => {
     setOpenMapIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
     setMapIdRaw(id)
+    // A just-created plan's note-backed nodes (see NewWorkspacePlanModal's
+    // "ADD NODES" rows) only exist in `notes`, which — unlike a plan's
+    // asset-path nodes — isn't re-derived live on every read; without this,
+    // a plan opened right after creation can show its checkbox/tree picks
+    // but not its note rows until some unrelated refreshAll() happens to fire.
+    if (planFor(id)) refreshNotes().catch(() => {})
   }
   const setMapId = openMap
 
@@ -614,6 +620,15 @@ export function usePlanningViewModel(
     [sortedNodes, kindFilter],
   )
 
+  // Every node in the current map/plan tagged 'todo' — the "RUN PLAN" batch
+  // driver's queue (see PlanningView.tsx's runPlan). Same order as the NODES
+  // list itself (whatever sortOrder is active); v1 deliberately doesn't try
+  // to derive a dependency/topological order from edges — plan-step edges
+  // only exist for AI-created nodes, import/borrows edges aren't guaranteed
+  // to form a usable DAG, and the single-node BUILD WITH AI button already
+  // gives manual ordering control when it matters for one node.
+  const todoNodes = useMemo(() => sortedNodes.filter((n) => stages[n.id] === 'todo'), [sortedNodes, stages])
+
   const mapLabelFor = (id: GraphMapId): string =>
     getGraphMaps().find((m) => m.id === id)?.label ?? planFor(id)?.label ?? id
 
@@ -711,5 +726,6 @@ export function usePlanningViewModel(
     nodeRows,
     isGlobalSearch,
     mapLabelFor,
+    todoNodes,
   }
 }

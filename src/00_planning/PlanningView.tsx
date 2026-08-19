@@ -12,7 +12,7 @@ import { NODE_STAGES } from './graph/stages'
 import { StatusGlyph } from './graph/StatusGlyph'
 import { SleipnirLoader } from '../app/UIKit/SleipnirLoader/SleipnirLoader'
 import type { GeneratedFile } from '../app/AgentChat/iAgentChat'
-import { createPlan, getWorkspaceInfo, listWorkspaceDir } from './api/sleipnirApi'
+import { createPlan, getWorkspaceInfo, listWorkspaceDir, readWorkspaceFile, writeWorkspaceFile, appendPlanGeneratedFiles } from './api/sleipnirApi'
 import type { FileTreeNode } from './api/PlatformAPI'
 import { usePlanningViewModel, folderPathForNode, type PlanningNodeRow } from './PlanningView.ViewModel'
 import { Search } from '../app/UIKit/Search/Search'
@@ -27,6 +27,7 @@ import { ContextMenu } from '../app/UIKit/ContextMenu/ContextMenu'
 import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
 import { RenamePathModal } from '../app/DesignSystem/RenamePathModal'
 import { AddNodeModal } from './AddNodeModal'
+import { NewWorkspacePlanModal } from '../app/Workspace/NewWorkspacePlanModal'
 import { fuzzyScore } from '../utils/fuzzyMatch'
 import { useAppTheme } from '../00_themes/ThemeController'
 
@@ -866,10 +867,16 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     nodeRows,
     isGlobalSearch,
     mapLabelFor,
+    todoNodes,
   } = usePlanningViewModel('welcome', focusMapId, onFocusMapIdConsumed, plans, onUpdatePlan, welcomeDismissed)
 
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
   const [generateError, setGenerateError] = useState<string | null>(null)
+  // "RUN PLAN" batch driver state — runningPlan gates the trigger/single-node
+  // BUILD WITH AI buttons so only one headless chat session runs at a time;
+  // runProgress drives the header's "Building N of M" text while it's live.
+  const [runningPlan, setRunningPlan] = useState(false)
+  const [runProgress, setRunProgress] = useState<{ index: number; total: number; label: string } | null>(null)
   const [deletingPlan, setDeletingPlan] = useState<SavedPlan | null>(null)
   const [deletingNode, setDeletingNode] = useState<GraphNode | null>(null)
   const [renamingNode, setRenamingNode] = useState<GraphNode | null>(null)
@@ -888,8 +895,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     const info = await getWorkspaceInfo()
     void navigator.clipboard.writeText(info.root ? `${info.root}/${rel}` : rel)
   }
-  const [isCreatingPlan, setIsCreatingPlan] = useState(false)
-  const [newPlanLabel, setNewPlanLabel] = useState('')
+  // The sidebar PLANS "+" opens the same Add-Plan-from-Workspace popup the
+  // Workspace/Research file trees use (see WorkspaceView) instead of a bare
+  // inline name box — reused wholesale rather than reimplemented, so the
+  // name+search+filter+tree picker behaves identically everywhere it appears.
+  const [addingPlan, setAddingPlan] = useState(false)
   const [creatingPlan, setCreatingPlan] = useState(false)
   const [createPlanError, setCreatePlanError] = useState<string | null>(null)
   // Forces the full-page create-plan screen (PlanningEmptyState) even while
@@ -904,6 +914,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   // modal reached from this one flag.
   const [isAddingNode, setIsAddingNode] = useState(false)
   const [nodeSearchOpen, setNodeSearchOpen] = useState(false)
+  // The NODES search box's ↑/↓ keyboard highlight — outlined via ListRow's
+  // `connected`, separate from `selectedId`'s solid "detail panel open" fill.
+  const [nodeHighlightId, setNodeHighlightId] = useState<string | null>(null)
   const nodeSearchRef = useRef<HTMLElement>(null)
   // The RESULTS/NODES list lives outside nodeSearchRef (it's a separate
   // section further down the sidebar, not nested inside the search input's
@@ -974,20 +987,17 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     activateMap('welcome')
   }
 
-  // `labelOverride` lets the full-page create screen (PlanningEmptyState,
-  // reached via the tab strip's "+" or the empty state) submit its own typed
-  // name directly — same underlying create as the sidebar PLANS header's
-  // inline form, which instead reads from newPlanLabel state.
-  const submitNewPlan = async (labelOverride?: string) => {
-    const label = (labelOverride ?? newPlanLabel).trim()
-    if (!label) return
+  // Backs the full-page create screen only (PlanningEmptyState, reached via
+  // the tab strip's "+" or closing every tab) — the sidebar PLANS "+" instead
+  // opens NewWorkspacePlanModal (see addingPlan), which creates its own plan
+  // directly via createPlan and reports back through onCreated below.
+  const submitNewPlan = async (label: string) => {
+    if (!label.trim()) return
     setCreatingPlan(true)
     setCreatePlanError(null)
     try {
-      const { plan } = await createPlan(label, [])
+      const { plan } = await createPlan(label.trim(), [])
       onCreatePlan(plan)
-      setIsCreatingPlan(false)
-      setNewPlanLabel('')
       activateMap(plan.id)
     } catch (e) {
       setCreatePlanError(e instanceof Error ? e.message : String(e))
@@ -1108,6 +1118,162 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     api.sendMessage(sessionId, [], prompt)
   }
 
+  // Builds the generate_code prompt for the new stage-driven build flow
+  // (buildNodeWithAI below) — deliberately separate from generateCode's own
+  // prompt-building above rather than a shared extraction, so the existing
+  // APPROVE/GENERATE CODE flow (status-gated block below) can stay completely
+  // untouched. The one real difference from generateCode's prompt: a node
+  // that already has a backing file reads its current content and asks for
+  // an edit, instead of always asking for a fresh scaffold + fuzzy-guessing
+  // whether a matching file already exists.
+  const buildPromptForNode = async (node: GraphNode): Promise<string> => {
+    if (node.filePath) {
+      const existing = await readWorkspaceFile(node.filePath).catch(() => null)
+      if (existing) {
+        return [
+          'Update this existing file using the generate_code tool — return its FULL updated content for the exact same path, preserving structure/exports except where the requested change requires otherwise.',
+          `Path: ${node.filePath}`,
+          `Label: ${node.label}`,
+          node.description ? `What to change: ${node.description}` : null,
+          'Current content:',
+          '```',
+          existing.content,
+          '```',
+        ].filter(Boolean).join('\n')
+      }
+    }
+    const nameGuess = node.label.replace(/\s+component$/i, '').trim()
+    const info = await getWorkspaceInfo()
+    let candidateHint: string
+    if (info.root) {
+      const { tree } = await listWorkspaceDir('').catch(() => ({ tree: [] as FileTreeNode[] }))
+      const candidates = flattenFilePaths(tree)
+        .map((path) => ({ path, score: fuzzyScore(nameGuess, path) }))
+        .filter((r): r is { path: string; score: number } => r.score !== null)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map((r) => r.path)
+      candidateHint = candidates.length
+        ? `Likely existing file(s) this refers to — edit one via its exact path if it matches: ${candidates.join(', ')}`
+        : 'No obviously matching existing file was found in the Workspace. If this is a new file, create it fresh.'
+    } else {
+      candidateHint = 'No Workspace is open yet — if this is a new file, generate_code will create one once a Workspace folder is chosen.'
+    }
+    return [
+      'Generate code for this plan item using the generate_code tool.',
+      `Label: ${node.label}`,
+      node.description ? `Description: ${node.description}` : null,
+      candidateHint,
+    ].filter(Boolean).join('\n')
+  }
+
+  // Headless build for one node, shared by the single-node "BUILD WITH AI"
+  // button and the "RUN PLAN" batch driver below — same session mechanics
+  // generateCode uses, resolving instead of mutating component state
+  // directly so both callers can await a plain result.
+  const buildNodeWithAI = (node: GraphNode): Promise<{ ok: true; files: GeneratedFile[] } | { ok: false; error: string }> => {
+    const api = window.chatAPI
+    if (!api) return Promise.resolve({ ok: false, error: 'AI chat is desktop-only — run the Electron app.' })
+    return buildPromptForNode(node).then(
+      (prompt) =>
+        new Promise((resolve) => {
+          const sessionId = crypto.randomUUID()
+          let settled = false
+          const cleanup = () => {
+            settled = true
+            unsubCode()
+            unsubDone()
+            unsubError()
+            unsubCommandProposed()
+          }
+          const unsubCommandProposed = api.onCommandProposed(sessionId, ({ requestId }) => {
+            api.sendCommandDecision(requestId, false)
+          })
+          const unsubCode = api.onCodeGenerated(sessionId, (payload) => {
+            cleanup()
+            resolve({ ok: true, files: payload.files })
+          })
+          const unsubDone = api.onDone(sessionId, () => {
+            if (settled) return
+            cleanup()
+            resolve({ ok: false, error: "AI responded without generating code — try again, or rephrase the plan item's description." })
+          })
+          const unsubError = api.onError(sessionId, (message) => {
+            cleanup()
+            resolve({ ok: false, error: message })
+          })
+          api.sendMessage(sessionId, [], prompt)
+        }),
+    )
+  }
+
+  // Single-node build for a node whose sprint stage is 'todo' — the new,
+  // generalized trigger: unlike generateCode/APPROVE, this fires off `stages`
+  // and works for ANY node (custom notes, file-backed asset nodes), not just
+  // AI-created plan-step nodes that happen to carry a `status` field.
+  const runSingleNodeBuild = async (node: GraphNode) => {
+    setGenerateError(null)
+    setGeneratingNodeId(node.id)
+    await setStage(node, 'in-progress')
+    const activePlanId = removablePlanFor(mapId)?.id
+    const result = await buildNodeWithAI(node)
+    setGeneratingNodeId(null)
+    if (result.ok) {
+      onCodeGenerated?.(node.id, result.files, activePlanId)
+      await setStage(node, 'in-review')
+    } else {
+      setGenerateError(result.error)
+      await setStage(node, 'blocked')
+    }
+  }
+
+  // Batch-builds every 'todo' node in sequence — snapshots the queue at click
+  // time (stages change as the run proceeds, so re-reading todoNodes live
+  // mid-loop would shrink/reorder it under its own feet) and awaits each
+  // node fully before starting the next, both to avoid overlapping headless
+  // chat sessions and because setStage/appendPlanGeneratedFiles do the same
+  // kind of unsynchronized read-modify-write notes.json/stages.json do (see
+  // NewWorkspacePlanModal.ViewModel's submit). Unlike the single-node path,
+  // generated files are written straight to disk rather than staged as a
+  // single unsaved editor tab — App.tsx's pendingOverride is one slot
+  // app-wide and can't hold a whole batch's worth of unreviewed edits, so a
+  // "Run Plan" review happens afterward via Source Control's diff instead.
+  const runPlan = async () => {
+    if (runningPlan || todoNodes.length === 0) return
+    const queue = todoNodes
+    setRunningPlan(true)
+    const activePlanId = removablePlanFor(mapId)?.id
+    let plan = removablePlanFor(mapId)
+    for (let i = 0; i < queue.length; i++) {
+      const node = queue[i]
+      setRunProgress({ index: i + 1, total: queue.length, label: node.label })
+      setGeneratingNodeId(node.id)
+      await setStage(node, 'in-progress')
+      const result = await buildNodeWithAI(node)
+      if (result.ok) {
+        for (const file of result.files) {
+          await writeWorkspaceFile(file.path, file.content).catch(() => {})
+        }
+        if (activePlanId && plan) {
+          const paths = result.files.map((f) => f.path)
+          const updated = await appendPlanGeneratedFiles(activePlanId, paths).catch(() => null)
+          if (updated) {
+            onUpdatePlan(updated.plan)
+            plan = updated.plan
+          }
+        }
+        await setStage(node, 'in-review')
+      } else {
+        // One bad node doesn't abort the run — the rest still get a shot.
+        await setStage(node, 'blocked')
+      }
+      setGeneratingNodeId(null)
+    }
+    setRunProgress(null)
+    setRunningPlan(false)
+    await refreshAll()
+  }
+
   const allMaps = getGraphMaps()
   // Saved plans are never in getGraphMaps() (see App.tsx's plans state doc
   // comment) — used only for resolving an open tab's label/icon.
@@ -1130,6 +1296,10 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   // still drive the graph and the LINKED panel; they just don't reshape this
   // list into a tree.
   const visibleNodeRows = nodeRows
+  const nodeRowId = (row: PlanningNodeRow) => (isGlobalSearch ? `${row.mapId}::${row.node.id}` : row.node.id)
+  // Backs the NODES search box's ↑/↓/Enter keyboard nav (see Search's
+  // `listItems`) — same click behavior as a row's onClick (selectNodeRow).
+  const nodeListItems = visibleNodeRows.map((row) => ({ id: nodeRowId(row), onSelect: () => selectNodeRow(row) }))
 
   // Ids of every notes.json-backed node (note/scaffolded/plan-step) — the only
   // ones eligible for permanent delete (deleteNode). Build-generated src nodes
@@ -1194,6 +1364,8 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   onChange: (v) => setSortOrder(v as SearchSortId),
                 }}
                 filters={{ options: KIND_FILTER_OPTIONS, active: kindFilter, onChange: setKindFilter }}
+                listItems={nodeListItems}
+                onHighlightChange={setNodeHighlightId}
               />
             }
           />
@@ -1205,45 +1377,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             count={plans.length}
             right={
               // The one and only add-plan control — always here next to
-              // "PLANS (n)", never relocated into the input row below. Opening
-              // the inline field doesn't move or duplicate it.
-              <IconButton onClick={() => setIsCreatingPlan(true)} title="New plan" icon="plan-add" iconSize={13} textColor="var(--text-2)" />
+              // "PLANS (n)". Opens NewWorkspacePlanModal (see addingPlan)
+              // rather than an inline field.
+              <IconButton onClick={() => setAddingPlan(true)} title="New plan" icon="plan-add" iconSize={13} textColor="var(--text-2)" />
             }
           />
-          {isCreatingPlan && (
-            <Frame flow="horizontal" align="center" gap={4} padding={{ top: 6 }}>
-              <input
-                autoFocus
-                value={newPlanLabel}
-                onChange={(e) => setNewPlanLabel(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') submitNewPlan()
-                  if (e.key === 'Escape') { setIsCreatingPlan(false); setNewPlanLabel('') }
-                }}
-                // Click-away with nothing typed cancels rather than leaving an
-                // empty unnamed field hanging — same blur-to-dismiss the file
-                // tree's InlineCreateForm uses. Enter is the only way to create;
-                // an unnamed plan is never created.
-                onBlur={() => { if (!newPlanLabel.trim()) { setIsCreatingPlan(false); setNewPlanLabel('') } }}
-                placeholder="Plan name (Enter to create)"
-                disabled={creatingPlan}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  background: 'var(--bg-2)',
-                  border: '1px solid var(--border-2)',
-                  borderRadius: 'var(--radius-2)',
-                  color: 'var(--text-1)',
-                  fontSize: 11,
-                  padding: '4px 6px',
-                  ...MONO,
-                }}
-              />
-            </Frame>
-          )}
-          {createPlanError && (
-            <span style={{ fontSize: 10, color: '#e07a7a', display: 'block', paddingTop: 4, ...MONO }}>{createPlanError}</span>
-          )}
           <Frame flow="vertical" gap={0} padding={{ top: 6 }}>
             {welcomeMap && !welcomeDismissed && (
               // Welcome is a built-in guide map, not a saved plan on disk — its
@@ -1309,6 +1447,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             <ListRow
               key={isGlobalSearch ? `${row.mapId}::${n.id}` : n.id}
               selected={n.id === selectedId}
+              connected={n.id !== selectedId && nodeRowId(row) === nodeHighlightId}
               // Full-bleed flat row — negative margins cancel the sidebar's 8px
               // padding so the fill spans edge-to-edge. No child indent: the
               // NODES list is flat, like PLANS.
@@ -1445,9 +1584,39 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   }
                 />
               )}
-              <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
-                {live.nodes.length} NODES · {live.edges.length} EDGES
-              </span>
+              {/* Only for real saved plans — "run the plan" reads oddly on a
+                  fixed map like Welcome or a component library. */}
+              {!runningPlan && removablePlanFor(mapId) && todoNodes.length > 0 && (
+                <button
+                  onClick={runPlan}
+                  disabled={generatingNodeId !== null}
+                  style={{
+                    background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                    border: '1px solid var(--border-2)',
+                    color: 'var(--text-1)',
+                    fontSize: 10,
+                    letterSpacing: '0.08em',
+                    padding: '5px 10px',
+                    cursor: generatingNodeId !== null ? 'default' : 'pointer',
+                    opacity: generatingNodeId !== null ? 0.5 : 1,
+                    ...MONO,
+                  }}
+                >
+                  RUN PLAN ({todoNodes.length})
+                </button>
+              )}
+              {runningPlan && runProgress ? (
+                <Frame flow="horizontal" align="center" gap={6}>
+                  <SleipnirLoader size={16} />
+                  <span style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+                    BUILDING {runProgress.index} OF {runProgress.total}: {runProgress.label.toUpperCase()}…
+                  </span>
+                </Frame>
+              ) : (
+                <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
+                  {live.nodes.length} NODES · {live.edges.length} EDGES
+                </span>
+              )}
             </>
             )
           }
@@ -1567,6 +1736,17 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             onCreated={async (nodes) => {
               await refreshAll()
               if (nodes[0]) setSelectedId(nodes[0].id)
+            }}
+          />
+        )}
+
+        {addingPlan && (
+          <NewWorkspacePlanModal
+            onClose={() => setAddingPlan(false)}
+            onCreated={(plan) => {
+              setAddingPlan(false)
+              onCreatePlan(plan)
+              activateMap(plan.id)
             }}
           />
         )}
@@ -1727,6 +1907,94 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   )}
                   {generateError && generatingNodeId === null && (
                     <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
+                  )}
+                </>
+              )}
+
+              {/* AI build, gated on sprint stage rather than the AI plan-step
+                  `status` above — works for every node (custom notes, file-
+                  backed asset nodes), not just AI-created ones. Independent
+                  of the APPROVE/GENERATE CODE block above; a node can only
+                  realistically be in one flow at a time (status only ever
+                  exists on AI-created nodes, which never carry a stage until
+                  a human sets one). */}
+              {(stages[selectedNode.id] === 'todo' || stages[selectedNode.id] === 'in-progress' || stages[selectedNode.id] === 'in-review' || stages[selectedNode.id] === 'blocked') && (
+                <>
+                  <div style={{ height: 1, background: 'var(--border-1)' }} />
+                  {stages[selectedNode.id] === 'todo' && (
+                    <button
+                      onClick={() => runSingleNodeBuild(selectedNode)}
+                      disabled={runningPlan || generatingNodeId !== null}
+                      style={{
+                        background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                        border: '1px solid var(--border-2)',
+                        color: 'var(--text-1)',
+                        fontSize: 10,
+                        letterSpacing: '0.08em',
+                        padding: '8px 12px',
+                        cursor: runningPlan || generatingNodeId !== null ? 'default' : 'pointer',
+                        opacity: runningPlan || generatingNodeId !== null ? 0.5 : 1,
+                        ...MONO,
+                      }}
+                    >
+                      BUILD WITH AI
+                    </button>
+                  )}
+                  {stages[selectedNode.id] === 'in-progress' && (
+                    generatingNodeId === selectedNode.id ? (
+                      <Frame flow="horizontal" align="center" gap={8}>
+                        <SleipnirLoader size={28} />
+                        <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+                          BUILDING…
+                        </span>
+                      </Frame>
+                    ) : (
+                      // Stale — e.g. a reload interrupted a build mid-flight.
+                      <button
+                        onClick={() => runSingleNodeBuild(selectedNode)}
+                        disabled={runningPlan || generatingNodeId !== null}
+                        style={{
+                          background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                          border: '1px solid var(--border-2)',
+                          color: 'var(--text-1)',
+                          fontSize: 10,
+                          letterSpacing: '0.08em',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          ...MONO,
+                        }}
+                      >
+                        RETRY (interrupted)
+                      </button>
+                    )
+                  )}
+                  {stages[selectedNode.id] === 'in-review' && (
+                    <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+                      READY FOR REVIEW — check the opened tab, or Source Control for a batch run.
+                    </span>
+                  )}
+                  {stages[selectedNode.id] === 'blocked' && (
+                    <>
+                      {generateError && (
+                        <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
+                      )}
+                      <button
+                        onClick={() => runSingleNodeBuild(selectedNode)}
+                        disabled={runningPlan || generatingNodeId !== null}
+                        style={{
+                          background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                          border: '1px solid var(--border-2)',
+                          color: 'var(--text-1)',
+                          fontSize: 10,
+                          letterSpacing: '0.08em',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          ...MONO,
+                        }}
+                      >
+                        RETRY
+                      </button>
+                    </>
                   )}
                 </>
               )}

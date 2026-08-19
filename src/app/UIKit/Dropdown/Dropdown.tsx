@@ -49,12 +49,17 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
   // portal straight to document.body would sit outside any theme scope —
   // every var() resolves to nothing, backgrounds go transparent and borders
   // vanish, which read as "white/invisible" over the page behind it.
+  // Grouped option lists (e.g. a filter dropdown mixing "ASSET TYPE" and
+  // "FILE TYPE") read cramped at the plain single-column 160px floor — widen
+  // the floor so labels + group headers don't wrap.
+  const hasGroups = options.some((o) => o.group)
+
   useLayoutEffect(() => {
     if (!isOpen) return
     const updateRect = () => {
       const rect = triggerRef.current?.getBoundingClientRect()
       if (!rect) return
-      setMenuRect({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 160) })
+      setMenuRect({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, hasGroups ? 240 : 160) })
     }
     let node: HTMLElement | null = triggerRef.current
     while (node && !Array.from(node.classList).some((c) => c.startsWith('theme-'))) {
@@ -68,7 +73,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
       window.removeEventListener('resize', updateRect)
       window.removeEventListener('scroll', updateRect, true)
     }
-  }, [isOpen])
+  }, [isOpen, hasGroups])
 
   const handleSelect = (val: string) => {
     if (multiple) {
@@ -139,33 +144,42 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
             variant="surface"
             radius="var(--radius-control)"
             clipContent
+            maxH={hasGroups ? 320 : undefined}
+            scroll={hasGroups ? 'y' : undefined}
             effects={{ 'drop-shadow': { x: 0, y: 8, blur: 24, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
             animate="fade-in"
             animationDuration={150}
             className="font-mono"
           >
-            {options.map((option) => {
+            {options.map((option, i) => {
               const isSelected = multiple ? selectedValues.includes(option.value) : selectedValue === option.value
+              const startsGroup = !!option.group && option.group !== options[i - 1]?.group
               return (
-                <Frame
-                  as="button"
-                  key={option.value}
-                  onClick={() => handleSelect(option.value)}
-                  w="fill"
-                  flow="horizontal"
-                  align="center"
-                  gap={8}
-                  minH={28}
-                  padding={{ x: 10, y: 6 }}
-                  radius={0}
-                  hoverFill="bg-3"
-                  fill={{ solid: isSelected && !multiple ? 'bg-3' : 'transparent' }}
-                >
-                  {multiple && <span>{isSelected ? '☑' : '☐'}</span>}
-                  <Text variant="small" color="text-2" align="left">
-                    {option.label}
-                  </Text>
-                </Frame>
+                <React.Fragment key={option.value}>
+                  {startsGroup && (
+                    <Frame padding={{ x: 10, top: i === 0 ? 6 : 10, bottom: 2 }}>
+                      <Text variant="xs" weight="black" color="text-3">{option.group}</Text>
+                    </Frame>
+                  )}
+                  <Frame
+                    as="button"
+                    onClick={() => handleSelect(option.value)}
+                    w="fill"
+                    flow="horizontal"
+                    align="center"
+                    gap={8}
+                    minH={28}
+                    padding={{ x: 10, y: 6 }}
+                    radius={0}
+                    hoverFill="bg-3"
+                    fill={{ solid: isSelected && !multiple ? 'bg-3' : 'transparent' }}
+                  >
+                    {multiple && <span>{isSelected ? '☑' : '☐'}</span>}
+                    <Text variant="small" color="text-2" align="left">
+                      {option.label}
+                    </Text>
+                  </Frame>
+                </React.Fragment>
               )
             })}
           </Frame>,

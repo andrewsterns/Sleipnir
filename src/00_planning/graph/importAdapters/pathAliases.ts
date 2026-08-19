@@ -16,11 +16,80 @@ export interface PathAliasConfig {
 // tsconfig files routinely carry comments/trailing commas that JSON.parse
 // rejects outright — strip just enough to parse without pulling in a real
 // JSONC parser for what's a best-effort feature.
+//
+// Must be string-literal-aware, not a plain regex over the raw text: a
+// `paths` wildcard entry like `"@atoms/*"` contains the literal substring
+// `/*` as ordinary string content, not a comment opener. A naive
+// `/\/\*[\s\S]*?\*\//` regex "opens" a fake block comment right there and
+// then greedily eats everything up to the NEXT `*/` it can find anywhere
+// later in the file — commonly a real trailing comment on `include`/
+// `exclude` further down — silently deleting the entire `paths` object
+// (and everything between) in the process. This was a real, previously
+// undiscovered bug: it broke alias resolution for every project whose
+// tsconfig.json had both wildcard paths AND a trailing comment after them,
+// which is an extremely ordinary shape for a hand-written tsconfig.
 function stripJsonComments(text: string): string {
-  return text
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1')
-    .replace(/,(\s*[}\]])/g, '$1')
+  let withoutComments = ''
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '"') {
+      // Copy the whole string literal verbatim (respecting \" escapes) so
+      // nothing inside it is ever mistaken for a comment marker.
+      withoutComments += c
+      i++
+      while (i < text.length && text[i] !== '"') {
+        if (text[i] === '\\') {
+          withoutComments += text[i] + (text[i + 1] ?? '')
+          i += 2
+        } else {
+          withoutComments += text[i]
+          i++
+        }
+      }
+      withoutComments += text[i] ?? ''
+      continue
+    }
+    if (c === '/' && text[i + 1] === '*') {
+      i += 2
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++
+      i++ // land on the closing '/'
+      continue
+    }
+    if (c === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++
+      continue
+    }
+    withoutComments += c
+  }
+
+  // Trailing commas before a closing bracket, same string-awareness (a
+  // string value could in principle end in a literal ",  }"-shaped tail).
+  let result = ''
+  for (let i = 0; i < withoutComments.length; i++) {
+    const c = withoutComments[i]
+    if (c === '"') {
+      result += c
+      i++
+      while (i < withoutComments.length && withoutComments[i] !== '"') {
+        if (withoutComments[i] === '\\') {
+          result += withoutComments[i] + (withoutComments[i + 1] ?? '')
+          i += 2
+        } else {
+          result += withoutComments[i]
+          i++
+        }
+      }
+      result += withoutComments[i] ?? ''
+      continue
+    }
+    if (c === ',') {
+      let j = i + 1
+      while (j < withoutComments.length && /\s/.test(withoutComments[j])) j++
+      if (withoutComments[j] === '}' || withoutComments[j] === ']') continue // drop the trailing comma
+    }
+    result += c
+  }
+  return result
 }
 
 function joinRel(dir: string, file: string): string {

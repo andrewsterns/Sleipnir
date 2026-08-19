@@ -16,6 +16,8 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
     autoFocus,
     filters,
     sort,
+    listItems,
+    onHighlightChange,
 
     // ── Frame defaults — callers can override any of these ────────────────
     as      = 'div',
@@ -33,7 +35,7 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
   },
   ref
 ) => {
-  const { inputRef, handleChange, handleClear } = useSearchViewModel({ onChange, onClear });
+  const { inputRef, handleChange, handleClear, handleKeyDown } = useSearchViewModel({ onChange, onClear, listItems, onHighlightChange });
 
   return (
     <Frame
@@ -53,6 +55,7 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
         ref={inputRef}
         value={value}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoFocus={autoFocus}
         className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-[10px] text-[var(--text-1)] placeholder:text-[var(--text-3)]"
@@ -71,7 +74,7 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
       )}
       {filters && (
         <Dropdown
-          options={filters.options.map((o) => ({ value: o.id, label: o.label }))}
+          options={filters.options.map((o) => ({ value: o.id, label: o.label, group: o.group }))}
           value={filters.active}
           onChange={(v) => filters.onChange(v as string[])}
           multiple

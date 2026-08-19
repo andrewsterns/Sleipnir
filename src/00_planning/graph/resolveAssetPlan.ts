@@ -24,6 +24,24 @@ async function listFilesUnder(folder: string): Promise<string[]> {
 // the cap needs raising.
 const MAX_DISCOVERED_NODES = 300
 
+// Extensions that can only ever be an import TARGET, never a source of
+// imports of its own — an image/font/media/archive has no syntax to scan.
+// Excluded from the whole-project content scan below purely as a cost cut
+// (reading and regexing a multi-MB binary as text is wasted work that can
+// never match); they still show up fine as nodes and as edge targets.
+const NON_SOURCE_EXTS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'avif',
+  'ttf', 'otf', 'woff', 'woff2', 'eot',
+  'mp3', 'mp4', 'wav', 'ogg', 'webm', 'mov', 'avi', 'mkv',
+  'pdf', 'zip', 'gz', 'tar', '7z', 'rar',
+  'wasm', 'exe', 'dll', 'so', 'dylib', 'node',
+])
+
+function isScannableSource(path: string): boolean {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  return !NON_SOURCE_EXTS.has(ext)
+}
+
 // A live re-derivation of an asset-based plan's nodes/edges from the
 // Workspace's current disk state — the counterpart to resolvePlan.ts's
 // resolvePlanGraph for the *other* kind of plan (graph-node-based). Never a
@@ -39,14 +57,16 @@ const MAX_DISCOVERED_NODES = 300
 // (PlanningView.ViewModel.tsx) before this resolves.
 //
 // Nodes aren't limited to the explicitly-added set either, and not just one
-// hop out from it: an edge whose target resolves outside the plan's own pool
-// (relative or tsconfig/jsconfig-aliased, e.g. '@molecules/Foo' pointing at
-// a file never added to this plan) gets a node for that file too, and THAT
-// file's own imports are scanned in turn, breadth-first, until the walk runs
-// out of new files or hits MAX_DISCOVERED_NODES — so a seed file's full
-// reference chain shows up (CardView -> Section -> useElementOrigin -> ...),
-// not just its direct imports. Each file's content is read and scanned
-// exactly once regardless of how many other files reference it.
+// hop out from it, and not just outgoing imports: this builds the whole
+// project's import graph once (every scannable file's own detected imports,
+// resolved against the full workspace — see allProjectEdges below), then
+// walks it BOTH directions from the explicit seed set until it runs out of
+// new files or hits MAX_DISCOVERED_NODES. The reverse direction matters as
+// much as the forward one — an image or font has no imports of its own, so
+// the ONLY way to connect it to anything is to find the components that
+// import IT, which means scanning THEIR content, not the asset's. Forward
+// alone (what does this file import) would leave every leaf asset a
+// permanently disconnected dot no matter how many components reference it.
 export async function resolveAssetPlanGraph(plan: SavedPlan): Promise<GraphData> {
   const folders = plan.assetFolders ?? []
   const folderFiles = (await Promise.all(folders.map((f) => listFilesUnder(f).catch(() => [] as string[])))).flat()
@@ -55,27 +75,56 @@ export async function resolveAssetPlanGraph(plan: SavedPlan): Promise<GraphData>
   const explicitSet = new Set(explicitPaths)
 
   const readFile = (p: string) => readWorkspaceFile(p).then((r) => r.content)
-  // Resolve specifiers against every real file in the workspace, not just
-  // this plan's own pool — falls back to just the explicit set (today's old
-  // behavior) if the whole-workspace listing fails.
-  const resolvePool = await listFilesUnder('').catch(() => explicitPaths)
+  const workspacePool = await listFilesUnder('').catch(() => explicitPaths)
+
+  const allProjectEdges = await detectEdgesForPaths(workspacePool.filter(isScannableSource), readFile, workspacePool)
+  const pushTo = (map: Map<string, string[]>, key: string, value: string) => {
+    const list = map.get(key)
+    if (list) list.push(value)
+    else map.set(key, [value])
+  }
+  const forward = new Map<string, string[]>()
+  const backward = new Map<string, string[]>()
+  for (const e of allProjectEdges) {
+    pushTo(forward, e.source, e.target)
+    pushTo(backward, e.target, e.source)
+  }
 
   const visited = new Set(explicitPaths)
   const allEdges: { source: string; target: string }[] = []
   const edgeSeen = new Set<string>()
+  const addEdge = (source: string, target: string) => {
+    const key = `${source}>${target}`
+    if (edgeSeen.has(key)) return
+    edgeSeen.add(key)
+    allEdges.push({ source, target })
+  }
+  // The cap only ever gates whether a NEW (not-yet-visited) file gets pulled
+  // in and explored further — it must never block processing of the current
+  // frontier's own edges, or an explicit set that's already at/over the cap
+  // (e.g. a whole-project `assetFolders: ['src']` pick) would lose ALL of
+  // its edges, including the ones purely between files the user themselves
+  // added. That was a real bug here: `while (... && visited.size < MAX)`
+  // failed on the very first check whenever the explicit set alone already
+  // met the cap, so the loop body — where every addEdge() call lives — never
+  // ran even once.
   let frontier = explicitPaths
-  while (frontier.length > 0 && visited.size < MAX_DISCOVERED_NODES) {
-    const edges = await detectEdgesForPaths(frontier, readFile, resolvePool)
+  while (frontier.length > 0) {
     const next: string[] = []
-    for (const e of edges) {
-      const key = `${e.source}>${e.target}`
-      if (!edgeSeen.has(key)) {
-        edgeSeen.add(key)
-        allEdges.push(e)
+    for (const path of frontier) {
+      for (const target of forward.get(path) ?? []) {
+        addEdge(path, target)
+        if (!visited.has(target) && visited.size < MAX_DISCOVERED_NODES) {
+          visited.add(target)
+          next.push(target)
+        }
       }
-      if (!visited.has(e.target)) {
-        visited.add(e.target)
-        next.push(e.target)
+      for (const source of backward.get(path) ?? []) {
+        addEdge(source, path)
+        if (!visited.has(source) && visited.size < MAX_DISCOVERED_NODES) {
+          visited.add(source)
+          next.push(source)
+        }
       }
     }
     frontier = next

@@ -38,12 +38,14 @@ function statusLabel(f: GitFileStatus): string {
 }
 
 function FileRow({
-  file, stage, active, onSelect, onToggleStage, onContextMenu, onMenuButton,
+  file, stage, active, highlighted, onSelect, onToggleStage, onContextMenu, onMenuButton,
 }: {
   file: GitFileStatus
   /** Planning stage of the plan node this file backs, if any — shown as the at-rest status. */
   stage?: NodeStage
   active: boolean
+  /** The search box's current ↑/↓ keyboard highlight — outlined via `connected`, distinct from `active`'s solid fill. */
+  highlighted?: boolean
   onSelect: () => void
   onToggleStage: () => void
   onContextMenu: (e: React.MouseEvent) => void
@@ -52,6 +54,7 @@ function FileRow({
   return (
     <ListRow
       selected={active}
+      connected={!active && highlighted}
       onClick={onSelect}
       onContextMenu={onContextMenu}
       // Git status (MODIFIED/ADDED/…) moves to the row tooltip now that the
@@ -188,6 +191,9 @@ export default function SourceControlView({
   const [discardingFile, setDiscardingFile] = useState<GitFileStatus | null>(null)
   const [fileSearchOpen, setFileSearchOpen] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
+  // Changed-file search box's ↑/↓ keyboard highlight — outlined via ListRow's
+  // `connected`, separate from `vm.selected`'s solid "diff open" fill.
+  const [fileHighlightPath, setFileHighlightPath] = useState<string | null>(null)
   // Changed-file sort, sharing the Workspace/Planning search sort control
   // (see SEARCH_SORT_OPTIONS). 'recent' orders by worktree mtime (GitFileStatus.mtime).
   const [fileSort, setFileSort] = useState<SearchSortId>('name')
@@ -278,6 +284,12 @@ export default function SourceControlView({
       fileSort === 'name' ? a.path.localeCompare(b.path) : b.mtime - a.mtime,
     )
   }
+  // Backs the changed-files search box's ↑/↓/Enter keyboard nav — same visual
+  // order as the STAGED/CHANGES/UNTRACKED sections rendered below.
+  const fileListItems = [...filterFiles(vm.staged), ...filterFiles(vm.unstaged), ...filterFiles(vm.untracked)].map((f) => ({
+    id: f.path,
+    onSelect: () => vm.selectFile(f),
+  }))
 
   return (
     <Frame theme={theme} flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
@@ -301,6 +313,8 @@ export default function SourceControlView({
                   active: fileSort,
                   onChange: (v) => setFileSort(v as SearchSortId),
                 }}
+                listItems={fileListItems}
+                onHighlightChange={setFileHighlightPath}
               />
             </Frame>
           ) : (
@@ -569,7 +583,7 @@ export default function SourceControlView({
               STAGED ({vm.staged.length})
             </span>
             {filterFiles(vm.staged).map((f) => (
-              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -578,7 +592,7 @@ export default function SourceControlView({
               CHANGES ({vm.unstaged.length})
             </span>
             {filterFiles(vm.unstaged).map((f) => (
-              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
@@ -587,7 +601,7 @@ export default function SourceControlView({
               UNTRACKED ({vm.untracked.length})
             </span>
             {filterFiles(vm.untracked).map((f) => (
-              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 

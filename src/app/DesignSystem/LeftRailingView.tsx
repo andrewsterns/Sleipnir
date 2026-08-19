@@ -140,6 +140,22 @@ function collectFilePaths(node: FileTreeNode, into: string[]) {
   for (const child of node.children ?? []) collectFilePaths(child, into)
 }
 
+// Depth-first file order matching TreeNodeRow's own render order — valid only
+// while every dir along the way renders expanded, which is exactly when this
+// is used (an active search query forces every match's ancestors open, see
+// `forceExpanded` below). Backs the search box's ↑/↓/Enter keyboard nav.
+function flattenTreeFiles(nodes: FileTreeNode[]): FileTreeNode[] {
+  const out: FileTreeNode[] = []
+  const walk = (list: FileTreeNode[]) => {
+    for (const node of list) {
+      if (node.type === 'dir') walk(node.children ?? [])
+      else out.push(node)
+    }
+  }
+  walk(nodes)
+  return out
+}
+
 const parentDir = (p: string): string => {
   const i = p.lastIndexOf('/')
   return i >= 0 ? p.slice(0, i) : ''
@@ -305,6 +321,7 @@ function TreeNodeRow({
   node,
   depth,
   activePath,
+  highlightPath,
   openPaths,
   newPaths,
   fileStages,
@@ -326,6 +343,8 @@ function TreeNodeRow({
   node: FileTreeNode
   depth: number
   activePath: string
+  /** The search box's current keyboard-highlighted file path (see LeftRailing's flattenTreeFiles/onHighlightChange) — outlines that row via ListRow's `connected`, distinct from `activePath`'s solid "open tab" fill. */
+  highlightPath?: string | null
   openPaths: Set<string>
   newPaths: Set<string>
   /** filePath → planning stage of the plan node a file backs (see useFileStages) — shows the file's planning status at rest. */
@@ -436,6 +455,7 @@ function TreeNodeRow({
             node={child}
             depth={depth + 1}
             activePath={activePath}
+            highlightPath={highlightPath}
             openPaths={openPaths}
             newPaths={newPaths}
             fileStages={fileStages}
@@ -471,6 +491,7 @@ function TreeNodeRow({
   return (
     <ListRow
       selected={isActive}
+      connected={!isActive && node.path === highlightPath}
       // Same left base as a folder row at this depth; the 8px spacer in leading
       // stands in for the folder's chevron so the file icon lines up directly
       // under folder icons and the name reads left-aligned right beside it.
@@ -639,6 +660,9 @@ export const LeftRailing = ({
   const [query, setQuery] = useState('')
   const [tierFilter, setTierFilter] = useState<string[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
+  // The row the search box's ↑/↓ currently points at (see searchListItems) —
+  // outlined via ListRow's `connected`, separate from the open-tab `selected`.
+  const [highlightPath, setHighlightPath] = useState<string | null>(null)
   const searchContainerRef = useRef<HTMLElement>(null)
   // Local display preference, not persisted — resets to Name on remount,
   // same as this component's other view-only state (treeWidth etc.).
@@ -770,6 +794,15 @@ export const LeftRailing = ({
     : undefined
 
   const visibleTree = sortTree(filterTreeByTier(filterTreeByQuery(tree, query), tierFilter), sortOrder)
+  // ↑/↓/Enter over the current search results — only while actually
+  // searching (forceExpanded below keeps every match's ancestors open then,
+  // so the flattened file order matches what's rendered).
+  const searchListItems = query.trim()
+    ? flattenTreeFiles(visibleTree).map((f) => ({
+        id: f.path,
+        onSelect: () => onSelectFile({ name: f.name.replace(/\.tsx?$/, ''), path: f.path }),
+      }))
+    : undefined
 
   return (
     <>
@@ -819,6 +852,8 @@ export const LeftRailing = ({
               onChange: (v) => setSortOrder(v as SortOrder),
             }}
             filters={tierFilterOptions.length > 0 ? { options: tierFilterOptions, active: tierFilter, onChange: setTierFilter } : undefined}
+            listItems={searchListItems}
+            onHighlightChange={setHighlightPath}
           />
         }
       />
@@ -842,6 +877,7 @@ export const LeftRailing = ({
           node={node}
           depth={0}
           activePath={activePath}
+          highlightPath={highlightPath}
           openPaths={openPaths}
           newPaths={newPaths}
           fileStages={fileStages}

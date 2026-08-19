@@ -29,6 +29,74 @@ describe('pathAliases', () => {
     expect(config.paths).toEqual({ '@molecules/*': ['src/molecules/*'] })
   })
 
+  it('does not mistake a wildcard path pattern\'s literal "/*" for a block comment opener', async () => {
+    // Reproduces a real bug: a naive comment-strip regex "opens" a fake
+    // block comment at the `/*` inside `"@atoms/*"` (ordinary string
+    // content, not a comment) and then greedily eats everything up to the
+    // NEXT `*/` it can find — here, the real trailing comment on `include`
+    // — deleting the whole `paths` object in between. This exact shape
+    // (wildcard paths + a later inline comment) is extremely ordinary for a
+    // hand-written tsconfig.json.
+    const files: Record<string, string> = {
+      'tsconfig.json': [
+        '{',
+        '  "compilerOptions": {',
+        '    "baseUrl": "src",',
+        '    "paths": {',
+        '      "@atoms/*": ["components/atoms/*"],',
+        '      "@molecules/*": ["components/molecules/*"]',
+        '    }',
+        '  },',
+        '  "include": [',
+        '    "src/**/*" /* Include all files in the src folder */',
+        '  ]',
+        '}',
+      ].join('\n'),
+    }
+    const config = await loadPathAliases(async (p) => {
+      if (!(p in files)) throw new Error('not found')
+      return files[p]
+    })
+    expect(config.paths).toEqual({
+      '@atoms/*': ['components/atoms/*'],
+      '@molecules/*': ['components/molecules/*'],
+    })
+  })
+
+  it('strips a real-world trailing-comment-per-line tsconfig.json (same shape create-react-app templates ship) without corrupting paths', async () => {
+    const files: Record<string, string> = {
+      'tsconfig.json': [
+        '{',
+        '  "compilerOptions": {',
+        '    "target": "es2016",                             /* Set the JavaScript version to emit */',
+        '    "jsx": "react",                                 /* Enable JSX support for React */',
+        '    "baseUrl": "src",',
+        '    "paths": {',
+        '      "@assets/*": ["components/00_assets/*"],',
+        '      "@atoms/*": ["components/01_atoms/*"],',
+        '      "@pages/*": ["components/05_pages/*"]',
+        '    }',
+        '  },',
+        '  "include": [',
+        '    "src/**/*"                                      /* Include all files in the \'src\' folder */',
+        '  ],',
+        '  "exclude": [',
+        '    "node_modules"                                  /* Exclude \'node_modules\' from compilation */',
+        '  ]',
+        '}',
+      ].join('\n'),
+    }
+    const config = await loadPathAliases(async (p) => {
+      if (!(p in files)) throw new Error('not found')
+      return files[p]
+    })
+    expect(config.paths).toEqual({
+      '@assets/*': ['components/00_assets/*'],
+      '@atoms/*': ['components/01_atoms/*'],
+      '@pages/*': ['components/05_pages/*'],
+    })
+  })
+
   it('tolerates a missing tsconfig entirely, returning an empty config rather than throwing', async () => {
     const config = await loadPathAliases(async () => {
       throw new Error('no such file')

@@ -13,7 +13,10 @@ export interface WidgetShellProps {
   code: React.ReactNode
 }
 
-function ResizeHandle({ axis, onMouseDown }: { axis: 'x' | 'y'; onMouseDown: (e: React.MouseEvent) => void }) {
+// Exported so FolderBrowserView.tsx can reuse it for the split-pane divider
+// rather than keeping its own copy — same drag-handle look/feel as the
+// rail/preview resize handles below.
+export function ResizeHandle({ axis, onMouseDown }: { axis: 'x' | 'y'; onMouseDown: (e: React.MouseEvent) => void }) {
   const [hover, setHover] = useState(false)
   const lineStyle: React.CSSProperties = {
     position: 'absolute',

@@ -5,6 +5,10 @@ import { Button } from '../UIKit/Button/Button'
 import { Checkbox } from '../UIKit/Checkbox/Checkbox'
 import { Card } from '../UIKit/Card/Card'
 import { Search } from '../UIKit/Search/Search'
+import { ListRow } from '../UIKit/ListRow/ListRow'
+import { Icon } from '../UIKit/Icon/Icon'
+import type { FileTreeNode } from '../../00_planning/api/PlatformAPI'
+import { AddNodesSection } from '../../00_planning/AddNodesSection'
 import { useNewWorkspacePlanViewModel, type NewWorkspacePlanModalProps } from './NewWorkspacePlanModal.ViewModel'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
@@ -16,38 +20,70 @@ const SECTION_LABEL: React.CSSProperties = {
   ...MONO,
 }
 
-// Shared checkbox-row style for the directory and file pick lists — a selected
-// row reads at full ink, an unselected one a step dimmer.
-function pickRowStyle(selected: boolean): React.CSSProperties {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '4px 2px',
-    cursor: 'pointer',
-    fontSize: 11,
-    color: selected ? 'var(--text-1)' : 'var(--text-2)',
-    ...MONO,
-  }
-}
+type PlanTreeVM = ReturnType<typeof useNewWorkspacePlanViewModel>
 
-function toggleStyle(active: boolean): React.CSSProperties {
-  return {
-    background: active ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
-    border: '1px solid var(--border-2)',
-    color: active ? 'var(--text-1)' : 'var(--text-3)',
-    fontSize: 11,
-    letterSpacing: '0.02em',
-    padding: '5px 9px',
-    cursor: 'pointer',
-    ...MONO,
+// One recursive row for the unified dirs+files picker — a directory row
+// toggles expand/collapse on click (the chevron mirrors the Workspace
+// sidebar's tree) with its own tri-state Checkbox for "everything under
+// here"; a file row's whole row toggles its own selection. Deliberately a
+// stripped-down cousin of LeftRailingView's TreeNodeRow: no hover actions,
+// rename, or context menu — just pick what goes in the plan.
+function PlanTreeRow({ node, depth, vm }: { node: FileTreeNode; depth: number; vm: PlanTreeVM }) {
+  if (node.type === 'dir') {
+    const state = vm.dirState(node.path)
+    const expanded = vm.isExpanded(node.path)
+    return (
+      <Frame flow="vertical" gap={0} w="fill">
+        <ListRow
+          indent={8 + depth * 14}
+          labelOpacity={state !== 'none' ? 1 : 0.75}
+          onClick={() => vm.toggleExpand(node.path)}
+          leading={
+            <>
+              <Checkbox
+                checked={state === 'all'}
+                indeterminate={state === 'some'}
+                onChange={() => vm.toggleDir(node.path)}
+                stopPropagation
+              />
+              <span style={{ opacity: 0.7, width: 8, display: 'inline-block', flexShrink: 0, fontSize: 9 }}>
+                {expanded ? '▾' : '▸'}
+              </span>
+            </>
+          }
+          iconStart={<Icon name="folder" size={14} />}
+        >
+          {node.name}
+        </ListRow>
+        {expanded && node.children?.map((child) => <PlanTreeRow key={child.path} node={child} depth={depth + 1} vm={vm} />)}
+      </Frame>
+    )
   }
+
+  const selected = vm.isSelected(node.path)
+  return (
+    <ListRow
+      indent={8 + depth * 14}
+      labelOpacity={selected ? 1 : 0.65}
+      onClick={() => vm.toggleFile(node.path)}
+      leading={
+        <>
+          <Checkbox checked={selected} onChange={() => vm.toggleFile(node.path)} stopPropagation />
+          <span style={{ width: 8, flexShrink: 0 }} />
+        </>
+      }
+      iconStart={<Icon name="file" size={14} />}
+    >
+      {node.name}
+    </ListRow>
+  )
 }
 
 // Same portal-to-nearest-theme-scope pattern as the other modals — picks a
-// Workspace project's files by naming-convention chips and/or top-level
-// directory checkboxes, then seeds a new SavedPlan with whatever matches
-// (see NewWorkspacePlanModal.ViewModel's matchedPaths).
+// Workspace project's files from a single nested tree (naming-convention
+// and/or file-type filters, per-row and bulk selection), then seeds a new
+// SavedPlan with whatever's checked (see NewWorkspacePlanModal.ViewModel's
+// matchedPaths).
 export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
   const vm = useNewWorkspacePlanViewModel(props)
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -99,99 +135,77 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
               <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>Reading Workspace…</span>
             ) : (
               <>
-                {/* Text search over the file list — the same shared Search
-                    control used everywhere else, so filter chips/clear behave
-                    identically. Filters what's shown (and what "Select all"
-                    spans); it never changes the selection itself. */}
+                {/* Text search + a single wide filter dropdown covering both
+                    ASSET TYPE (naming-convention) and FILE TYPE (extension)
+                    facets — the same shared Search control used everywhere
+                    else, built-in `filters` prop rather than a hand-rolled
+                    chip row, so this reads and behaves identically to every
+                    other left-rail search's filter icon. */}
                 <Search
                   value={vm.query}
                   onChange={vm.setQuery}
                   placeholder="Search files…"
                   w="fill"
+                  filters={{ options: vm.filterOptions, active: vm.activeFilterIds, onChange: vm.setActiveFilterIds }}
                 />
 
-                {vm.suffixOptions.length > 0 && (
-                  <Frame flow="vertical" gap={6}>
-                    <span style={SECTION_LABEL}>ASSET TYPE</span>
-                    <Frame flow="horizontal" gap={6} wrap="wrap">
-                      {vm.suffixOptions.map((o) => (
-                        <button
-                          key={o.suffix}
-                          type="button"
-                          onClick={() => vm.toggleSuffix(o.suffix)}
-                          style={toggleStyle(vm.activeSuffixes.includes(o.suffix))}
-                        >
-                          {o.suffix} ({o.count})
-                        </button>
-                      ))}
-                    </Frame>
-                  </Frame>
-                )}
-
-                {vm.dirs.length > 0 && (
-                  <Frame flow="vertical" gap={6}>
-                    <span style={SECTION_LABEL}>DIRECTORIES</span>
-                    <Frame flow="vertical" gap={2} style={{ maxHeight: 120, overflowY: 'auto' }}>
-                      {vm.dirs.map((d) => {
-                        const state = vm.dirState(d.filePaths)
-                        return (
-                          <div key={d.path} onClick={() => vm.toggleDir(d.filePaths)} style={pickRowStyle(state !== 'none')}>
-                            <Checkbox
-                              checked={state === 'all'}
-                              indeterminate={state === 'some'}
-                              onChange={() => vm.toggleDir(d.filePaths)}
-                              stopPropagation
-                            />
-                            {d.name} <span style={{ color: 'var(--text-3)' }}>({d.fileCount})</span>
-                          </div>
-                        )
-                      })}
-                    </Frame>
-                  </Frame>
-                )}
+                {/* Both Select-All controls sit together on the left, above
+                    the tree — one for files (respects the current
+                    search/filter), one for whole directories (bulk-applies
+                    each dir's own "select everything under here" toggle to
+                    every dir currently matching). */}
+                <Frame flow="horizontal" align="center" gap={16}>
+                  <div
+                    onClick={vm.toggleAllFiles}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: vm.filesSelectableCount ? 'pointer' : 'default' }}
+                  >
+                    <Checkbox
+                      checked={vm.allFilesSelected}
+                      indeterminate={vm.someFilesSelected}
+                      onChange={vm.toggleAllFiles}
+                      disabled={vm.filesSelectableCount === 0}
+                      stopPropagation
+                    />
+                    <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-2)', ...MONO }}>Select all files</span>
+                  </div>
+                  <div
+                    onClick={vm.toggleAllDirs}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: vm.dirsSelectableCount ? 'pointer' : 'default' }}
+                  >
+                    <Checkbox
+                      checked={vm.allDirsSelected}
+                      indeterminate={vm.someDirsSelected}
+                      onChange={vm.toggleAllDirs}
+                      disabled={vm.dirsSelectableCount === 0}
+                      stopPropagation
+                    />
+                    <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-2)', ...MONO }}>Select all dirs</span>
+                  </div>
+                </Frame>
 
                 <Frame flow="vertical" gap={6}>
-                  {/* Section header carries the real Select-All: a live tri-state
-                      Checkbox over the visible rows, replacing the old bare
-                      "SELECT ALL" text button. */}
-                  <Frame flow="horizontal" align="center" justify="between">
-                    <span style={SECTION_LABEL}>FILES</span>
-                    <div
-                      onClick={vm.toggleAllVisible}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: vm.visibleFiles.length ? 'pointer' : 'default' }}
-                    >
-                      <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-2)', ...MONO }}>Select all</span>
-                      <Checkbox
-                        checked={vm.allVisibleSelected}
-                        indeterminate={vm.someVisibleSelected}
-                        onChange={vm.toggleAllVisible}
-                        disabled={vm.visibleFiles.length === 0}
-                        stopPropagation
-                      />
-                    </div>
-                  </Frame>
-                  <Frame flow="vertical" gap={2} style={{ maxHeight: 220, overflowY: 'auto' }}>
-                    {vm.visibleFiles.length === 0 ? (
+                  <span style={SECTION_LABEL}>WORKSPACE</span>
+                  <Frame flow="vertical" gap={2} maxH={280} scroll="y">
+                    {vm.tree.length === 0 ? (
                       <span style={{ fontSize: 10, color: 'var(--text-3)', padding: '4px 2px', ...MONO }}>No files match</span>
                     ) : (
-                      vm.visibleFiles.map((f) => {
-                        const slash = f.path.lastIndexOf('/')
-                        const dir = slash >= 0 ? f.path.slice(0, slash + 1) : ''
-                        const base = slash >= 0 ? f.path.slice(slash + 1) : f.path
-                        const selected = vm.isSelected(f.path)
-                        return (
-                          <div key={f.path} onClick={() => vm.toggleFile(f.path)} style={pickRowStyle(selected)}>
-                            <Checkbox checked={selected} onChange={() => vm.toggleFile(f.path)} stopPropagation />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {dir && <span style={{ color: 'var(--text-3)' }}>{dir}</span>}
-                              {base}
-                            </span>
-                          </div>
-                        )
-                      })
+                      vm.tree.map((node) => <PlanTreeRow key={node.path} node={node} depth={0} vm={vm} />)
                     )}
                   </Frame>
                 </Frame>
+
+                <AddNodesSection
+                  rows={vm.addNodeRows}
+                  onAddRow={vm.addRow}
+                  onRemoveRow={vm.removeRow}
+                  onQueryChange={vm.setRowQuery}
+                  onResolveFile={vm.resolveRowToFile}
+                  onResolveDir={vm.resolveRowToDir}
+                  onResolveNote={vm.resolveRowToNote}
+                  onClearResolution={vm.clearRowResolution}
+                  onSetRowStage={vm.setRowStage}
+                  suggestionsFor={vm.suggestionsFor}
+                />
 
                 <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>
                   {vm.selectedCount} of {vm.totalCount} file{vm.totalCount === 1 ? '' : 's'} selected
@@ -212,7 +226,7 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
                 variant="primary"
                 size="sm"
                 onClick={vm.submit}
-                disabled={!vm.label.trim() || vm.matchedPaths.length === 0}
+                disabled={!vm.label.trim() || !vm.hasAnythingToAdd}
                 isLoading={vm.submitting}
               >
                 {vm.detectingEdges ? 'Detecting connections…' : vm.submitting ? 'Creating…' : 'Create Plan'}

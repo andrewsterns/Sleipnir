@@ -4,6 +4,8 @@ import { FrameProps } from '../Frame/Frame';
 export interface DropdownOption {
   value: string;
   label: string;
+  /** Optional section header this option renders under (e.g. "ASSET TYPE" vs "FILE TYPE") — consecutive options sharing a group are visually clustered under one heading, and the menu widens to fit two-column-ish grouped lists. */
+  group?: string;
 }
 
 export interface DropdownProps extends Omit<FrameProps, 'onChange' | 'variant'> {

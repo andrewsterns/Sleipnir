@@ -57,7 +57,8 @@ export type IconName =
   | 'plan-node-add'
   | 'plan-add'
   | 'trash'
-  | 'check';
+  | 'check'
+  | 'layout-columns';
 
 interface IconProps {
   name: IconName;
@@ -189,6 +190,8 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 24 }) => {
         return <path d="M4 7H20M10 11V17M14 11V17M5 7L6 19C6 19.5304 6.21071 20.0391 6.58579 20.4142C6.96086 20.7893 7.46957 21 8 21H16C16.5304 21 17.0391 20.7893 17.4142 20.4142C17.7893 20.0391 18 19.5304 18 19L19 7M9 7V4C9 3.73478 9.10536 3.48043 9.29289 3.29289C9.48043 3.10536 9.73478 3 10 3H14C14.2652 3 14.5196 3.10536 14.7071 3.29289C14.8946 3.48043 15 3.73478 15 4V7" />;
       case 'check':
         return <path d="M5 12L10 17L20 7" />;
+      case 'layout-columns':
+        return <path d="M4 5C4 4.46957 4.21071 3.96086 4.58579 3.58579C4.96086 3.21071 5.46957 3 6 3H18C18.5304 3 19.0391 3.21071 19.4142 3.58579C19.7893 3.96086 20 4.46957 20 5V19C20 19.5304 19.7893 20.0391 19.4142 20.4142C19.0391 20.7893 18.5304 21 18 21H6C5.46957 21 4.96086 20.7893 4.58579 20.4142C4.21071 20.0391 4 19.5304 4 19V5Z M12 3V21" />;
       // Filled glyphs authored in their own native viewBox (20x20 / 18x22),
       // normalized here into the shared 24x24 grid via a wrapping <g> transform
       // (uniform scale + centering) — same "solid currentColor" treatment as

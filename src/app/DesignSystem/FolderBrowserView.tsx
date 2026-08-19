@@ -1,13 +1,14 @@
 import React, { forwardRef, useCallback, useImperativeHandle, useRef } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
+import { IconButton } from '../UIKit/IconButton/IconButton'
 import { LeftRailing } from './LeftRailingView'
-import { WidgetShell } from './WidgetShell'
+import { WidgetShell, ResizeHandle } from './WidgetShell'
 import { WorkspaceHeader } from '../WorkspaceHeader/WorkspaceHeader'
 import { CodeEditorView, type CodeEditorHandle } from './CodeEditorView'
 import { LOADING_PLACEHOLDER } from './CodeEditorView.ViewModel'
 import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir, deleteWorkspacePath, getNotes, deleteNote } from '../../00_planning/api/sleipnirApi'
 import { useFolderBrowserViewModel } from './FolderBrowserView.ViewModel'
-import type { FolderBrowserHandle, FolderBrowserViewProps } from './iFolderBrowserView'
+import type { FolderBrowserHandle, FolderBrowserViewProps, PaneId, PaneState } from './iFolderBrowserView'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -34,34 +35,58 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   ref,
 ) {
   const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, supportsAddNode, onPlanUpdated, onImportsChanged, getGraphNodes, onLinkResolved, repoRelativeRoot, workspaceRoot } = props
-  const { liveTree, archivedEntries, newPaths, tabs, activeTabPath, setActiveTabPath, openTab, closeTab, closeTabsUnder, contentByPath, refresh } =
-    useFolderBrowserViewModel(props)
+  const {
+    liveTree,
+    archivedEntries,
+    newPaths,
+    panes,
+    focusedPane,
+    isSplit,
+    openTab,
+    closeTab,
+    closeTabsUnder,
+    activateTab,
+    splitRight,
+    focusPane,
+    closeSecondaryPane,
+    contentByPath,
+    refresh,
+    secondaryPaneWidth,
+    startPaneDrag,
+  } = useFolderBrowserViewModel(props)
   const editorRefs = useRef<Map<string, CodeEditorHandle | null>>(new Map())
 
   useImperativeHandle(ref, () => ({
     save: async () => {
-      if (!activeTabPath) return
-      await editorRefs.current.get(activeTabPath)?.save()
+      const activePath = panes[focusedPane].activeTabPath
+      if (!activePath) return
+      await editorRefs.current.get(activePath)?.save()
     },
     saveAll: async () => {
+      const allTabs = [...panes.primary.tabs, ...panes.secondary.tabs]
       await Promise.all(
-        tabs
+        allTabs
           .map((t) => editorRefs.current.get(t.path))
           .filter((h): h is CodeEditorHandle => !!h?.dirty)
           .map((h) => h.save()),
       )
     },
-    getProblems: () =>
-      tabs
+    getProblems: () => {
+      const allTabs = [...panes.primary.tabs, ...panes.secondary.tabs]
+      return allTabs
         .map((t) => ({ path: t.path, count: editorRefs.current.get(t.path)?.problemCount ?? 0 }))
-        .filter((p) => p.count > 0),
+        .filter((p) => p.count > 0)
+    },
     focusTab: (path: string) => {
-      if (tabs.some((t) => t.path === path)) setActiveTabPath(path)
+      const pane: PaneId = panes.secondary.tabs.some((t) => t.path === path) ? 'secondary' : 'primary'
+      if (panes[pane].tabs.some((t) => t.path === path)) activateTab(pane, path)
+      else openTab(path)
     },
   }))
 
-  const activeTab = tabs.find((t) => t.path === activeTabPath)
-  const preview = activeTab && getPreview ? getPreview(activeTab.label, activeTab.path) : undefined
+  const focusedActiveTab = panes[focusedPane].activeTabPath
+  const activeTabForPreview = [...panes.primary.tabs, ...panes.secondary.tabs].find((t) => t.path === focusedActiveTab)
+  const preview = activeTabForPreview && getPreview ? getPreview(activeTabForPreview.label, activeTabForPreview.path) : undefined
 
   // Fresh notes lookup per open of the delete modal (stable identity so
   // LeftRailing's effect doesn't refetch on every re-render). getNotes is a
@@ -77,7 +102,8 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   // reachable without opening the sidebar. Same scope:'workspace' gate as
   // LeftRailing's own createFile prop above; undefined elsewhere hides the
   // control entirely (e.g. Planning, which renders its own WorkspaceHeader
-  // directly rather than through this component).
+  // directly rather than through this component). Always opens into the
+  // focused pane, like any other openTab call.
   const handleAddTab = scope === 'workspace' && supportsCreate
     ? async (name: string) => {
         const path = root ? `${root}/${name}` : name
@@ -92,6 +118,48 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
       }
     : undefined
 
+  // One pane's tab-panel stack: every open tab in that pane, absolutely
+  // positioned, with only the pane's own active tab visible — same approach
+  // as the pre-split single-pane view, just parameterized by pane state so
+  // both columns can render it. `editorRefs` stays keyed by path alone (not
+  // path+pane) because a path is never open in both panes at once (see
+  // iFolderBrowserView.tsx's PaneState doc comment).
+  const renderPaneEditors = (paneState: PaneState) => (
+    <Frame grow minH={0} style={{ position: 'relative' }}>
+      {paneState.tabs.map((tab) => {
+        const isOverrideActive = !!(pendingOverride && pendingOverride.path === tab.path)
+        return (
+          <div
+            key={tab.path}
+            style={{ position: 'absolute', inset: 0, display: tab.path === paneState.activeTabPath ? 'flex' : 'none' }}
+          >
+            <CodeEditorView
+              ref={(handle) => {
+                if (handle) editorRefs.current.set(tab.path, handle)
+                else editorRefs.current.delete(tab.path)
+              }}
+              path={tab.path}
+              value={isOverrideActive ? pendingOverride!.content : contentByPath[tab.path] ?? LOADING_PLACEHOLDER}
+              readOnly={readOnly}
+              writeFile={scope === 'repo' ? writeRepoFile : scope === 'workspace' ? writeWorkspaceFile : undefined}
+              suppressAutoSave={isOverrideActive}
+              onSaved={isOverrideActive ? () => onOverrideSaved?.(pendingOverride!.planNodeId) : undefined}
+              scope={scope}
+              repoRelativeRoot={repoRelativeRoot}
+              workspaceRoot={workspaceRoot}
+              revealLine={tab.line}
+              onImportsChanged={onImportsChanged}
+              getGraphNodes={getGraphNodes}
+              onLinkResolved={onLinkResolved}
+            />
+          </div>
+        )
+      })}
+    </Frame>
+  )
+
+  const allOpenPaths = new Set([...panes.primary.tabs, ...panes.secondary.tabs].map((t) => t.path))
+
   return (
     <WidgetShell
       rail={(width) => (
@@ -101,8 +169,8 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
           rootLabel={rootLabel}
           headerAction={headerAction?.(refresh)}
           archivedEntries={archivedEntries}
-          activePath={activeTabPath ?? ''}
-          openPaths={new Set(tabs.map((t) => t.path))}
+          activePath={focusedActiveTab ?? ''}
+          openPaths={allOpenPaths}
           newPaths={newPaths}
           onSelectFile={(file) => openTab(file.path, file.name)}
           onChanged={refresh}
@@ -130,16 +198,24 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
       )}
       header={
         <WorkspaceHeader
-          tabs={tabs.map((t) => ({ id: t.path, label: t.label, closable: true }))}
-          activeTabId={activeTabPath ?? ''}
-          onActivateTab={setActiveTabPath}
-          onCloseTab={closeTab}
+          tabs={panes.primary.tabs.map((t) => ({ id: t.path, label: t.label, closable: true }))}
+          activeTabId={panes.primary.activeTabPath ?? ''}
+          onActivateTab={(path) => activateTab('primary', path)}
+          onCloseTab={(path) => closeTab('primary', path)}
           onAddTab={handleAddTab}
+          // Split Right — hidden once already split (v1 is exactly 2 panes,
+          // see ROADMAP.md) and whenever a preview pane is configured, since
+          // no live caller pairs getPreview with a second editor column yet.
+          actions={
+            !isSplit && panes.primary.activeTabPath && !getPreview ? (
+              <IconButton icon="layout-columns" title="Split Right" onClick={splitRight} />
+            ) : undefined
+          }
         />
       }
       preview={preview}
       code={
-        tabs.length === 0 ? (
+        panes.primary.tabs.length === 0 && !isSplit ? (
           <Frame flow="vertical" align="center" justify="center" grow gap={16}>
             <span style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.08em', ...MONO }}>
               Select a file to start
@@ -151,36 +227,33 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
             )}
           </Frame>
         ) : (
-          <Frame grow minH={0} style={{ position: 'relative' }}>
-            {tabs.map((tab) => {
-              const isOverrideActive = !!(pendingOverride && pendingOverride.path === tab.path)
-              return (
-                <div
-                  key={tab.path}
-                  style={{ position: 'absolute', inset: 0, display: tab.path === activeTabPath ? 'flex' : 'none' }}
-                >
-                  <CodeEditorView
-                    ref={(handle) => {
-                      if (handle) editorRefs.current.set(tab.path, handle)
-                      else editorRefs.current.delete(tab.path)
-                    }}
-                    path={tab.path}
-                    value={isOverrideActive ? pendingOverride!.content : contentByPath[tab.path] ?? LOADING_PLACEHOLDER}
-                    readOnly={readOnly}
-                    writeFile={scope === 'repo' ? writeRepoFile : scope === 'workspace' ? writeWorkspaceFile : undefined}
-                    suppressAutoSave={isOverrideActive}
-                    onSaved={isOverrideActive ? () => onOverrideSaved?.(pendingOverride!.planNodeId) : undefined}
-                    scope={scope}
-                    repoRelativeRoot={repoRelativeRoot}
-                    workspaceRoot={workspaceRoot}
-                    revealLine={tab.line}
-                    onImportsChanged={onImportsChanged}
-                    getGraphNodes={getGraphNodes}
-                    onLinkResolved={onLinkResolved}
+          <Frame flow="horizontal" grow minH={0}>
+            <Frame flow="vertical" grow minH={0} minW={0} onMouseDown={() => focusPane('primary')}>
+              {panes.primary.tabs.length === 0 ? (
+                <Frame flow="vertical" align="center" justify="center" grow>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.08em', ...MONO }}>
+                    Select a file to start
+                  </span>
+                </Frame>
+              ) : (
+                renderPaneEditors(panes.primary)
+              )}
+            </Frame>
+            {isSplit && (
+              <>
+                <ResizeHandle axis="x" onMouseDown={startPaneDrag} />
+                <Frame flow="vertical" shrink={0} minH={0} w={secondaryPaneWidth} onMouseDown={() => focusPane('secondary')}>
+                  <WorkspaceHeader
+                    tabs={panes.secondary.tabs.map((t) => ({ id: t.path, label: t.label, closable: true }))}
+                    activeTabId={panes.secondary.activeTabPath ?? ''}
+                    onActivateTab={(path) => activateTab('secondary', path)}
+                    onCloseTab={(path) => closeTab('secondary', path)}
+                    actions={<IconButton icon="x" title="Close pane" onClick={closeSecondaryPane} size={22} iconSize={13} />}
                   />
-                </div>
-              )
-            })}
+                  {renderPaneEditors(panes.secondary)}
+                </Frame>
+              </>
+            )}
           </Frame>
         )
       }
