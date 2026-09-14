@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Dropdown } from '../UIKit/Dropdown/Dropdown'
-import { ANTHROPIC_MODELS, type KeyStatus, type ModelStatus } from './iApiKeySettings'
+import { MODEL_OPTIONS, OLLAMA_MODEL_ID, type KeyStatus, type ModelStatus } from './iApiKeySettings'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 const PROVIDER = 'anthropic'
@@ -95,7 +95,7 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
     }
   }
 
-  const modelOptions = (modelStatus?.options ?? ANTHROPIC_MODELS).map((m) => ({ value: m.id, label: m.label }))
+  const modelOptions = (modelStatus?.options ?? MODEL_OPTIONS).map((m) => ({ value: m.id, label: m.label }))
 
   return (
     <Frame
@@ -209,7 +209,9 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({
           w="fill"
         />
         <span style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
-          Applies once a key is configured above — otherwise chat uses local Ollama.
+          {modelStatus?.model === OLLAMA_MODEL_ID
+            ? 'Using local Ollama — requires `ollama serve` running.'
+            : 'Claude models need a key set above; no key falls back to local Ollama automatically.'}
         </span>
       </Frame>
 

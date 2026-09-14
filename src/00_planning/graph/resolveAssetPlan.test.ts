@@ -132,6 +132,46 @@ describe('resolveAssetPlanGraph', () => {
     )
   })
 
+  it('connects a font to the stylesheet that @font-face references it, and on to that stylesheet’s importer', async () => {
+    // The case that produced nothing before assetRefs.ts existed: a font is
+    // referenced only from CSS, by server-root URL, and CSS has no import
+    // adapter — so neither direction of the walk could ever see the edge.
+    files.clear()
+    files.set('public/brand.otf', '')
+    files.set('src/fonts.css', `@font-face {\n  font-family: 'Brand';\n  src: url('/brand.otf') format('opentype');\n}\n`)
+    files.set('src/App.tsx', `import './fonts.css'\nexport const App = () => null\n`)
+
+    const result = await resolveAssetPlanGraph(plan({ assetPaths: ['public/brand.otf'] }))
+
+    const byPath = new Map(result.nodes.map((n) => [n.filePath, n]))
+    // Reached one hop out (the stylesheet) and two (its importer).
+    expect(byPath.has('src/fonts.css')).toBe(true)
+    expect(byPath.has('src/App.tsx')).toBe(true)
+
+    const idFor = (p: string) => byPath.get(p)!.id
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        { source: idFor('src/fonts.css'), target: idFor('public/brand.otf'), kind: 'borrows' },
+        { source: idFor('src/App.tsx'), target: idFor('src/fonts.css'), kind: 'borrows' },
+      ]),
+    )
+  })
+
+  it('connects an asset imported with a bundler query suffix', async () => {
+    files.clear()
+    files.set('src/assets/icon.svg', '')
+    files.set('src/Toolbar.tsx', `import iconUrl from './assets/icon.svg?url'\nexport const Toolbar = () => iconUrl\n`)
+
+    const result = await resolveAssetPlanGraph(plan({ assetPaths: ['src/assets/icon.svg'] }))
+
+    const byPath = new Map(result.nodes.map((n) => [n.filePath, n]))
+    expect(byPath.has('src/Toolbar.tsx')).toBe(true)
+    const idFor = (p: string) => byPath.get(p)!.id
+    expect(result.edges).toEqual(
+      expect.arrayContaining([{ source: idFor('src/Toolbar.tsx'), target: idFor('src/assets/icon.svg'), kind: 'borrows' }]),
+    )
+  })
+
   it('resolves an aliased import that points outside the explicitly-added set', async () => {
     files.clear()
     files.set(

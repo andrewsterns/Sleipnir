@@ -8,6 +8,7 @@ const { app, BrowserWindow, ipcMain, nativeTheme, Menu, dialog, shell } = requir
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
+const { randomUUID } = require('node:crypto')
 const terminal = require('./terminal.cjs')
 const chat = require('./chat.cjs')
 const preview = require('./preview.cjs')
@@ -16,6 +17,7 @@ const validation = require('./validation.cjs')
 const apiKeyStore = require('./apiKeyStore.cjs')
 const modelStore = require('./modelStore.cjs')
 const workspaceStore = require('./workspaceStore.cjs')
+const planningWatcher = require('./planningWatcher.cjs')
 
 // Two Sleipnir processes sharing one userData dir (e.g. the app launched
 // twice, or a leftover dev instance still running when a packaged build
@@ -81,24 +83,191 @@ const windowRoots = new Map()
 const pendingBeforeClose = new Map()
 const pendingSaveBeforeClose = new Map()
 
-// A stable per-user "scratch" project, used whenever a window has no real
-// folder open — so plans/notes/files can be created immediately (nothing errors
-// with "No project is open") and relocated to a real folder later via
+// A per-WINDOW "scratch" project, used whenever a window has no real folder
+// open — so plans/notes/files can be created immediately (nothing errors with
+// "No project is open") and relocated to a real folder later via
 // saveScratchToFolder. Its .planning holds an 'Untitled' project.json so
 // getWorkspaceInfo reads back a friendly name rather than the userData basename.
-let scratchRoot = null
-function getScratchRoot() {
-  if (!scratchRoot) scratchRoot = path.join(app.getPath('userData'), 'ScratchProject')
-  fs.mkdirSync(path.join(scratchRoot, '.planning'), { recursive: true })
-  const meta = path.join(scratchRoot, '.planning', 'project.json')
+//
+// Deliberately per-window and disposable, not one stable shared folder. A
+// single app-wide scratch dir made "blank window" a lie in two ways: two blank
+// windows open at once silently shared one notes.json (each one's Planning
+// board stomping the other's, contradicting the per-window isolation
+// windowRoots exists to provide), and — since the dir was only ever cleared by
+// saveScratchToFolder — a blank window opened weeks later still showed
+// whatever was built in the last unsaved session. Each window now gets its own
+// directory, discarded when that window closes (see discardScratch), so blank
+// means blank.
+const scratchRoots = new Map() // wcId -> absolute scratch dir
+
+function scratchParentDir() {
+  return path.join(app.getPath('userData'), 'ScratchProjects')
+}
+
+function getScratchRoot(wcId) {
+  let root = scratchRoots.get(wcId)
+  if (!root) {
+    root = path.join(scratchParentDir(), `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`)
+    scratchRoots.set(wcId, root)
+  }
+  fs.mkdirSync(path.join(root, '.planning'), { recursive: true })
+  const meta = path.join(root, '.planning', 'project.json')
   if (!fs.existsSync(meta)) fs.writeFileSync(meta, JSON.stringify({ name: 'Untitled' }, null, 2))
-  return scratchRoot
+  return root
+}
+
+// Drops a window's scratch dir and forgets it. Called once the window is gone
+// (its close prompt already gave the human the chance to save the contents),
+// so nothing survives into the next window or the next launch.
+function discardScratch(wcId) {
+  const root = scratchRoots.get(wcId)
+  scratchRoots.delete(wcId)
+  if (!root) return
+  try {
+    fs.rmSync(root, { recursive: true, force: true })
+  } catch {
+    // Locked by an editor/AV or already gone — the startup sweep gets it later.
+  }
+}
+
+// Crash leftovers: a hard kill skips every 'closed' handler, so scratch dirs
+// can outlive their window. Swept once at launch, before any window exists.
+// Unconditional rather than age-based because the single-instance lock at the
+// top of this file guarantees no other Sleipnir is running to own them — every
+// dir found here is by definition abandoned.
+function sweepOrphanScratchDirs() {
+  const parent = scratchParentDir()
+  if (!fs.existsSync(parent)) return
+  for (const entry of fs.readdirSync(parent)) {
+    try {
+      fs.rmSync(path.join(parent, entry), { recursive: true, force: true })
+    } catch {
+      // Locked (an editor still holding a file) — harmless, nothing reads it.
+    }
+  }
+}
+
+// The seeded skeleton every scratch dir has from birth (see getScratchRoot and
+// the backend's ensurePlanningDir, which drops a README into any .planning/ it
+// touches). Present in an untouched scratch, so neither counts as content the
+// human would want to be asked about on close.
+const SEEDED_PLANNING_FILES = new Set(['project.json', 'README.md'])
+
+// The same idea one level up: entries every project gets at its root from
+// birth, written by the backend's ensureAgentScaffolding rather than by the
+// human. Without this, a single generated AGENTS.md makes every untouched
+// scratch window report "has content" and prompt to save on close.
+// Keep in sync with the emitted paths in tools/agentSkills/scaffold.mjs.
+const SEEDED_ROOT_ENTRIES = new Set([
+  '.planning',
+  '.sleipnir',
+  '.claude',
+  '.codex',
+  '.gemini',
+  'AGENTS.md',
+  'CLAUDE.md',
+  'GEMINI.md',
+])
+
+// True when a planning JSON file holds nothing the human actually created —
+// the empty shapes readNotesFile/readPlansFile write out. Anything that fails
+// to parse counts as content: better a needless prompt than a silent delete.
+function isEmptyPlanningFile(filePath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    if (Array.isArray(parsed)) return parsed.length === 0
+    if (parsed && typeof parsed === 'object') {
+      return Object.values(parsed).every((v) => (Array.isArray(v) ? v.length === 0 : !v))
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+// Whether a scratch project holds anything worth offering to save: any file
+// the human created at its root (scaffolded nodes land in a folder there — see
+// AddNodeModal.ViewModel's effectiveFolder), any canvas board, or any
+// non-empty planning data.
+function scratchHasContent(root) {
+  if (!root || !fs.existsSync(root)) return false
+  if (fs.readdirSync(root).some((entry) => !SEEDED_ROOT_ENTRIES.has(entry))) return true
+
+  const planningDir = path.join(root, '.planning')
+  if (!fs.existsSync(planningDir)) return false
+  for (const entry of fs.readdirSync(planningDir, { withFileTypes: true })) {
+    if (SEEDED_PLANNING_FILES.has(entry.name)) continue
+    const abs = path.join(planningDir, entry.name)
+    if (entry.isDirectory()) {
+      if (fs.readdirSync(abs).length > 0) return true
+      continue
+    }
+    if (!isEmptyPlanningFile(abs)) return true
+  }
+  return false
+}
+
+// Copies a scratch project's entire contents into `dest` (force-overwriting
+// same-named entries if the chosen folder isn't empty). Shared by the File ▸
+// Save Project to Folder… handler and the save-on-close prompt.
+function copyScratchInto(scratch, dest) {
+  for (const entry of fs.readdirSync(scratch)) {
+    fs.cpSync(path.join(scratch, entry), path.join(dest, entry), { recursive: true, force: true })
+  }
+  // If the scratch name was never customized (still the default 'Untitled'),
+  // drop the copied name so the saved project's name derives from the folder
+  // the user chose instead of reading back as "Untitled". Only the `name` key
+  // goes — project.json also carries the project's agentScaffolding config
+  // (see the backend's writeProjectMeta), which must survive the save.
+  const destMeta = path.join(dest, '.planning', 'project.json')
+  try {
+    const meta = JSON.parse(fs.readFileSync(destMeta, 'utf8'))
+    if (meta && meta.name === 'Untitled') {
+      const { name, ...rest } = meta
+      if (Object.keys(rest).length) fs.writeFileSync(destMeta, JSON.stringify(rest, null, 2))
+      else fs.rmSync(destMeta, { force: true })
+    }
+  } catch {
+    // No/invalid project.json — nothing to normalize.
+  }
 }
 
 function rootForSender(sender) {
-  // Fall back to the scratch project so the backend always has a root to write
-  // into — a window with no chosen project is "unsaved", not unusable.
-  return windowRoots.get(sender.id) || getScratchRoot()
+  // Fall back to this window's scratch project so the backend always has a root
+  // to write into — a window with no chosen project is "unsaved", not unusable.
+  return windowRoots.get(sender.id) || getScratchRoot(sender.id)
+}
+
+// Every place a window's open project changes goes through here instead of
+// windowRoots.set directly, so the planning file watcher (see
+// planningWatcher.cjs) always stays in sync with whichever project a window
+// currently has open, without each call site having to remember it.
+function setWindowRoot(sender, root) {
+  windowRoots.set(sender.id, root)
+  planningWatcher.watch(sender.id, root, sender)
+  ensureAgentScaffoldingSoon(root)
+}
+
+// Drops/refreshes the generated agent files (AGENTS.md, CLAUDE.md, the /plan
+// slash commands, the vendored CLI — see tools/agentSkills/scaffold.mjs) for
+// whichever project a window just opened. setWindowRoot is the one chokepoint
+// every open path funnels through: the four IPC handlers below, and createWindow
+// for the boot restore.
+//
+// Deferred on purpose. createWindow runs before the first window paints, and the
+// scaffolder is a handful of synchronous file writes — worth nothing to the user
+// if it delays the app appearing. A steady-state open writes nothing anyway,
+// since the scaffolder compares rendered content against disk first.
+//
+// Scratch windows (root === null) are skipped: their folder lives under
+// userData, where no terminal agent is ever going to be run.
+function ensureAgentScaffoldingSoon(root) {
+  if (!root) return
+  setImmediate(() => {
+    getBackend()
+      .then((b) => b.ensureAgentScaffolding(root))
+      .catch((err) => logMainError('agent-scaffolding', err))
+  })
 }
 
 // True when the window has no *chosen* project — i.e. it's operating on the
@@ -259,17 +428,22 @@ function registerIpcHandlers() {
   ws('sleipnir:addNote', (b, _e, map, label, description) => b.addNote(map, label, description))
   ws('sleipnir:scaffoldNodes', (b, _e, map, entries, links) => b.scaffoldNodes(map, entries, links))
   ws('sleipnir:createPlanNode', (b, _e, planId, label, description, parentId) => b.createPlanNode(planId, label, description, parentId))
+  ws('sleipnir:proposeFileNode', (b, _e, planId, label, description, filePath, content, parentId, linkTargetIds) =>
+    b.proposeFileNode(planId, label, description, filePath, content, parentId, linkTargetIds))
   ws('sleipnir:setNodeStatus', (b, _e, id, status) => b.setNodeStatus(id, status))
   ws('sleipnir:setNodeBorrows', (b, _e, nodeId, targetIds) => b.setNodeBorrows(nodeId, targetIds))
   ws('sleipnir:updateNote', (b, _e, id, patch) => b.updateNote(id, patch))
   ws('sleipnir:deleteNote', (b, _e, id) => b.deleteNote(id))
   ws('sleipnir:getNodeStages', (b) => b.getNodeStages())
   ws('sleipnir:setNodeStage', (b, _e, id, stage) => b.setNodeStage(id, stage))
+  ws('sleipnir:setDefaultNodeStages', (b, _e, ids, stage) => b.setDefaultNodeStages(ids, stage))
   ws('sleipnir:getPlans', (b) => b.getPlans())
   ws('sleipnir:createPlan', (b, _e, label, nodeIds, assetPaths, assetEdges, assetFolders) => b.createPlan(label, nodeIds, assetPaths, assetEdges, assetFolders))
   ws('sleipnir:appendPlanGeneratedFiles', (b, _e, id, paths) => b.appendPlanGeneratedFiles(id, paths))
   ws('sleipnir:addPlanNodes', (b, _e, id, nodeIds) => b.addPlanNodes(id, nodeIds))
+  ws('sleipnir:approvePlanNodes', (b, _e, planId) => b.approvePlanNodes(planId))
   ws('sleipnir:addPlanAssets', (b, _e, id, paths, folders) => b.addPlanAssets(id, paths, folders))
+  ws('sleipnir:renamePlan', (b, _e, id, label) => b.renamePlan(id, label))
   ws('sleipnir:deletePlan', (b, _e, id, opts) => b.deletePlan(id, opts))
   ws('sleipnir:runScript', (b, _e, filePath) => b.runScript(filePath))
 
@@ -298,6 +472,13 @@ function registerIpcHandlers() {
   ws('sleipnir:gitAddRemote', (b, _e, url, name) => b.gitAddRemote(url, name))
   ws('sleipnir:getGitIdentity', (b) => b.getGitIdentity())
   ws('sleipnir:setGitIdentity', (b, _e, name, email) => b.setGitIdentity(name, email))
+
+  // Generated agent scaffolding (AGENTS.md, CLAUDE.md, the /plan slash commands,
+  // the vendored CLI). Project-scoped: the toggle lives in this project's own
+  // .planning/project.json, so it travels with the project rather than the
+  // machine — same reasoning as the git identity pair above.
+  ws('sleipnir:getAgentScaffolding', (b) => b.getAgentScaffoldingState())
+  ws('sleipnir:setAgentScaffolding', (b, _e, patch) => b.setAgentScaffolding(null, patch))
 
   // Terminal — a streaming/event-based channel, not request/response like
   // everything above. `spawn` returns a session id; data/exit flow back as
@@ -389,7 +570,7 @@ function registerIpcHandlers() {
     try {
       const info = b.openWorkspace(result.filePaths[0])
       // Bind the project to THIS window only — other windows keep theirs.
-      windowRoots.set(event.sender.id, info.root)
+      setWindowRoot(event.sender, info.root)
       workspaceStore.touchProject(info.root, info.name)
       setWindowTitle(win, info.name)
       return info
@@ -409,27 +590,13 @@ function registerIpcHandlers() {
     const dest = result.filePaths[0]
     const b = await getBackend()
     try {
-      const scratch = getScratchRoot()
-      // Copy each top-level entry (force-overwrites same-named files if the
-      // chosen folder isn't empty).
-      for (const entry of fs.readdirSync(scratch)) {
-        fs.cpSync(path.join(scratch, entry), path.join(dest, entry), { recursive: true, force: true })
-      }
-      // If the scratch name was never customized (still the default 'Untitled'),
-      // drop the copied project.json so the saved project's name derives from
-      // the folder the user chose instead of reading back as "Untitled".
-      const destMeta = path.join(dest, '.planning', 'project.json')
-      try {
-        const meta = JSON.parse(fs.readFileSync(destMeta, 'utf8'))
-        if (meta && meta.name === 'Untitled') fs.rmSync(destMeta, { force: true })
-      } catch {
-        // No/invalid project.json — nothing to normalize.
-      }
-      // Reset scratch to empty so the next "no project" session starts clean.
-      fs.rmSync(scratch, { recursive: true, force: true })
-      getScratchRoot()
+      copyScratchInto(getScratchRoot(event.sender.id), dest)
+      // This window has a real project now, so its scratch dir has no further
+      // purpose — drop it rather than leave a stale copy behind. The next
+      // window with no project gets a fresh one of its own.
+      discardScratch(event.sender.id)
       const info = b.openWorkspace(dest)
-      windowRoots.set(event.sender.id, info.root)
+      setWindowRoot(event.sender, info.root)
       workspaceStore.touchProject(info.root, info.name)
       setWindowTitle(win, info.name)
       return { ...info, isScratch: false }
@@ -439,6 +606,15 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('sleipnir:getRecentProjects', () => ({ projects: workspaceStore.getRecentProjects() }))
+
+  // File > Open Recent > Clear Recent Projects — forgets the list only. The
+  // caller's project (and every other window's) stays open and untouched;
+  // each one re-enters the list next time it's opened. Returns the (now
+  // empty) list so the renderer can reuse its getRecentProjects handling.
+  ipcMain.handle('sleipnir:clearRecentProjects', () => {
+    workspaceStore.clearRecentProjects()
+    return { projects: workspaceStore.getRecentProjects() }
+  })
 
   // Reopens a project from File > Open Recent into the CALLING window (its
   // Workspace tabs remount, its Planning board reloads from that project's own
@@ -450,7 +626,7 @@ function registerIpcHandlers() {
     const b = await getBackend()
     try {
       const info = b.openWorkspace(projectPath)
-      windowRoots.set(event.sender.id, info.root)
+      setWindowRoot(event.sender, info.root)
       workspaceStore.touchProject(info.root, info.name)
       setWindowTitle(BrowserWindow.fromWebContents(event.sender), info.name)
       return info
@@ -482,7 +658,7 @@ function registerIpcHandlers() {
       const cloned = await b.gitClone(url, dest)
       if (!cloned.ok) return { error: cloned.message }
       const info = b.openWorkspace(dest)
-      windowRoots.set(event.sender.id, info.root)
+      setWindowRoot(event.sender, info.root)
       workspaceStore.touchProject(info.root, info.name)
       setWindowTitle(win, info.name)
       return info
@@ -537,18 +713,13 @@ function isDarkHex(hex) {
   return 0.299 * r + 0.587 * g + 0.114 * b < 128
 }
 
-// Intercepted by 'close' (below) — asks the renderer whether this window has
-// unsaved staged AI content (App.tsx's pendingOverride) before really
-// closing, so it can't be silently lost. Only forceCloses (win.__forceClose,
-// checked by the 'close' listener) once the human has decided.
-async function handleCloseAttempt(win, wcId) {
+// Asks the renderer whether this window has unsaved staged AI content
+// (App.tsx's pendingOverride) so it can't be silently lost. Resolves false
+// when the human cancels the close outright.
+async function confirmPendingAiContent(win, wcId) {
   win.webContents.send('app:beforeClose')
   const hasUnsaved = await new Promise((resolve) => pendingBeforeClose.set(wcId, resolve))
-  if (!hasUnsaved) {
-    win.__forceClose = true
-    win.close()
-    return
-  }
+  if (!hasUnsaved) return true
   const { response } = await dialog.showMessageBox(win, {
     type: 'warning',
     buttons: ['Cancel', 'Discard', 'Save && Close'],
@@ -557,15 +728,90 @@ async function handleCloseAttempt(win, wcId) {
     message: 'You have unsaved AI-generated changes.',
     detail: 'Discard them, or save and close the window?',
   })
-  if (response === 0) return // Cancel
-  if (response === 1) {
-    win.__forceClose = true
-    win.close()
-    return
-  }
-  // Save && Close
+  if (response === 0) return false // Cancel
+  if (response === 1) return true // Discard
   win.webContents.send('app:saveBeforeClose')
   await new Promise((resolve) => pendingSaveBeforeClose.set(wcId, resolve))
+  return true
+}
+
+// The scratch half of the same question. A window with no chosen project has
+// been writing into a throwaway per-window dir that 'closed' is about to
+// delete, so this is the last chance to put that work somewhere real — the
+// close-time counterpart to File ▸ Save Project to Folder….
+//
+// Gated on the scratch dir's *contents*, deliberately not on "is this window
+// still scratch". A window that started blank, had work done in it, and then
+// opened a real project (File ▸ Open Folder, not Save Project to Folder…)
+// still owns that earlier scratch dir — checking windowRoots here would skip
+// the prompt and let 'closed' delete it silently, which is the one way this
+// change could lose work that the old shared-dir behavior kept. A window that
+// only ever had a real project never created a scratch dir at all (see
+// rootForSender), so it stays silent for free.
+async function confirmScratchOnClose(win, wcId) {
+  const scratch = scratchRoots.get(wcId)
+  if (!scratchHasContent(scratch)) return true
+
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'warning',
+    buttons: ['Cancel', "Don't Save", 'Save…'],
+    defaultId: 2,
+    cancelId: 0,
+    message: 'Save your unsaved project before closing?',
+    detail:
+      "Plans and files created while no project was open aren't in a folder yet. Closing without saving discards them.",
+  })
+  if (response === 0) return false // Cancel
+  if (response === 1) return true // Don't Save — 'closed' discards the dir
+
+  const picked = await dialog.showOpenDialog(win, {
+    title: 'Save project to folder',
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  // Backing out of the folder picker means "I didn't answer yet", not "throw
+  // my work away" — re-ask rather than closing on a canceled dialog.
+  if (picked.canceled || !picked.filePaths[0]) return confirmScratchOnClose(win, wcId)
+
+  const dest = picked.filePaths[0]
+  try {
+    copyScratchInto(scratch, dest)
+  } catch (e) {
+    await dialog.showMessageBox(win, {
+      type: 'error',
+      buttons: ['OK'],
+      message: 'Could not save the project.',
+      detail: e instanceof Error ? e.message : String(e),
+    })
+    return false // Keep the window (and its scratch dir) alive to try again.
+  }
+  // Into the recent list + as the restored-on-launch project, exactly as
+  // opening a project normally would — otherwise a project saved on the way
+  // out is immediately unfindable.
+  workspaceStore.touchProject(dest, readSavedProjectName(dest))
+  return true
+}
+
+// The name a just-saved project will read back as: its own project.json when
+// the human renamed it (copyScratchInto keeps a customized name and drops an
+// untouched 'Untitled'), otherwise the folder they picked.
+function readSavedProjectName(dest) {
+  try {
+    const meta = JSON.parse(fs.readFileSync(path.join(dest, '.planning', 'project.json'), 'utf8'))
+    if (meta && typeof meta.name === 'string' && meta.name.trim()) return meta.name
+  } catch {
+    // No project.json (the normal case) — fall through to the folder name.
+  }
+  return path.basename(dest)
+}
+
+// Intercepted by 'close' (below) — runs both save prompts before really
+// closing. Only forceCloses (win.__forceClose, checked by the 'close'
+// listener) once the human has decided.
+async function handleCloseAttempt(win, wcId) {
+  if (!(await confirmPendingAiContent(win, wcId))) return
+  if (win.isDestroyed()) return
+  if (!(await confirmScratchOnClose(win, wcId))) return
+  if (win.isDestroyed()) return
   win.__forceClose = true
   win.close()
 }
@@ -601,7 +847,7 @@ function createWindow(initialRoot = null, initialName = null) {
   // already destroyed, so reading win.webContents.id there throws "Object has
   // been destroyed" (surfaced as Electron's JS-error dialog).
   const wcId = win.webContents.id
-  windowRoots.set(wcId, initialRoot)
+  setWindowRoot(win.webContents, initialRoot)
   setWindowTitle(win, initialName)
 
   if (isDev) {
@@ -629,6 +875,10 @@ function createWindow(initialRoot = null, initialName = null) {
 
   win.on('closed', () => {
     windowRoots.delete(wcId)
+    // The human has already been offered the chance to save this (see
+    // confirmScratchOnClose), so nothing here is a silent loss — and dropping
+    // it now is what makes the *next* blank window actually blank.
+    discardScratch(wcId)
     // This window's own terminal/chat/preview/commandRunner sessions would
     // otherwise leak until the whole app quits (window-all-closed/before-quit
     // are the only other place these get killed) — see ROADMAP.md's
@@ -637,6 +887,7 @@ function createWindow(initialRoot = null, initialName = null) {
     chat.killForWindow(wcId)
     preview.killForWindow(wcId)
     commandRunner.killForWindow(wcId)
+    planningWatcher.killForWindow(wcId)
   })
   return win
 }
@@ -650,6 +901,8 @@ app.whenReady().then(async () => {
   // to match the app's black theme, so drop it rather than leave a gray bar.
   Menu.setApplicationMenu(null)
   registerIpcHandlers()
+  // Before any window can claim one — see sweepOrphanScratchDirs.
+  sweepOrphanScratchDirs()
 
   const b = await getBackend()
 
@@ -660,8 +913,10 @@ app.whenReady().then(async () => {
   // explicitly opened. An already-active project (the old single
   // lastWorkspacePath, now read as the initial activeProjectPath — see
   // workspaceStore.cjs's readStore) is preserved as the active one rather
-  // than being replaced by Sleipnir's own repo.
-  if (workspaceStore.getRecentProjects().length === 0) {
+  // than being replaced by Sleipnir's own repo. Runs at most once per install
+  // (the legacySeeded flag) — an emptied recent list is also the state after
+  // File > Open Recent > Clear Recent Projects, which must not re-seed.
+  if (!workspaceStore.isLegacySeeded() && workspaceStore.getRecentProjects().length === 0) {
     b.migrateLegacyPlanningData(b.REPO_ROOT)
     const existingActive = workspaceStore.getActiveProjectPath()
     // renameProject (not just touchProject) so 'Sleipnir' is written into
@@ -673,6 +928,7 @@ app.whenReady().then(async () => {
     if (existingActive && existingActive !== b.REPO_ROOT) {
       workspaceStore.touchProject(existingActive, path.basename(existingActive))
     }
+    workspaceStore.markLegacySeeded()
   }
 
   // Restore the last active project into the FIRST window (new windows always
@@ -707,6 +963,7 @@ app.on('window-all-closed', () => {
   chat.killAll()
   preview.killAll()
   commandRunner.killAll()
+  planningWatcher.killAll()
   if (!isDev) stopLspProxy()
   if (process.platform !== 'darwin') app.quit()
 })
@@ -716,5 +973,6 @@ app.on('before-quit', () => {
   chat.killAll()
   preview.killAll()
   commandRunner.killAll()
+  planningWatcher.killAll()
   if (!isDev) stopLspProxy()
 })

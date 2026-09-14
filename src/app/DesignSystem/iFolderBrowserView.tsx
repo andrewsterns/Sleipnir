@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { IconName } from '../UIKit/Icon/Icon'
-import type { GraphNode, SavedPlan } from '../../00_planning/graph/types'
+import type { GraphMapId, GraphNode, SavedPlan } from '../../00_planning/graph/types'
+import type { PlanNodeLink } from '../../00_planning/usePlanNodeLinks'
 
 /** One open tab within a single FolderBrowserView instance — local to that instance, never shared across categories. */
 export interface BrowserTab {
@@ -42,6 +43,10 @@ export interface FolderBrowserViewProps {
   readOnly?: boolean
   /** Rendered in LeftRailing's header row, e.g. RefactorPanel — Components only. Render-prop (not a plain node) so the caller's action can trigger this instance's own tree refresh, same reasoning as WidgetShell's `rail` prop. */
   headerAction?: (refresh: () => void) => ReactNode
+  /** Passed straight through to LeftRailing — fired with both ends of a cut→paste or rename. scope:'workspace' only; see LeftRailing's own onMoved doc comment for why Canvas needs it. */
+  onMoved?: (from: string, to: string) => Promise<void>
+  /** Fired after a path is deleted from the tree, alongside the built-in tab cleanup. Canvas uses it to un-promote or flag components whose file just went — the delete counterpart to onMoved. */
+  onPathDeleted?: (path: string) => Promise<void>
   /** Omit for no preview pane. Called with a scope-appropriate (src-relative for scope:'src') name/path. */
   getPreview?: (name: string, path: string) => ReactNode
   /** Shows LeftRailing's create/archive affordances — only meaningful (and only ever passed) alongside scope:'src'. */
@@ -75,6 +80,13 @@ export interface FolderBrowserViewProps {
   repoRelativeRoot?: string | null
   /** The open Workspace's own absolute root — see WorkspaceInfo.root. Passed straight through alongside repoRelativeRoot; roots LSP at this external project itself when repoRelativeRoot is null. Omitted wherever repoRelativeRoot is (Research). */
   workspaceRoot?: string | null
+  /** "Show in Planning"/"Show in Canvas" from a row's context menu — passed straight through to LeftRailing. Undefined hides the corresponding menu item entirely, same convention as onAddToPlan. */
+  onShowInPlanning?: (mapId: GraphMapId, nodeId: string) => void
+  onShowInCanvas?: (filePath: string) => void
+  /** filePath → the plan node that backs it — gates "Show in Planning" per row. */
+  planNodeLinks?: Map<string, PlanNodeLink>
+  /** Every filePath with a written canvas component — gates "Show in Canvas" per row. */
+  canvasComponentPaths?: Set<string>
 }
 
 /**
@@ -94,4 +106,15 @@ export interface FolderBrowserHandle {
   getProblems: () => { path: string; count: number }[]
   /** Activates and focuses `path` in whichever pane already has it open; if it isn't open anywhere, opens it into the currently-focused pane (same as a tree click). */
   focusTab: (path: string) => void
+  /**
+   * Refetches the file tree.
+   *
+   * The tree otherwise reloads only on mount and on `root` change, plus after
+   * the browser's OWN create/delete actions — so a file written by anything
+   * else (Canvas promoting a component, Planning scaffolding a node's files)
+   * lands on disk invisibly and stays invisible until the project is switched
+   * and switched back. Callers that write into the workspace from elsewhere in
+   * the app call this afterwards.
+   */
+  refresh: () => void
 }

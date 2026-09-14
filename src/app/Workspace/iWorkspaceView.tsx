@@ -1,4 +1,4 @@
-import type { SavedPlan } from '../../00_planning/graph/types'
+import type { GraphMapId, SavedPlan } from '../../00_planning/graph/types'
 import type { RecentProject, WorkspaceInfo } from '../../00_planning/api/PlatformAPI'
 
 /**
@@ -24,4 +24,19 @@ export interface WorkspaceViewProps {
   /** File > Open Recent's list, threaded down for the "No folder open" empty state's own quick-reopen shortcuts — App.tsx is the single fetch point, same reasoning as `plans`. */
   recentProjects?: RecentProject[]
   onOpenRecentProject?: (path: string) => void
+  /** "Show in Planning"/"Show in Canvas" from a tree row's context menu (App.tsx's jumpToPlanningNode/jumpToCanvasComponent). Undefined hides both menu items, same convention as onAddToPlan. */
+  onShowInPlanning?: (mapId: GraphMapId, nodeId: string) => void
+  onShowInCanvas?: (filePath: string) => void
+  /** Every filePath with a written canvas component — owned by App.tsx (useCanvasComponentPaths), gates whether "Show in Canvas" appears on a given row. */
+  canvasComponentPaths?: Set<string>
+  /**
+   * Fired with both ends of a cut→paste or rename in the file tree, before the
+   * tree repaints. App.tsx uses it to reattach Canvas boards to files that
+   * moved — moving a component out of `.canvas` into real source is how a
+   * staged component is promoted, and the board has to follow it rather than
+   * keep pointing at the path it left (see 01_canvas/model/relink.ts).
+   */
+  onPathMoved?: (from: string, to: string) => Promise<void>
+  /** Fired after a path is deleted from the file tree. App.tsx uses it to reconcile Canvas boards whose component file just went — the delete counterpart to onPathMoved. */
+  onPathDeleted?: (path: string) => Promise<void>
 }

@@ -2,8 +2,15 @@ import React, { useEffect, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { ApiKeySettings } from '../AgentChat/ApiKeySettings'
-import { ANTHROPIC_MODELS, type KeyStatus, type ModelStatus } from '../AgentChat/iApiKeySettings'
-import { getGitIdentity, setGitIdentity, type GitIdentity } from '../../00_planning/api/sleipnirApi'
+import { MODEL_OPTIONS, OLLAMA_MODEL_ID, type KeyStatus, type ModelStatus } from '../AgentChat/iApiKeySettings'
+import {
+  getAgentScaffolding,
+  getGitIdentity,
+  setAgentScaffolding,
+  setGitIdentity,
+  type GitIdentity,
+} from '../../00_planning/api/sleipnirApi'
+import type { AgentScaffolding } from '../../00_planning/api/PlatformAPI'
 import { useAppTheme } from '../../00_themes/ThemeController'
 import { THEME_OPTIONS, type Theme } from '../../00_themes'
 import { useKeybindings } from '../../00_keybindings/KeybindingsController'
@@ -24,6 +31,7 @@ const SECTIONS: SettingsSection[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'api-keys', label: 'API Keys' },
   { id: 'git-identity', label: 'Git Identity' },
+  { id: 'agent-scaffolding', label: 'Agent Scaffolding' },
   { id: 'keybindings', label: 'Keybindings' },
 ]
 
@@ -119,7 +127,8 @@ function ApiKeysSection() {
     window.settingsAPI?.getModel().then(setModelStatus)
   }, [])
 
-  const modelLabel = ANTHROPIC_MODELS.find((m) => m.id === modelStatus?.model)?.label
+  const modelLabel = MODEL_OPTIONS.find((m) => m.id === modelStatus?.model)?.label
+  const usingOllama = modelStatus?.model === OLLAMA_MODEL_ID
 
   return (
     <Frame flow="vertical" gap={10} style={{ maxWidth: 360 }}>
@@ -127,13 +136,15 @@ function ApiKeysSection() {
         AI CHAT
       </span>
       <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
-        API key and model used by the AI chat — no key set falls back to a local Ollama model.
+        API key and model used by the AI chat — pick Local Ollama in the model list to run free and local instead.
       </span>
       <Frame flow="horizontal" align="center" gap={10} style={{ position: 'relative' }}>
         <span style={{ fontSize: 10, color: 'var(--text-2)', ...MONO }}>
-          {keyStatus?.configured
-            ? `Anthropic key configured (····${keyStatus.hint})${modelLabel ? ` · ${modelLabel}` : ''}`
-            : 'No key set — using local Ollama'}
+          {usingOllama
+            ? 'Using local Ollama'
+            : keyStatus?.configured
+              ? `Anthropic key configured (····${keyStatus.hint})${modelLabel ? ` · ${modelLabel}` : ''}`
+              : 'No key set — using local Ollama'}
         </span>
         <button
           onClick={() => setPopoverOpen((v) => !v)}
@@ -259,6 +270,123 @@ function GitIdentitySection() {
   )
 }
 
+// The generated per-agent scaffolding (AGENTS.md, CLAUDE.md, GEMINI.md, the
+// /plan slash commands for Claude Code / Codex / Gemini, and the vendored
+// planning CLI). Project-scoped, like GitIdentitySection above — the setting
+// lives in this project's own .planning/project.json and travels with the
+// folder, so the same choice applies on whatever machine opens it next.
+function AgentScaffoldingSection() {
+  const [config, setConfig] = useState<AgentScaffolding | null>(null)
+  const [unavailable, setUnavailable] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const pending = getAgentScaffolding()
+    // Undefined means the web transport, which never scaffolds a project.
+    if (!pending) {
+      setUnavailable(true)
+      return
+    }
+    pending.then((next) => (next ? setConfig(next) : setUnavailable(true))).catch(() => setUnavailable(true))
+  }, [])
+
+  const setCommit = async (commit: boolean) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await setAgentScaffolding({ commit })
+      const next = await getAgentScaffolding()
+      if (next) setConfig(next)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Frame flow="vertical" gap={10} style={{ maxWidth: 460 }}>
+      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
+        AGENT SCAFFOLDING
+      </span>
+      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+        Sleipnir writes <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>GEMINI.md</code> and a{' '}
+        <code>/plan</code> command for Claude Code, Codex and Gemini into every project it opens, plus a
+        self-contained planning CLI at <code>.sleipnir/plan.mjs</code>. Any edits you make outside the
+        generated block are kept.
+      </span>
+
+      {unavailable ? (
+        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+          No project is open, or this build has no filesystem access.
+        </span>
+      ) : (
+        <>
+          <Frame flow="vertical" gap={4}>
+            {[
+              {
+                commit: true,
+                label: 'SHARE WITH THE TEAM',
+                help: 'Leave the files committable. Anyone who clones the repo gets a working /plan with only Node installed — no Sleipnir needed.',
+              },
+              {
+                commit: false,
+                label: 'KEEP LOCAL',
+                help: 'Add the generated files to .git/info/exclude, which is per-clone and never committed. Your .gitignore is left alone, and AGENTS.md / CLAUDE.md / GEMINI.md stay visible to git since they may hold your own notes.',
+              },
+            ].map((option) => {
+              const active = config?.commit === option.commit
+              return (
+                <button
+                  key={option.label}
+                  onClick={() => !active && setCommit(option.commit)}
+                  disabled={busy || !config}
+                  style={{
+                    background: active ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
+                    border: `1px solid ${active ? 'var(--border-1)' : 'var(--border-2)'}`,
+                    color: 'var(--text-1)',
+                    textAlign: 'left',
+                    padding: '8px 10px',
+                    cursor: busy || active || !config ? 'default' : 'pointer',
+                    opacity: busy ? 0.5 : 1,
+                    ...MONO,
+                  }}
+                >
+                  <Frame flow="vertical" gap={4}>
+                    <span style={{ fontSize: 9, letterSpacing: '0.08em' }}>
+                      {active ? '● ' : '○ '}
+                      {option.label}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5 }}>{option.help}</span>
+                  </Frame>
+                </button>
+              )
+            })}
+          </Frame>
+
+          {config?.state && (
+            <span style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.6, ...MONO }}>
+              Last written {new Date(config.state.generatedAt).toLocaleString()} · v{config.state.version} ·{' '}
+              {config.paths.length} files
+            </span>
+          )}
+          {config?.state?.skipped?.length ? (
+            <Frame flow="vertical" gap={2}>
+              {config.state.skipped.map((s) => (
+                <span key={s.path} style={{ fontSize: 9, color: '#e0b07a', ...MONO }}>
+                  Skipped {s.path}: {s.reason}
+                </span>
+              ))}
+            </Frame>
+          ) : null}
+        </>
+      )}
+      {error && <span style={{ fontSize: 9, color: '#e07a7a', ...MONO }}>{error}</span>}
+    </Frame>
+  )
+}
+
 // Deliberately minimal — only one real hotkey exists anywhere in the app
 // today (CommandPalette's Ctrl/Cmd+P, via Frame's onHotkey), so this just
 // remaps that one, built to extend as more commands register hotkeys later
@@ -376,6 +504,7 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'appearance' && <AppearanceSection />}
           {activeSection === 'api-keys' && <ApiKeysSection />}
           {activeSection === 'git-identity' && <GitIdentitySection />}
+          {activeSection === 'agent-scaffolding' && <AgentScaffoldingSection />}
           {activeSection === 'keybindings' && <KeybindingsSection />}
         </Frame>
       </Frame>

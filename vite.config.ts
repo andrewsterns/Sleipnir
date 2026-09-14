@@ -344,6 +344,25 @@ function sleipnirApiPlugin() {
           return
         }
 
+        if (url.pathname === '/api/sleipnir/plan-node/propose-file' && req.method === 'POST') {
+          try {
+            const { planId, label, description, filePath, content, parentId, linkTargetIds } = await readJsonBody(req)
+            const result = backend.proposeFileNode(
+              String(planId ?? ''),
+              String(label ?? ''),
+              description ? String(description) : undefined,
+              String(filePath ?? ''),
+              String(content ?? ''),
+              parentId ? String(parentId) : undefined,
+              Array.isArray(linkTargetIds) ? linkTargetIds.map(String) : undefined,
+            )
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
         if (url.pathname === '/api/sleipnir/node-status' && req.method === 'POST') {
           try {
             const { id, status } = await readJsonBody(req)
@@ -400,6 +419,17 @@ function sleipnirApiPlugin() {
           try {
             const { id, stage } = await readJsonBody(req)
             const result = backend.setNodeStage(String(id ?? ''), stage ? String(stage) : null)
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/node-stages/default' && req.method === 'POST') {
+          try {
+            const { ids, stage } = await readJsonBody(req)
+            const result = backend.setDefaultNodeStages(Array.isArray(ids) ? ids.map(String) : [], String(stage ?? ''))
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
@@ -478,6 +508,28 @@ function sleipnirApiPlugin() {
               Array.isArray(paths) ? paths.map(String) : [],
               Array.isArray(folders) ? folders.map(String) : [],
             )
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/plans/approve' && req.method === 'POST') {
+          try {
+            const { planId } = await readJsonBody(req)
+            const result = backend.approvePlanNodes(String(planId ?? ''))
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/rename-plan' && req.method === 'POST') {
+          try {
+            const { id, label } = await readJsonBody(req)
+            const result = backend.renamePlan(String(id ?? ''), String(label ?? ''))
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })

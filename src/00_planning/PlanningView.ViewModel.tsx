@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getGraphForMap, refreshGraphForMap, partitionArchived } from './graph/combine'
 import { resolvePlanGraph } from './graph/resolvePlan'
 import { resolveAssetPlanGraph } from './graph/resolveAssetPlan'
@@ -16,9 +16,13 @@ import {
   readWorkspaceFile,
   writeWorkspaceFile,
   addPlanNodes,
+  approvePlanNodes,
+  setDefaultNodeStages,
   type ArchiveEntry,
 } from './api/sleipnirApi'
 import { useStages, setStage as setStageStore, refreshStages as refreshStagesStore } from './stagesStore'
+import { isPlanningWatchAvailable } from './api/iPlanningWatch'
+import { nodeStageKey } from './graph/stages'
 import { adapterForLanguage } from './graph/importAdapters'
 import { fuzzyScore } from '../utils/fuzzyMatch'
 import type { SearchSortId } from '../app/UIKit/Search/iSearch'
@@ -83,7 +87,9 @@ function graphForPlan(plan: SavedPlan): GraphData {
   const assetNodes: GraphNode[] = plan.assetPaths.map((path) => ({
     id: idFor(path),
     label: path.split('/').pop() ?? path,
-    kind: 'built',
+    // Matches resolveAssetPlanGraph's own live nodes — a plan's asset picks
+    // start 'proposed' (ring), same as every other node-creation path.
+    kind: 'proposed',
     map: plan.id,
     filePath: path,
     type: 'workspace-file',
@@ -99,14 +105,37 @@ function graphForPlan(plan: SavedPlan): GraphData {
   }
 }
 
+// Every asset-plan node (a Workspace file pulled into a plan, explicitly or
+// via the reference walk — see resolveAssetPlanGraph) starts life with an
+// explicit 'proposed' status, unless it's already tagged something else —
+// via Workspace, Source Control, or a previous plan. Never overwrites an
+// existing tag; setDefaultNodeStages only fills gaps. Keyed by nodeStageKey
+// so it lands under the same `file:<path>` entry Workspace/Source Control
+// read and write (see graph/stages.ts) — that shared key is what makes a
+// status change made anywhere show up everywhere else. Fire-and-forget:
+// nodes already render from the resolve result regardless, this just fills
+// the stage overlay in a beat later once the write-through + shared-cache
+// refresh completes.
+function defaultProposeAssetStages(nodes: GraphNode[]) {
+  const ids = nodes.filter((n) => n.type === 'workspace-file').map((n) => nodeStageKey(n))
+  if (ids.length === 0) return
+  setDefaultNodeStages(ids, 'proposed')
+    .then(() => refreshStagesStore())
+    .catch(() => {})
+}
+
 export function usePlanningViewModel(
   initialMapId: GraphMapId = 'welcome',
-  // Set by App.tsx right before switching into Planning (see jumpToAiTab)
-  // to force the AI tab open even when PlanningView is already mounted —
-  // initialMapId alone only applies on first mount. Consumed once via the
-  // paired setter, same pattern as App's pendingLibraryFile/pendingPrototypeId.
-  focusMapId?: GraphMapId | null,
-  onFocusMapIdConsumed?: () => void,
+  // Set by App.tsx right before switching into Planning (see jumpToAiTab,
+  // and cross-section jumps like jumpToPlanningNode) to force a specific
+  // map/tab open even when PlanningView is already mounted — initialMapId
+  // alone only applies on first mount. Consumed once via the paired setter,
+  // same pattern as App's pendingLibraryFile/pendingPrototypeId. `nodeId`,
+  // when present, is handled by PlanningView itself (not here) — selecting a
+  // node and centering the graph on it needs centerSignal, which lives in
+  // the view, not this hook.
+  focusTarget?: { mapId: GraphMapId; nodeId?: string } | null,
+  onFocusTargetConsumed?: () => void,
   // Owned by App.tsx (fetched once, appended to locally on create — same
   // pattern as its `widgets` state), not independently re-fetched here.
   // Never itself registered in getGraphMaps(), so a plan tab's graph has to
@@ -141,7 +170,7 @@ export function usePlanningViewModel(
 
   // The single entry point for "go to this map" — opens it (if not already)
   // and makes it active. Used by tab clicks, the left PLANS list, and
-  // external jumps (focusMapId below). Exposed as `setMapId` too so existing
+  // external jumps (focusTarget below). Exposed as `setMapId` too so existing
   // call sites (handleRemoveLibrary, DeleteLibraryModal) that just want to
   // navigate to a known-open map (e.g. 'dsm') don't need to change.
   const openMap = (id: GraphMapId) => {
@@ -175,10 +204,10 @@ export function usePlanningViewModel(
   }
 
   useEffect(() => {
-    if (!focusMapId) return
-    openMap(focusMapId)
-    onFocusMapIdConsumed?.()
-  }, [focusMapId, onFocusMapIdConsumed])
+    if (!focusTarget) return
+    openMap(focusTarget.mapId)
+    onFocusTargetConsumed?.()
+  }, [focusTarget, onFocusTargetConsumed])
   // The Welcome tab opens with its example node already selected — a new
   // user sees the detail panel (and the "Open in Component Library" link)
   // immediately, instead of an empty panel until they click something.
@@ -229,6 +258,7 @@ export function usePlanningViewModel(
         if (cancelled) return
         const nodeGraph = resolvePlanGraph(plan.nodeIds)
         setData({ nodes: [...nodeGraph.nodes, ...liveAsset.nodes], edges: [...nodeGraph.edges, ...liveAsset.edges] })
+        defaultProposeAssetStages(liveAsset.nodes)
       })
       .catch(() => {})
     return () => {
@@ -322,9 +352,145 @@ export function usePlanningViewModel(
         .then((liveAsset) => {
           const nodeGraph = resolvePlanGraph(plan.nodeIds)
           setData({ nodes: [...nodeGraph.nodes, ...liveAsset.nodes], edges: [...nodeGraph.edges, ...liveAsset.edges] })
+          defaultProposeAssetStages(liveAsset.nodes)
         })
         .catch(() => {})
     }
+  }
+
+  // The Planning graph is a live view over `.planning/`'s files, full stop —
+  // whatever changed them (this app's own writes, its in-app AI chat, an
+  // external terminal AI agent via tools/sleipnir-plan.mjs, or a hand edit)
+  // should show up here without a manual refresh (see electron/
+  // planningWatcher.cjs). refreshAll is redefined every render (it closes
+  // over mapId/plans/etc.), so a plain ref keeps this mount-once subscription
+  // always calling the current version instead of a stale closure.
+  const refreshAllRef = useRef(refreshAll)
+  refreshAllRef.current = refreshAll
+  useEffect(() => {
+    if (!isPlanningWatchAvailable()) return
+    return window.planningWatchAPI!.onChanged((info) => {
+      // A stages.json-only batch (this window's own setStage write bouncing
+      // back through the watcher, or an external edit to it) only needs the
+      // shared stagesStore overlay re-synced — refetching+setData'ing the
+      // whole graph here would rebuild GraphCanvas's `data` on every stage
+      // toggle and reheat its force layout for no topology reason, flinging
+      // nodes around. Anything else (plans/notes/archive) still gets the full
+      // refresh.
+      if (info?.stagesOnly) {
+        refreshStagesStore().catch(() => {})
+        return
+      }
+      // A canvas-only batch is a Canvas board autosave (.planning/canvas/*.json,
+      // see src/01_canvas/model/store.ts). Boards hold no graph nodes, and that
+      // file is written every ~400ms while a frame is being dragged — so this
+      // is the same force-layout-reheat problem stagesOnly solves, just from
+      // the other direction.
+      if (info?.canvasOnly) return
+      refreshAllRef.current().catch(() => {})
+    })
+  }, [])
+
+  // Auto-opens a plan tab the moment it first appears in `plans` (App.tsx's
+  // own planningWatchAPI subscription keeps that prop live — see App.tsx) —
+  // "watch the AI build it" only means something if you're actually looking
+  // at the tab. Skips the very first population (mount, or switching to a
+  // project with existing plans) so opening a project doesn't force-open
+  // every plan tab it already has; only a plan id that's genuinely new since
+  // the last render counts. openMap (not raw setMapId) both opens AND makes
+  // active, and already refreshes `notes` for a just-created plan on its own
+  // (see openMap's own comment above) so this doesn't need to duplicate that.
+  const prevPlanIdsRef = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    const currentIds = new Set(plans.map((p) => p.id))
+    const prevIds = prevPlanIdsRef.current
+    prevPlanIdsRef.current = currentIds
+    if (!prevIds) return
+    const arrived = plans.filter((p) => !prevIds.has(p.id))
+    if (!arrived.length) return
+    const newest = arrived.reduce((a, b) => (b.createdAt > a.createdAt ? b : a))
+    openMap(newest.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plans])
+
+  // Live "AI is building this plan" status for whichever plan tab is active
+  // — drives PlanBuildStatusBar. `expectedSteps` (tools/sleipnir-plan.mjs's
+  // --total-steps) gives a real N-of-M count and a definitive completion
+  // instant; without it, completion is a quiet-period guess (see the effect
+  // below) since an external CLI process gives no other "I'm done" signal.
+  const activePlan = planFor(mapId)
+  const planStepCount = useMemo(() => {
+    if (!activePlan) return 0
+    const refIds = new Set(activePlan.nodeIds ?? [])
+    return notes.filter((n) => n.type === 'plan-step' && (n.planId === activePlan.id || refIds.has(n.id))).length
+  }, [activePlan, notes])
+  const draftStepCount = useMemo(() => {
+    if (!activePlan) return 0
+    const refIds = new Set(activePlan.nodeIds ?? [])
+    return notes.filter(
+      (n) => n.type === 'plan-step' && n.status === 'draft' && (n.planId === activePlan.id || refIds.has(n.id)),
+    ).length
+  }, [activePlan, notes])
+  // Of draftStepCount, how many carry a staged proposedFile (see backend's
+  // proposeFileNode) — these are never included in Approve All's bulk write
+  // (see approvePlanNodes' needsReviewIds), so the status bar can say so
+  // instead of silently under-counting what Approve All actually did.
+  const draftFileStepCount = useMemo(() => {
+    if (!activePlan) return 0
+    const refIds = new Set(activePlan.nodeIds ?? [])
+    return notes.filter(
+      (n) =>
+        n.type === 'plan-step' &&
+        n.status === 'draft' &&
+        !!n.proposedFile &&
+        (n.planId === activePlan.id || refIds.has(n.id)),
+    ).length
+  }, [activePlan, notes])
+
+  // Resets on every new step (or a different plan becoming active) and, if
+  // nothing else arrives for a few seconds, treats the build as finished.
+  // Runs even when --total-steps was declared: confirmed by testing (an
+  // agent that declares 8 but deliberately stops at 5 — "the rest turned
+  // out unnecessary") that without this fallback, `complete` (reached-count
+  // only) never fires and the build sits at "5 of 8" forever with no path
+  // to the completion banner or Approve All. The declared count still wins
+  // when it's actually reached — that happens the instant the write lands,
+  // synchronously, well before this timer would ever fire — so the common
+  // accurate-count case is unaffected; this only rescues the undercount case.
+  const [heuristicComplete, setHeuristicComplete] = useState(false)
+  useEffect(() => {
+    setHeuristicComplete(false)
+    if (!activePlan || planStepCount === 0) return
+    const timer = setTimeout(() => setHeuristicComplete(true), 3500)
+    return () => clearTimeout(timer)
+  }, [activePlan, planStepCount])
+
+  const planBuildStatus = useMemo(() => {
+    if (!activePlan || planStepCount === 0) return null
+    const expectedSteps = activePlan.expectedSteps
+    const reachedDeclaredCount = expectedSteps ? planStepCount >= expectedSteps : false
+    return {
+      planId: activePlan.id,
+      label: activePlan.label,
+      stepCount: planStepCount,
+      draftCount: draftStepCount,
+      draftFileCount: draftFileStepCount,
+      expectedSteps,
+      complete: reachedDeclaredCount || heuristicComplete,
+      // Distinguishes "hit the number you said you'd hit" from "gave up
+      // waiting, actual count fell short of what was declared" — lets the
+      // status bar be honest about which one happened instead of implying
+      // the bar quietly reached 100% when it visually didn't.
+      stoppedShort: !reachedDeclaredCount && !!expectedSteps && heuristicComplete,
+    }
+  }, [activePlan, planStepCount, draftStepCount, draftFileStepCount, heuristicComplete])
+
+  // Bulk-approves every draft step in one write (see backend's
+  // approvePlanNodes) — PlanBuildStatusBar's "APPROVE ALL", the counterpart
+  // to each card's own individual APPROVE button (setPlanNodeStatus below).
+  const approveAllDrafts = async (planId: string) => {
+    await approvePlanNodes(planId)
+    await refreshNotes()
   }
 
   // Only meaningful for plan nodes (created via the AI chat's
@@ -342,7 +508,7 @@ export function usePlanningViewModel(
   // failure. Works for any node id, generated ones included (the whole reason
   // stage lives in an overlay, not on the record).
   const setStage = async (node: GraphNode, stage: NodeStage | null) => {
-    await setStageStore(node.id, stage).catch(() => {})
+    await setStageStore(nodeStageKey(node), stage).catch(() => {})
   }
 
   const archiveNode = async (node: GraphNode) => {
@@ -627,7 +793,7 @@ export function usePlanningViewModel(
   // only exist for AI-created nodes, import/borrows edges aren't guaranteed
   // to form a usable DAG, and the single-node BUILD WITH AI button already
   // gives manual ordering control when it matters for one node.
-  const todoNodes = useMemo(() => sortedNodes.filter((n) => stages[n.id] === 'todo'), [sortedNodes, stages])
+  const todoNodes = useMemo(() => sortedNodes.filter((n) => stages[nodeStageKey(n)] === 'todo'), [sortedNodes, stages])
 
   const mapLabelFor = (id: GraphMapId): string =>
     getGraphMaps().find((m) => m.id === id)?.label ?? planFor(id)?.label ?? id
@@ -703,6 +869,8 @@ export function usePlanningViewModel(
     hoveredId,
     setHoveredId,
     refreshAll,
+    planBuildStatus,
+    approveAllDrafts,
     setPlanNodeStatus,
     setStage,
     archiveNode,

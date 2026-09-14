@@ -200,7 +200,9 @@ they're intent, not data. Completed roadmaps move to `archive/` (read-only).
 `electron/chat.cjs` is a provider-agnostic tool-use loop (up to
 `MAX_TOOL_TURNS = 6` per message), streaming text via `chat:token`. Provider
 selection (`selectProvider()`): `SLEIPNIR_MODEL_PROVIDER` env var if set, else
-Anthropic if a key is configured (§ BYOK below), else Ollama.
+the "Local Ollama" entry in the model dropdown if explicitly picked
+(`modelStore.OLLAMA_MODEL_ID` — see § BYOK below), else Anthropic if a key is
+configured, else Ollama.
 
 - `chatProviders/anthropic.cjs` — `@anthropic-ai/sdk`, model `claude-sonnet-5`,
   streamed via `messages.stream()`.

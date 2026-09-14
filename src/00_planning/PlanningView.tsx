@@ -8,13 +8,14 @@ import { ScrollWindow } from '../app/UIKit/ScrollWindow/ScrollWindow'
 import { WorkspaceHeader } from '../app/WorkspaceHeader/WorkspaceHeader'
 import { GraphCanvas, fileExtLabel, nodeDisplayLabel, nodeIconName } from './graph/GraphCanvas'
 import { getGraphMaps, type GraphMapId, type GraphNode, type NodeStage, type SavedPlan } from './graph/types'
-import { NODE_STAGES } from './graph/stages'
+import { NODE_STAGES, nodeStageKey } from './graph/stages'
 import { StatusGlyph } from './graph/StatusGlyph'
 import { SleipnirLoader } from '../app/UIKit/SleipnirLoader/SleipnirLoader'
 import type { GeneratedFile } from '../app/AgentChat/iAgentChat'
-import { createPlan, getWorkspaceInfo, listWorkspaceDir, readWorkspaceFile, writeWorkspaceFile, appendPlanGeneratedFiles } from './api/sleipnirApi'
+import { createPlan, getWorkspaceInfo, listWorkspaceDir, readWorkspaceFile, writeWorkspaceFile, appendPlanGeneratedFiles, renamePlan } from './api/sleipnirApi'
 import type { FileTreeNode } from './api/PlatformAPI'
 import { usePlanningViewModel, folderPathForNode, type PlanningNodeRow } from './PlanningView.ViewModel'
+import { PlanBuildStatusBar } from './PlanBuildStatusBar'
 import { Search } from '../app/UIKit/Search/Search'
 import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../app/UIKit/Search/iSearch'
 import { ListRow } from '../app/UIKit/ListRow/ListRow'
@@ -739,14 +740,18 @@ function PlanningEmptyState({
 // graph/stages.ts), the active one lit in its own color. Clicking the active
 // chip again clears the stage (back to untagged / kind-based rendering). Set
 // on any node; the write goes to the overlay store via setStage, so it works
-// for build-generated nodes too.
+// for build-generated nodes too. `value` undefined reads as 'proposed' — the
+// universal default (same fallback StatusGlyph already applies for the
+// NODES-list/file dot) — so a node briefly shows the same active chip while
+// its write-through is still in flight, instead of every chip reading as
+// unselected until the overlay catches up.
 function StageToggle({ value, onChange }: { value?: NodeStage; onChange: (stage: NodeStage | null) => void }) {
   return (
     <Frame flow="vertical" gap={6}>
       <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>STATUS</span>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {NODE_STAGES.map((s) => {
-          const active = value === s.id
+          const active = (value ?? 'proposed') === s.id
           return (
             <button
               key={s.id}
@@ -770,7 +775,7 @@ function StageToggle({ value, onChange }: { value?: NodeStage; onChange: (stage:
                 ...MONO,
               }}
             >
-              <span style={{ fontSize: 11, lineHeight: 1 }}>{s.glyph}</span>
+              <StatusGlyph stage={s.id} size={11} title={s.label} />
               {s.label}
             </button>
           )
@@ -781,9 +786,9 @@ function StageToggle({ value, onChange }: { value?: NodeStage; onChange: (stage:
 }
 
 export interface PlanningViewProps {
-  /** Set by App.tsx to force a specific map tab open (e.g. 'claude', to watch AI build nodes live) even when Planning is already mounted. Consumed once. */
-  focusMapId?: GraphMapId | null
-  onFocusMapIdConsumed?: () => void
+  /** Set by App.tsx to force a specific map/tab open (e.g. 'claude', to watch AI build nodes live) even when Planning is already mounted, and — when nodeId is present — to select and center that node too (cross-section jumps like "Show in Planning"). Consumed once. */
+  focusTarget?: { mapId: GraphMapId; nodeId?: string } | null
+  onFocusTargetConsumed?: () => void
   /** Fired once the generate_code tool stages files for an approved plan node — the host app opens them in the Workspace Code Editor for review. `planId`, when the plan tab that node belongs to is open, records which files that plan produced (see DeletePlanModal). */
   onCodeGenerated?: (planNodeId: string, files: GeneratedFile[], planId?: string) => void
   /** Owned by App.tsx (fetched once, appended to locally on create) — see its `plans` state doc comment. */
@@ -794,6 +799,19 @@ export interface PlanningViewProps {
   onUpdatePlan: (plan: SavedPlan) => void
   /** Opens a Workspace-relative file path in the Workspace Code Editor (App.tsx's jumpToProjectFile) — powers the card's file links and double-click-to-open on graph nodes / the NODES list. No-op when omitted or no Workspace is open. */
   onOpenFile?: (path: string) => void
+  /** "Show in Canvas" from a node's context menu (App.tsx's jumpToCanvasComponent) — only offered when canvasComponentPaths says this node's file has a written component. */
+  onShowInCanvas?: (filePath: string) => void
+  /**
+   * Every filePath with a written canvas component, across every board —
+   * owned by App.tsx (see useCanvasComponentPaths), same "one fetch, many
+   * consumers" reasoning as `plans`. Kept out of PlanningView's own imports
+   * deliberately: 01_canvas already imports from 00_planning in several
+   * places, and this file staying import-free of 01_canvas keeps that a
+   * one-way dependency rather than a cycle.
+   */
+  canvasComponentPaths: Set<string>
+  /** Fired after node creation writes real files into the project (AddNodeModal's scaffolding branch), so App.tsx can refresh the Workspace tab's file tree — it otherwise refetches only on mount and project change, leaving the new files invisible. */
+  onWorkspaceChanged?: () => void
 }
 
 // A node's file is openable in the Workspace only when it actually lives
@@ -815,14 +833,17 @@ function flattenFilePaths(nodes: FileTreeNode[], into: string[] = []): string[] 
 }
 
 export const PlanningView: React.FC<PlanningViewProps> = ({
-  focusMapId,
-  onFocusMapIdConsumed,
+  focusTarget,
+  onFocusTargetConsumed,
   onCodeGenerated,
   plans,
   onCreatePlan,
   onDeletePlan,
   onUpdatePlan,
   onOpenFile,
+  onShowInCanvas,
+  canvasComponentPaths,
+  onWorkspaceChanged,
 }) => {
   const { theme } = useAppTheme()
   const removablePlanFor = (mapId: GraphMapId) => plans.find((p) => p.id === mapId)
@@ -845,6 +866,8 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     notes,
     archivedEntries,
     refreshAll,
+    planBuildStatus,
+    approveAllDrafts,
     setPlanNodeStatus,
     setStage,
     archiveNode,
@@ -868,7 +891,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     isGlobalSearch,
     mapLabelFor,
     todoNodes,
-  } = usePlanningViewModel('welcome', focusMapId, onFocusMapIdConsumed, plans, onUpdatePlan, welcomeDismissed)
+  } = usePlanningViewModel('welcome', focusTarget, onFocusTargetConsumed, plans, onUpdatePlan, welcomeDismissed)
 
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
   const [generateError, setGenerateError] = useState<string | null>(null)
@@ -878,6 +901,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   const [runningPlan, setRunningPlan] = useState(false)
   const [runProgress, setRunProgress] = useState<{ index: number; total: number; label: string } | null>(null)
   const [deletingPlan, setDeletingPlan] = useState<SavedPlan | null>(null)
+  const [renamingPlan, setRenamingPlan] = useState<SavedPlan | null>(null)
   const [deletingNode, setDeletingNode] = useState<GraphNode | null>(null)
   const [renamingNode, setRenamingNode] = useState<GraphNode | null>(null)
   // Right-click / ⋯ menu for the NODES list rows (see nodeMenuItems below).
@@ -929,6 +953,23 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   // Bumped by the node ⋯ menu's "Link" action to pop the selected node's
   // add-link search open (see LinkAddDropdown's openSignal).
   const [linkOpenSignal, setLinkOpenSignal] = useState(0)
+
+  // Bumped by the NODES list's single-click (see selectNodeRow) to tell
+  // GraphCanvas to explicitly center on the now-selected node — see
+  // GraphCanvas's centerSignal doc comment for why selecting a node from
+  // *within* the graph itself deliberately does not do this.
+  const [centerSignal, setCenterSignal] = useState(0)
+
+  // The node-selection half of a cross-section jump ("Show in Planning" from
+  // Workspace/Canvas) — the map-switching half lives in the ViewModel's own
+  // focusTarget effect, since selecting + centering needs centerSignal, which
+  // lives here rather than there. Same "select immediately, don't wait for
+  // the map's data refetch to land" reasoning as selectNodeRow below.
+  useEffect(() => {
+    if (!focusTarget?.nodeId) return
+    setSelectedId(focusTarget.nodeId)
+    setCenterSignal((s) => s + 1)
+  }, [focusTarget])
 
   useEffect(() => {
     if (!nodeSearchOpen) return
@@ -1006,28 +1047,18 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     }
   }
 
-  // Double-click a graph node: jump straight to its real file in the
-  // Workspace when it has one, otherwise just select it (single-click already
-  // selected it, so this is a harmless no-op for file-less notes).
-  const handleActivateNode = (id: string) => {
-    const node = live.nodes.find((n) => n.id === id)
-    if (!node) return
-    const filePath = workspaceFilePath(node)
-    if (filePath && onOpenFile) {
-      onOpenFile(filePath)
-      return
-    }
-    setSelectedId(node.id)
-  }
-
   // The NODES search box's cross-map quick-jump (ROADMAP.md's Phase 1
   // follow-up) — takes the already-known GraphNode straight from the
   // aggregate (usePlanningViewModel's nodeRows) rather than re-looking it up
   // in `live.nodes`, since switchToMap's data refetch is async and wouldn't
-  // be visible on this same tick.
+  // be visible on this same tick. A list row's single-click both selects
+  // (opens the card) and centers the graph on it — unlike clicking a node
+  // directly in the graph, which only selects (see GraphCanvas's
+  // centerSignal doc comment for why the two differ).
   const selectNodeRow = (row: PlanningNodeRow) => {
     if (row.mapId !== mapId) switchToMap(row.mapId).catch(() => {})
     setSelectedId(row.node.id)
+    setCenterSignal((s) => s + 1)
   }
 
   // The ⋯ menu's "Link" action: select the node (so its detail card opens) and
@@ -1495,25 +1526,18 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                         textColor="var(--text-3)"
                       />
                     ) : (
-                      // Status at rest, right-aligned: the AI plan-step status
-                      // (☐/◐/☑) and the sprint-stage glyph, in the stage's colour.
-                      // Swapped out for ⋯ on hover (see showMenu).
-                      <>
-                        {n.status && (
-                          <span
-                            title={n.status}
-                            // `done` uses inherit so its ☑ flips with the row and
-                            // never vanishes on the solid selected fill; the others
-                            // keep their own signal colours.
-                            style={{ fontSize: 11, color: n.status === 'done' ? 'inherit' : n.status === 'approved' ? '#e0a040' : 'var(--text-3)', ...MONO }}
-                          >
-                            {n.status === 'done' ? '☑' : n.status === 'approved' ? '◐' : '☐'}
-                          </span>
-                        )}
-                        {/* Sprint stage — defaults to 'proposed' for any untagged
-                            node (the universal default), via StatusGlyph. */}
-                        <StatusGlyph stage={stages[n.id]} size={13} />
-                      </>
+                      // Status at rest, right-aligned — ONE status mark per row,
+                      // the stage ring, identical to the dot on the graph canvas
+                      // and the glyph in the card's STATUS toggle. Deliberately
+                      // not paired with the AI plan-step `status` (draft/approved/
+                      // done): a row showing two different status symbols reads as
+                      // two competing states, and which one a node gets would then
+                      // depend on whether an AI or a human made it. The AI approval
+                      // step still lives in the detail card, where it belongs — as
+                      // the APPROVE / GENERATE CODE action, not a second glyph.
+                      // Defaults to 'proposed' for any untagged node (the universal
+                      // default), via StatusGlyph. Swapped out for ⋯ on hover.
+                      <StatusGlyph stage={stages[nodeStageKey(n)]} />
                     )}
                   </>
                 )
@@ -1678,6 +1702,22 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
           />
         )}
 
+        {renamingPlan && (
+          <RenamePathModal
+            name={renamingPlan.label}
+            isDir={false}
+            title="RENAME PLAN"
+            // Label only — renamePlan deliberately leaves the id alone, because
+            // graph nodes and open tabs reference it. See its doc comment.
+            rename={async (label) => {
+              const { plan } = await renamePlan(renamingPlan.id, label)
+              onUpdatePlan(plan)
+            }}
+            onClose={() => setRenamingPlan(null)}
+            onRenamed={() => setRenamingPlan(null)}
+          />
+        )}
+
         {renamingNode && (
           <RenamePathModal
             name={renamingNode.label}
@@ -1704,6 +1744,12 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 // selects it and pops its LINKED add-link search open (see
                 // linkNode / LinkAddDropdown's openSignal).
                 { label: 'Link', icon: 'link-add' as const, onSelect: () => linkNode(n) },
+                ...(workspaceFilePath(n) && onOpenFile
+                  ? [{ label: 'Show in Workspace', separator: true, onSelect: () => onOpenFile(workspaceFilePath(n)!) }]
+                  : []),
+                ...(workspaceFilePath(n) && onShowInCanvas && canvasComponentPaths.has(workspaceFilePath(n)!)
+                  ? [{ label: 'Show in Canvas', separator: !onOpenFile, onSelect: () => onShowInCanvas(workspaceFilePath(n)!) }]
+                  : []),
                 ...(renamable ? [{ label: 'Rename', separator: true, onSelect: () => setRenamingNode(n) }] : []),
                 ...(workspaceFilePath(n) ? [{ label: 'Copy path', separator: true, onSelect: () => copyNodeAbsolutePath(n) }] : []),
                 ...(n.filePath ? [{ label: 'Copy relative path', separator: !workspaceFilePath(n), onSelect: () => copyNodeRelativePath(n) }] : []),
@@ -1724,7 +1770,8 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             anchorEl={planMenu.menu.anchorEl}
             onClose={planMenu.close}
             items={[
-              { label: 'Delete plan', destructive: true, onSelect: () => setDeletingPlan(planMenu.menu!.data) },
+              { label: 'Rename plan', onSelect: () => setRenamingPlan(planMenu.menu!.data) },
+              { label: 'Delete plan', separator: true, destructive: true, onSelect: () => setDeletingPlan(planMenu.menu!.data) },
             ]}
           />
         )}
@@ -1736,6 +1783,13 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             onCreated={async (nodes) => {
               await refreshAll()
               if (nodes[0]) setSelectedId(nodes[0].id)
+              // Scaffolding writes real files into the open project (see
+              // AddNodeModal.ViewModel's scaffoldNodes), but the Workspace
+              // tab's tree only refetches on mount and project change — so
+              // without this they sit on disk unseen until the project is
+              // switched and switched back, which reads as "it didn't create
+              // them". Harmless for a note-only creation, which writes nothing.
+              onWorkspaceChanged?.()
             }}
           />
         )}
@@ -1773,7 +1827,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
               selectedId={selectedId}
               stages={stages}
               onSelectNode={(id) => setSelectedId(id || null)}
-              onActivateNode={handleActivateNode}
+              centerSignal={centerSignal}
             />
           </Frame>
 
@@ -1852,7 +1906,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   the AI plan-step approve/generate flow below. */}
               <div style={{ height: 1, background: 'var(--border-1)' }} />
               <StageToggle
-                value={stages[selectedNode.id]}
+                value={stages[nodeStageKey(selectedNode)]}
                 onChange={(stage) => setStage(selectedNode, stage)}
               />
 
@@ -1861,7 +1915,27 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   <div style={{ height: 1, background: 'var(--border-1)' }} />
                   {selectedNode.status === 'draft' ? (
                     <button
-                      onClick={() => setPlanNodeStatus(selectedNode, 'approved')}
+                      onClick={() => {
+                        // A staged file-carrying node never gets bulk/blind-
+                        // approved — same trust boundary as generate_code
+                        // (see chat.cjs's TOOL_DEFS comment): nothing hits
+                        // real disk until a human sees the actual content.
+                        // Routing through onCodeGenerated reuses that exact
+                        // staged-editor-tab review flow (see App.tsx's
+                        // pendingOverride) instead of writing here directly —
+                        // WorkspaceView's handleOverrideSaved already flips
+                        // this node to 'done' the moment it's actually saved.
+                        if (selectedNode.proposedFile) {
+                          const activePlanId = removablePlanFor(mapId)?.id
+                          onCodeGenerated?.(
+                            selectedNode.id,
+                            [{ path: selectedNode.proposedFile.path, content: selectedNode.proposedFile.content }],
+                            activePlanId,
+                          )
+                        } else {
+                          setPlanNodeStatus(selectedNode, 'approved')
+                        }
+                      }}
                       style={{
                         background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
                         border: '1px solid var(--border-2)',
@@ -1873,7 +1947,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                         ...MONO,
                       }}
                     >
-                      APPROVE
+                      {selectedNode.proposedFile ? 'REVIEW & APPROVE' : 'APPROVE'}
                     </button>
                   ) : selectedNode.status === 'approved' ? (
                     generatingNodeId === selectedNode.id ? (
@@ -1918,10 +1992,10 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   realistically be in one flow at a time (status only ever
                   exists on AI-created nodes, which never carry a stage until
                   a human sets one). */}
-              {(stages[selectedNode.id] === 'todo' || stages[selectedNode.id] === 'in-progress' || stages[selectedNode.id] === 'in-review' || stages[selectedNode.id] === 'blocked') && (
+              {(stages[nodeStageKey(selectedNode)] === 'todo' || stages[nodeStageKey(selectedNode)] === 'in-progress' || stages[nodeStageKey(selectedNode)] === 'in-review' || stages[nodeStageKey(selectedNode)] === 'blocked') && (
                 <>
                   <div style={{ height: 1, background: 'var(--border-1)' }} />
-                  {stages[selectedNode.id] === 'todo' && (
+                  {stages[nodeStageKey(selectedNode)] === 'todo' && (
                     <button
                       onClick={() => runSingleNodeBuild(selectedNode)}
                       disabled={runningPlan || generatingNodeId !== null}
@@ -1940,7 +2014,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                       BUILD WITH AI
                     </button>
                   )}
-                  {stages[selectedNode.id] === 'in-progress' && (
+                  {stages[nodeStageKey(selectedNode)] === 'in-progress' && (
                     generatingNodeId === selectedNode.id ? (
                       <Frame flow="horizontal" align="center" gap={8}>
                         <SleipnirLoader size={28} />
@@ -1968,12 +2042,12 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                       </button>
                     )
                   )}
-                  {stages[selectedNode.id] === 'in-review' && (
+                  {stages[nodeStageKey(selectedNode)] === 'in-review' && (
                     <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
                       READY FOR REVIEW — check the opened tab, or Source Control for a batch run.
                     </span>
                   )}
-                  {stages[selectedNode.id] === 'blocked' && (
+                  {stages[nodeStageKey(selectedNode)] === 'blocked' && (
                     <>
                       {generateError && (
                         <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
@@ -2058,6 +2132,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
           </>
           )}
         </Frame>
+        {planBuildStatus && <PlanBuildStatusBar status={planBuildStatus} onApproveAll={approveAllDrafts} />}
       </Frame>
     </Frame>
   )

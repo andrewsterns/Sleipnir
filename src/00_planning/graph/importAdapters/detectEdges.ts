@@ -1,5 +1,7 @@
 import { adapterForPath } from './index'
 import { loadPathAliases } from './pathAliases'
+import { buildReferenceIndex, detectAssetRefs } from './assetRefs'
+import { detectConfigRefs, isConfigPath } from './configRefs'
 
 // Extracted from NewWorkspacePlanModal.ViewModel.tsx's own detectEdges, which
 // now calls this instead of keeping a private copy — the one place "scan a
@@ -84,6 +86,10 @@ export async function detectEdgesForPaths(
     loadPathAliases(readFile).catch(() => ({ baseUrl: '', paths: {} })),
   ])
 
+  // Shared across every file rather than rebuilt per file — see
+  // buildReferenceIndex; this scan is already the expensive step.
+  const referenceIndex = buildReferenceIndex(resolvePool)
+
   paths.forEach((fromPath, i) => {
     const content = contents[i]
     if (!content) return
@@ -96,6 +102,23 @@ export async function detectEdgesForPaths(
       }
     } else {
       for (const target of detectGenericTargets(content, fromPath, resolvePool)) addEdge(fromPath, target)
+    }
+
+    // Non-import references (CSS url()/@import, HTML+JSX src/href, Vite's
+    // `new URL(..., import.meta.url)`, and asset paths written as plain
+    // string props) — runs for EVERY file, adapter or not. It's additive, not
+    // an else-branch: a .tsx both imports modules and points at assets, and
+    // the css/html files that carry most asset references have no adapter at
+    // all. Assets are the whole reason it exists (see assetRefs.ts) — without
+    // it a font or image can never gain an edge in either direction.
+    for (const target of detectAssetRefs(fromPath, content, referenceIndex)) addEdge(fromPath, target)
+
+    // Config files additionally link to the files they NAME (an entry point, a
+    // script's target, a referenced sibling config) — never to the files they
+    // merely govern, which would wire one node to the whole repo. See
+    // configRefs.ts for why that line is drawn where it is.
+    if (isConfigPath(fromPath)) {
+      for (const target of detectConfigRefs(fromPath, content, referenceIndex)) addEdge(fromPath, target)
     }
   })
 

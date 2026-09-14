@@ -34,17 +34,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scaffoldNodes: (map, entries, links) => ipcRenderer.invoke('sleipnir:scaffoldNodes', map, entries, links),
   createPlanNode: (planId, label, description, parentId) =>
     ipcRenderer.invoke('sleipnir:createPlanNode', planId, label, description, parentId),
+  proposeFileNode: (planId, label, description, filePath, content, parentId, linkTargetIds) =>
+    ipcRenderer.invoke('sleipnir:proposeFileNode', planId, label, description, filePath, content, parentId, linkTargetIds),
   setNodeStatus: (id, status) => ipcRenderer.invoke('sleipnir:setNodeStatus', id, status),
   setNodeBorrows: (nodeId, targetIds) => ipcRenderer.invoke('sleipnir:setNodeBorrows', nodeId, targetIds),
   updateNote: (id, patch) => ipcRenderer.invoke('sleipnir:updateNote', id, patch),
   deleteNote: (id) => ipcRenderer.invoke('sleipnir:deleteNote', id),
   getNodeStages: () => ipcRenderer.invoke('sleipnir:getNodeStages'),
   setNodeStage: (id, stage) => ipcRenderer.invoke('sleipnir:setNodeStage', id, stage),
+  setDefaultNodeStages: (ids, stage) => ipcRenderer.invoke('sleipnir:setDefaultNodeStages', ids, stage),
   getPlans: () => ipcRenderer.invoke('sleipnir:getPlans'),
   createPlan: (label, nodeIds, assetPaths, assetEdges, assetFolders) => ipcRenderer.invoke('sleipnir:createPlan', label, nodeIds, assetPaths, assetEdges, assetFolders),
   appendPlanGeneratedFiles: (id, paths) => ipcRenderer.invoke('sleipnir:appendPlanGeneratedFiles', id, paths),
   addPlanNodes: (id, nodeIds) => ipcRenderer.invoke('sleipnir:addPlanNodes', id, nodeIds),
+  approvePlanNodes: (planId) => ipcRenderer.invoke('sleipnir:approvePlanNodes', planId),
   addPlanAssets: (id, paths, folders) => ipcRenderer.invoke('sleipnir:addPlanAssets', id, paths, folders),
+  renamePlan: (id, label) => ipcRenderer.invoke('sleipnir:renamePlan', id, label),
   deletePlan: (id, opts) => ipcRenderer.invoke('sleipnir:deletePlan', id, opts),
   runScript: (filePath) => ipcRenderer.invoke('sleipnir:runScript', filePath),
   getGitStatus: () => ipcRenderer.invoke('sleipnir:getGitStatus'),
@@ -73,6 +78,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cloneRepo: (url) => ipcRenderer.invoke('sleipnir:cloneRepo', url),
   getGitIdentity: () => ipcRenderer.invoke('sleipnir:getGitIdentity'),
   setGitIdentity: (name, email) => ipcRenderer.invoke('sleipnir:setGitIdentity', name, email),
+  getAgentScaffolding: () => ipcRenderer.invoke('sleipnir:getAgentScaffolding'),
+  setAgentScaffolding: (patch) => ipcRenderer.invoke('sleipnir:setAgentScaffolding', patch),
 
   // Native folder picker — Electron-only, no web transport equivalent.
   openWorkspace: () => ipcRenderer.invoke('sleipnir:openWorkspace'),
@@ -80,6 +87,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Project switching — also Electron-only (see openWorkspace above).
   getRecentProjects: () => ipcRenderer.invoke('sleipnir:getRecentProjects'),
   openRecentProject: (projectPath) => ipcRenderer.invoke('sleipnir:openRecentProject', projectPath),
+  clearRecentProjects: () => ipcRenderer.invoke('sleipnir:clearRecentProjects'),
   newWindow: () => ipcRenderer.invoke('sleipnir:newWindow'),
   renameProject: (projectPath, name) => ipcRenderer.invoke('sleipnir:renameProject', projectPath, name),
   // Recolors this window's native (OS-drawn) minimize/maximize/close overlay to
@@ -201,6 +209,20 @@ contextBridge.exposeInMainWorld('validationAPI', {
     const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
     ipcRenderer.on('validation:done', listener)
     return () => ipcRenderer.removeListener('validation:done', listener)
+  },
+})
+
+// Planning-file watch bridge — fire-and-forget push, no session/id filtering
+// needed (unlike chatAPI/previewAPI's onX(id, cb)): each window's own main-
+// process watcher (see electron/planningWatcher.cjs) only ever sends to that
+// window's own webContents, so every event a renderer receives here is
+// already scoped to its own open project. No web equivalent (no filesystem
+// watching from a browser tab).
+contextBridge.exposeInMainWorld('planningWatchAPI', {
+  onChanged: (callback) => {
+    const listener = (_event, info) => callback(info)
+    ipcRenderer.on('planning:changed', listener)
+    return () => ipcRenderer.removeListener('planning:changed', listener)
   },
 })
 

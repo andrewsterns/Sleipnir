@@ -14,11 +14,16 @@ export interface ModelStatus {
   options: ModelOption[]
 }
 
+// Sentinel "model" id meaning "use the local Ollama provider" — keep in sync
+// with OLLAMA_MODEL_ID in electron/modelStore.cjs.
+export const OLLAMA_MODEL_ID = 'ollama:local'
+
 // Keep in sync with AVAILABLE_MODELS in electron/modelStore.cjs.
-export const ANTHROPIC_MODELS: ModelOption[] = [
+export const MODEL_OPTIONS: ModelOption[] = [
   { id: 'claude-opus-5', label: 'AI Opus 5', description: 'Most capable — best for hard, multi-step work' },
   { id: 'claude-sonnet-5', label: 'AI Sonnet 5', description: 'Balanced speed and intelligence (default)' },
   { id: 'claude-haiku-4-5', label: 'AI Haiku 4.5', description: 'Fastest and cheapest' },
+  { id: OLLAMA_MODEL_ID, label: 'Local Ollama', description: 'Runs on your machine via ollama serve — free, no API key, no cloud' },
 ]
 
 export interface SettingsAPI {

@@ -9,6 +9,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { isSourceFile } from './source-extensions.mjs'
+import { PLAN_CLI, SCAFFOLD_VERSION } from './agentSkills/registry.mjs'
+import {
+  ensureAgentScaffolding as writeAgentScaffolding,
+  readState as readScaffoldState,
+  scaffoldPaths,
+} from './agentSkills/scaffold.mjs'
 import { getPreviewConfig as getPreviewConfigEntry, setPreviewConfig as setPreviewConfigEntry } from './preview-registry.mjs'
 import { getWorkspaceRoot, setWorkspaceRoot } from './workspace-root.mjs'
 // Re-exported for electron/main.cjs's multi-window support: it holds a
@@ -94,6 +100,17 @@ function resolveSafe(base, ...segments) {
     throw new Error('Path escapes allowed root')
   }
   return resolved
+}
+
+// The canonical on-disk form for any workspace path we *store* (as opposed to
+// resolve and use immediately): root-relative, forward slashes, no './'.
+// Callers hand us all three of 'src/a.tsx', '.\\src\\a.tsx' and an absolute
+// path inside the root — resolveSafe happily accepts every one, and
+// path.resolve returns an absolute second argument unchanged, so without this
+// an absolute --file-path used to land verbatim in .planning/notes.json and
+// travel to every other machine that clones the repo.
+function toStoredPath(base, candidate) {
+  return path.relative(base, path.resolve(base, candidate)).split(path.sep).join('/')
 }
 
 function buildTree(absDir, srcRelDir) {
@@ -206,25 +223,42 @@ function requireWorkspaceRoot() {
 // lives in — so the label travels with the project, not with this machine's
 // userData (electron/workspaceStore.cjs only caches it for the Open Recent
 // list).
-function readProjectName(root) {
+// Every read of project.json goes through here so the file can grow fields
+// (agentScaffolding, see ensureAgentScaffolding) without each caller needing
+// to know the whole shape. Tolerant by design: missing or malformed reads as
+// {}, the same fallback readProjectName has always had.
+function readProjectMeta(root) {
   const metaPath = path.join(root, PLANNING_DIR, 'project.json')
-  if (fs.existsSync(metaPath)) {
-    try {
-      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'))
-      if (typeof meta.name === 'string' && meta.name.trim()) return meta.name.trim()
-    } catch {
-      // Malformed project.json — fall back to the folder name below.
-    }
+  if (!fs.existsSync(metaPath)) return {}
+  try {
+    const parsed = JSON.parse(fs.readFileSync(metaPath, 'utf8'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
   }
+}
+
+// Read-merge-write, never a whole-file replace. project.json now holds both
+// the display name and the per-project agent-scaffolding config, so the
+// rename path rewriting it wholesale would silently drop the latter.
+function writeProjectMeta(root, patch) {
+  const metaPath = path.join(root, PLANNING_DIR, 'project.json')
+  const merged = { ...readProjectMeta(root), ...patch }
+  fs.mkdirSync(path.dirname(metaPath), { recursive: true })
+  fs.writeFileSync(metaPath, JSON.stringify(merged, null, 2))
+  return merged
+}
+
+function readProjectName(root) {
+  const meta = readProjectMeta(root)
+  if (typeof meta.name === 'string' && meta.name.trim()) return meta.name.trim()
   return path.basename(root)
 }
 
 export function renameProject(projectRoot, name) {
   const trimmed = (name ?? '').trim()
   if (!trimmed) throw new Error('Name is required')
-  const metaPath = path.join(projectRoot, PLANNING_DIR, 'project.json')
-  fs.mkdirSync(path.dirname(metaPath), { recursive: true })
-  fs.writeFileSync(metaPath, JSON.stringify({ name: trimmed }, null, 2))
+  writeProjectMeta(projectRoot, { name: trimmed })
   return { name: trimmed }
 }
 
@@ -501,6 +535,111 @@ function planningFilePath(fileName) {
   return root ? path.join(root, PLANNING_DIR, fileName) : null
 }
 
+// One-time onboarding note, dropped into every project's `.planning/` folder
+// the first time anything is written there (see ensurePlanningDir below) —
+// written once, never overwritten, so any local notes a human adds survive.
+//
+// Deliberately short: the full agent-facing instructions now live in the
+// project's own AGENTS.md, emitted from tools/agentSkills/registry.mjs, which is
+// where an external agent actually looks. This file used to carry that whole
+// document *plus* an absolute path to this machine's Sleipnir install — which
+// broke the moment anyone else cloned the repo, since it is written once and
+// never refreshed afterwards.
+function planningReadmeContent() {
+  return `# .planning/ — Sleipnir Planning data (do not hand-edit)
+
+This folder is the live backing store for this project's Planning graph in
+Sleipnir. Anything written here in the right shapes shows up as real nodes and
+tabs automatically — no restart, no manual refresh — whatever wrote it.
+
+Don't hand-edit these files. The id/slug/edge shapes are easy to get subtly
+wrong: a plan's \`nodeIds\` only ever *references* node ids that live in
+notes.json, so a plan written with a description and \`nodeIds: []\` renders as a
+named tab containing nothing. Use the bundled CLI, which needs only Node:
+
+  node ${PLAN_CLI} create-plan --root . --label "My plan" [--total-steps N]
+  node ${PLAN_CLI} create-node --root . --plan-id <id> --label "Step" \\
+      --description "What this step does"
+
+See AGENTS.md at the project root for the full workflow, propose-file, and the
+exact data shapes.
+
+Files:
+  plans.json    Named plan tabs. nodeIds only ever *reference* ids in notes.json.
+  notes.json    Real graph node content (drafts, scaffolds, AI plan steps).
+  stages.json   Per-node sprint-stage tags ({ [nodeId]: 'todo'|'blocked'|... }).
+  archive.json  Archived/hidden node ids.
+`
+}
+
+// Centralizes what every write*File below used to do inline
+// (fs.mkdirSync(path.dirname(p), {recursive:true})) — same effect, plus a
+// one-time README drop the moment this project actually starts using
+// Planning, rather than on every openWorkspace() regardless of whether the
+// project ever touches it.
+function ensurePlanningDir() {
+  const root = getWorkspaceRoot()
+  if (!root) return
+  const dir = path.join(root, PLANNING_DIR)
+  fs.mkdirSync(dir, { recursive: true })
+  const readmePath = path.join(dir, 'README.md')
+  if (!fs.existsSync(readmePath)) fs.writeFileSync(readmePath, planningReadmeContent())
+}
+
+// --- agent scaffolding -----------------------------------------------------
+
+// Per-project config for the generated agent files (AGENTS.md, CLAUDE.md, the
+// slash commands, the vendored CLI — see tools/agentSkills/scaffold.mjs), stored
+// in project.json so it travels with the project rather than living in this
+// machine's userData.
+//
+// `commit` defaults to true because that is the point of the feature: a teammate
+// who clones the repo should get a working /plan, and that only happens if the
+// files are committed. Setting it false keeps them out of git via
+// .git/info/exclude, which is per-clone and never committed itself.
+const DEFAULT_AGENT_SCAFFOLDING = { commit: true }
+
+export function getAgentScaffolding(root = getWorkspaceRoot()) {
+  if (!root) return { ...DEFAULT_AGENT_SCAFFOLDING }
+  const stored = readProjectMeta(root).agentScaffolding
+  return {
+    ...DEFAULT_AGENT_SCAFFOLDING,
+    ...(stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {}),
+  }
+}
+
+// Persists the toggle and immediately re-runs the scaffolder, so flipping
+// "share with the team" off takes effect without waiting for the next open.
+export function setAgentScaffolding(root, patch) {
+  const target = root ?? requireWorkspaceRoot()
+  const next = { ...getAgentScaffolding(target), ...patch, version: SCAFFOLD_VERSION }
+  writeProjectMeta(target, { agentScaffolding: next })
+  return { agentScaffolding: next, ...ensureAgentScaffolding(target) }
+}
+
+// Called whenever a window's open project changes (see electron/main.cjs's
+// setWindowRoot). Deliberately never throws: this runs on the path that opens a
+// project — including the boot restore that blocks the first window — so a
+// read-only folder has to degrade to "scaffolded less", never to "couldn't open
+// the project".
+export function ensureAgentScaffolding(root = getWorkspaceRoot()) {
+  if (!root) return { written: [], skipped: [], excluded: [] }
+  try {
+    return writeAgentScaffolding(root, { commit: getAgentScaffolding(root).commit })
+  } catch (err) {
+    return {
+      written: [],
+      skipped: [{ path: '.sleipnir', reason: err instanceof Error ? err.message : String(err) }],
+      excluded: [],
+    }
+  }
+}
+
+export function getAgentScaffoldingState(root = getWorkspaceRoot()) {
+  if (!root) return null
+  return { ...getAgentScaffolding(root), state: readScaffoldState(root), paths: scaffoldPaths() }
+}
+
 // One-time migration for installs that predate per-project Planning data —
 // copies the old REPO_ROOT-fixed notes/plans/archive.json into `projectRoot`'s
 // own .planning/ folder, so opening Sleipnir's own repo as a project (which
@@ -537,7 +676,7 @@ function readArchive() {
 function writeArchive(entries) {
   const p = planningFilePath('archive.json')
   if (!p) throw new Error('No project is open')
-  fs.mkdirSync(path.dirname(p), { recursive: true })
+  ensurePlanningDir()
   fs.writeFileSync(p, JSON.stringify(entries, null, 2))
 }
 
@@ -559,7 +698,7 @@ function readStages() {
 function writeStages(stages) {
   const p = planningFilePath('stages.json')
   if (!p) throw new Error('No project is open')
-  fs.mkdirSync(path.dirname(p), { recursive: true })
+  ensurePlanningDir()
   fs.writeFileSync(p, JSON.stringify(stages, null, 2))
 }
 
@@ -707,7 +846,7 @@ function readNotesFile() {
 function writeNotesFile(data) {
   const p = planningFilePath('notes.json')
   if (!p) throw new Error('No project is open')
-  fs.mkdirSync(path.dirname(p), { recursive: true })
+  ensurePlanningDir()
   fs.writeFileSync(p, JSON.stringify(data, null, 2))
 }
 
@@ -825,7 +964,7 @@ function readPlansFile() {
 function writePlansFile(data) {
   const p = planningFilePath('plans.json')
   if (!p) throw new Error('No project is open')
-  fs.mkdirSync(path.dirname(p), { recursive: true })
+  ensurePlanningDir()
   fs.writeFileSync(p, JSON.stringify(data, null, 2))
 }
 
@@ -833,7 +972,15 @@ export function getPlans() {
   return { plans: readPlansFile() }
 }
 
-export function createPlan(label, nodeIds = [], assetPaths, assetEdges, assetFolders) {
+// `temporary`/`expectedSteps` are CLI-only conveniences today (see
+// sleipnir-plan.mjs) — no in-app UI sets either yet, so they're trailing
+// params existing IPC/web callers simply never pass rather than a change to
+// PlatformAPI's request shape. `expectedSteps`, when an external agent
+// declares it up front (it usually already knows how many steps it's about
+// to draft), lets PlanningView show a real N-of-M build progress bar and a
+// definitive completion moment instead of an indeterminate pulse + quiet-
+// timeout guess — see PlanningView.ViewModel.tsx's planBuildStatus.
+export function createPlan(label, nodeIds = [], assetPaths, assetEdges, assetFolders, temporary, expectedSteps) {
   if (!label || !label.trim()) {
     throw new Error('Label is required')
   }
@@ -848,6 +995,8 @@ export function createPlan(label, nodeIds = [], assetPaths, assetEdges, assetFol
     ...(Array.isArray(assetPaths) && assetPaths.length ? { assetPaths } : {}),
     ...(Array.isArray(assetEdges) && assetEdges.length ? { assetEdges } : {}),
     ...(Array.isArray(assetFolders) && assetFolders.length ? { assetFolders } : {}),
+    ...(temporary ? { temporary: true } : {}),
+    ...(Number.isInteger(expectedSteps) && expectedSteps > 0 ? { expectedSteps } : {}),
     createdAt: Date.now(),
   }
   const plans = readPlansFile()
@@ -923,6 +1072,24 @@ export function addPlanAssets(id, paths = [], folders = []) {
   return { plan }
 }
 
+// Renames a plan — its LABEL only, never its id.
+//
+// The id embeds a slug of the original label (see createPlan), which makes it
+// tempting to regenerate. It must not be: plan ids are referenced from graph
+// nodes' `planId`, from open tabs, and from anything holding a plan id across a
+// reload, and none of those would follow a re-slug. The slug in an id is a
+// readability nicety fixed at creation, not the plan's name.
+export function renamePlan(id, label) {
+  const next = typeof label === 'string' ? label.trim() : ''
+  if (!next) throw new Error('Label is required')
+  const plans = readPlansFile()
+  const plan = plans.find((p) => p.id === id)
+  if (!plan) throw new Error(`No plan with id "${id}"`)
+  plan.label = next
+  writePlansFile(plans)
+  return { plan }
+}
+
 // opts.deleteFiles also removes every workspace-relative path recorded in
 // the plan's generatedFiles (see appendPlanGeneratedFiles) — resolved
 // against the open Workspace root, same fs.rmSync pattern deleteLibrary used
@@ -982,8 +1149,15 @@ export function createPlanNode(planId, label, description, parentId) {
     throw new Error('Label is required')
   }
   const slug = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  // planId is usually a short caller-chosen slug ("hamburger-menu"), but
+  // sleipnir-plan.mjs's create-node also accepts a real saved-plan id
+  // (already "plan/...") so it can pull the node into that plan's own tab —
+  // strip a leading "plan/" here so the id doesn't double up into
+  // "plan/plan/...". Cosmetic only; `node.planId` below keeps the exact
+  // value passed in, which is what grouping/lookup actually match against.
+  const planSegment = planId.startsWith('plan/') ? planId.slice('plan/'.length) : planId
   const node = {
-    id: `plan/${planId}/${slug || 'step'}-${Date.now()}`,
+    id: `plan/${planSegment}/${slug || 'step'}-${Date.now()}`,
     label: label.trim(),
     kind: 'proposed',
     map: 'claude',
@@ -1001,6 +1175,57 @@ export function createPlanNode(planId, label, description, parentId) {
   return { node }
 }
 
+// Same shape as createPlanNode above, plus a staged `proposedFile` — a
+// workspace-relative path + full content that does NOT touch real disk here.
+// Deliberately mirrors generate_code's own trust boundary (see chat.cjs's
+// TOOL_DEFS comment): nothing gets written until a human explicitly reviews
+// and saves it. `filePath` is resolveSafe-checked immediately so a bad path
+// fails loud at proposal time, not later at bake time; refuses to propose a
+// path that already has a real file on disk, same guard createWorkspaceFile
+// itself uses. What gets *stored* on the node is toStoredPath's normalized
+// root-relative form, never the caller's raw string — notes.json is committed
+// and travels to other machines, so an absolute path in there would break on
+// every clone. `linkTargetIds`, when given, draws 'borrows' edges from the
+// new node via setNodeBorrows so multiple proposed files can visibly
+// reference each other in the graph before any of them are real.
+export function proposeFileNode(planId, label, description, filePath, content, parentId, linkTargetIds) {
+  if (!label || !label.trim()) {
+    throw new Error('Label is required')
+  }
+  if (!filePath || !filePath.trim()) {
+    throw new Error('filePath is required')
+  }
+  const root = requireWorkspaceRoot()
+  const absPath = resolveSafe(root, filePath)
+  const storedPath = toStoredPath(root, filePath)
+  if (fs.existsSync(absPath)) {
+    throw new Error(`${storedPath} already exists — propose a different path, or edit the real file directly instead of proposing it`)
+  }
+  const slug = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  const planSegment = planId.startsWith('plan/') ? planId.slice('plan/'.length) : planId
+  const node = {
+    id: `plan/${planSegment}/${slug || 'step'}-${Date.now()}`,
+    label: label.trim(),
+    kind: 'proposed',
+    map: 'claude',
+    type: 'plan-step',
+    description: description?.trim() || undefined,
+    status: 'draft',
+    planId,
+    proposedFile: { path: storedPath, content: content ?? '' },
+  }
+  const data = readNotesFile()
+  data.nodes.push(node)
+  if (parentId) {
+    data.edges.push({ source: parentId, target: node.id, kind: 'plan-step' })
+  }
+  writeNotesFile(data)
+  if (Array.isArray(linkTargetIds) && linkTargetIds.length) {
+    setNodeBorrows(node.id, linkTargetIds)
+  }
+  return { node }
+}
+
 const NODE_STATUSES = new Set(['draft', 'approved', 'done'])
 
 export function setNodeStatus(id, status) {
@@ -1014,6 +1239,46 @@ export function setNodeStatus(id, status) {
   node.status = status
   writeNotesFile(data)
   return { node }
+}
+
+// Bulk counterpart to setNodeStatus, same "one read/write regardless of how
+// many ids" shape as setDefaultNodeStages below — the Planning graph's
+// "Approve All" action on a freshly AI-drafted plan (see PlanBuildStatusBar
+// in the renderer) would otherwise mean N separate writes (and N separate
+// planningWatcher-debounced refreshes) for an N-step plan. Targets every
+// draft node belonging to `planId` — both the ones actually referenced by
+// the plan's own `nodeIds` (its named tab) and any sharing that `planId`
+// field on the shared "claude" review map (createPlanNode always writes
+// both), matching the same dual-membership `live` merge rule PlanningView.
+// ViewModel.tsx's graph resolution already uses. Silently no-ops on a plan
+// with nothing left in `draft` — approving twice isn't an error.
+// File-carrying drafts (see proposeFileNode above) are deliberately skipped
+// here, not bulk-approved: approving one means baking real content into the
+// workspace, which stays behind the same explicit review-then-save gate
+// generate_code already uses (see PlanningView's per-node Approve handler
+// for the review-queue counterpart to this bulk action) — a single click
+// on Approve All must never write file content the human hasn't looked at.
+// Returned separately so the caller can tell the human "N files still need
+// review" rather than silently doing nothing about them.
+export function approvePlanNodes(planId) {
+  const plans = readPlansFile()
+  const plan = plans.find((p) => p.id === planId)
+  const nodeIds = new Set(plan?.nodeIds ?? [])
+  const data = readNotesFile()
+  const approved = []
+  const needsReview = []
+  for (const node of data.nodes) {
+    if (node.status !== 'draft') continue
+    if (node.planId !== planId && !nodeIds.has(node.id)) continue
+    if (node.proposedFile) {
+      needsReview.push(node.id)
+      continue
+    }
+    node.status = 'approved'
+    approved.push(node.id)
+  }
+  if (approved.length) writeNotesFile(data)
+  return { approvedIds: approved, needsReviewIds: needsReview }
 }
 
 // Full-replace of one node's outgoing 'borrows' edges — used both by the
@@ -1107,6 +1372,30 @@ export function setNodeStage(id, stage) {
     stages[id] = stage
   }
   writeStages(stages)
+  return { stages }
+}
+
+// Bulk-fills `stage` for any of `ids` that have no stage yet — used when a
+// plan picks up files/nodes so they start life with an explicit status
+// (see PlanningView.ViewModel.tsx's asset-plan resolve effect) instead of
+// silently reading as untagged. Never overwrites an id that already has one
+// — from a prior plan, Workspace, or Source Control — that's the difference
+// between "default" and "reset". One read + one write regardless of how many
+// ids are passed, unlike calling setNodeStage per id (a plan can easily have
+// hundreds of files).
+export function setDefaultNodeStages(ids, stage) {
+  if (!NODE_STAGES.has(stage)) {
+    throw new Error(`Unknown stage "${stage}" — expected one of ${[...NODE_STAGES].join(', ')}`)
+  }
+  const stages = readStages()
+  let changed = false
+  for (const id of ids) {
+    if (!(id in stages)) {
+      stages[id] = stage
+      changed = true
+    }
+  }
+  if (changed) writeStages(stages)
   return { stages }
 }
 

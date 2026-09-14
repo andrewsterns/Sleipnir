@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { forceCenter } from 'd3-force-3d'
 import type { GraphData, GraphNode, NodeStage } from './types'
-import { stageConfig } from './stages'
+import { stageConfig, nodeStageKey } from './stages'
 import { buildForceLayout, linkNode, linkId, nodeRadius, type NodePositions } from './layout'
 import { Icon, type IconName } from '../../app/UIKit/Icon/Icon'
 
@@ -106,13 +106,20 @@ export interface GraphCanvasProps {
   data: GraphData
   selectedId: string | null
   onSelectNode: (id: string) => void
-  /** Double-click a node to jump to its component/prototype source. */
-  onActivateNode?: (id: string) => void
+  /**
+   * Bump (e.g. `s => s + 1`) to explicitly center the camera on `selectedId`
+   * right now — e.g. the NODES list's single-click (see PlanningView's
+   * selectNodeRow). Selecting a node from *within* the graph itself (a plain
+   * single-click, or the pointerdown that starts a drag) never auto-centers —
+   * only this signal and a node's own double-click (below) do — so clicking
+   * or dragging a node in the graph never fights the camera.
+   */
+  centerSignal?: number
   /** Per-node sprint stage overlay ({ [nodeId]: stage }) — drives each node's color + stroke (see graph/stages.ts). Passed separately from `data` on purpose: folding it in would rebuild the force layout on every tag change. Omit/empty = every node renders by its `kind` as before. */
   stages?: Record<string, NodeStage>
 }
 
-export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, onActivateNode, stages }) => {
+export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const viewportRef = useRef<SVGGElement>(null)
@@ -318,33 +325,43 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
     simulation.alpha(0.3).restart()
   }
 
-  // One-shot center-on-select: snap the camera to a node only when the
-  // selection actually changes to a NEW node — not on data rebuilds while the
-  // same node stays selected (editing links refetches the graph, which used to
-  // re-trigger a re-center). The tick loop clears followNodeIdRef the instant
-  // the camera arrives, and starting a background pan cancels it too — so after
-  // that initial snap you can drag the canvas around freely without the node
-  // springing back to the middle.
-  const prevSelectedForFollowRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (selectedId === prevSelectedForFollowRef.current) return
-    prevSelectedForFollowRef.current = selectedId
-    followNodeIdRef.current = selectedId || null
-    if (selectedId) {
-      // Distance from where the camera is right now to the selected node —
-      // "how far away" it is from the current view, in screen px — sets this
-      // flight's speed (see followParamsForDistance): far = fast, near = slow.
-      const target = simNodes.find((n) => n.id === selectedId)
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (target && rect) {
-        const tx = rect.width / 2 - (target.x ?? 0) * view.current.k
-        const ty = rect.height / 2 - (target.y ?? 0) * view.current.k
-        const distance = Math.hypot(tx - view.current.x, ty - view.current.y)
-        followParamsRef.current = followParamsForDistance(distance)
-      }
-      wake()
+  // One-shot center-on-demand: snaps the camera to a node id, never called
+  // automatically just because the selection changed (see centerSignal's doc
+  // comment). Mirrored into a ref every render (same pattern as
+  // selectedIdRef) rather than memoized, so both the centerSignal effect
+  // below and a node's own onDoubleClick handler always call the freshest
+  // version — closing directly over `simNodes`/`wake` would go stale the
+  // moment `data` changes and rebuilds the simulation. The tick loop clears
+  // followNodeIdRef the instant the camera arrives, and starting a
+  // background pan cancels it too — so after the initial snap you can drag
+  // the canvas around freely without the node springing back to the middle.
+  const centerOnNodeRef = useRef<(id: string) => void>(() => {})
+  centerOnNodeRef.current = (id: string) => {
+    followNodeIdRef.current = id
+    // Distance from where the camera is right now to the target node — "how
+    // far away" it is from the current view, in screen px — sets this
+    // flight's speed (see followParamsForDistance): far = fast, near = slow.
+    const target = simNodes.find((n) => n.id === id)
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (target && rect) {
+      const tx = rect.width / 2 - (target.x ?? 0) * view.current.k
+      const ty = rect.height / 2 - (target.y ?? 0) * view.current.k
+      const distance = Math.hypot(tx - view.current.x, ty - view.current.y)
+      followParamsRef.current = followParamsForDistance(distance)
     }
-  }, [selectedId, simNodes])
+    wake()
+  }
+
+  // Fires centerOnNodeRef only when centerSignal actually bumps (the NODES
+  // list's single-click, see PlanningView's selectNodeRow) — not on every
+  // selectedId/data change, which is what makes a plain click in the graph
+  // itself select without moving the camera.
+  const prevCenterSignalRef = useRef(centerSignal)
+  useEffect(() => {
+    if (centerSignal === prevCenterSignalRef.current) return
+    prevCenterSignalRef.current = centerSignal
+    if (selectedIdRef.current) centerOnNodeRef.current(selectedIdRef.current)
+  }, [centerSignal])
 
   const toGraphPoint = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect()
@@ -389,13 +406,19 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
   const handleNodePointerDown = (id: string) => (e: React.PointerEvent) => {
     e.stopPropagation()
     onSelectNode(id)
+    // Note: no wake() here — selecting a node (a plain click) must never
+    // reheat the simulation, or every click would jostle the whole layout.
+    // Physics only wakes once an actual drag move happens, below.
     drag.current = { id }
-    wake()
     ;(e.target as Element).setPointerCapture(e.pointerId)
   }
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (drag.current) {
+      // Reheat only now, on the first confirmed drag movement — so other
+      // nodes' collide/charge forces react to the node being dragged, but a
+      // click that never moves the pointer leaves the layout untouched.
+      wake()
       const node = simNodes.find((n) => n.id === drag.current!.id)
       if (node) {
         const p = toGraphPoint(e.clientX, e.clientY)
@@ -483,15 +506,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                   if (el) edgeRefs.current.set(i, el)
                   else edgeRefs.current.delete(i)
                 }}
-                // Solid edge — full-opacity ink (white in dark, near-black in
-                // light). `opacity` still fades unrelated edges when a node is
-                // selected, and applies to the arrowhead marker too.
+                // Theme-aware edge ink (--graph-edge: white on tactical dark,
+                // near-black on light — see 00_themes/*.css) at half opacity —
+                // `opacity` still fades unrelated edges further when a node is
+                // selected, and applies to the arrowhead marker too (same element).
                 style={{ stroke: 'var(--graph-edge, #ffffff)' }}
                 // Thin link lines: the base edge drops from 1px → 0.5px, and a
                 // highlighted (selected-node) edge from 1.5px → 1px, so the
                 // graph reads as fine hairlines rather than heavy strokes.
                 strokeWidth={isSelectedEdge ? 1 : 0.5}
-                opacity={dimmed ? 0.08 : 1}
+                opacity={dimmed ? 0.08 : 0.5}
                 markerEnd="url(#graph-edge-arrow)"
               />
             )
@@ -542,15 +566,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
             const labelIconGap = 3
             const contentWidth = labelIconSize + labelIconGap + labelWidth
             const contentLeft = -(contentWidth / 2)
-            // A tagged stage renders as its own status glyph (◌ ○ ◐ ◑ ⊘ ●, the
-            // same marker the detail card's STATUS toggle shows, see
-            // graph/stages.ts) in the stage's color, keeping that color even
-            // while selected — the card that edits it is open exactly then, so
-            // selection is shown by the ring below instead of the white swap.
-            // Untagged nodes render as a simple circle: built = solid grey dot,
-            // proposed = an ink outline ring (the default "proposed" look, same
-            // empty circle the status glyph shows).
-            const stage = stageConfig(stages?.[node.id])
+            // A tagged stage renders as a real circle using its own fill/
+            // stroke/dash (graph/stages.ts) — solid for 'completed', an
+            // outline (dashed for todo/in-review) otherwise — always at the
+            // same r={radius} every other node uses. StatusGlyph (the list-row/
+            // card-toggle status icon) draws this exact same stroked/dashed/
+            // filled circle at icon scale, so the mark reads identically
+            // whether it's a dot on the graph canvas or a glyph in a list row.
+            // Untagged nodes (any node kind besides a workspace-file, which
+            // now always gets an explicit stage — see PlanningView.ViewModel's
+            // default-fill effect) fall back to the same built/proposed look
+            // as before.
+            const stage = stageConfig(stages?.[nodeStageKey(node)])
+            const circleStyle = stage
+              ? { fill: stage.fill === 'solid' ? stage.color : 'none', stroke: stage.color }
+              : { fill: isProposed ? 'none' : color, stroke: isProposed ? 'var(--text-1)' : color }
+            const circleStrokeWidth = stage ? (stage.fill === 'solid' ? 0 : stage.strokeWidth) : isProposed ? 1.5 : 0
             return (
               <g
                 key={node.id}
@@ -559,7 +590,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                   else nodeGroupRefs.current.delete(node.id)
                 }}
                 onPointerDown={handleNodePointerDown(node.id)}
-                onDoubleClick={() => onActivateNode?.(node.id)}
+                // Double-click centers the camera on this node (it's already
+                // selected — pointerdown above fired onSelectNode first) —
+                // deliberately not "jump to file" anymore, so double-clicking
+                // to steady the view for a drag never navigates away.
+                onDoubleClick={() => centerOnNodeRef.current(node.id)}
                 onPointerEnter={() => setHoveredId(node.id)}
                 onPointerLeave={() => setHoveredId((h) => (h === node.id ? null : h))}
                 // A discovered node (pulled in by the reference walk, never
@@ -576,28 +611,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 {isSelected && stage && (
                   <circle r={radius + 4} fill="none" style={{ stroke: 'var(--graph-ring, #ffffff)' }} strokeWidth={1} opacity={0.9} />
                 )}
-                {stage ? (
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize={radius * 2.6}
-                    opacity={0.95}
-                    // fill via style (not the attribute) so a stage colour that's
-                    // a CSS var — e.g. proposed's var(--text-1) — resolves.
-                    style={{ fill: stage.color, pointerEvents: 'none' }}
-                  >
-                    {stage.glyph}
-                  </text>
-                ) : (
-                  <circle
-                    r={radius}
-                    // Proposed = ink outline ring (the default look), built = its
-                    // filled kind colour. No dash — a clean empty circle.
-                    style={{ fill: isProposed ? 'none' : color, stroke: isProposed ? 'var(--text-1)' : color }}
-                    strokeWidth={isProposed ? 1.5 : 0}
-                    opacity={0.9}
-                  />
-                )}
+                <circle
+                  r={radius}
+                  style={circleStyle}
+                  strokeWidth={circleStrokeWidth}
+                  strokeDasharray={stage?.dash}
+                  opacity={0.9}
+                />
                 <rect
                   x={contentLeft - 7}
                   y={labelY - labelHeight / 2}

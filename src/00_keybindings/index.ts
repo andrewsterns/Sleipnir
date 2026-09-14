@@ -5,11 +5,17 @@ export interface CommandBinding {
   key: string;
 }
 
-// The one real hotkey registered anywhere today (CommandPalette.tsx's
-// onHotkey). Add an entry here — and read it via useKeybindings() at the
-// registration site — as more commands gain hotkeys later.
+// Add an entry here — and read it via useKeybindings() at the registration
+// site — as more commands gain hotkeys.
+//
+// `terminal.toggle` is deliberately NOT registered through Frame's onHotkey the
+// way the palette is. That helper matches on `e.key` and listens on the bubble
+// phase, and both are wrong for this one: backquote is not the same character on
+// every layout, and the place you are most likely to press Ctrl+` is inside the
+// terminal itself, where xterm handles keys first. See app/shortcuts.ts.
 export const DEFAULT_KEYBINDINGS: CommandBinding[] = [
   { id: 'commandPalette.open', label: 'Quick Open (Go to File)', key: 'p' },
+  { id: 'terminal.toggle', label: 'Toggle Terminal', key: '`' },
 ];
 
 const STORAGE_KEY = 'sleipnir-keybindings';

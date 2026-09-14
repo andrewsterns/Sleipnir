@@ -27,6 +27,10 @@ export interface SavedPlan {
   /** Import/require connections detected between `assetPaths` entries at creation time (see NewWorkspacePlanModal.ViewModel's detectEdges) — an initial-paint snapshot only. graphForPlan (PlanningView.ViewModel.tsx) renders this immediately for a flash-free first paint, then resolveAssetPlanGraph replaces it with a live re-scan of current file content. Best-effort: precise for JS/TS relative imports, coarser (basename-matched) for other languages — see graph/importAdapters/detectEdges.ts. */
   assetEdges?: { source: string; target: string }[]
   createdAt: number
+  /** Scratch/exploratory flag set by tools/sleipnir-plan.mjs's --temporary — informational only today, nothing reads it back to change behavior. */
+  temporary?: boolean
+  /** Declared step count from tools/sleipnir-plan.mjs's --total-steps, when the authoring agent knows it up front — lets PlanBuildStatusBar show real N-of-M progress and a definitive completion moment instead of an indeterminate pulse + quiet-period guess. Absent when not declared. */
+  expectedSteps?: number
 }
 
 export type NodeKind = 'built' | 'proposed'
@@ -62,6 +66,8 @@ export interface GraphNode {
   architecture?: ArchitectureId
   /** True only on an asset-plan node pulled in by the reference walk (see resolveAssetPlan.ts) rather than explicitly added to the plan — e.g. an atom a card component imports, never hand-picked itself. Absent (not false) on every explicitly-added node. */
   discovered?: boolean
+  /** Set only on a plan-step node created via tools/sleipnir-plan.mjs's propose-file (see tools/sleipnir-backend.mjs#proposeFileNode) — a staged new-file proposal that hasn't touched real disk yet. `path` doesn't exist as a real Workspace file until a human reviews it (via the same staged-editor-tab flow generate_code uses) and explicitly saves. Absent on every other node kind. */
+  proposedFile?: { path: string; content: string }
 }
 
 export interface GraphEdge {

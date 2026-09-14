@@ -9,16 +9,21 @@ const { pathToFileURL } = require('node:url')
 const anthropicProvider = require('./chatProviders/anthropic.cjs')
 const ollamaProvider = require('./chatProviders/ollama.cjs')
 const commandRunner = require('./commandRunner.cjs')
+const modelStore = require('./modelStore.cjs')
 
-// SLEIPNIR_MODEL_PROVIDER=anthropic|ollama forces a provider. Left unset,
-// this defaults to Anthropic when a key is present (better tool-use quality
-// — see chatProviders/anthropic.cjs), else falls back to a local Ollama
-// server so the chat/plan-node/approval pipeline works out of the box with
-// no account or key.
+// SLEIPNIR_MODEL_PROVIDER=anthropic|ollama forces a provider, overriding
+// everything else (dev-only escape hatch). Otherwise: an explicit "Local
+// Ollama" pick in the model dropdown (modelStore.OLLAMA_MODEL_ID) always wins
+// — even with a key configured — since picking it is a deliberate choice to
+// run local. Left unset, this defaults to Anthropic when a key is present
+// (better tool-use quality — see chatProviders/anthropic.cjs), else falls
+// back to a local Ollama server so the chat/plan-node/approval pipeline works
+// out of the box with no account or key.
 function selectProvider() {
   const explicit = process.env.SLEIPNIR_MODEL_PROVIDER
   if (explicit === 'anthropic') return anthropicProvider
   if (explicit === 'ollama') return ollamaProvider
+  if (modelStore.getModel() === modelStore.OLLAMA_MODEL_ID) return ollamaProvider
   return anthropicProvider.isAvailable() ? anthropicProvider : ollamaProvider
 }
 

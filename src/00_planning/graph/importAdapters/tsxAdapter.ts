@@ -49,10 +49,19 @@ function resolveSpecifier(fromPath: string, raw: string, candidatePaths: string[
     return candidates.find((c) => pool.has(c)) ?? null
   }
 
-  if (raw.startsWith('.')) {
+  // A bundler query/fragment suffix is part of the specifier but not part of
+  // the filename — Vite's `?url` / `?raw` / `?inline` / `?worker`, svgr's
+  // `?react`. Stripping it is what lets an asset import resolve at all:
+  // `import logo from './logo.svg?url'` was searching the pool for a file
+  // literally named "logo.svg?url", so every suffixed asset silently produced
+  // no edge. Plain `./logo.svg` (no suffix) already worked — `base` itself is
+  // the first candidate above, extension included.
+  const spec = raw.replace(/[?#].*$/, '')
+
+  if (spec.startsWith('.')) {
     const fromDir = fromPath.split('/').slice(0, -1)
     const stack = [...fromDir]
-    for (const part of raw.split('/')) {
+    for (const part of spec.split('/')) {
       if (part === '.' || part === '') continue
       if (part === '..') stack.pop()
       else stack.push(part)
@@ -61,7 +70,7 @@ function resolveSpecifier(fromPath: string, raw: string, candidatePaths: string[
   }
 
   if (aliases) {
-    for (const base of expandAlias(raw, aliases)) {
+    for (const base of expandAlias(spec, aliases)) {
       const hit = resolveBase(base)
       if (hit) return hit
     }

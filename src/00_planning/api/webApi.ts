@@ -225,6 +225,22 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ node: GraphNode }>(res))
   },
 
+  proposeFileNode(
+    planId: string,
+    label: string,
+    description: string | undefined,
+    filePath: string,
+    content: string,
+    parentId?: string,
+    linkTargetIds?: string[],
+  ): Promise<{ node: GraphNode }> {
+    return fetch('/api/sleipnir/plan-node/propose-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId, label, description, filePath, content, parentId, linkTargetIds }),
+    }).then((res) => asJson<{ node: GraphNode }>(res))
+  },
+
   setNodeStatus(id: string, status: NodeStatus): Promise<{ node: GraphNode }> {
     return fetch('/api/sleipnir/node-status', {
       method: 'POST',
@@ -269,6 +285,14 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ stages: Record<string, NodeStage> }>(res))
   },
 
+  setDefaultNodeStages(ids: string[], stage: NodeStage): Promise<{ stages: Record<string, NodeStage> }> {
+    return fetch('/api/sleipnir/node-stages/default', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, stage }),
+    }).then((res) => asJson<{ stages: Record<string, NodeStage> }>(res))
+  },
+
   getPlans(): Promise<{ plans: SavedPlan[] }> {
     return fetch('/api/sleipnir/plans').then((res) => asJson<{ plans: SavedPlan[] }>(res))
   },
@@ -308,6 +332,22 @@ export const webApi: PlatformAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, paths, folders }),
+    }).then((res) => asJson<{ plan: SavedPlan }>(res))
+  },
+
+  approvePlanNodes(planId: string): Promise<{ approvedIds: string[]; needsReviewIds: string[] }> {
+    return fetch('/api/sleipnir/plans/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId }),
+    }).then((res) => asJson<{ approvedIds: string[]; needsReviewIds: string[] }>(res))
+  },
+
+  renamePlan(id: string, label: string): Promise<{ plan: SavedPlan }> {
+    return fetch('/api/sleipnir/rename-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, label }),
     }).then((res) => asJson<{ plan: SavedPlan }>(res))
   },
 

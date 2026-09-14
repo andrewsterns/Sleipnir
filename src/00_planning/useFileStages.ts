@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getNotes } from './api/sleipnirApi'
 import { useStages, setStage } from './stagesStore'
+import { fileStageKey } from './graph/stages'
 import type { NodeStage } from './graph/types'
-
-// Synthetic stages.json key for a file with no backing plan node — lets any
-// Workspace file carry a status without requiring it to be scaffolded into
-// the planning graph first. Never collides with a real node id (those are
-// always `note/...`, `plan/...`; see sleipnir-backend.mjs's id generation).
-function fileStageKey(path: string) {
-  return `file:${path}`
-}
 
 // A workspace-relative filePath → sprint-stage lookup, built from the planning
 // data: nodes carry a `filePath`, the stage overlay (shared app-wide via

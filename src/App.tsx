@@ -18,7 +18,7 @@ import { TitleBar } from './app/TitleBar/TitleBar'
 import { WorkspaceView } from './app/Workspace/WorkspaceView'
 import { CommandPalette } from './app/CommandPalette/CommandPalette'
 import { PlanningView } from './00_planning/PlanningView'
-import { ResearchView } from './01_research/ResearchView'
+import { CanvasView } from './01_canvas/CanvasView'
 import SourceControlView from './06_source_control/SourceControlView'
 import ValidationView from './04_validation/ValidationView'
 import type { GraphMapId, SavedPlan } from './00_planning/graph/types'
@@ -30,22 +30,29 @@ import {
   saveScratchToFolder,
   getRecentProjects,
   openRecentProject,
+  clearRecentProjects,
   newWindow,
   appendPlanGeneratedFiles,
 } from './00_planning/api/sleipnirApi'
 import type { RecentProject, WorkspaceInfo } from './00_planning/api/PlatformAPI'
+import { isPlanningWatchAvailable } from './00_planning/api/iPlanningWatch'
+import { useCanvasComponentPaths } from './01_canvas/useCanvasComponentPaths'
+import { reconcileDelete, reconcileMove } from './01_canvas/model/store'
 import type { FolderBrowserHandle } from './app/DesignSystem/iFolderBrowserView'
 import type { GeneratedFile } from './app/AgentChat/iAgentChat'
 import { registerLspFileOpener } from './app/DesignSystem/lspClient'
+import { DOCK_PANEL_HEIGHT } from './app/shellLayout'
+import { isTerminalToggle, TERMINAL_TOGGLE_DEFAULT_KEY, TERMINAL_TOGGLE_ID } from './app/shortcuts'
+import { useKeybindings } from './00_keybindings/KeybindingsController'
 
 export type { Page } from './types'
 
-// Terminal, AI Chat, and Problems share one full-width bottom dock slot —
-// only one can be open at a time, or their panels would fully overlap. Must
-// match TerminalDock/AgentDock/ProblemsDock's own panel height exactly — this
-// is the space reclaimed from the flex column above so the fixed panel lands
-// in a genuine gap instead of covering real content.
-const DOCK_PANEL_HEIGHT = 320
+// Terminal, AI Chat, and Problems share one full-width bottom dock slot — only
+// one can be open at a time, or their panels would fully overlap. The height
+// they reserve, and where they sit in the stacking order, now live in
+// app/shellLayout.ts: the panel only lands in a genuine gap (rather than on top
+// of real content) while its height and the strip reclaimed for it agree, and
+// four copies of the number had no way to stay agreed.
 
 // Analytics is still hidden for now, not removed — src/05_analytics/ stays
 // untouched on disk. Bringing it back is restoring its entry here and its
@@ -53,7 +60,7 @@ const DOCK_PANEL_HEIGHT = 320
 // 'validation' entry below and its case in renderCategory.)
 const NAV_ITEMS: NavRailItem[] = [
   { id: 'planning',    tag: '00',  title: 'Planning',    icon: 'network' },
-  { id: 'research',    tag: '01',  title: 'Research',    icon: 'research' },
+  { id: 'canvas',      tag: '01',  title: 'Canvas',      icon: 'canvas' },
   { id: 'workspace',   tag: 'WS',  title: 'Workspace',   icon: 'folder' },
   { id: 'validation',  tag: '04',  title: 'Validation',  icon: 'check' },
   { id: 'source-control', tag: 'GIT', title: 'Source Control', icon: 'git-branch' },
@@ -65,6 +72,7 @@ function tabLabelFor(path: string): string {
 
 function App() {
   const { theme } = useAppTheme()
+  const { bindings } = useKeybindings()
   // NavRail switches between mutually-exclusive categories (never a shared
   // cross-category tab strip — see FolderBrowserView for where tabs
   // actually live, scoped inside a single category). `mountedCategories`
@@ -95,12 +103,21 @@ function App() {
   // instance is mounting for the first time or was already sitting there
   // from an earlier visit.
   const [pendingWorkspaceFile, setPendingWorkspaceFile] = useState<{ name: string; path: string; line?: number } | null>(null)
+  // Same reactive-payload pattern as pendingWorkspaceFile, for jumping into
+  // Canvas: set right before switchTo('canvas'), consumed by CanvasView to
+  // open whichever board owns the component at this filePath and select it.
+  const [pendingCanvasFocus, setPendingCanvasFocus] = useState<{ filePath: string } | null>(null)
   // Staged AI-generated content for an approved plan node (see PlanningView's
   // "Generate Code" -> electron/chat.cjs's generate_code tool) — V1 stages
   // one file at a time even though the tool can return several, so only the
   // first is opened for review.
   const [pendingOverride, setPendingOverride] = useState<{ path: string; content: string; planNodeId: string } | null>(null)
-  const [focusMapId, setFocusMapId] = useState<GraphMapId | null>(null)
+  // Cross-section "jump to this node" target for Planning — set right before
+  // switchTo('planning'), consumed once by PlanningView to switch to the
+  // right map/plan tab and, when nodeId is present, select + center that
+  // node too (nodeId is optional so this still covers the plain "jump to
+  // this map/tab" case, e.g. jumpToAiTab below).
+  const [focusTarget, setFocusTarget] = useState<{ mapId: GraphMapId; nodeId?: string } | null>(null)
   // The currently open project (see ROADMAP.md's Phase 0 "Workspace" +
   // File > Open Project/Open Recent/New Window) — null in the blank state.
   // Single source of truth for the TitleBar's project label, Planning's
@@ -108,6 +125,12 @@ function App() {
   // Recent's list; WorkspaceView keeps its own info in sync both ways (see
   // its onProjectOpened prop for the "changed via its own button" direction).
   const [activeProject, setActiveProject] = useState<{ path: string; name: string } | null>(null)
+  // Every filePath with a written canvas component, across every board —
+  // fetched once here and handed to PlanningView/WorkspaceView as a prop
+  // (same "one fetch, many consumers" reasoning as `plans`), so cross-section
+  // "Show in Canvas" menu items know when to appear without either of those
+  // features importing from 01_canvas directly.
+  const canvasComponentPaths = useCanvasComponentPaths(activeProject?.path)
   // True when the active project is the auto-provided scratch project (no real
   // folder chosen yet) — drives the TitleBar's "unsaved" label + Save action.
   const [isScratch, setIsScratch] = useState(false)
@@ -117,6 +140,22 @@ function App() {
   // Settings is a full page (see 'settings' in renderCategory), not part of
   // this family.
   const [activeDock, setActiveDock] = useState<'terminal' | 'agent' | 'problems' | null>(null)
+
+  // Ctrl+` toggles the terminal, as it does in VS Code (see app/shortcuts.ts for
+  // the rule, and 00_keybindings for why it is not registered through Frame's
+  // onHotkey like the palette is). Bound on the CAPTURE phase because the
+  // terminal is the most likely place to press it from, and xterm handles keys
+  // on its own element — it would otherwise swallow the combo that closes it.
+  const terminalToggleKey = bindings[TERMINAL_TOGGLE_ID] ?? TERMINAL_TOGGLE_DEFAULT_KEY
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isTerminalToggle(e, terminalToggleKey)) return
+      e.preventDefault()
+      setActiveDock((cur) => (cur === 'terminal' ? null : 'terminal'))
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [terminalToggleKey])
   // Every FolderBrowserView-backed category's imperative handle, keyed by
   // category id — lets the File menu's Save/Save All (which live in
   // TitleBar, outside any category's own tree) reach whichever category is
@@ -125,6 +164,61 @@ function App() {
   const setBrowserRef = (id: string, handle: FolderBrowserHandle | null) => {
     if (handle) browserRefs.current.set(id, handle)
     else browserRefs.current.delete(id)
+  }
+
+  /**
+   * Refetches the Workspace tab's file tree.
+   *
+   * That tree reloads on mount, on project change, and after its own create/
+   * delete actions — nothing else. So a file written from another part of the
+   * app (Canvas promoting a component, Planning scaffolding a node's files)
+   * lands on disk and stays invisible until the project is switched and
+   * switched back, which reads as "it didn't save". Every out-of-tree writer
+   * calls this afterwards.
+   */
+  const refreshWorkspaceTree = () => {
+    browserRefs.current.get('workspace')?.refresh()
+  }
+
+  /**
+   * Reattaches Canvas boards to a file the Workspace tree just moved.
+   *
+   * Moving a component's file out of `.canvas` into real source is how a staged
+   * component becomes a workspace component — the move IS the promotion — so
+   * the board has to follow it. Without this the board would keep pointing at
+   * the path the file left, and the next push would rewrite an abandoned copy
+   * (see 01_canvas/model/relink.ts).
+   *
+   * Runs for every move, not just ones out of `.canvas`: reconcileMove is a
+   * no-op for boards that own nothing at the source path, and a component that
+   * was already promoted still needs to be followed if it moves again.
+   */
+  const handlePathMoved = async (from: string, to: string) => {
+    try {
+      await reconcileMove(from, to)
+    } catch {
+      // Best-effort: the bytes have already moved, and a board left stale is a
+      // recoverable annoyance, not a reason to surface an error over a
+      // successful drag.
+    }
+  }
+
+  /**
+   * Reconciles Canvas boards to a file deleted in the Workspace tree.
+   *
+   * Deleting a component's file from the tree is the same intent as the
+   * Canvas's own REMOVE FROM WORKSPACE, so it gets the same outcome: the
+   * component is un-promoted back to a frame when nothing would be lost, and
+   * kept but flagged when it carries variants, props, or several instances
+   * (see 01_canvas/model/relink.ts's reconcileDeletedPath).
+   */
+  const handlePathDeleted = async (path: string) => {
+    try {
+      await reconcileDelete(path)
+    } catch {
+      // Best-effort, same as handlePathMoved: the file is already gone, and a
+      // board left stale is recoverable in a way a failed delete is not.
+    }
   }
 
   const refreshRecentProjects = () => {
@@ -180,13 +274,29 @@ function App() {
     getPlans().then(({ plans }) => setPlans(plans)).catch(() => {})
   }, [activeProject?.path])
 
+  // Unlike `notes`/`stages` (kept live inside PlanningView.ViewModel.tsx's
+  // own planningWatchAPI subscription), `plans` lives up here — so an
+  // externally-created plan (a terminal AI running tools/sleipnir-plan.mjs's
+  // create-plan, same as the tested `planner-test` flow) needs its own
+  // refetch here, or a brand-new plan tab would only ever appear after
+  // reopening the project. `stagesOnly` batches never add/remove a plan, so
+  // skip them same as PlanningView.ViewModel.tsx does.
+  useEffect(() => {
+    if (!isPlanningWatchAvailable() || !activeProject) return
+    return window.planningWatchAPI!.onChanged((info) => {
+      if (info?.stagesOnly) return
+      getPlans().then(({ plans }) => setPlans(plans)).catch(() => {})
+    })
+  }, [activeProject?.path])
+
   // Transient, project-scoped UI state (staged files/overrides/focus) that
   // shouldn't survive a project switch — called by every path that changes
   // activeProject below.
   const resetProjectScopedUiState = () => {
     setPendingWorkspaceFile(null)
+    setPendingCanvasFocus(null)
     setPendingOverride(null)
-    setFocusMapId(null)
+    setFocusTarget(null)
   }
 
   const applyProjectInfo = (info: WorkspaceInfo) => {
@@ -211,6 +321,29 @@ function App() {
     if (!result || 'error' in result) return
     applyProjectInfo(result)
     switchTo('workspace')
+  }
+
+  // File > Open Recent > Clear Recent Projects — forgets the list only. The
+  // open project (and every other window's) is left alone, so it reappears in
+  // the list the next time it's opened. Renders whatever the main process says
+  // the list now is (rather than assuming empty), so a failed clear shows the
+  // still-present entries instead of an empty menu that refills on the next
+  // refetch — the exact "clicking it did nothing visible" symptom this had
+  // when the running main process predated the IPC handler.
+  const onClearRecentProjects = async () => {
+    const pending = clearRecentProjects()
+    // No bridge method at all (web transport, or a preload older than this
+    // renderer) — nothing was cleared, so don't blank the list as if it were.
+    if (!pending) {
+      console.error('Clear Recent Projects is unavailable in this build')
+      return
+    }
+    try {
+      setRecentProjects((await pending).projects)
+    } catch (e) {
+      console.error('Clear Recent Projects failed', e)
+      refreshRecentProjects()
+    }
   }
 
   // File > New Window — opens a brand-new, blank OS window (its own
@@ -274,7 +407,7 @@ function App() {
   // staying wherever they last navigated.
   const jumpToAiTab = () => {
     switchTo('planning')
-    setFocusMapId('claude')
+    setFocusTarget({ mapId: 'claude' })
   }
 
   // Fired once the generate_code tool stages content for an approved plan
@@ -313,6 +446,20 @@ function App() {
     if (!info.root) return
     setPendingWorkspaceFile({ name: tabLabelFor(path), path, line: opts?.line })
     switchTo('workspace')
+  }
+
+  // Cross-section jump targets — the Planning/Canvas counterparts to
+  // jumpToProjectFile above, used by "Show in Planning"/"Show in Canvas"
+  // context-menu items in the Workspace tree, Planning's node list, and
+  // Canvas's layers panel.
+  const jumpToPlanningNode = (mapId: GraphMapId, nodeId: string) => {
+    switchTo('planning')
+    setFocusTarget({ mapId, nodeId })
+  }
+
+  const jumpToCanvasComponent = (filePath: string) => {
+    switchTo('canvas')
+    setPendingCanvasFocus({ filePath })
   }
 
   // Bridges lspClient.ts's SleipnirWorkspace (go-to-definition/rename landing
@@ -381,26 +528,35 @@ function App() {
             // load fresh from the new project's own .planning/ folder rather
             // than showing stale state from whatever was open before.
             key={activeProject?.path ?? 'no-project'}
-            focusMapId={focusMapId}
-            onFocusMapIdConsumed={() => setFocusMapId(null)}
+            focusTarget={focusTarget}
+            onFocusTargetConsumed={() => setFocusTarget(null)}
             onCodeGenerated={onCodeGenerated}
             plans={plans}
             onCreatePlan={onCreatePlan}
             onDeletePlan={onDeletePlan}
             onUpdatePlan={onUpdatePlan}
             onOpenFile={(path) => jumpToProjectFile(path)}
+            onShowInCanvas={jumpToCanvasComponent}
+            canvasComponentPaths={canvasComponentPaths}
+            onWorkspaceChanged={refreshWorkspaceTree}
           />
         )
-      case 'research':
+      case 'canvas':
         return (
-          <ResearchView
+          <CanvasView
             // Same remount-on-project-switch reasoning as PlanningView above
-            // — Research's own .research/ folder lives inside whichever
-            // project is open, so a stale instance can't leak content across
-            // a switch.
+            // — boards live in the open project's own .planning/canvas/
+            // folder, so a stale instance can't leak content across a switch.
             key={activeProject?.path ?? 'no-project'}
-            ref={(h) => setBrowserRef('research', h)}
             activeProject={activeProject}
+            // Keeps Ctrl+S working for a research doc opened in Canvas's Docs
+            // pane, which is the same FolderBrowserView the Research tab was.
+            docsBrowserRef={(h) => setBrowserRef('canvas', h)}
+            pendingFocus={pendingCanvasFocus}
+            onFocusConsumed={() => setPendingCanvasFocus(null)}
+            onOpenFile={(path) => jumpToProjectFile(path)}
+            onShowInPlanning={jumpToPlanningNode}
+            onWorkspaceChanged={refreshWorkspaceTree}
           />
         )
       case 'workspace':
@@ -417,12 +573,17 @@ function App() {
             onPlanCreated={(plan) => {
               onCreatePlan(plan)
               switchTo('planning')
-              setFocusMapId(plan.id)
+              setFocusTarget({ mapId: plan.id })
             }}
             onPlanUpdated={onUpdatePlan}
             onProjectOpened={applyProjectInfo}
             recentProjects={recentProjects}
             onOpenRecentProject={onOpenRecentProject}
+            onShowInPlanning={jumpToPlanningNode}
+            onShowInCanvas={jumpToCanvasComponent}
+            canvasComponentPaths={canvasComponentPaths}
+            onPathMoved={handlePathMoved}
+            onPathDeleted={handlePathDeleted}
           />
         )
       case 'validation':
@@ -474,6 +635,7 @@ function App() {
           onOpenProject={onOpenProject}
           recentProjects={recentProjects}
           onOpenRecentProject={onOpenRecentProject}
+          onClearRecentProjects={onClearRecentProjects}
           onNewWindow={onNewWindow}
         />
 

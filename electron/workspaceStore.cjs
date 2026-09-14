@@ -12,24 +12,27 @@ function storePath() {
   return path.join(app.getPath('userData'), 'workspace.json')
 }
 
+const EMPTY = { activeProjectPath: null, recentProjects: [], legacySeeded: false }
+
 // Normalizes both the current `{activeProjectPath, recentProjects}` shape
 // and the pre-project-system `{lastWorkspacePath}` scalar it replaces — an
 // existing install's last-open folder becomes its initial activeProjectPath
 // rather than being silently dropped.
 function readStore() {
   const p = storePath()
-  if (!fs.existsSync(p)) return { activeProjectPath: null, recentProjects: [] }
+  if (!fs.existsSync(p)) return { ...EMPTY }
   try {
     const data = JSON.parse(fs.readFileSync(p, 'utf8'))
+    const legacySeeded = data.legacySeeded === true
     if (Array.isArray(data.recentProjects)) {
-      return { activeProjectPath: data.activeProjectPath ?? null, recentProjects: data.recentProjects }
+      return { activeProjectPath: data.activeProjectPath ?? null, recentProjects: data.recentProjects, legacySeeded }
     }
     if (typeof data.lastWorkspacePath === 'string') {
-      return { activeProjectPath: data.lastWorkspacePath, recentProjects: [] }
+      return { activeProjectPath: data.lastWorkspacePath, recentProjects: [], legacySeeded }
     }
-    return { activeProjectPath: null, recentProjects: [] }
+    return { ...EMPTY, legacySeeded }
   } catch {
-    return { activeProjectPath: null, recentProjects: [] }
+    return { ...EMPTY }
   }
 }
 
@@ -52,7 +55,7 @@ function touchProject(absolutePath, name) {
   const data = readStore()
   const recentProjects = data.recentProjects.filter((p) => p.path !== absolutePath)
   recentProjects.unshift({ path: absolutePath, name, lastOpened: new Date().toISOString() })
-  writeStore({ activeProjectPath: absolutePath, recentProjects: recentProjects.slice(0, MAX_RECENT) })
+  writeStore({ ...data, activeProjectPath: absolutePath, recentProjects: recentProjects.slice(0, MAX_RECENT) })
 }
 
 // Updates a recent entry's cached display name in place — unlike
@@ -70,4 +73,34 @@ function clearActiveProject() {
   writeStore({ ...data, activeProjectPath: null })
 }
 
-module.exports = { getRecentProjects, getActiveProjectPath, touchProject, renameRecentProject, clearActiveProject }
+// File > Open Recent > Clear Recent Projects — empties the list without
+// closing whatever is currently open (the active project stays active and
+// re-enters the list the next time it's opened). Also marks the legacy seed
+// as done, so main.cjs's first-launch migration (which fires on an empty
+// recent list) doesn't resurrect an entry the human just deleted.
+function clearRecentProjects() {
+  const data = readStore()
+  writeStore({ ...data, recentProjects: [], legacySeeded: true })
+}
+
+// True once main.cjs's one-time legacy-planning migration has seeded its
+// recent entry — see markLegacySeeded and clearRecentProjects.
+function isLegacySeeded() {
+  return readStore().legacySeeded
+}
+
+function markLegacySeeded() {
+  const data = readStore()
+  writeStore({ ...data, legacySeeded: true })
+}
+
+module.exports = {
+  getRecentProjects,
+  getActiveProjectPath,
+  touchProject,
+  renameRecentProject,
+  clearActiveProject,
+  clearRecentProjects,
+  isLegacySeeded,
+  markLegacySeeded,
+}

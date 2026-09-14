@@ -12,9 +12,15 @@ export const TITLE_BAR_HEIGHT = 32
 
 interface MenuItem {
   label: string
+  /** React key + submenu-open identity, when the label isn't unique (two recent projects can share a name — see buildRecentItems). Defaults to `label`. */
+  key?: string
+  /** Native tooltip — the recent list uses it to show each project's full path. */
+  title?: string
   onSelect?: () => void
   /** A nested flyout instead of a direct action — mutually exclusive with onSelect. Only one level deep (Open Recent's own use case). */
   items?: MenuItem[]
+  /** Draws a divider above this item — separates a list from an action on that list (Open Recent's "Clear Recent Projects"). */
+  separatorBefore?: boolean
 }
 
 interface MenuDef {
@@ -36,7 +42,32 @@ export interface TitleBarProps {
   onOpenProject?: () => void
   recentProjects?: RecentProject[]
   onOpenRecentProject?: (path: string) => void
+  /** Empties the recent-projects list — nothing on disk is touched and the open project stays open (see App's onClearRecentProjects). Omitted (or with an empty list) hides the menu item. */
+  onClearRecentProjects?: () => void
   onNewWindow?: () => void
+}
+
+// Open Recent's flyout: the recent projects themselves, then a divided
+// "Clear Recent Projects" action. Shown only when there's something to
+// clear, so the empty state stays a single "No Recent Projects" line.
+function buildRecentItems(
+  recentProjects: RecentProject[] | undefined,
+  onOpenRecentProject: TitleBarProps['onOpenRecentProject'],
+  onClearRecentProjects: TitleBarProps['onClearRecentProjects'],
+): MenuItem[] {
+  if (!recentProjects || recentProjects.length === 0) return [{ label: 'No Recent Projects' }]
+  // Keyed by label downstream, so same-named projects in different folders
+  // need disambiguating — the path is the unique part.
+  const items: MenuItem[] = recentProjects.map((p) => ({
+    label: p.name,
+    key: p.path,
+    onSelect: () => onOpenRecentProject?.(p.path),
+    title: p.path,
+  }))
+  if (onClearRecentProjects) {
+    items.push({ label: 'Clear Recent Projects', onSelect: onClearRecentProjects, separatorBefore: true })
+  }
+  return items
 }
 
 function buildMenus({
@@ -47,6 +78,7 @@ function buildMenus({
   onOpenProject,
   recentProjects,
   onOpenRecentProject,
+  onClearRecentProjects,
   onNewWindow,
 }: TitleBarProps): MenuDef[] {
   return [
@@ -56,10 +88,7 @@ function buildMenus({
         { label: 'Open Project…', onSelect: onOpenProject },
         {
           label: 'Open Recent',
-          items:
-            recentProjects && recentProjects.length > 0
-              ? recentProjects.map((p) => ({ label: p.name, onSelect: () => onOpenRecentProject?.(p.path) }))
-              : [{ label: 'No Recent Projects' }],
+          items: buildRecentItems(recentProjects, onOpenRecentProject, onClearRecentProjects),
         },
         { label: 'New Window', onSelect: onNewWindow },
         // Only actionable while unsaved (scratch) — a real project is already
@@ -101,6 +130,12 @@ function buildMenus({
 }
 
 const NO_DRAG: React.CSSProperties = { WebkitAppRegion: 'no-drag' } as React.CSSProperties
+
+const SEPARATOR: React.CSSProperties = {
+  height: 1,
+  margin: '4px 0',
+  background: 'var(--border-2)',
+}
 
 const menuItemStyle = (active: boolean): React.CSSProperties => ({
   display: 'block',
@@ -192,9 +227,11 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
                 }}
               >
                 {menu.items.map((item) => (
-                  <div key={item.label} style={{ position: 'relative' }}>
+                  <div key={item.key ?? item.label} style={{ position: 'relative' }}>
+                    {item.separatorBefore && <div style={SEPARATOR} />}
                     <button
                       disabled={!item.onSelect && !item.items}
+                      title={item.title}
                       onClick={() => {
                         if (item.items) {
                           setOpenSubmenu((cur) => (cur === item.label ? null : item.label))
@@ -227,18 +264,21 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
                         }}
                       >
                         {item.items.map((sub) => (
-                          <button
-                            key={sub.label}
-                            disabled={!sub.onSelect}
-                            onClick={() => {
-                              sub.onSelect?.()
-                              setOpenMenu(null)
-                              setOpenSubmenu(null)
-                            }}
-                            style={menuItemStyle(!!sub.onSelect)}
-                          >
-                            {sub.label}
-                          </button>
+                          <React.Fragment key={sub.key ?? sub.label}>
+                            {sub.separatorBefore && <div style={SEPARATOR} />}
+                            <button
+                              disabled={!sub.onSelect}
+                              title={sub.title}
+                              onClick={() => {
+                                sub.onSelect?.()
+                                setOpenMenu(null)
+                                setOpenSubmenu(null)
+                              }}
+                              style={menuItemStyle(!!sub.onSelect)}
+                            >
+                              {sub.label}
+                            </button>
+                          </React.Fragment>
                         ))}
                       </div>
                     )}

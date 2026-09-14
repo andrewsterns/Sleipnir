@@ -3,6 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import type { FolderBrowserHandle } from '../DesignSystem/iFolderBrowserView'
+import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from '../shellLayout'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 const POLL_MS = 2000
@@ -68,8 +69,8 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({ open, onOpenChange, 
         style={{
           position: 'fixed',
           right: 116,
-          bottom: shiftUp ? 340 : 20,
-          zIndex: 1000,
+          bottom: shiftUp ? DOCK_TOGGLE_RAISED : DOCK_TOGGLE_MARGIN,
+          zIndex: LAYER.dock,
           width: 40,
           height: 40,
           borderRadius: '50%',
@@ -95,8 +96,8 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({ open, onOpenChange, 
             right: 0,
             left: 0,
             bottom: 0,
-            height: 320,
-            zIndex: 999,
+            height: DOCK_PANEL_HEIGHT,
+            zIndex: LAYER.dock,
             display: open ? 'flex' : 'none',
           }}
           fill={{ solid: 'bg-1' }}

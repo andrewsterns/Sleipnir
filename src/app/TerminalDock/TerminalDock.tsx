@@ -3,6 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { Terminal } from '../Terminal/Terminal'
 import { isTerminalAvailable } from '../Terminal/iTerminal'
+import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from '../shellLayout'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -27,6 +28,8 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
   const [terminals, setTerminals] = useState<number[]>([])
   const [activeId, setActiveId] = useState<number | null>(null)
   const nextId = useRef(1)
+  /** Scopes the focus-on-open query to this panel. */
+  const panelRef = useRef<HTMLElement>(null)
   const available = isTerminalAvailable()
 
   const addTerminal = () => {
@@ -58,6 +61,23 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, everOpened, available, terminals.length])
 
+  // Opening the panel puts the caret in the shell, the way Ctrl+` does in VS
+  // Code — a terminal you have to click before you can type in is half a
+  // shortcut. xterm's input is a hidden textarea it manages itself, so the only
+  // handle on it is the DOM; the query is scoped to this panel's own subtree so
+  // it can never reach for someone else's field. Deferred a frame because the
+  // panel is display:none until this render commits, and a hidden element
+  // cannot take focus.
+  useEffect(() => {
+    if (!open || activeId === null) return
+    const frame = requestAnimationFrame(() => {
+      panelRef.current
+        ?.querySelector<HTMLTextAreaElement>('[data-terminal-active] .xterm-helper-textarea')
+        ?.focus()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [open, activeId])
+
   return (
     <>
       <button
@@ -66,8 +86,8 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
         style={{
           position: 'fixed',
           right: 20,
-          bottom: shiftUp ? 340 : 20,
-          zIndex: 1000,
+          bottom: shiftUp ? DOCK_TOGGLE_RAISED : DOCK_TOGGLE_MARGIN,
+          zIndex: LAYER.dock,
           width: 40,
           height: 40,
           borderRadius: '50%',
@@ -86,6 +106,7 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
 
       {everOpened && (
         <Frame
+          ref={panelRef}
           flow="vertical"
           gap={0}
           style={{
@@ -93,8 +114,8 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
             right: 0,
             left: 0,
             bottom: 0,
-            height: 320,
-            zIndex: 999,
+            height: DOCK_PANEL_HEIGHT,
+            zIndex: LAYER.dock,
             display: open ? 'flex' : 'none',
           }}
           fill={{ solid: 'bg-1' }}
@@ -167,7 +188,12 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
           <Frame grow minH={0} style={{ position: 'relative' }}>
             {available ? (
               terminals.map((id) => (
-                <div key={id} style={{ position: 'absolute', inset: 0, display: id === activeId ? 'flex' : 'none' }}>
+                <div
+                  key={id}
+                  // Marks which shell the focus-on-open effect should reach for.
+                  data-terminal-active={id === activeId ? '' : undefined}
+                  style={{ position: 'absolute', inset: 0, display: id === activeId ? 'flex' : 'none' }}
+                >
                   <Terminal onExit={() => closeTerminal(id)} />
                 </div>
               ))

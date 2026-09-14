@@ -6,11 +6,18 @@ const { app } = require('electron')
 
 const DEFAULT_MODEL = 'claude-sonnet-5'
 
-// Keep in sync with ANTHROPIC_MODELS in src/app/AgentChat/iApiKeySettings.tsx.
+// Sentinel "model" id that means "use the local Ollama provider" rather than
+// an Anthropic model — checked by chat.cjs#selectProvider() to let a user
+// explicitly opt into Ollama from the model dropdown, even with a key
+// configured, instead of it only ever being an implicit no-key fallback.
+const OLLAMA_MODEL_ID = 'ollama:local'
+
+// Keep in sync with MODEL_OPTIONS in src/app/AgentChat/iApiKeySettings.tsx.
 const AVAILABLE_MODELS = [
   { id: 'claude-opus-5', label: 'AI Opus 5', description: 'Most capable — best for hard, multi-step work' },
   { id: 'claude-sonnet-5', label: 'AI Sonnet 5', description: 'Balanced speed and intelligence (default)' },
   { id: 'claude-haiku-4-5', label: 'AI Haiku 4.5', description: 'Fastest and cheapest' },
+  { id: OLLAMA_MODEL_ID, label: 'Local Ollama', description: 'Runs on your machine via `ollama serve` — free, no API key, no cloud' },
 ]
 
 function storePath() {
@@ -38,4 +45,4 @@ function setModel(model) {
   return model
 }
 
-module.exports = { getModel, setModel, DEFAULT_MODEL, AVAILABLE_MODELS }
+module.exports = { getModel, setModel, DEFAULT_MODEL, AVAILABLE_MODELS, OLLAMA_MODEL_ID }

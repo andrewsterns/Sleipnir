@@ -4,6 +4,7 @@
 // re-exports the same named functions either way.
 
 import type { PlatformAPI, ArchiveEntry } from './PlatformAPI'
+import type { GraphNode } from '../graph/types'
 import { webApi } from './webApi'
 import { getElectronApi } from './electronApi'
 
@@ -144,6 +145,10 @@ export function createPlanNode(...args: Parameters<PlatformAPI['createPlanNode']
   return getPlatformAPI().createPlanNode(...args)
 }
 
+export function proposeFileNode(...args: Parameters<PlatformAPI['proposeFileNode']>) {
+  return getPlatformAPI().proposeFileNode(...args)
+}
+
 export function setNodeStatus(...args: Parameters<PlatformAPI['setNodeStatus']>) {
   return getPlatformAPI().setNodeStatus(...args)
 }
@@ -160,12 +165,30 @@ export function deleteNote(...args: Parameters<PlatformAPI['deleteNote']>) {
   return getPlatformAPI().deleteNote(...args)
 }
 
+// Not a passthrough like the exports above — a small derived helper built on
+// getNotes(), shared by every "delete this file, does a plan node need to go
+// too" flow (Workspace's DeletePathModal, the Canvas layers panel). Plan
+// nodes are scaffolded with a Workspace-relative filePath (see
+// tools/sleipnir-backend.mjs#scaffoldNodes). A file match is exact; a folder
+// match is every node whose file lives under it, so deleting a scaffolded
+// feature's folder can clear its nodes in one go.
+export async function planNodesUnderPath(path: string, isDir: boolean): Promise<GraphNode[]> {
+  const { nodes } = await getNotes()
+  return nodes.filter((n) =>
+    !!n.filePath && (isDir ? n.filePath === path || n.filePath.startsWith(`${path}/`) : n.filePath === path),
+  )
+}
+
 export function getNodeStages(...args: Parameters<PlatformAPI['getNodeStages']>) {
   return getPlatformAPI().getNodeStages(...args)
 }
 
 export function setNodeStage(...args: Parameters<PlatformAPI['setNodeStage']>) {
   return getPlatformAPI().setNodeStage(...args)
+}
+
+export function setDefaultNodeStages(...args: Parameters<PlatformAPI['setDefaultNodeStages']>) {
+  return getPlatformAPI().setDefaultNodeStages(...args)
 }
 
 export function getPlans(...args: Parameters<PlatformAPI['getPlans']>) {
@@ -186,6 +209,14 @@ export function addPlanNodes(...args: Parameters<PlatformAPI['addPlanNodes']>) {
 
 export function addPlanAssets(...args: Parameters<PlatformAPI['addPlanAssets']>) {
   return getPlatformAPI().addPlanAssets(...args)
+}
+
+export function approvePlanNodes(...args: Parameters<PlatformAPI['approvePlanNodes']>) {
+  return getPlatformAPI().approvePlanNodes(...args)
+}
+
+export function renamePlan(...args: Parameters<PlatformAPI['renamePlan']>) {
+  return getPlatformAPI().renamePlan(...args)
 }
 
 export function deletePlan(...args: Parameters<PlatformAPI['deletePlan']>) {
@@ -218,12 +249,29 @@ export function openRecentProject(projectPath: string) {
   return window.electronAPI?.openRecentProject?.(projectPath)
 }
 
+// Forgets every entry in File > Open Recent. Doesn't close the open project
+// or touch anything on disk — only the stored list.
+export function clearRecentProjects() {
+  return window.electronAPI?.clearRecentProjects?.()
+}
+
 export function newWindow() {
   return window.electronAPI?.newWindow?.()
 }
 
 export function renameProject(projectPath: string, name: string) {
   return window.electronAPI?.renameProject?.(projectPath, name)
+}
+
+// Electron-only, like the project-switching calls above: the web transport never
+// calls openWorkspace (see vite.config.ts), so it never scaffolds a project and
+// has nothing to report. Callers feature-detect on an undefined result.
+export function getAgentScaffolding() {
+  return window.electronAPI?.getAgentScaffolding?.()
+}
+
+export function setAgentScaffolding(patch: { commit?: boolean }) {
+  return window.electronAPI?.setAgentScaffolding?.(patch)
 }
 
 export function runScript(...args: Parameters<PlatformAPI['runScript']>) {

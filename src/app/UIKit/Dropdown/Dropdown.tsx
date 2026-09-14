@@ -111,7 +111,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
         flow="horizontal"
         align="center"
         justify="between"
-        padding={trigger ? { x: 0, y: 0 } : { x: 12, y: 8 }}
+        padding={trigger ? { x: 0, y: 0 } : { x: 10, y: 6 }}
         variant={variant}
         radius="var(--radius-control)"
         w={trigger ? 'hug' : 'fill'}
@@ -121,10 +121,10 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
       >
         {trigger ?? (
           <>
-            <Text variant="small" color="text-2" noWrap>
+            <Text variant="small" size={11} color="text-2" noWrap>
               {selectedLabel}
             </Text>
-            <span className={cn('transition-transform duration-200 text-[10px]', isOpen ? 'rotate-180' : '')}>
+            <span className={cn('transition-transform duration-200 text-[9px]', isOpen ? 'rotate-180' : '')}>
               ▼
             </span>
           </>
@@ -168,14 +168,14 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
                     flow="horizontal"
                     align="center"
                     gap={8}
-                    minH={28}
-                    padding={{ x: 10, y: 6 }}
+                    minH={24}
+                    padding={{ x: 10, y: 5 }}
                     radius={0}
                     hoverFill="bg-3"
                     fill={{ solid: isSelected && !multiple ? 'bg-3' : 'transparent' }}
                   >
                     {multiple && <span>{isSelected ? '☑' : '☐'}</span>}
-                    <Text variant="small" color="text-2" align="left">
+                    <Text variant="small" size={11} color="text-2" align="left">
                       {option.label}
                     </Text>
                   </Frame>

@@ -49,6 +49,33 @@ async function ensureRepo() {
   }
 }
 
+// Whether git would ignore these paths — by .gitignore, .git/info/exclude, or a
+// global excludesFile. Used by the agent-scaffolding flow (see
+// tools/agentSkills/scaffold.mjs) to tell "this project shares its scaffolding
+// with the team" from "it's being kept local", and to leave alone a path the
+// human has already chosen to ignore.
+//
+// `git check-ignore` exits 0 when at least one path matched, 1 when none did,
+// and 128 on a real error — so unlike most callers here, a non-zero exit is an
+// answer rather than a failure. Returns a Set of the ignored paths; an empty Set
+// when this isn't a repo or git isn't installed, since "can't tell" and "not
+// ignored" lead to the same behavior for every caller.
+export async function getIgnoredPaths(relPaths) {
+  if (!Array.isArray(relPaths) || relPaths.length === 0) return new Set()
+  const { stdout, exitCode } = await git(['check-ignore', '--no-index', ...relPaths])
+  if (exitCode !== 0 && exitCode !== 1) return new Set()
+  return new Set(
+    stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean),
+  )
+}
+
+export async function isIgnored(relPath) {
+  return (await getIgnoredPaths([relPath])).has(relPath)
+}
+
 // Parses `git status --porcelain -b` — the v1 porcelain format, one line per
 // changed file plus a leading `## branch...upstream [ahead N, behind M]`
 // header. Simpler and stable enough for a status list; v2 porcelain's richer

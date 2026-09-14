@@ -5,7 +5,13 @@
 // a packaged/dev Electron shell, so `getPlatformAPI()` (in sleipnirApi.ts)
 // never selects this module until then.
 
-import type { PlatformAPI, RecentProject, WorkspaceInfo } from './PlatformAPI'
+import type {
+  AgentScaffolding,
+  AgentScaffoldingResult,
+  PlatformAPI,
+  RecentProject,
+  WorkspaceInfo,
+} from './PlatformAPI'
 
 // Picking a path is inherently native-shell territory — a browser's
 // <input type=file>/directory picker returns file *content*, never a real
@@ -23,10 +29,16 @@ export interface ElectronBridge extends PlatformAPI {
   getRecentProjects?(): Promise<{ projects: RecentProject[] }>
   /** Reopens a known project path without the folder-picker dialog. `{error}` if the folder no longer exists on disk. */
   openRecentProject?(projectPath: string): Promise<WorkspaceInfo | { error: string }>
+  /** File > Open Recent > Clear Recent Projects — empties the list (nothing on disk is touched, and the open project stays open). Resolves with the now-empty list. */
+  clearRecentProjects?(): Promise<{ projects: RecentProject[] }>
   /** File > New Window — closes the current project in place (single-window reset; see App.tsx). Workspace and Planning both go back to their blank/no-project states. */
   newWindow?(): Promise<{ ok: true }>
   /** File > Rename Project — sets a custom display name, stored inside the project's own `.planning/project.json` so it travels with the folder. */
   renameProject?(projectPath: string, name: string): Promise<{ name: string }>
+  /** The open project's generated agent scaffolding (AGENTS.md, CLAUDE.md, the `/plan` slash commands, the vendored CLI) plus its share-with-the-team setting. `null` when no project is open. Electron-only: the web transport never calls openWorkspace, so it never scaffolds. */
+  getAgentScaffolding?(): Promise<AgentScaffolding | null>
+  /** Persists the share setting into this project's `.planning/project.json` and immediately re-runs the scaffolder, so flipping it takes effect without waiting for the next open. */
+  setAgentScaffolding?(patch: { commit?: boolean }): Promise<AgentScaffoldingResult>
   /** Recolors this window's native (OS-drawn) minimize/maximize/close overlay to match the active theme. Fire-and-forget; Windows-only (a no-op elsewhere). Called by ThemeController whenever the theme changes. */
   setTitleBarTheme?(colors: { color: string; symbolColor: string }): void
   /** Clones a repo from `url` into a user-picked folder (native picker), then opens it as this window's project — same repoint flow as openWorkspace. `null` if canceled, `{error}` on failure. Electron-only. */

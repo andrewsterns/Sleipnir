@@ -31,7 +31,12 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
       align="center"
       grow
       minW={0}
+      className="scroll-window--no-scrollbar"
       style={{ overflowX: 'auto' }}
+      onWheel={(e) => {
+        if (e.deltaY === 0) return
+        e.currentTarget.scrollLeft += e.deltaY
+      }}
     >
       {tabs.map((tab) => {
         const active = tab.id === activeTabId

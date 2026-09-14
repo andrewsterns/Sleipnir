@@ -6,22 +6,11 @@ import { WidgetShell, ResizeHandle } from './WidgetShell'
 import { WorkspaceHeader } from '../WorkspaceHeader/WorkspaceHeader'
 import { CodeEditorView, type CodeEditorHandle } from './CodeEditorView'
 import { LOADING_PLACEHOLDER } from './CodeEditorView.ViewModel'
-import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir, deleteWorkspacePath, getNotes, deleteNote } from '../../00_planning/api/sleipnirApi'
+import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir, deleteWorkspacePath, deleteNote, planNodesUnderPath } from '../../00_planning/api/sleipnirApi'
 import { useFolderBrowserViewModel } from './FolderBrowserView.ViewModel'
 import type { FolderBrowserHandle, FolderBrowserViewProps, PaneId, PaneState } from './iFolderBrowserView'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
-
-// Plan nodes are scaffolded with a Workspace-relative filePath (see
-// tools/sleipnir-backend.mjs#scaffoldNodes). A file delete matches an exact
-// filePath; a folder delete matches every node whose file lives under it — so
-// deleting a scaffolded feature's folder can clear its nodes in one go.
-async function planNodesUnderPath(path: string, isDir: boolean) {
-  const { nodes } = await getNotes()
-  return nodes.filter((n) =>
-    !!n.filePath && (isDir ? n.filePath === path || n.filePath.startsWith(`${path}/`) : n.filePath === path),
-  )
-}
 
 // The unified "browse a folder, preview a file, edit a file" component —
 // replaces three separate hand-built implementations (DesignLibraryView,
@@ -34,7 +23,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   props,
   ref,
 ) {
-  const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, supportsAddNode, onPlanUpdated, onImportsChanged, getGraphNodes, onLinkResolved, repoRelativeRoot, workspaceRoot } = props
+  const { scope, root, rootLabel, readOnly, headerAction, getPreview, supportsCreate, pendingOverride, onOverrideSaved, folderAction, fileAction, onAddToPlan, supportsAddNode, onPlanUpdated, onImportsChanged, getGraphNodes, onLinkResolved, repoRelativeRoot, workspaceRoot, onShowInPlanning, onShowInCanvas, planNodeLinks, canvasComponentPaths, onMoved, onPathDeleted } = props
   const {
     liveTree,
     archivedEntries,
@@ -82,6 +71,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
       if (panes[pane].tabs.some((t) => t.path === path)) activateTab(pane, path)
       else openTab(path)
     },
+    refresh,
   }))
 
   const focusedActiveTab = panes[focusedPane].activeTabPath
@@ -89,9 +79,10 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
   const preview = activeTabForPreview && getPreview ? getPreview(activeTabForPreview.label, activeTabForPreview.path) : undefined
 
   // Fresh notes lookup per open of the delete modal (stable identity so
-  // LeftRailing's effect doesn't refetch on every re-render). getNotes is a
-  // stable module import, so no deps. Only wired for scope:'workspace' below,
-  // where paths and a scaffolded node's filePath share the same root.
+  // LeftRailing's effect doesn't refetch on every re-render). planNodesUnderPath
+  // is a stable module import (see sleipnirApi.ts), so no deps. Only wired for
+  // scope:'workspace' below, where paths and a scaffolded node's filePath
+  // share the same root.
   const findPlanNodes = useCallback(planNodesUnderPath, [])
   const deletePlanNodes = useCallback(async (ids: string[]) => {
     await Promise.all(ids.map((id) => deleteNote(id)))
@@ -187,13 +178,21 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
           createFile={scope === 'workspace' ? createWorkspaceFile : undefined}
           createDir={scope === 'workspace' ? createWorkspaceDir : undefined}
           onMutated={scope === 'workspace' ? async () => {} : undefined}
+          onMoved={scope === 'workspace' ? onMoved : undefined}
           supportsArchive={scope === 'src'}
           deletePath={scope === 'workspace' ? deleteWorkspacePath : undefined}
-          onDeleted={closeTabsUnder}
+          onDeleted={(path, isDir) => {
+            closeTabsUnder(path, isDir)
+            void onPathDeleted?.(path)
+          }}
           findPlanNodes={scope === 'workspace' ? findPlanNodes : undefined}
           deletePlanNodes={scope === 'workspace' ? deletePlanNodes : undefined}
           supportsAddNode={supportsAddNode}
           onPlanUpdated={onPlanUpdated}
+          onShowInPlanning={onShowInPlanning}
+          onShowInCanvas={onShowInCanvas}
+          planNodeLinks={planNodeLinks}
+          canvasComponentPaths={canvasComponentPaths}
         />
       )}
       header={

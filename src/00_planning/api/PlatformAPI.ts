@@ -164,6 +164,44 @@ export interface GitIdentity {
   email: string
 }
 
+/** What the last scaffolder run recorded into `.sleipnir/scaffold.json`. */
+export interface AgentScaffoldingState {
+  version: number
+  generatedAt: string
+  skills: string[]
+  skipped?: { path: string; reason: string }[]
+}
+
+/**
+ * Per-project config and current state of the generated agent files — AGENTS.md,
+ * CLAUDE.md, GEMINI.md, the `/plan` slash commands, and the vendored planning CLI.
+ * Rendered from tools/agentSkills/registry.mjs; see tools/agentSkills/scaffold.mjs.
+ */
+export interface AgentScaffolding {
+  /**
+   * True (the default) leaves the generated files committable, so a collaborator who
+   * clones the repo gets a working `/plan` without installing Sleipnir. False adds the
+   * files Sleipnir owns to `.git/info/exclude` — per-clone, never committed itself, so
+   * it neither shows up in a teammate's checkout nor dirties the shared `.gitignore`.
+   * AGENTS.md/CLAUDE.md/GEMINI.md are never excluded either way: they may carry the
+   * human's own instructions, so whether those get committed is their call.
+   */
+  commit: boolean
+  version?: number
+  /** Null when this project has never been scaffolded. */
+  state: AgentScaffoldingState | null
+  /** Every path the scaffolder owns in this project. */
+  paths: string[]
+}
+
+/** The outcome of one scaffolder run. `skipped` is non-fatal by design — scaffolding must never break opening a project. */
+export interface AgentScaffoldingResult {
+  agentScaffolding: { commit: boolean; version: number }
+  written: string[]
+  skipped: { path: string; reason: string }[]
+  excluded: string[]
+}
+
 /** One `git stash` entry — `ref` is the addressable form (`stash@{0}`) apply/pop/drop take. */
 export interface GitStash {
   ref: string
@@ -230,6 +268,16 @@ export interface PlatformAPI {
     description?: string,
     parentId?: string,
   ): Promise<{ node: GraphNode }>
+  /** Same as createPlanNode, plus a staged `proposedFile` — a workspace-relative path + full content that does NOT touch real disk (see tools/sleipnir-plan.mjs's propose-file). `filePath` is validated immediately (rejects an escaping path or one that already has a real file) but nothing is written until a human reviews and saves it through the same staged-editor-tab flow generate_code uses. `linkTargetIds`, when given, draws 'borrows' edges from the new node so proposed files can visibly reference each other before any of them are real. */
+  proposeFileNode(
+    planId: string,
+    label: string,
+    description: string | undefined,
+    filePath: string,
+    content: string,
+    parentId?: string,
+    linkTargetIds?: string[],
+  ): Promise<{ node: GraphNode }>
   /** Approve/complete a plan node created via createPlanNode. */
   setNodeStatus(id: string, status: NodeStatus): Promise<{ node: GraphNode }>
   /** Full-replace of a node's outgoing 'borrows' edges — used by the node-card link editor and by re-scanning a saved file's real imports (see WorkspaceView's onImportsChanged). */
@@ -242,6 +290,8 @@ export interface PlatformAPI {
   getNodeStages(): Promise<{ stages: Record<string, NodeStage> }>
   /** Tags one node with a stage, or clears it when `stage` is null. Any node id is valid — not restricted to notes.json nodes. */
   setNodeStage(id: string, stage: NodeStage | null): Promise<{ stages: Record<string, NodeStage> }>
+  /** Fills `stage` for every id in `ids` that has no stage yet, leaving already-tagged ids untouched — one read/write regardless of how many ids, unlike calling setNodeStage per id. Used to give newly-added plan files an explicit default status. */
+  setDefaultNodeStages(ids: string[], stage: NodeStage): Promise<{ stages: Record<string, NodeStage> }>
   /** Named, persisted lists of existing node ids. See src/00_planning/graph/resolvePlan.ts for the client-side neighbor-expansion this backs. */
   getPlans(): Promise<{ plans: SavedPlan[] }>
   /** `assetPaths`, when given, seeds the plan from a Workspace asset-filter selection (see NewWorkspacePlanModal) instead of/alongside real graph node ids. `assetEdges` are the import connections detected between those paths at creation time (an initial-paint snapshot only — see graph/resolveAssetPlan.ts for the live re-scan). `assetFolders` are the top-level directories that were fully selected, re-listed live on every view so files added under them later show up automatically. */
@@ -250,8 +300,12 @@ export interface PlatformAPI {
   appendPlanGeneratedFiles(id: string, paths: string[]): Promise<{ plan: SavedPlan }>
   /** Merges existing graph node ids into a plan's `nodeIds` (deduped) — used when a link drawn on a plan tab targets a node from another plan, pulling it in so the edge resolves on this plan's graph. Returns the updated plan. */
   addPlanNodes(id: string, nodeIds: string[]): Promise<{ plan: SavedPlan }>
+  /** Bulk-approves every `status: 'draft'` node belonging to this plan (its own `nodeIds` plus any note sharing its `planId` on the shared "claude" review map) in one write — the Planning graph's "Approve All" action on a freshly AI-drafted plan. A node carrying a staged `proposedFile` is deliberately skipped (never bulk-approved sight-unseen) and returned in `needsReviewIds` instead — the caller should route those through the same review-then-save flow generate_code uses (PlanningView's `onCodeGenerated`), one at a time. */
+  approvePlanNodes(planId: string): Promise<{ approvedIds: string[]; needsReviewIds: string[] }>
   /** Merges real Workspace-relative file paths and/or whole folders into a plan's `assetPaths`/`assetFolders` (deduped) — pulls an existing file/folder straight into a plan (see LeftRailingView's "Add node ▸" action) as a real, file-backed asset node, additive alongside any existing `nodeIds`. Returns the updated plan. */
   addPlanAssets(id: string, paths?: string[], folders?: string[]): Promise<{ plan: SavedPlan }>
+  /** Changes a plan's display label. The id is left alone: it embeds a slug of the ORIGINAL label but is referenced by graph nodes' `planId` and by open tabs, none of which would follow a re-slug. */
+  renamePlan(id: string, label: string): Promise<{ plan: SavedPlan }>
   /** The plan record is always removed. `opts.deleteFiles` also deletes the plan's `generatedFiles` (and, with `deleteNodes`, each removed node's backing file), resolved against the open Workspace root. `opts.deleteNodes` also removes the plan's nodes from the graph and every edge touching them. */
   deletePlan(id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }): Promise<void>
   /**

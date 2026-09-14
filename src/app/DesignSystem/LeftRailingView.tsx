@@ -26,8 +26,9 @@ import {
   type FileTreeNode,
   type ArchiveEntry,
 } from '../../00_planning/api/sleipnirApi'
-import type { GraphNode, NodeStage, SavedPlan } from '../../00_planning/graph/types'
+import type { GraphMapId, GraphNode, NodeStage, SavedPlan } from '../../00_planning/graph/types'
 import { useFileStages } from '../../00_planning/useFileStages'
+import type { PlanNodeLink } from '../../00_planning/usePlanNodeLinks'
 import { StatusGlyph } from '../../00_planning/graph/StatusGlyph'
 import { NODE_STAGES } from '../../00_planning/graph/stages'
 
@@ -101,6 +102,20 @@ interface LeftRailingProps {
   createDir?: (path: string) => Promise<void>
   /** Runs after any create/restore mutation, before `onChanged` — defaults to today's `regenerateGraph().catch(()=>{})`. Workspace passes a no-op (nothing to regenerate for an arbitrary external file). */
   onMutated?: () => Promise<void>
+  /**
+   * Runs after a path MOVES — cut→paste, or an in-place rename — with both
+   * ends of the move. Separate from `onMutated` (which takes no arguments and
+   * can't express one) because a move is the one mutation whose meaning
+   * depends on where something went, not just that something changed.
+   *
+   * This is what makes Canvas's `.canvas` staging tier work: dragging a
+   * component's file out of `.canvas` into real source IS the promotion, and
+   * the board reattaches itself to the new path instead of silently forking
+   * (see 01_canvas/model/relink.ts). Awaited before `onChanged`, so the tree
+   * repaints once, after the reconciliation, rather than flashing an
+   * intermediate state.
+   */
+  onMoved?: (from: string, to: string) => Promise<void>
   /** Shows the per-row/root archive "×" and the ARCHIVED section. Defaults to true (today's behavior). Workspace passes false — no archive/delete support for arbitrary external folders in Phase 0. */
   supportsArchive?: boolean
   /** Enables the right-click "Delete" context menu on every row — undefined (the default) hides it entirely, same opt-in shape as createFile/createDir. Workspace/Research pass their workspace-scoped deleteWorkspacePath; scope:'src'/'repo' callers don't, since there's no equivalent permanent-delete backend for those roots today. */
@@ -115,6 +130,13 @@ interface LeftRailingProps {
   supportsAddNode?: boolean
   /** Fired right after "Add node ▸" successfully pulls a file/folder into a plan, with the updated SavedPlan — lets the caller keep its own plans state (e.g. App.tsx's) in sync so a Planning tab already open on that plan picks up the addition. Only meaningful alongside supportsAddNode. */
   onPlanUpdated?: (plan: SavedPlan) => void
+  /** "Show in Planning"/"Show in Canvas" — added to a row's context menu when the corresponding lookup has a match for that path. Undefined hides the item entirely, same opt-in shape as deletePath/onAddToPlan. */
+  onShowInPlanning?: (mapId: GraphMapId, nodeId: string) => void
+  onShowInCanvas?: (filePath: string) => void
+  /** filePath → the plan node that backs it — gates "Show in Planning" per row. */
+  planNodeLinks?: Map<string, PlanNodeLink>
+  /** Every filePath with a written canvas component — gates "Show in Canvas" per row. */
+  canvasComponentPaths?: Set<string>
 }
 
 function isAncestorOf(dirPath: string, targetPath: string): boolean {
@@ -408,7 +430,22 @@ function TreeNodeRow({
           leading={
             <span style={{ opacity: 0.7, width: 8, display: 'inline-block', flexShrink: 0 }}>{isExpanded ? '▾' : '▸'}</span>
           }
-          iconStart={<Icon name="folder" size={16} />}
+          iconStart={
+            <Icon
+              // Sleipnir's own folders get their feature's icon so they read as
+              // app furniture rather than project source. '.canvas' is the
+              // staging tier for canvas components; 'canvas' is the board store
+              // nested inside '.planning'.
+              name={
+                node.name === '.planning'
+                  ? 'network'
+                  : node.name === '.canvas' || node.name === 'canvas'
+                    ? 'frame'
+                    : 'folder'
+              }
+              size={16}
+            />
+          }
           trailing={(hovered) => (
             <>
               {/* NEW chip at rest; hidden on hover so the action buttons take
@@ -630,6 +667,7 @@ export const LeftRailing = ({
   createFile = createSrcFile,
   createDir = createSrcDir,
   onMutated = async () => { await regenerateGraph().catch(() => {}) },
+  onMoved,
   supportsArchive = true,
   deletePath,
   onDeleted,
@@ -637,6 +675,10 @@ export const LeftRailing = ({
   deletePlanNodes,
   supportsAddNode,
   onPlanUpdated,
+  onShowInPlanning,
+  onShowInCanvas,
+  planNodeLinks,
+  canvasComponentPaths,
 }: LeftRailingProps) => {
   // filePath → planning stage of the plan node a file backs — so every file row
   // shows its planning status at rest, the same glyph the planning list and git
@@ -762,6 +804,10 @@ export const LeftRailing = ({
     if (c.mode === 'cut') {
       await renameWorkspacePath(c.path, dest)
       setFileClipboard(null)
+      // Only a cut is a move. A copy leaves the original in place, so anything
+      // tracking the source path (a Canvas component, say) must stay pointed at
+      // it — relinking to the duplicate would be exactly the fork this avoids.
+      await onMoved?.(c.path, dest)
     } else {
       await copyWorkspacePath(c.path, dest)
     }
@@ -983,6 +1029,13 @@ export const LeftRailing = ({
                 },
               ],
             })
+            const planLink = planNodeLinks?.get(contextMenu.node.path)
+            if (planLink && onShowInPlanning) {
+              menuItems.push({ label: 'Show in Planning', onSelect: () => onShowInPlanning(planLink.mapId, planLink.nodeId) })
+            }
+            if (onShowInCanvas && canvasComponentPaths?.has(contextMenu.node.path)) {
+              menuItems.push({ label: 'Show in Canvas', onSelect: () => onShowInCanvas(contextMenu.node.path) })
+            }
           }
           menuItems.push(
             { label: 'Add file', icon: 'file-add', separator: supportsAddNode || isFile, onSelect: () => setPendingCreate({ path: createDir, kind: 'file' }) },
@@ -1013,7 +1066,14 @@ export const LeftRailing = ({
       <RenamePathModal
         name={renamingNode.name}
         isDir={renamingNode.type === 'dir'}
-        rename={(newName) => renameWorkspacePath(renamingNode.path, joinPath(parentDir(renamingNode.path), newName))}
+        rename={async (newName) => {
+          const dest = joinPath(parentDir(renamingNode.path), newName)
+          await renameWorkspacePath(renamingNode.path, dest)
+          // A rename is a move with the parent held fixed — same reattachment
+          // problem, same hook. Fired here rather than in onRenamed so the
+          // destination path is still in scope.
+          await onMoved?.(renamingNode.path, dest)
+        }}
         onClose={() => setRenamingNode(null)}
         onRenamed={async () => {
           setRenamingNode(null)

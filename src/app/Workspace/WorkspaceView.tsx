@@ -10,6 +10,7 @@ import type { WorkspaceViewProps } from './iWorkspaceView'
 import { setNodeStatus, setNodeBorrows, createWorkspaceDir, createWorkspaceFile, getNotes, readWorkspaceFile } from '../../00_planning/api/sleipnirApi'
 import { adapterForPath } from '../../00_planning/graph/importAdapters'
 import { loadPathAliases } from '../../00_planning/graph/importAdapters/pathAliases'
+import { usePlanNodeLinks } from '../../00_planning/usePlanNodeLinks'
 import type { GraphNode } from '../../00_planning/graph/types'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
@@ -149,10 +150,25 @@ function AddFileButton({ onCreated }: { onCreated: () => void }) {
 // lspTargetForScope and lspClient.ts's LspRoot/tools/lsp-proxy.mjs's
 // per-connection routing for how the two are told apart.
 export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>(function WorkspaceView(
-  { initialFile, pendingOverride, onOverrideSaved, onPlanCreated, onPlanUpdated, onProjectOpened, recentProjects, onOpenRecentProject },
+  {
+    initialFile,
+    pendingOverride,
+    onOverrideSaved,
+    onPlanCreated,
+    onPlanUpdated,
+    onProjectOpened,
+    recentProjects,
+    onOpenRecentProject,
+    onShowInPlanning,
+    onShowInCanvas,
+    canvasComponentPaths,
+    onPathMoved,
+    onPathDeleted,
+  },
   ref,
 ) {
   const { info, loading, error, chooseFolder, cloneAndOpen, cloning } = useWorkspaceViewModel(onProjectOpened)
+  const planNodeLinks = usePlanNodeLinks(info?.root)
   const [addingPlan, setAddingPlan] = useState(false)
   const [showClone, setShowClone] = useState(false)
   const [cloneUrl, setCloneUrl] = useState('')
@@ -312,6 +328,12 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
         onImportsChanged={handleImportsChanged}
         getGraphNodes={() => graphNodesRef.current}
         onLinkResolved={handleLinkResolved}
+        onShowInPlanning={onShowInPlanning}
+        onShowInCanvas={onShowInCanvas}
+        planNodeLinks={planNodeLinks}
+        canvasComponentPaths={canvasComponentPaths}
+        onMoved={onPathMoved}
+        onPathDeleted={onPathDeleted}
         headerAction={(refresh) => (
           <>
             <IconButton icon="plan-add" title="Add Plan…" onClick={() => setAddingPlan(true)} />
