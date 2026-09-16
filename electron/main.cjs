@@ -16,6 +16,7 @@ const commandRunner = require('./commandRunner.cjs')
 const validation = require('./validation.cjs')
 const apiKeyStore = require('./apiKeyStore.cjs')
 const modelStore = require('./modelStore.cjs')
+const agentSettingsStore = require('./agent/agentSettingsStore.cjs')
 const workspaceStore = require('./workspaceStore.cjs')
 const planningWatcher = require('./planningWatcher.cjs')
 
@@ -510,11 +511,17 @@ function registerIpcHandlers() {
   // result streams back as 'chat:token'/'chat:planNodeCreated'/'chat:done'
   // push events tagged with the session id, since a single Anthropic
   // streaming call has a clear start and end (unlike a long-lived shell).
-  ipcMain.handle('chat:sendMessage', (event, sessionId, history, message) =>
-    chat.sendMessage(event.sender, sessionId, history, message, rootForSender(event.sender)),
+  ipcMain.handle('chat:sendMessage', (event, sessionId, history, message, options) =>
+    chat.sendMessage(event.sender, sessionId, history, message, rootForSender(event.sender), options),
   )
   ipcMain.on('chat:cancel', (_e, sessionId) => chat.cancel(sessionId))
-  ipcMain.on('chat:commandDecision', (_e, requestId, approved) => chat.resolveCommandDecision(requestId, approved))
+  // Answers a tool call waiting on approval (see agent/permissions.cjs) —
+  // scoped to the calling window, so one window can't approve another's.
+  ipcMain.on('chat:toolDecision', (event, callId, decision, paths) =>
+    chat.resolveToolDecision(event.sender.id, callId, decision, paths),
+  )
+  ipcMain.handle('chat:applyChangeSet', (event, id, paths) => chat.applyChangeSet(event.sender.id, id, paths))
+  ipcMain.handle('chat:undoChangeSet', (event, id) => chat.undoChangeSet(event.sender.id, id))
 
   // Validation — runs the open Workspace's own `vitest run --reporter=json`
   // via commandRunner (see validation.cjs). Same fire-and-forget + push-events
@@ -562,6 +569,10 @@ function registerIpcHandlers() {
   // Chat model preference — plain (unencrypted) local storage, see modelStore.cjs.
   ipcMain.handle('settings:getModel', () => ({ model: modelStore.getModel(), options: modelStore.AVAILABLE_MODELS }))
   ipcMain.handle('settings:setModel', (_e, model) => modelStore.setModel(model))
+
+  // Agent preferences — default permission mode and tool-step cap.
+  ipcMain.handle('settings:getAgentSettings', () => agentSettingsStore.getSettings())
+  ipcMain.handle('settings:setAgentSettings', (_e, patch) => agentSettingsStore.setSettings(patch))
 
   // Workspace's whole point is opening any project on disk — no
   // defaultPath/containment check. Persists the choice so relaunching

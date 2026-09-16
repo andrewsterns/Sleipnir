@@ -34,24 +34,25 @@ function isAvailable() {
   return !!resolveApiKey()
 }
 
-// Canonical { name, description, properties, required } tool defs (see
-// chat.cjs) -> Anthropic's { name, description, input_schema } shape.
+// Canonical { name, description, inputSchema } tool defs (see
+// agent/tools/registry.cjs) -> Anthropic's { name, description, input_schema }.
 function toProviderTools(defs) {
   return defs.map((d) => ({
     name: d.name,
     description: d.description,
-    input_schema: { type: 'object', properties: d.properties, required: d.required },
+    input_schema: d.inputSchema ?? { type: 'object', properties: {} },
   }))
 }
 
+// system: the shared system prompt (agent/systemPrompt.cjs).
 // messages: [{ role: 'user'|'assistant', content: string | Anthropic content blocks }]
-// toolDefs: canonical tool definitions (see chat.cjs) — empty/undefined for a plain turn.
+// toolDefs: canonical tool definitions — empty/undefined for a plain turn.
 // Streams text deltas via onText, fires onToolCall once per completed tool_use block
 // (informational only — chat.cjs executes tools using the returned toolCalls array).
 // Returns { text, toolCalls: [{ id, name, input }], assistantTurn } — assistantTurn is
 // the raw content-block array to feed back as this turn's assistant message if the
 // caller continues the conversation with tool results (see buildToolResultMessages).
-async function streamTurn({ messages, toolDefs, signal, onText, onToolCall }) {
+async function streamTurn({ system, messages, toolDefs, signal, onText, onToolCall }) {
   const anthropic = getClient()
   if (!anthropic) {
     throw new Error('No Anthropic API key configured. Add one in AI Chat\'s Settings (gear icon), or switch SLEIPNIR_MODEL_PROVIDER=ollama.')
@@ -62,7 +63,8 @@ async function streamTurn({ messages, toolDefs, signal, onText, onToolCall }) {
   const stream = anthropic.messages.stream(
     {
       model: modelStore.getModel(),
-      max_tokens: 4096,
+      max_tokens: 16000,
+      ...(system ? { system } : {}),
       messages,
       ...(tools ? { tools } : {}),
     },

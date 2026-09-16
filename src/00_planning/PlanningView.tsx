@@ -1131,14 +1131,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
       unsubCode()
       unsubDone()
       unsubError()
-      unsubCommandProposed()
     }
-    // This session has no chat UI mounted to show a run_command confirmation
-    // in — auto-decline so the model's executeTool() call fails closed
-    // instead of hanging forever waiting for a human who'll never see it.
-    const unsubCommandProposed = api.onCommandProposed(sessionId, ({ requestId }) => {
-      api.sendCommandDecision(requestId, false)
-    })
     const unsubCode = api.onCodeGenerated(sessionId, (payload) => {
       cleanup()
       setGeneratingNodeId(null)
@@ -1156,7 +1149,10 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
       setGenerateError(message)
     })
 
-    api.sendMessage(sessionId, [], prompt)
+    // Headless: this session has no chat UI mounted to show an approval card
+    // in, so anything that would need one (commands, git) is never offered,
+    // and generate_code hands its files to onCodeGenerated instead of writing.
+    api.sendMessage(sessionId, [], prompt, { mode: 'headless' })
   }
 
   // Builds the generate_code prompt for the new stage-driven build flow
@@ -1225,11 +1221,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             unsubCode()
             unsubDone()
             unsubError()
-            unsubCommandProposed()
           }
-          const unsubCommandProposed = api.onCommandProposed(sessionId, ({ requestId }) => {
-            api.sendCommandDecision(requestId, false)
-          })
           const unsubCode = api.onCodeGenerated(sessionId, (payload) => {
             cleanup()
             resolve({ ok: true, files: payload.files })
@@ -1243,7 +1235,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             cleanup()
             resolve({ ok: false, error: message })
           })
-          api.sendMessage(sessionId, [], prompt)
+          api.sendMessage(sessionId, [], prompt, { mode: 'headless' })
         }),
     )
   }

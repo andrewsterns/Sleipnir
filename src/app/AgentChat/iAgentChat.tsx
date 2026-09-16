@@ -1,41 +1,81 @@
 import type { GraphNode } from '../../00_planning/graph/types'
 
+/** Permission modes a person can pick in the chat — see electron/agent/permissions.cjs. */
+export type AgentMode = 'ask' | 'acceptEdits' | 'plan' | 'auto'
+
+/** Everything sendMessage accepts, including the internal 'headless' mode Planning's one-shot builds use. */
+export type AgentModeOrHeadless = AgentMode | 'headless'
+
+/** Shift+Tab cycle order — keep in sync with USER_MODES in electron/agent/permissions.cjs. */
+export const AGENT_MODES: AgentMode[] = ['ask', 'acceptEdits', 'plan', 'auto']
+
+export const AGENT_MODE_LABEL: Record<AgentMode, string> = {
+  ask: 'Ask',
+  acceptEdits: 'Accept edits',
+  plan: 'Plan',
+  auto: 'Auto',
+}
+
+export const AGENT_MODE_HINT: Record<AgentMode, string> = {
+  ask: 'Reads freely; asks before every change',
+  acceptEdits: 'Applies file edits and plan nodes; asks before commands and commits',
+  plan: 'Read-only; explores and writes a plan',
+  auto: 'Runs changes without asking, except push, pull and destructive tools',
+}
+
+export type ToolKind = 'read' | 'edit' | 'exec' | 'external'
+
+export type ToolStatus = 'running' | 'awaiting-approval' | 'done' | 'denied' | 'error'
+
+export interface ChangeSetFile {
+  path: string
+  status: 'added' | 'modified' | 'unchanged'
+  diff: string
+  additions: number
+  deletions: number
+  applied: boolean
+}
+
+export interface ChangeSet {
+  id: string
+  state: 'pending' | 'applied' | 'discarded' | 'reverted'
+  files: ChangeSetFile[]
+}
+
+/** One tool call, as the chat shows it — built up from `chat:tool` patches. */
+export interface ToolActivity {
+  callId: string
+  name: string
+  kind: ToolKind
+  summary: string
+  inputPreview?: string
+  status: ToolStatus
+  /** Whether the approval card may offer "Always allow in this project". */
+  canRemember?: boolean
+  /** Streamed text, e.g. run_command's stdout/stderr. */
+  output: string
+  error?: string
+  exitCode?: number | null
+  timedOut?: boolean
+  changeSet?: ChangeSet
+}
+
+/** A `chat:tool` event: a partial ToolActivity for one callId. */
+export type ToolUpdate = Partial<ToolActivity> & { callId: string }
+
+export interface ToolOutputPayload {
+  callId: string
+  text: string
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
   /** True while an assistant message is still receiving tokens — shows a blinking cursor, and is the one appended to as more `chat:token` events arrive. */
   streaming?: boolean
-  /** Present on the synthetic message representing a run_command proposal — see CommandConfirmModal / AgentChat.tsx's inline output block. */
-  command?: ProposedCommandState
-}
-
-export interface ProposedCommandState {
-  requestId: string
-  command: string
-  args: string[]
-  status: 'pending' | 'declined' | 'running' | 'done'
-  output: string
-  exitCode?: number | null
-  timedOut?: boolean
-}
-
-export interface ProposedCommand {
-  requestId: string
-  command: string
-  args: string[]
-}
-
-export interface CommandOutputPayload {
-  requestId: string
-  stream: 'stdout' | 'stderr'
-  text: string
-}
-
-export interface CommandDonePayload {
-  requestId: string
-  exitCode: number | null
-  timedOut: boolean
+  /** Present on the message representing one tool call — see ToolActivityRow. */
+  tool?: ToolActivity
 }
 
 export interface AgentChatProps {
@@ -52,24 +92,44 @@ export interface CodeGeneratedPayload {
   files: GeneratedFile[]
 }
 
+export interface SendMessageOptions {
+  mode?: AgentModeOrHeadless
+}
+
+export type ToolDecision = 'once' | 'always' | 'deny'
+
+export interface ChangeSetApplyResult {
+  applied: string[]
+  failed: { path: string; error: string }[]
+  changeSet: ChangeSet
+}
+
+export interface ChangeSetUndoResult {
+  reverted: string[]
+  conflicts: { path: string; error: string }[]
+  changeSet: ChangeSet
+}
+
 export interface ChatAPI {
   sendMessage: (
     sessionId: string,
     history: { role: 'user' | 'assistant'; content: string }[],
     message: string,
+    options?: SendMessageOptions,
   ) => Promise<void>
   cancel: (sessionId: string) => void
   onToken: (sessionId: string, callback: (delta: string) => void) => () => void
   onPlanNodeCreated: (sessionId: string, callback: (node: GraphNode) => void) => () => void
-  /** Fired by the generate_code tool — staged content only, never written to disk (see WorkspaceView.tsx's pendingOverride). */
+  /** Headless sessions only: generate_code hands the files over instead of writing them (see PlanningView). */
   onCodeGenerated: (sessionId: string, callback: (payload: CodeGeneratedPayload) => void) => () => void
   onDone: (sessionId: string, callback: (fullText: string) => void) => () => void
   onError: (sessionId: string, callback: (message: string) => void) => () => void
-  /** Answers a pending run_command proposal — nothing runs until this is called with approved=true. */
-  sendCommandDecision: (requestId: string, approved: boolean) => void
-  onCommandProposed: (sessionId: string, callback: (payload: ProposedCommand) => void) => () => void
-  onCommandOutput: (sessionId: string, callback: (payload: CommandOutputPayload) => void) => () => void
-  onCommandDone: (sessionId: string, callback: (payload: CommandDonePayload) => void) => () => void
+  onTool: (sessionId: string, callback: (update: ToolUpdate) => void) => () => void
+  onToolOutput: (sessionId: string, callback: (payload: ToolOutputPayload) => void) => () => void
+  /** Answers a tool call waiting on approval. `paths` narrows an approved change set to some of its files. */
+  sendToolDecision: (callId: string, decision: ToolDecision, paths?: string[]) => void
+  applyChangeSet: (id: string, paths?: string[]) => Promise<ChangeSetApplyResult>
+  undoChangeSet: (id: string) => Promise<ChangeSetUndoResult>
 }
 
 declare global {
@@ -78,10 +138,10 @@ declare global {
   }
 }
 
-// No web-transport equivalent exists — the Anthropic API key only ever lives
-// in the Electron main process's environment, never shipped to a browser
-// build. Callers should check this before rendering <AgentChat /> and show
-// a "desktop-only" message instead when it's false.
+// No web-transport equivalent exists — provider keys only ever live in the
+// Electron main process, never shipped to a browser build. Callers should
+// check this before rendering <AgentChat /> and show a "desktop-only" message
+// instead when it's false.
 export function isChatAvailable(): boolean {
   return typeof window !== 'undefined' && !!window.chatAPI
 }

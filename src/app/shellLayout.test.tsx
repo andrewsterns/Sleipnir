@@ -23,7 +23,7 @@ describe('shell stacking order', () => {
   })
 
   // Modals across the app pass this literal as `z={200}` (DeletePathModal,
-  // RenamePathModal, AddNodeModal, CommandConfirmModal, …). If the tier and the
+  // RenamePathModal, AddNodeModal, …). If the tier and the
   // literal ever drift apart, the dock starts covering dialogs again.
   it('matches the z the app’s modals actually pass', () => {
     expect(LAYER.dialog).toBe(200)

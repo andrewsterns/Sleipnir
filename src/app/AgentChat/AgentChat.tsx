@@ -3,15 +3,8 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { SleipnirLoader } from '../UIKit/SleipnirLoader/SleipnirLoader'
 import { useAgentChatViewModel } from './AgentChat.ViewModel'
-import { CommandConfirmModal } from './CommandConfirmModal'
-import type { AgentChatProps } from './iAgentChat'
-
-const COMMAND_STATUS_LABEL: Record<string, string> = {
-  pending: 'Awaiting approval…',
-  declined: 'Declined',
-  running: 'Running…',
-  done: 'Finished',
-}
+import { ToolActivityRow } from './ToolActivityRow'
+import { AGENT_MODE_HINT, AGENT_MODE_LABEL, type AgentChatProps, type AgentMode } from './iAgentChat'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -38,11 +31,37 @@ const ROLE_COLOR: Record<string, string> = {
   system: 'var(--text-3)',
 }
 
+// Auto runs changes unasked, so it reads as a warning; Plan as a calm accent.
+const MODE_COLOR: Record<AgentMode, string> = {
+  ask: 'var(--text-2)',
+  acceptEdits: '#7aa8e0',
+  plan: '#7ec98f',
+  auto: '#e0a040',
+}
+
+const EMPTY_HINT: Record<AgentMode, string> = {
+  ask: 'Ask about the project, or ask for a change — you approve each change before it happens.',
+  acceptEdits: 'File edits apply as the AI makes them (each has an Undo). Commands and commits still ask first.',
+  plan: "Describe what to build — the AI explores the project and drafts a plan into Planning's AI tab.",
+  auto: 'The AI runs changes without asking. Push, pull and destructive tools still ask.',
+}
+
 export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
-  const { messages, input, setInput, sendMessage, cancel, streaming, available, decideCommand } =
-    useAgentChatViewModel(onPlanNodeCreated)
+  const {
+    messages,
+    input,
+    setInput,
+    sendMessage,
+    cancel,
+    streaming,
+    available,
+    mode,
+    cycleMode,
+    decideTool,
+    undoChangeSet,
+    reapplyChangeSet,
+  } = useAgentChatViewModel(onPlanNodeCreated)
   const scrollRef = useRef<HTMLElement>(null)
-  const pendingCommand = messages.find((m) => m.command?.status === 'pending')?.command
 
   // Gap between "sent" and the first token: no assistant message exists yet
   // to show a streaming cursor on, so show the gallop here instead.
@@ -69,66 +88,55 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
     sendMessage()
   }
 
+  // Shift+Tab cycles the permission mode, same as Claude Code.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault()
+      cycleMode()
+    }
+  }
+
   return (
     <Frame flow="vertical" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
       <ScrollWindow ref={scrollRef} axis="y" flow="vertical" gap={10} padding={12} style={{ flex: 1, minHeight: 0 }}>
         {messages.length === 0 && (
-          <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
-            Ask for a plan and it'll show up as draft nodes in Planning's AI tab.
-          </span>
+          <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>{EMPTY_HINT[mode]}</span>
         )}
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR[m.role], opacity: 0.7, ...MONO }}>
-              {ROLE_LABEL[m.role]}
-            </span>
-            {m.command ? (
-              <Frame
-                flow="vertical"
-                gap={4}
-                padding={8}
-                fill={{ solid: 'bg-0' }}
-                stroke={{ color: 'var(--border-1)' }}
-              >
-                <span style={{ fontSize: 11, color: 'var(--text-1)', wordBreak: 'break-all', ...MONO }}>
-                  $ {[m.command.command, ...m.command.args].join(' ')}
+        {messages.map((m, i) => {
+          // Consecutive tool rows sit under one AI label rather than repeating it.
+          const previous = messages[i - 1]
+          const continuesAssistant = m.role === 'assistant' && previous?.role === 'assistant'
+          return (
+            <div key={m.tool?.callId ?? i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {!continuesAssistant && (
+                <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR[m.role], opacity: 0.7, ...MONO }}>
+                  {ROLE_LABEL[m.role]}
                 </span>
-                {m.command.output && (
-                  <span
-                    style={{ fontSize: 10, color: 'var(--text-2)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', ...MONO }}
-                  >
-                    {m.command.output}
-                  </span>
-                )}
-                <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-3)', ...MONO }}>
-                  {m.command.status === 'done'
-                    ? m.command.timedOut
-                      ? 'Timed out'
-                      : `Exit code: ${m.command.exitCode}`
-                    : COMMAND_STATUS_LABEL[m.command.status]}
+              )}
+              {m.tool ? (
+                <ToolActivityRow tool={m.tool} onDecide={decideTool} onUndo={undoChangeSet} onReapply={reapplyChangeSet} />
+              ) : (
+                <span
+                  style={{
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    color: m.role === 'system' ? 'var(--text-3)' : 'var(--text-1)',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    ...MONO,
+                  }}
+                >
+                  {m.content}
+                  {m.streaming && (
+                    <span style={{ display: 'inline-block', width: 7, animation: 'agent-cursor-blink 1s step-start infinite' }}>
+                      ▌
+                    </span>
+                  )}
                 </span>
-              </Frame>
-            ) : (
-              <span
-                style={{
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  color: m.role === 'system' ? 'var(--text-3)' : 'var(--text-1)',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  ...MONO,
-                }}
-              >
-                {m.content}
-                {m.streaming && (
-                  <span style={{ display: 'inline-block', width: 7, animation: 'agent-cursor-blink 1s step-start infinite' }}>
-                    ▌
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          )
+        })}
         {waitingForFirstToken && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR.assistant, opacity: 0.7, ...MONO }}>
@@ -146,12 +154,32 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
         align="center"
         gap={8}
         padding={10}
-        stroke={{ top: { color: 'var(--border-1)' } }}
+        stroke={{ top: { color: mode === 'auto' ? 'rgba(224,160,64,0.6)' : 'var(--border-1)' } }}
       >
+        <button
+          type="button"
+          onClick={cycleMode}
+          title={`${AGENT_MODE_HINT[mode]} — click or Shift+Tab to change`}
+          style={{
+            background: 'transparent',
+            border: `1px solid ${mode === 'ask' ? 'var(--border-2)' : MODE_COLOR[mode]}`,
+            color: MODE_COLOR[mode],
+            fontSize: 9,
+            letterSpacing: '0.08em',
+            padding: '4px 8px',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            ...MONO,
+          }}
+        >
+          {AGENT_MODE_LABEL[mode].toUpperCase()}
+        </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask AI…"
+          onKeyDown={handleKeyDown}
+          placeholder={mode === 'plan' ? 'Describe what to plan…' : 'Ask AI…'}
           disabled={streaming}
           style={{
             flex: 1,
@@ -201,14 +229,6 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
           </button>
         )}
       </Frame>
-
-      {pendingCommand && (
-        <CommandConfirmModal
-          command={pendingCommand.command}
-          args={pendingCommand.args}
-          onDecide={(approved) => decideCommand(pendingCommand.requestId, approved)}
-        />
-      )}
     </Frame>
   )
 }

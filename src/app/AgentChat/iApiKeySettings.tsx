@@ -1,3 +1,5 @@
+import type { AgentMode } from './iAgentChat'
+
 export interface KeyStatus {
   configured: boolean
   hint: string | null
@@ -26,12 +28,19 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { id: OLLAMA_MODEL_ID, label: 'Local Ollama', description: 'Runs on your machine via ollama serve — free, no API key, no cloud' },
 ]
 
+export interface AgentSettings {
+  defaultMode: AgentMode
+  maxToolTurns: number
+}
+
 export interface SettingsAPI {
   getKeyStatus: (provider: string) => Promise<KeyStatus>
   setKey: (provider: string, key: string) => Promise<KeyStatus>
   clearKey: (provider: string) => Promise<KeyStatus>
   getModel: () => Promise<ModelStatus>
   setModel: (model: string) => Promise<string>
+  getAgentSettings: () => Promise<AgentSettings>
+  setAgentSettings: (patch: Partial<AgentSettings>) => Promise<AgentSettings>
 }
 
 declare global {

@@ -153,7 +153,8 @@ contextBridge.exposeInMainWorld('previewAPI', {
 // off a request, send for fire-and-forget cancel, on-based push listeners
 // filtered by session id). No web equivalent (see electron/chat.cjs).
 contextBridge.exposeInMainWorld('chatAPI', {
-  sendMessage: (sessionId, history, message) => ipcRenderer.invoke('chat:sendMessage', sessionId, history, message),
+  sendMessage: (sessionId, history, message, options) =>
+    ipcRenderer.invoke('chat:sendMessage', sessionId, history, message, options),
   cancel: (sessionId) => ipcRenderer.send('chat:cancel', sessionId),
   onToken: (sessionId, callback) => {
     const listener = (_e, id, delta) => { if (id === sessionId) callback(delta) }
@@ -180,23 +181,22 @@ contextBridge.exposeInMainWorld('chatAPI', {
     ipcRenderer.on('chat:error', listener)
     return () => ipcRenderer.removeListener('chat:error', listener)
   },
-  // run_command's propose/confirm/stream round-trip (see electron/chat.cjs).
-  sendCommandDecision: (requestId, approved) => ipcRenderer.send('chat:commandDecision', requestId, approved),
-  onCommandProposed: (sessionId, callback) => {
+  // One row per tool call: 'chat:tool' carries patches keyed by callId (name,
+  // status, approval, change set…), 'chat:toolOutput' streams text into it
+  // (see electron/chat.cjs's runToolCall).
+  onTool: (sessionId, callback) => {
     const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
-    ipcRenderer.on('chat:commandProposed', listener)
-    return () => ipcRenderer.removeListener('chat:commandProposed', listener)
+    ipcRenderer.on('chat:tool', listener)
+    return () => ipcRenderer.removeListener('chat:tool', listener)
   },
-  onCommandOutput: (sessionId, callback) => {
+  onToolOutput: (sessionId, callback) => {
     const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
-    ipcRenderer.on('chat:commandOutput', listener)
-    return () => ipcRenderer.removeListener('chat:commandOutput', listener)
+    ipcRenderer.on('chat:toolOutput', listener)
+    return () => ipcRenderer.removeListener('chat:toolOutput', listener)
   },
-  onCommandDone: (sessionId, callback) => {
-    const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }
-    ipcRenderer.on('chat:commandDone', listener)
-    return () => ipcRenderer.removeListener('chat:commandDone', listener)
-  },
+  sendToolDecision: (callId, decision, paths) => ipcRenderer.send('chat:toolDecision', callId, decision, paths),
+  applyChangeSet: (id, paths) => ipcRenderer.invoke('chat:applyChangeSet', id, paths),
+  undoChangeSet: (id) => ipcRenderer.invoke('chat:undoChangeSet', id),
 })
 
 // Validation — same shape as previewAPI above (fire-and-forget start/stop,
@@ -238,4 +238,6 @@ contextBridge.exposeInMainWorld('settingsAPI', {
   clearKey: (provider) => ipcRenderer.invoke('settings:clearKey', provider),
   getModel: () => ipcRenderer.invoke('settings:getModel'),
   setModel: (model) => ipcRenderer.invoke('settings:setModel', model),
+  getAgentSettings: () => ipcRenderer.invoke('settings:getAgentSettings'),
+  setAgentSettings: (patch) => ipcRenderer.invoke('settings:setAgentSettings', patch),
 })

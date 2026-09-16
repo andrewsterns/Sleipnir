@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { ApiKeySettings } from '../AgentChat/ApiKeySettings'
-import { MODEL_OPTIONS, OLLAMA_MODEL_ID, type KeyStatus, type ModelStatus } from '../AgentChat/iApiKeySettings'
+import { MODEL_OPTIONS, OLLAMA_MODEL_ID, type AgentSettings, type KeyStatus, type ModelStatus } from '../AgentChat/iApiKeySettings'
+import { AGENT_MODES, AGENT_MODE_HINT, AGENT_MODE_LABEL } from '../AgentChat/iAgentChat'
 import {
   getAgentScaffolding,
   getGitIdentity,
@@ -30,6 +31,7 @@ interface SettingsSection {
 const SECTIONS: SettingsSection[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'api-keys', label: 'API Keys' },
+  { id: 'agent-permissions', label: 'AI Permissions' },
   { id: 'git-identity', label: 'Git Identity' },
   { id: 'agent-scaffolding', label: 'Agent Scaffolding' },
   { id: 'keybindings', label: 'Keybindings' },
@@ -168,6 +170,110 @@ function ApiKeysSection() {
           />
         )}
       </Frame>
+    </Frame>
+  )
+}
+
+// Which permission mode a new AI chat starts in, and how many tool steps one
+// message may take. App-wide, stored in userData (see
+// electron/agent/agentSettingsStore.cjs) — "Always allow" rules are per
+// project and granted from the chat itself.
+function AgentPermissionsSection() {
+  const [settings, setSettings] = useState<AgentSettings | null>(null)
+  const [turnsInput, setTurnsInput] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.settingsAPI
+      ?.getAgentSettings?.()
+      .then((s) => {
+        setSettings(s)
+        setTurnsInput(String(s.maxToolTurns))
+      })
+      .catch(() => {})
+  }, [])
+
+  const save = async (patch: Partial<AgentSettings>) => {
+    setError(null)
+    try {
+      const next = await window.settingsAPI!.setAgentSettings(patch)
+      setSettings(next)
+      setTurnsInput(String(next.maxToolTurns))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  if (!window.settingsAPI) {
+    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>AI settings are desktop-only.</span>
+  }
+
+  return (
+    <Frame flow="vertical" gap={16} style={{ maxWidth: 420 }}>
+      <Frame flow="vertical" gap={10}>
+        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>DEFAULT PERMISSION MODE</span>
+        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+          The mode a new AI chat starts in. Switch per chat with the mode button or Shift+Tab.
+        </span>
+        <Frame flow="vertical" gap={6}>
+          {AGENT_MODES.map((m) => {
+            const active = settings?.defaultMode === m
+            return (
+              <button
+                key={m}
+                onClick={() => save({ defaultMode: m })}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  background: active ? 'rgba(var(--item-ink, 255,255,255), 0.06)' : 'transparent',
+                  border: `1px solid ${active ? 'var(--border-2)' : 'var(--border-1)'}`,
+                  cursor: 'pointer',
+                  ...MONO,
+                }}
+              >
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-1)' }}>{AGENT_MODE_LABEL[m]}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.4 }}>{AGENT_MODE_HINT[m]}</span>
+                </span>
+                <span style={{ fontSize: 13, color: active ? 'var(--text-1)' : 'var(--text-3)' }}>{active ? '◉' : '○'}</span>
+              </button>
+            )
+          })}
+        </Frame>
+      </Frame>
+
+      <Frame flow="vertical" gap={8}>
+        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>TOOL STEPS PER MESSAGE</span>
+        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+          How many rounds of tool calls one message may take before the AI stops and hands back control.
+        </span>
+        <input
+          type="number"
+          min={1}
+          max={200}
+          value={turnsInput}
+          onChange={(e) => setTurnsInput(e.target.value)}
+          onBlur={() => {
+            const n = Number(turnsInput)
+            if (Number.isInteger(n) && n !== settings?.maxToolTurns) save({ maxToolTurns: n })
+            else setTurnsInput(String(settings?.maxToolTurns ?? ''))
+          }}
+          style={{
+            width: 100,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--border-2)',
+            color: 'var(--text-1)',
+            fontSize: 11,
+            padding: '6px 8px',
+            ...MONO,
+          }}
+        />
+      </Frame>
+
+      {error && <span style={{ fontSize: 9, color: '#e07a7a', ...MONO }}>{error}</span>}
     </Frame>
   )
 }
@@ -503,6 +609,7 @@ export const SettingsView: React.FC = () => {
         <Frame grow minW={0} scroll="y" padding={24}>
           {activeSection === 'appearance' && <AppearanceSection />}
           {activeSection === 'api-keys' && <ApiKeysSection />}
+          {activeSection === 'agent-permissions' && <AgentPermissionsSection />}
           {activeSection === 'git-identity' && <GitIdentitySection />}
           {activeSection === 'agent-scaffolding' && <AgentScaffoldingSection />}
           {activeSection === 'keybindings' && <KeybindingsSection />}

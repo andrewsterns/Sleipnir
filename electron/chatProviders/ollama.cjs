@@ -13,12 +13,12 @@ function isAvailable() {
   return true
 }
 
-// Canonical { name, description, properties, required } tool defs (see
-// chat.cjs) -> Ollama's OpenAI-style function-calling schema.
+// Canonical { name, description, inputSchema } tool defs (see
+// agent/tools/registry.cjs) -> Ollama's OpenAI-style function-calling schema.
 function toProviderTools(defs) {
   return defs.map((d) => ({
     type: 'function',
-    function: { name: d.name, description: d.description, parameters: { type: 'object', properties: d.properties, required: d.required } },
+    function: { name: d.name, description: d.description, parameters: d.inputSchema ?? { type: 'object', properties: {} } },
   }))
 }
 
@@ -26,8 +26,9 @@ function toProviderTools(defs) {
 // carry a `tool_calls` field (on prior assistant turns) alongside role/content
 // — preserved below, not just role+content, or a continued tool-use turn
 // would silently lose the model's own prior tool calls.
-async function streamTurn({ messages, toolDefs, signal, onText, onToolCall }) {
+async function streamTurn({ system, messages, toolDefs, signal, onText, onToolCall }) {
   const tools = toolDefs?.length ? toProviderTools(toolDefs) : undefined
+  const withSystem = system ? [{ role: 'system', content: system }, ...messages] : messages
   let res
   try {
     res = await fetch(`${OLLAMA_URL}/api/chat`, {
@@ -35,7 +36,7 @@ async function streamTurn({ messages, toolDefs, signal, onText, onToolCall }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
-        messages: messages.map((m) => ({
+        messages: withSystem.map((m) => ({
           role: m.role,
           content: m.content,
           ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
