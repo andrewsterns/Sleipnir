@@ -12,43 +12,33 @@
 // restart needed.
 //
 // Usage:
+//   node sleipnir-plan.mjs detect-project --root <path>
 //   node sleipnir-plan.mjs create-plan --root <path> --label "My plan" [--temporary] [--total-steps N]
 //   node sleipnir-plan.mjs create-node --root <path> --plan-id <id> --label "Step" \
-//       --description "..." [--parent-id <nodeId>]
+//       --description "..." [--after <stepId|none>] [--parent-id <nodeId>] \
+//       [--file <path>:<role>[:<language>]]... [--edits <path1,path2>]
 //   node sleipnir-plan.mjs propose-file --root <path> --plan-id <id> --label "Step" \
 //       --description "..." --file-path <workspace-relative-path> \
 //       --content-file <path-to-file-with-the-proposed-content|-> \
 //       [--parent-id <nodeId>] [--links <nodeId1,nodeId2,...>]
 //
-// --total-steps, when you already know how many steps you're about to
-// create, gets you a real N-of-M progress bar and a definitive completion
-// moment in Sleipnir's Planning graph instead of an indeterminate pulse +
-// quiet-period guess. Optional — harmless to omit.
+// Projects get a vendored copy of this CLI as .sleipnir/plan.mjs
+// (tools/agentSkills/vendor/plan.mjs); both share tools/planDoc.mjs's logic.
 //
-// create-plan prints the new plan's id — pass it as --plan-id to create-node
-// for every step so they land on that plan's own tab (in addition to always
-// landing in Sleipnir's shared "Claude" review tab, grouped by --plan-id,
-// same as the in-app AI chat's own drafts). Skipping create-plan and picking
-// any --plan-id string for create-node still works — steps just won't have a
-// dedicated named tab, identical to today's in-app AI chat behavior.
+// detect-project reports the project's languages and layout so an agent plans
+// files that match it. create-node steps chain in creation order (--after
+// inserts or unlinks), --file declares NEW files a step will create at their
+// real project paths (placeholders — nothing touches disk until a human
+// approves the step in Sleipnir), and --edits lists EXISTING files it changes.
+// Every saved plan also gets .planning/<plan>/plan.md, regenerated per step.
 //
-// propose-file is create-node's file-carrying sibling: it stages a NEW
-// workspace file (path + full content) on the node instead of just a text
-// description — but does NOT write anything to real disk. Nothing gets
-// written until a human reviews the actual content in Sleipnir and
-// explicitly saves it (same trust boundary as the in-app AI chat's own
-// generate_code tool — see chat.cjs). --content-file takes a path to a file
-// holding the proposed content (write it there yourself first — a CLI flag
-// can't cleanly carry multi-line source with quotes/backticks in it), or "-"
-// to read content from stdin. --links, a comma-separated list of other node
-// ids (e.g. ones this create-plan/propose-file run already returned),
-// draws visible "borrows" edges from this node to them — use it to make a
-// batch of proposed files show their real import relationships in the graph
-// before any of them exist on disk.
+// propose-file (legacy) stages one NEW file with full content on a step
+// instead — still never written until a human reviews and saves it.
 import fs from 'node:fs'
 import path from 'node:path'
 import * as backend from './sleipnir-backend.mjs'
 
+// Repeated flags (--file a --file b) collect into an array.
 function parseArgs(argv) {
   const args = { _: [] }
   for (let i = 0; i < argv.length; i++) {
@@ -56,12 +46,13 @@ function parseArgs(argv) {
     if (tok.startsWith('--')) {
       const key = tok.slice(2)
       const next = argv[i + 1]
-      if (next === undefined || next.startsWith('--')) {
-        args[key] = true // boolean flag, e.g. --temporary
-      } else {
-        args[key] = next
+      let value = true // boolean flag, e.g. --temporary
+      if (next !== undefined && !next.startsWith('--')) {
+        value = next
         i++
       }
+      if (key in args) args[key] = [].concat(args[key], value)
+      else args[key] = value
     } else {
       args._.push(tok)
     }
@@ -76,7 +67,7 @@ function fail(message) {
 
 function requireOpt(args, name) {
   const v = args[name]
-  if (!v || v === true) fail(`--${name} is required`)
+  if (!v || v === true || Array.isArray(v)) fail(`--${name} is required (once)`)
   return v
 }
 
@@ -86,6 +77,10 @@ function parseIntOpt(args, name) {
   const n = Number.parseInt(v, 10)
   if (!Number.isInteger(n) || n <= 0) fail(`--${name} must be a positive integer, got "${v}"`)
   return n
+}
+
+function listOpt(args, name) {
+  return [].concat(args[name] ?? []).filter((v) => typeof v === 'string')
 }
 
 function openTargetWorkspace(args) {
@@ -122,27 +117,37 @@ function readContentFile(pathOrDash) {
 
 const HELP = `Sleipnir Planning CLI
 
+  node sleipnir-plan.mjs detect-project --root <path>
   node sleipnir-plan.mjs create-plan --root <path> --label "My plan" [--temporary] [--total-steps N]
   node sleipnir-plan.mjs create-node --root <path> --plan-id <id> --label "Step" \\
-      --description "..." [--parent-id <nodeId>]
+      --description "..." [--after <stepId|none>] [--parent-id <nodeId>] \\
+      [--file <path>:<role>[:<language>]]... [--edits <path1,path2>]
   node sleipnir-plan.mjs propose-file --root <path> --plan-id <id> --label "Step" \\
       --description "..." --file-path <workspace-relative-path> \\
       --content-file <path|-> [--parent-id <nodeId>] [--links <nodeId1,nodeId2>]
 
-create-plan prints the new plan's id — pass it as --plan-id to create-node for
-every step so they land on that plan's own tab in Sleipnir's Planning graph.
---total-steps N (optional): if you already know your step count, Sleipnir
-shows a real N-of-M progress bar and a definitive "done" moment instead of
-guessing from a quiet period after your last write.
+detect-project prints the project's languages and layout. Run it first and plan
+files that match it.
 
-propose-file stages a NEW file (path + content) on the step instead of just a
-text description — nothing is written to real disk until a human reviews and
-explicitly saves it in Sleipnir (same trust boundary as the in-app AI chat's
-own generate_code tool). --content-file points at a file holding the proposed
-content (write it there first — can't cleanly pass multi-line source as a CLI
-argument), or pass "-" to read it from stdin. --links draws visible "borrows"
-edges to other node ids, so a batch of proposed files can show how they'll
-actually reference each other before any of them exist on disk.
+create-plan prints the new plan's id — pass it as --plan-id to create-node for
+every step. --total-steps N (optional) gives Sleipnir a real N-of-M progress bar.
+
+create-node steps chain in the order you create them. --after <stepId> inserts a
+step after that one instead; --after none leaves it unlinked (parallel work).
+--file declares a NEW file the step will create, at its real project path (never
+.planning/). Repeat it per file. Roles: node, view, view-model, interface,
+controller, presenter. Language defaults to the file extension, then the
+detected primary language. Files are placeholders only — nothing is written to
+disk until a human approves the step in Sleipnir. Sibling role files of one
+feature (cartView.tsx + cartViewModel.tsx) are linked automatically.
+--edits lists EXISTING files the step will change.
+
+Each plan also gets .planning/<plan>/plan.md, regenerated as steps are written.
+Notes written under the title, or between a step's /step-meta and /step
+markers, are kept.
+
+propose-file (legacy) stages one NEW file with full content on a step. Prefer
+create-node --file.
 `
 
 async function main() {
@@ -152,6 +157,16 @@ async function main() {
   if (!command || command === '--help' || command === '-h') {
     process.stdout.write(HELP)
     process.exit(command ? 0 : 1)
+  }
+
+  if (command === 'detect-project') {
+    openTargetWorkspace(args)
+    try {
+      process.stdout.write(`${JSON.stringify(backend.detectProject(), null, 2)}\n`)
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err))
+    }
+    return
   }
 
   if (command === 'create-plan') {
@@ -173,9 +188,15 @@ async function main() {
     const label = requireOpt(args, 'label')
     const description = typeof args.description === 'string' ? args.description : undefined
     const parentId = typeof args['parent-id'] === 'string' ? args['parent-id'] : undefined
+    const files = listOpt(args, 'file')
 
     try {
-      const { node } = backend.createPlanNode(planId, label, description, parentId)
+      const { node } = backend.createPlanNode(planId, label, description, parentId, {
+        after: typeof args.after === 'string' ? args.after : undefined,
+        files,
+        edits: listOpt(args, 'edits').flatMap((s) => s.split(',')).map((s) => s.trim()).filter(Boolean),
+        defaultLanguage: files.length ? backend.detectProject().primary ?? undefined : undefined,
+      })
       pullIntoNamedPlanIfExists(planId, node.id)
       process.stdout.write(`${JSON.stringify(node, null, 2)}\n`)
     } catch (err) {

@@ -1,15 +1,6 @@
-import { listWorkspaceDir, readWorkspaceFile } from '../api/sleipnirApi'
-import type { FileTreeNode } from '../api/PlatformAPI'
-import { detectEdgesForPaths } from './importAdapters/detectEdges'
+import { listWorkspaceDir } from '../api/sleipnirApi'
+import { flattenFilePaths, getWorkspaceScan } from './workspaceScanCache'
 import type { GraphData, SavedPlan } from './types'
-
-function flattenFilePaths(nodes: FileTreeNode[], into: string[] = []): string[] {
-  for (const n of nodes) {
-    if (n.type === 'file') into.push(n.path)
-    else if (n.children) flattenFilePaths(n.children, into)
-  }
-  return into
-}
 
 async function listFilesUnder(folder: string): Promise<string[]> {
   const { tree } = await listWorkspaceDir(folder)
@@ -24,24 +15,6 @@ async function listFilesUnder(folder: string): Promise<string[]> {
 // the cap needs raising.
 const MAX_DISCOVERED_NODES = 300
 
-// Extensions that can only ever be an import TARGET, never a source of
-// imports of its own — an image/font/media/archive has no syntax to scan.
-// Excluded from the whole-project content scan below purely as a cost cut
-// (reading and regexing a multi-MB binary as text is wasted work that can
-// never match); they still show up fine as nodes and as edge targets.
-const NON_SOURCE_EXTS = new Set([
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'avif',
-  'ttf', 'otf', 'woff', 'woff2', 'eot',
-  'mp3', 'mp4', 'wav', 'ogg', 'webm', 'mov', 'avi', 'mkv',
-  'pdf', 'zip', 'gz', 'tar', '7z', 'rar',
-  'wasm', 'exe', 'dll', 'so', 'dylib', 'node',
-])
-
-function isScannableSource(path: string): boolean {
-  const ext = path.split('.').pop()?.toLowerCase() ?? ''
-  return !NON_SOURCE_EXTS.has(ext)
-}
-
 // A live re-derivation of an asset-based plan's nodes/edges from the
 // Workspace's current disk state — the counterpart to resolvePlan.ts's
 // resolvePlanGraph for the *other* kind of plan (graph-node-based). Never a
@@ -50,23 +23,18 @@ function isScannableSource(path: string): boolean {
 // call, so a file added under one since plan creation shows up as a new node
 // automatically; `assetPaths` entries outside any assetFolders stay a fixed
 // set (they were hand-picked one at a time, not "everything under X"), but
-// every path's content is still re-read and re-scanned fresh, so edges
-// always reflect the file's current imports, not whatever was detected when
-// the plan was made. `plan.assetEdges`/frozen `assetPaths` remain on the
+// edges always reflect each file's current imports, not whatever was detected
+// when the plan was made. `plan.assetEdges`/frozen `assetPaths` remain on the
 // type purely as graphForPlan's flash-free first-paint fallback
 // (PlanningView.ViewModel.tsx) before this resolves.
 //
 // Nodes aren't limited to the explicitly-added set either, and not just one
-// hop out from it, and not just outgoing imports: this builds the whole
-// project's import graph once (every scannable file's own detected imports,
-// resolved against the full workspace — see allProjectEdges below), then
-// walks it BOTH directions from the explicit seed set until it runs out of
-// new files or hits MAX_DISCOVERED_NODES. The reverse direction matters as
-// much as the forward one — an image or font has no imports of its own, so
-// the ONLY way to connect it to anything is to find the components that
-// import IT, which means scanning THEIR content, not the asset's. Forward
-// alone (what does this file import) would leave every leaf asset a
-// permanently disconnected dot no matter how many components reference it.
+// hop out from it, and not just outgoing imports: this walks the whole
+// project's import graph (the shared cached scan — see workspaceScanCache.ts)
+// BOTH directions from the explicit seed set until it runs out of new files
+// or hits MAX_DISCOVERED_NODES. The reverse direction matters as much as the
+// forward one — an image or font has no imports of its own, so the ONLY way
+// to connect it to anything is to find the components that import IT.
 export async function resolveAssetPlanGraph(plan: SavedPlan): Promise<GraphData> {
   const folders = plan.assetFolders ?? []
   const folderFiles = (await Promise.all(folders.map((f) => listFilesUnder(f).catch(() => [] as string[])))).flat()
@@ -74,10 +42,7 @@ export async function resolveAssetPlanGraph(plan: SavedPlan): Promise<GraphData>
   const explicitPaths = [...new Set([...folderFiles, ...loosePaths])]
   const explicitSet = new Set(explicitPaths)
 
-  const readFile = (p: string) => readWorkspaceFile(p).then((r) => r.content)
-  const workspacePool = await listFilesUnder('').catch(() => explicitPaths)
-
-  const allProjectEdges = await detectEdgesForPaths(workspacePool.filter(isScannableSource), readFile, workspacePool)
+  const { edges: allProjectEdges } = await getWorkspaceScan().catch(() => ({ files: explicitPaths, edges: [] }))
   const pushTo = (map: Map<string, string[]>, key: string, value: string) => {
     const list = map.get(key)
     if (list) list.push(value)
@@ -104,10 +69,7 @@ export async function resolveAssetPlanGraph(plan: SavedPlan): Promise<GraphData>
   // frontier's own edges, or an explicit set that's already at/over the cap
   // (e.g. a whole-project `assetFolders: ['src']` pick) would lose ALL of
   // its edges, including the ones purely between files the user themselves
-  // added. That was a real bug here: `while (... && visited.size < MAX)`
-  // failed on the very first check whenever the explicit set alone already
-  // met the cap, so the loop body — where every addEdge() call lives — never
-  // ran even once.
+  // added.
   let frontier = explicitPaths
   while (frontier.length > 0) {
     const next: string[] = []

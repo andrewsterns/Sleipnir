@@ -33,9 +33,13 @@ import {
   clearRecentProjects,
   newWindow,
   appendPlanGeneratedFiles,
+  relinkPlanningPath,
 } from './00_planning/api/sleipnirApi'
 import type { RecentProject, WorkspaceInfo } from './00_planning/api/PlatformAPI'
 import { isPlanningWatchAvailable } from './00_planning/api/iPlanningWatch'
+import { usePlanningHealth } from './00_planning/usePlanningHealth'
+import { useStatusReconciler } from './00_planning/useStatusReconciler'
+import type { MissingPlanningRef } from './00_planning/api/PlatformAPI'
 import { useCanvasComponentPaths } from './01_canvas/useCanvasComponentPaths'
 import { reconcileDelete, reconcileMove } from './01_canvas/model/store'
 import type { FolderBrowserHandle } from './app/DesignSystem/iFolderBrowserView'
@@ -200,6 +204,14 @@ function App() {
       // Best-effort: the bytes have already moved, and a board left stale is a
       // recoverable annoyance, not a reason to surface an error over a
       // successful drag.
+    }
+    // A move made here is certain, so `.planning/` paths follow it without
+    // asking — unlike moves made in another editor, which go through
+    // Planning's missing-files bar (see usePlanningHealth).
+    try {
+      await relinkPlanningPath(from, to)
+    } catch {
+      // Best-effort for the same reason as above.
     }
   }
 
@@ -505,6 +517,30 @@ function App() {
     setGitRefreshToken((v) => v + 1)
   }
 
+  // `.planning/` paths that no longer exist — listed in the Problems dock and
+  // marked on Planning's graph. Lives here rather than in PlanningView so the
+  // warning reaches you from any section, not only while Planning is open.
+  const planningHealth = usePlanningHealth(activeProject?.path)
+  // Moves file statuses forward for changes made outside Sleipnir's editor.
+  useStatusReconciler(activeProject?.path)
+
+  // Problems dock "SHOW": the first thing referencing the missing path — a
+  // note node on its own map, or the plan tab holding the asset (and its node,
+  // for a single file; a missing folder has no node of its own).
+  const showMissingInPlanning = (missing: MissingPlanningRef) => {
+    const ref = missing.refs[0]
+    if (!ref) return
+    if (ref.kind === 'note' && ref.nodeId) {
+      jumpToPlanningNode(ref.mapId ?? 'todo', ref.nodeId)
+    } else if (ref.planId) {
+      switchTo('planning')
+      setFocusTarget({
+        mapId: ref.planId,
+        nodeId: ref.kind === 'assetPath' ? `workspace-asset/${ref.planId}/${missing.path}` : undefined,
+      })
+    }
+  }
+
   const navItems: NavRailItem[] = NAV_ITEMS
 
   const categoryLabel = (id: string): string => navItems.find((n) => n.id === id)?.title ?? id
@@ -539,13 +575,14 @@ function App() {
             onShowInCanvas={jumpToCanvasComponent}
             canvasComponentPaths={canvasComponentPaths}
             onWorkspaceChanged={refreshWorkspaceTree}
+            missingPaths={planningHealth.missingPaths}
           />
         )
       case 'canvas':
         return (
           <CanvasView
             // Same remount-on-project-switch reasoning as PlanningView above
-            // — boards live in the open project's own .planning/canvas/
+            // — boards live in the open project's own .canvas/.boards/
             // folder, so a stale instance can't leak content across a switch.
             key={activeProject?.path ?? 'no-project'}
             activeProject={activeProject}
@@ -726,6 +763,13 @@ function App() {
         categoryLabel={categoryLabel}
         onJump={onJumpToProblem}
         shiftUp={activeDock !== null}
+        missingPlanning={planningHealth.missing}
+        planningActions={{
+          onRelink: planningHealth.relink,
+          onRelinkAll: planningHealth.relinkAll,
+          onRemove: planningHealth.remove,
+          onShow: showMissingInPlanning,
+        }}
       />
       <CommandPalette onJumpToFile={jumpToProjectFile} />
     </ThemeProvider>

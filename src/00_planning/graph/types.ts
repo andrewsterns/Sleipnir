@@ -31,6 +31,8 @@ export interface SavedPlan {
   temporary?: boolean
   /** Declared step count from tools/sleipnir-plan.mjs's --total-steps, when the authoring agent knows it up front — lets PlanBuildStatusBar show real N-of-M progress and a definitive completion moment instead of an indeterminate pulse + quiet-period guess. Absent when not declared. */
   expectedSteps?: number
+  /** Workspace-relative path of this plan's generated document (`.planning/<plan>/plan.md`), set once its first step is written. See tools/planDoc.mjs's renderPlanDoc. */
+  docPath?: string
 }
 
 export type NodeKind = 'built' | 'proposed'
@@ -45,7 +47,7 @@ export type NodeStatus = 'draft' | 'approved' | 'done'
 // node id in an overlay store (backend getNodeStages/setNodeStage), not on the
 // node's own record, so it applies to build-generated nodes too. See
 // graph/stages.ts for the label + color + stroke each value renders as.
-export type NodeStage = 'proposed' | 'todo' | 'in-progress' | 'in-review' | 'blocked' | 'completed'
+export type NodeStage = 'proposed' | 'in-progress' | 'in-review' | 'completed'
 
 export interface GraphNode {
   id: string
@@ -68,12 +70,27 @@ export interface GraphNode {
   discovered?: boolean
   /** Set only on a plan-step node created via tools/sleipnir-plan.mjs's propose-file (see tools/sleipnir-backend.mjs#proposeFileNode) — a staged new-file proposal that hasn't touched real disk yet. `path` doesn't exist as a real Workspace file until a human reviews it (via the same staged-editor-tab flow generate_code uses) and explicitly saves. Absent on every other node kind. */
   proposedFile?: { path: string; content: string }
+  /** Plan steps only: 1-based position within the plan (see tools/planDoc.mjs's addPlanStep). Absent on steps written before ordering existed. */
+  order?: number
+  /** Plan steps only: existing workspace files this step will change (they are highlighted, never duplicated as new nodes). */
+  editsPaths?: string[]
+  /** True on a 'planned-file' placeholder — a file a plan step intends to create at `filePath`, which does not exist on disk until the step is approved. */
+  planned?: boolean
+  /** On a 'planned-file' node: the plan step that declared it. */
+  stepId?: string
 }
+
+/**
+ * - 'borrows'   — an import relationship (source imports target)
+ * - 'plan-step' — grouping: a parent step -> child step, or a step -> its planned files
+ * - 'sequence'  — reading/work order between two steps of one plan
+ */
+export type EdgeKind = 'borrows' | 'plan-step' | 'sequence'
 
 export interface GraphEdge {
   source: string
   target: string
-  kind: 'borrows' | 'plan-step'
+  kind: EdgeKind
 }
 
 export interface GraphData {

@@ -1,8 +1,13 @@
 // Persistence for canvas boards.
 //
-// Boards live at <workspace>/.planning/canvas/<docId>.json — beside the plans
-// they map to, git-committable, travelling with the project, exactly the
-// rationale the backend states for .planning/ itself.
+// Boards live at <workspace>/.canvas/.boards/<docId>.json — beside the
+// component files they stage (.canvas/<name>/…), git-committable, travelling
+// with the project. Never under .planning/: that folder is Planning's alone.
+// The dot-prefixed `.boards` can't collide with a derived component folder
+// (those are camelCase names — see paths.ts's deriveComponentPath).
+//
+// Boards used to live at .planning/canvas/; listDocs moves any found there
+// (see migrateLegacyBoards).
 //
 // Deliberately built on the GENERIC workspace file API rather than dedicated
 // PlatformAPI methods. writeWorkspaceFile is an upsert that mkdir -p's its
@@ -26,7 +31,8 @@ import { spliceImports } from '../emit/region'
 import { movedComponents, reconcileDeletedPath, relinkAfterMove } from './relink'
 import { CANVAS_SCHEMA_VERSION, type CanvasDoc, type CanvasDocId, type CanvasDocSummary } from './types'
 
-export const CANVAS_DIR = '.planning/canvas'
+export const CANVAS_DIR = '.canvas/.boards'
+const LEGACY_CANVAS_DIR = '.planning/canvas'
 
 export function canvasDocPath(id: string): string {
   return `${CANVAS_DIR}/${id}.json`
@@ -80,7 +86,41 @@ export function parseDoc(content: string): CanvasDoc | null {
   }
 }
 
+/**
+ * One-time move of boards from the old .planning/canvas/ location into
+ * CANVAS_DIR, then removes the emptied folder so .planning carries no canvas
+ * files. A board already present at the new location is never overwritten.
+ * Best-effort per file — a failed move leaves that board where it was, to be
+ * retried on the next listDocs.
+ */
+async function migrateLegacyBoards(): Promise<void> {
+  const { tree: legacy } = await listWorkspaceDir(LEGACY_CANVAS_DIR).catch(() => ({ tree: [] as { type: string; name: string; path: string }[] }))
+  const legacyBoards = legacy.filter((n) => n.type === 'file' && n.name.endsWith('.json'))
+  if (legacyBoards.length === 0) return
+
+  const { tree: current } = await listWorkspaceDir(CANVAS_DIR).catch(() => ({ tree: [] as { name: string }[] }))
+  const existing = new Set(current.map((n) => n.name))
+  for (const file of legacyBoards) {
+    try {
+      if (!existing.has(file.name)) {
+        const { content } = await readWorkspaceFile(file.path)
+        await writeWorkspaceFile(`${CANVAS_DIR}/${file.name}`, content)
+      }
+      await deleteWorkspacePath(file.path)
+    } catch {
+      // Leave it in place; the next listDocs retries.
+    }
+  }
+  try {
+    const { tree: rest } = await listWorkspaceDir(LEGACY_CANVAS_DIR)
+    if (rest.length === 0) await deleteWorkspacePath(LEGACY_CANVAS_DIR)
+  } catch {
+    // Already gone, or not empty — nothing to clean up.
+  }
+}
+
 export async function listDocs(): Promise<CanvasDocSummary[]> {
+  await migrateLegacyBoards()
   const { tree } = await listWorkspaceDir(CANVAS_DIR)
   const files = tree.filter((n) => n.type === 'file' && n.name.endsWith('.json'))
   const summaries = await Promise.all(

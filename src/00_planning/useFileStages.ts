@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getNotes } from './api/sleipnirApi'
-import { useStages, setStage } from './stagesStore'
+import { useStages, setStage, getStage } from './stagesStore'
 import { fileStageKey } from './graph/stages'
 import type { NodeStage } from './graph/types'
 
@@ -58,4 +58,37 @@ export function useFileStages(reloadToken?: unknown) {
   }
 
   return { stages, setStatus }
+}
+
+// The one automatic transition: code saved into a Proposed (or untagged) file
+// moves it to In Progress. In Review and Done are only ever set deliberately,
+// so they're never touched here. Resolves the same node-id-or-`file:<path>` key
+// as setStatus above, so the change shows in Planning, Canvas and Source Control.
+export function shouldPromote(current: NodeStage | undefined): boolean {
+  return (current ?? 'proposed') === 'proposed'
+}
+
+// Batch form — one getNotes() for the filePath→id join however many paths, so
+// the git reconciler (useStatusReconciler) doesn't refetch per file.
+// `plannedOnly` skips files no plan node backs (used for untracked git files,
+// so a fresh repo doesn't flip every file at once).
+export async function promoteFileStages(paths: string[], { plannedOnly = false } = {}) {
+  if (paths.length === 0) return
+  try {
+    const notes = await getNotes().catch(() => null)
+    const idByPath = new Map<string, string>()
+    for (const n of notes?.nodes ?? []) if (n.filePath) idByPath.set(n.filePath, n.id)
+    for (const path of paths) {
+      const nodeId = idByPath.get(path)
+      if (plannedOnly && !nodeId) continue
+      const id = nodeId ?? fileStageKey(path)
+      if (shouldPromote(await getStage(id))) await setStage(id, 'in-progress')
+    }
+  } catch {
+    /* status is best-effort — never block saving a file */
+  }
+}
+
+export function promoteFileStage(path: string) {
+  return promoteFileStages([path])
 }

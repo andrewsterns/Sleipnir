@@ -22,21 +22,28 @@ export interface StageConfig {
   dash?: string
   /** Outline width in graph units. Ignored when `fill: 'solid'`. */
   strokeWidth: number
+  /** Draws a small solid dot inside the outline ring. */
+  centerDot?: boolean
 }
 
-// Ordered as a ticket typically flows (Proposed → To Do → In Progress → In
-// Review → Completed), with Blocked as the off-path exception right before
-// Completed. This order is what the card's toggle renders left-to-right.
+// Dash patterns are written against this normalized circumference (SVG
+// `pathLength`), so '3 1' is exactly three dashes at any radius — graph node
+// or list-row glyph alike.
+export const STAGE_PATH_LENGTH = 12
+
+// The whole lifecycle, in the order the card's toggle renders it:
+//   Proposed    — created in a plan, or started in a frame/Workspace (the default)
+//   In Progress — code has been saved into it (automatic; see promoteFileStages)
+//   In Review   — being checked/tested, set by hand or by an AI review
+//   Done        — parked until reopened or deleted
+// 'completed' keeps its id so existing stages.json files stay valid.
 export const NODE_STAGES: StageConfig[] = [
-  // Proposed is the universal default (every untagged node/file reads as this).
-  // A simple outline circle in the theme's ink — near-black on light, near-white
-  // on dark — the quiet baseline state (an empty ring, not a filled dot).
-  { id: 'proposed',    label: 'Proposed',    color: 'var(--text-1)', fill: 'none', dash: undefined, strokeWidth: 1.5 },
-  { id: 'todo',        label: 'To Do',       color: '#6fa8dc', fill: 'none',  dash: '1 2.5', strokeWidth: 1.5 },
-  { id: 'in-progress', label: 'In Progress', color: '#e0a040', fill: 'none',  dash: undefined, strokeWidth: 2 },
-  { id: 'in-review',   label: 'In Review',   color: '#b48ead', fill: 'none',  dash: '5 3',   strokeWidth: 1.5 },
-  { id: 'blocked',     label: 'Blocked',     color: '#e07a7a', fill: 'none',  dash: undefined, strokeWidth: 2 },
-  { id: 'completed',   label: 'Completed',   color: '#7fbf7f', fill: 'solid', dash: undefined, strokeWidth: 0 },
+  // All in the theme's ink; the shape alone carries the stage:
+  // three dashes → solid ring → ring with a center dot → filled dot.
+  { id: 'proposed',    label: 'Proposed',    color: 'var(--text-1)', fill: 'none',  dash: '3 1',     strokeWidth: 1.5 },
+  { id: 'in-progress', label: 'In Progress', color: 'var(--text-1)', fill: 'none',  dash: undefined, strokeWidth: 1.5 },
+  { id: 'in-review',   label: 'In Review',   color: 'var(--text-1)', fill: 'none',  dash: undefined, strokeWidth: 1.5, centerDot: true },
+  { id: 'completed',   label: 'Done',        color: 'var(--text-1)', fill: 'solid', dash: undefined, strokeWidth: 0 },
 ]
 
 const STAGE_BY_ID = new Map(NODE_STAGES.map((s) => [s.id, s]))

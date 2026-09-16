@@ -4,8 +4,8 @@ import { createDoc, createFrameNode, insertNode } from './doc'
 
 describe('canvasDocPath', () => {
   it('lands boards inside .planning so they travel with the project and are already watched', () => {
-    expect(CANVAS_DIR).toBe('.planning/canvas')
-    expect(canvasDocPath('canvas-abc')).toBe('.planning/canvas/canvas-abc.json')
+    expect(CANVAS_DIR).toBe('.canvas/.boards')
+    expect(canvasDocPath('canvas-abc')).toBe('.canvas/.boards/canvas-abc.json')
   })
 })
 

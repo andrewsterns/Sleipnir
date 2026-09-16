@@ -92,6 +92,24 @@ export const LANGUAGES: LanguageDef[] = [
   { id: 'css', label: 'CSS', ext: 'css', architectural: false },
 ]
 
+// The Add Node popup's language dropdown — a deliberately short list for now.
+// LANGUAGES itself stays complete (canvas emit targets and extension detection
+// read it), so a typed extension like "cart.py" still resolves.
+export const ADD_NODE_LANGUAGES: LanguageId[] = ['react', 'typescript', 'html', 'css', 'rust']
+
+// Architecture-free role list for the Add Node popup: every role is always
+// offered, and the links are the union of what MVVM/MVC/MVP imply (a View
+// imports whichever of ViewModel/Controller/Presenter exists; a ViewModel
+// imports its Interface). 'node' here is the Markdown doc for the name.
+export const ROLE_OPTIONS: RoleDef[] = [
+  { id: 'node', label: 'Node', linksTo: [] },
+  { id: 'view', label: 'View', linksTo: ['view-model', 'controller', 'presenter'] },
+  { id: 'view-model', label: 'ViewModel', linksTo: ['interface'] },
+  { id: 'interface', label: 'Interface', linksTo: [] },
+  { id: 'controller', label: 'Controller', linksTo: [] },
+  { id: 'presenter', label: 'Presenter', linksTo: [] },
+]
+
 export function isArchitecturalLanguage(id: LanguageId): boolean {
   return LANGUAGES.find((l) => l.id === id)?.architectural ?? true
 }

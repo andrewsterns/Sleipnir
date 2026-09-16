@@ -1,7 +1,7 @@
 export interface PlanningWatchInfo {
   /** True when every file that changed within the debounce window was stages.json — a sprint-stage tag toggle, already reflected live via the stagesStore overlay (see stagesStore.ts). Callers can skip the heavy graph refetch and just re-sync that overlay, so a stage edit never reheats GraphCanvas's force layout. False (or omitted) for any other/mixed change, which does need a real refetch. */
   stagesOnly?: boolean
-  /** True when every file that changed within the debounce window lived under `.planning/canvas/` — a Canvas board write (see src/01_canvas/model/store.ts). Exists for exactly the same reason as stagesOnly: a board autosave fires every ~400ms while you drag, and treating that as a graph edit would refetch the planning graph and reheat GraphCanvas's force layout on every frame. Planning ignores these; Canvas ignores stagesOnly. */
+  /** True when every file that changed within the debounce window lived under the legacy `.planning/canvas/` folder — boards now save to `.canvas/.boards/` (outside this watcher), so this only fires while store.ts migrates old boards out. Exists for exactly the same reason as stagesOnly: a board autosave fires every ~400ms while you drag, and treating that as a graph edit would refetch the planning graph and reheat GraphCanvas's force layout on every frame. Planning ignores these; Canvas ignores stagesOnly. */
   canvasOnly?: boolean
 }
 

@@ -1,4 +1,4 @@
-import { stageConfig } from './stages'
+import { stageConfig, STAGE_PATH_LENGTH } from './stages'
 import type { NodeStage } from './types'
 
 // The planning "status" as a standalone glyph, so any list row — planning
@@ -32,7 +32,9 @@ export function StatusGlyph({ stage, size = 11, title }: { stage?: NodeStage | n
         stroke={st.color}
         strokeWidth={strokeWidth}
         strokeDasharray={st.dash}
+        pathLength={st.dash ? STAGE_PATH_LENGTH : undefined}
       />
+      {st.centerDot && <circle cx={c} cy={c} r={size * 0.16} fill={st.color} />}
     </svg>
   )
 }

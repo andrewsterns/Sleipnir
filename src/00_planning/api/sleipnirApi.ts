@@ -157,6 +157,10 @@ export function setNodeBorrows(...args: Parameters<PlatformAPI['setNodeBorrows']
   return getPlatformAPI().setNodeBorrows(...args)
 }
 
+export function updatePlannedFilePath(...args: Parameters<PlatformAPI['updatePlannedFilePath']>) {
+  return getPlatformAPI().updatePlannedFilePath(...args)
+}
+
 export function updateNote(...args: Parameters<PlatformAPI['updateNote']>) {
   return getPlatformAPI().updateNote(...args)
 }
@@ -217,6 +221,18 @@ export function approvePlanNodes(...args: Parameters<PlatformAPI['approvePlanNod
 
 export function renamePlan(...args: Parameters<PlatformAPI['renamePlan']>) {
   return getPlatformAPI().renamePlan(...args)
+}
+
+export function checkPlanningPaths() {
+  return getPlatformAPI().checkPlanningPaths()
+}
+
+export function relinkPlanningPath(...args: Parameters<PlatformAPI['relinkPlanningPath']>) {
+  return getPlatformAPI().relinkPlanningPath(...args)
+}
+
+export function removePlanningRef(...args: Parameters<PlatformAPI['removePlanningRef']>) {
+  return getPlatformAPI().removePlanningRef(...args)
 }
 
 export function deletePlan(...args: Parameters<PlatformAPI['deletePlan']>) {

@@ -174,6 +174,26 @@ export function useSourceControlViewModel() {
     }
   }
 
+  // Section-header bulk actions ("Stage All" / "Unstage All") — one git call
+  // for the whole list rather than a toggleStage per file.
+  const stageMany = async (files: GitFileStatus[]) => {
+    if (files.length === 0) return
+    try {
+      setStatus(await stageFiles(files.map((f) => f.path)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  const unstageMany = async (files: GitFileStatus[]) => {
+    if (files.length === 0) return
+    try {
+      setStatus(await unstageFiles(files.map((f) => f.path)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   // Always stages, regardless of current staged state — unlike toggleStage,
   // which flips based on it. A conflicted file's indexStatus is already 'U'
   // (so `staged` reads true), so toggleStage would unstage it instead; `git
@@ -345,7 +365,9 @@ export function useSourceControlViewModel() {
       const next = await checkoutBranch(name)
       setStatus(next)
       setSelected(null)
-      await Promise.all([refresh(), refreshBranchTree()])
+      // Stashes too — a switch blocked by conflicting local changes auto-stashes
+      // them (see git-control's checkoutBranch), and that stash should show up.
+      await Promise.all([refresh(), refreshBranchTree(), refreshStashes()])
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -413,7 +435,7 @@ export function useSourceControlViewModel() {
     branchTree, branchTreeLoading, dataVersion,
     staged, unstaged, untracked, conflicted,
     selected, diff, diffLoading, selectFile, clearSelection,
-    toggleStage, discard, resolveConflict,
+    toggleStage, stageMany, unstageMany, discard, resolveConflict,
     commitMessage, setCommitMessage, committing, commit,
     pushing, pulling, fetching, opResult, doPush, doPull, doFetch,
     initializing, doInit, addingRemote, doAddRemote,

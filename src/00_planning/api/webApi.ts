@@ -19,6 +19,7 @@ import type {
   PreviewConfigEntry,
   WorkspaceInfo,
   SearchMatch,
+  MissingPlanningRef,
 } from './PlatformAPI'
 import type { GraphEdge, GraphNode, NodeStage, NodeStatus, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
 
@@ -257,6 +258,14 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<{ edges: GraphEdge[] }>(res))
   },
 
+  updatePlannedFilePath(nodeId: string, path: string): Promise<{ node: GraphNode }> {
+    return fetch('/api/sleipnir/planned-file-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nodeId, path }),
+    }).then((res) => asJson<{ node: GraphNode }>(res))
+  },
+
   updateNote(id: string, patch: { label?: string; description?: string }): Promise<{ node: GraphNode }> {
     return fetch('/api/sleipnir/update-note', {
       method: 'POST',
@@ -349,6 +358,26 @@ export const webApi: PlatformAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, label }),
     }).then((res) => asJson<{ plan: SavedPlan }>(res))
+  },
+
+  checkPlanningPaths(): Promise<{ missing: MissingPlanningRef[] }> {
+    return fetch('/api/sleipnir/check-planning-paths').then((res) => asJson<{ missing: MissingPlanningRef[] }>(res))
+  },
+
+  relinkPlanningPath(from: string, to: string): Promise<{ changed: number }> {
+    return fetch('/api/sleipnir/relink-planning-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to }),
+    }).then((res) => asJson<{ changed: number }>(res))
+  },
+
+  removePlanningRef(path: string): Promise<{ removed: number }> {
+    return fetch('/api/sleipnir/remove-planning-ref', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    }).then((res) => asJson<{ removed: number }>(res))
   },
 
   deletePlan(id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }): Promise<void> {

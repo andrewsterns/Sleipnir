@@ -232,7 +232,10 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
         .then(({ content }) => setContentByPath((prev) => ({ ...prev, [tab.path]: content })))
         .catch((e) => {
           const message = e instanceof Error ? e.message : String(e)
-          setContentByPath((prev) => ({ ...prev, [tab.path]: `// Failed to load source: ${message}` }))
+          const text = /ENOENT|no such file|does not exist/i.test(message)
+            ? `// File not found: ${tab.path}\n// It may have been moved or deleted outside Sleipnir. Planning's missing-files bar can relink it.`
+            : `// Failed to load source: ${message}`
+          setContentByPath((prev) => ({ ...prev, [tab.path]: text }))
         })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

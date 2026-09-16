@@ -385,6 +385,17 @@ function sleipnirApiPlugin() {
           return
         }
 
+        if (url.pathname === '/api/sleipnir/planned-file-path' && req.method === 'POST') {
+          try {
+            const { nodeId, path: plannedPath } = await readJsonBody(req)
+            const result = backend.updatePlannedFilePath(String(nodeId ?? ''), String(plannedPath ?? ''))
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
         if (url.pathname === '/api/sleipnir/update-note' && req.method === 'POST') {
           try {
             const { id, patch } = await readJsonBody(req)
@@ -530,6 +541,37 @@ function sleipnirApiPlugin() {
           try {
             const { id, label } = await readJsonBody(req)
             const result = backend.renamePlan(String(id ?? ''), String(label ?? ''))
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/check-planning-paths' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, ...(await backend.checkPlanningPaths()) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/relink-planning-path' && req.method === 'POST') {
+          try {
+            const { from, to } = await readJsonBody(req)
+            const result = backend.relinkPlanningPath(String(from ?? ''), String(to ?? ''))
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/remove-planning-ref' && req.method === 'POST') {
+          try {
+            const { path: refPath } = await readJsonBody(req)
+            const result = backend.removePlanningRef(String(refPath ?? ''))
             sendJson(res, 200, { success: true, ...result })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })

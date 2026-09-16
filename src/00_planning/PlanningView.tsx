@@ -20,7 +20,6 @@ import { Search } from '../app/UIKit/Search/Search'
 import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../app/UIKit/Search/iSearch'
 import { ListRow } from '../app/UIKit/ListRow/ListRow'
 import { SidebarHeader } from '../app/UIKit/SidebarHeader/SidebarHeader'
-import { Dropdown } from '../app/UIKit/Dropdown/Dropdown'
 import { DeletePlanModal } from './DeletePlanModal'
 import { DeleteNodeModal } from './DeleteNodeModal'
 import { DismissWelcomeModal } from './DismissWelcomeModal'
@@ -28,6 +27,7 @@ import { ContextMenu } from '../app/UIKit/ContextMenu/ContextMenu'
 import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
 import { RenamePathModal } from '../app/DesignSystem/RenamePathModal'
 import { AddNodeModal } from './AddNodeModal'
+import { ApproveStepModal } from './ApproveStepModal'
 import { NewWorkspacePlanModal } from '../app/Workspace/NewWorkspacePlanModal'
 import { fuzzyScore } from '../utils/fuzzyMatch'
 import { useAppTheme } from '../00_themes/ThemeController'
@@ -812,6 +812,8 @@ export interface PlanningViewProps {
   canvasComponentPaths: Set<string>
   /** Fired after node creation writes real files into the project (AddNodeModal's scaffolding branch), so App.tsx can refresh the Workspace tab's file tree — it otherwise refetches only on mount and project change, leaving the new files invisible. */
   onWorkspaceChanged?: () => void
+  /** `.planning/` paths that no longer exist on disk (App.tsx's usePlanningHealth) — nodes backed by one get a dashed danger ring. The list and fixes live in the Problems dock. */
+  missingPaths?: Set<string>
 }
 
 // A node's file is openable in the Workspace only when it actually lives
@@ -820,7 +822,8 @@ export interface PlanningViewProps {
 // node's filePath is SRC_ROOT-relative — a different root the Workspace jump
 // can't resolve — and a plain note has no file at all.
 function workspaceFilePath(node: GraphNode): string | null {
-  if (!node.filePath) return null
+  // A planned file doesn't exist until its step is approved — nothing to open.
+  if (!node.filePath || node.planned) return null
   return node.role || node.type === 'workspace-file' ? node.filePath : null
 }
 
@@ -844,6 +847,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   onShowInCanvas,
   canvasComponentPaths,
   onWorkspaceChanged,
+  missingPaths,
 }) => {
   const { theme } = useAppTheme()
   const removablePlanFor = (mapId: GraphMapId) => plans.find((p) => p.id === mapId)
@@ -891,9 +895,15 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     isGlobalSearch,
     mapLabelFor,
     todoNodes,
+    isPlanTab,
+    planView,
+    planViewMode,
+    setPlanViewMode,
   } = usePlanningViewModel('welcome', focusTarget, onFocusTargetConsumed, plans, onUpdatePlan, welcomeDismissed)
 
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
+  // A plan step with planned files whose review/approve modal is open.
+  const [approvingStep, setApprovingStep] = useState<GraphNode | null>(null)
   const [generateError, setGenerateError] = useState<string | null>(null)
   // "RUN PLAN" batch driver state — runningPlan gates the trigger/single-node
   // BUILD WITH AI buttons so only one headless chat session runs at a time;
@@ -1254,11 +1264,12 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
       await setStage(node, 'in-review')
     } else {
       setGenerateError(result.error)
-      await setStage(node, 'blocked')
+      // Back to Proposed — the error shows under the BUILD WITH AI button.
+      await setStage(node, 'proposed')
     }
   }
 
-  // Batch-builds every 'todo' node in sequence — snapshots the queue at click
+  // Batch-builds every 'proposed' node in sequence — snapshots the queue at click
   // time (stages change as the run proceeds, so re-reading todoNodes live
   // mid-loop would shrink/reorder it under its own feet) and awaits each
   // node fully before starting the next, both to avoid overlapping headless
@@ -1295,8 +1306,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
         }
         await setStage(node, 'in-review')
       } else {
-        // One bad node doesn't abort the run — the rest still get a shot.
-        await setStage(node, 'blocked')
+        // One bad node doesn't abort the run — it goes back to Proposed and
+        // the rest still get a shot.
+        await setStage(node, 'proposed')
       }
       setGeneratingNodeId(null)
     }
@@ -1304,6 +1316,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     setRunningPlan(false)
     await refreshAll()
   }
+  // No UI trigger for now — the header's RUN PLAN button was removed; this
+  // batch driver is kept for the upcoming AI tooling to call.
+  void runPlan
 
   const allMaps = getGraphMaps()
   // Saved plans are never in getGraphMaps() (see App.tsx's plans state doc
@@ -1592,42 +1607,31 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
           actions={
             showCreateScreen ? undefined : (
             <>
-              {removablePlanFor(mapId) && (
-                <Dropdown
-                  options={[{ value: 'delete', label: 'Delete Plan' }]}
-                  onChange={() => {
-                    const plan = removablePlanFor(mapId)
-                    if (plan) setDeletingPlan(plan)
-                  }}
-                  variant="none"
-                  w="auto"
-                  trigger={
-                    <span style={{ fontSize: 12, color: 'var(--text-3)', padding: '0 4px', ...MONO }} title="Plan actions">
-                      ⋯
-                    </span>
-                  }
-                />
-              )}
-              {/* Only for real saved plans — "run the plan" reads oddly on a
-                  fixed map like Welcome or a component library. */}
-              {!runningPlan && removablePlanFor(mapId) && todoNodes.length > 0 && (
-                <button
-                  onClick={runPlan}
-                  disabled={generatingNodeId !== null}
-                  style={{
-                    background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
-                    border: '1px solid var(--border-2)',
-                    color: 'var(--text-1)',
-                    fontSize: 10,
-                    letterSpacing: '0.08em',
-                    padding: '5px 10px',
-                    cursor: generatingNodeId !== null ? 'default' : 'pointer',
-                    opacity: generatingNodeId !== null ? 0.5 : 1,
-                    ...MONO,
-                  }}
-                >
-                  RUN PLAN ({todoNodes.length})
-                </button>
+              {/* Plan tabs: the plan over the project architecture (blue), or the plan alone. */}
+              {isPlanTab && (
+                <Frame flow="horizontal" align="center" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-2' }} clipContent>
+                  {(['architecture', 'plan'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={planViewMode === mode}
+                      onClick={() => setPlanViewMode(mode)}
+                      title={mode === 'architecture' ? 'Show the plan over the project architecture' : 'Show only the plan'}
+                      style={{
+                        fontSize: 9,
+                        letterSpacing: '0.1em',
+                        padding: '4px 8px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: planViewMode === mode ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
+                        color: planViewMode === mode ? 'var(--text-1)' : 'var(--text-3)',
+                        ...MONO,
+                      }}
+                    >
+                      {mode === 'architecture' ? 'ARCHITECTURE' : 'PLAN ONLY'}
+                    </button>
+                  ))}
+                </Frame>
               )}
               {runningPlan && runProgress ? (
                 <Frame flow="horizontal" align="center" gap={6}>
@@ -1638,7 +1642,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 </Frame>
               ) : (
                 <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
-                  {live.nodes.length} NODES · {live.edges.length} EDGES
+                  {live.nodes.length} NODES · {live.edges.length} LINKS
                 </span>
               )}
             </>
@@ -1823,11 +1827,13 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
           <>
           <Frame grow minW={0} style={{ position: 'relative' }}>
             <GraphCanvas
-              data={live}
+              data={planView.data}
+              overlay={planView.overlay}
               selectedId={selectedId}
               stages={stages}
               onSelectNode={(id) => setSelectedId(id || null)}
               centerSignal={centerSignal}
+              missingPaths={missingPaths}
             />
           </Frame>
 
@@ -1901,6 +1907,73 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 </span>
               )}
 
+              {/* A plan step's place in its plan: order, the new files it will
+                  create (select one to see it in the graph), the existing files
+                  it edits, and the plan's generated plan.md. */}
+              {selectedNode.type === 'plan-step' && (() => {
+                const plannedFiles = live.nodes.filter((n) => n.stepId === selectedNode.id)
+                const edits = selectedNode.editsPaths ?? []
+                const docPath = plans.find((p) => p.id === selectedNode.planId)?.docPath
+                const sectionLabel: React.CSSProperties = { fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }
+                const pathRow: React.CSSProperties = { fontSize: 10, wordBreak: 'break-all', ...MONO }
+                if (selectedNode.order === undefined && !plannedFiles.length && !edits.length && !docPath) return null
+                return (
+                  <Frame flow="vertical" gap={6}>
+                    {selectedNode.order !== undefined && (
+                      <span style={{ ...sectionLabel, color: 'var(--graph-plan, #5b9dff)' }}>STEP {selectedNode.order}</span>
+                    )}
+                    {plannedFiles.length > 0 && (
+                      <>
+                        <span style={sectionLabel}>NEW FILES ({plannedFiles.length})</span>
+                        {plannedFiles.map((f) => (
+                          <span key={f.id} onClick={() => setSelectedId(f.id)} title="Select in graph" style={{ ...pathRow, ...FILE_LINK_STYLE }}>
+                            {f.filePath}
+                            {f.role && <span style={{ opacity: 0.5 }}> · {f.role}</span>}
+                          </span>
+                        ))}
+                      </>
+                    )}
+                    {edits.length > 0 && (
+                      <>
+                        <span style={sectionLabel}>EDITS ({edits.length})</span>
+                        {edits.map((p) => (
+                          <span
+                            key={p}
+                            onClick={onOpenFile ? () => onOpenFile(p) : undefined}
+                            title={onOpenFile ? 'Open in Workspace' : undefined}
+                            style={{ ...pathRow, ...(onOpenFile ? FILE_LINK_STYLE : { color: 'var(--text-2)' }) }}
+                          >
+                            {p}
+                          </span>
+                        ))}
+                      </>
+                    )}
+                    {docPath && onOpenFile && (
+                      <span onClick={() => onOpenFile(docPath)} title={docPath} style={{ ...pathRow, ...FILE_LINK_STYLE }}>
+                        Open plan.md
+                      </span>
+                    )}
+                  </Frame>
+                )
+              })()}
+
+              {selectedNode.planned && (() => {
+                const step = live.nodes.find((n) => n.id === selectedNode.stepId)
+                return (
+                  <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
+                    Planned {selectedNode.role ?? ''} file — created when{' '}
+                    {step ? (
+                      <span onClick={() => setSelectedId(step.id)} title="Select step" style={FILE_LINK_STYLE}>
+                        {step.order !== undefined ? `step ${step.order}: ` : ''}{step.label}
+                      </span>
+                    ) : (
+                      'its step'
+                    )}{' '}
+                    is approved.
+                  </span>
+                )
+              })()}
+
               {/* Sprint stage — settable on every node (see StageToggle),
                   drives the node's color + stroke in the graph. Independent of
                   the AI plan-step approve/generate flow below. */}
@@ -1925,7 +1998,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                         // pendingOverride) instead of writing here directly —
                         // WorkspaceView's handleOverrideSaved already flips
                         // this node to 'done' the moment it's actually saved.
-                        if (selectedNode.proposedFile) {
+                        // A step with planned files reviews and writes them in
+                        // ApproveStepModal — the only place they become real.
+                        if (live.nodes.some((n) => n.stepId === selectedNode.id)) {
+                          setApprovingStep(selectedNode)
+                        } else if (selectedNode.proposedFile) {
                           const activePlanId = removablePlanFor(mapId)?.id
                           onCodeGenerated?.(
                             selectedNode.id,
@@ -1947,7 +2024,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                         ...MONO,
                       }}
                     >
-                      {selectedNode.proposedFile ? 'REVIEW & APPROVE' : 'APPROVE'}
+                      {selectedNode.proposedFile || live.nodes.some((n) => n.stepId === selectedNode.id) ? 'REVIEW & APPROVE' : 'APPROVE'}
                     </button>
                   ) : selectedNode.status === 'approved' ? (
                     generatingNodeId === selectedNode.id ? (
@@ -1992,10 +2069,13 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   realistically be in one flow at a time (status only ever
                   exists on AI-created nodes, which never carry a stage until
                   a human sets one). */}
-              {(stages[nodeStageKey(selectedNode)] === 'todo' || stages[nodeStageKey(selectedNode)] === 'in-progress' || stages[nodeStageKey(selectedNode)] === 'in-review' || stages[nodeStageKey(selectedNode)] === 'blocked') && (
+              {(stages[nodeStageKey(selectedNode)] ?? 'proposed') !== 'completed' && (
                 <>
                   <div style={{ height: 1, background: 'var(--border-1)' }} />
-                  {stages[nodeStageKey(selectedNode)] === 'todo' && (
+                  {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && generateError && generatingNodeId === null && (
+                    <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
+                  )}
+                  {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && (
                     <button
                       onClick={() => runSingleNodeBuild(selectedNode)}
                       disabled={runningPlan || generatingNodeId !== null}
@@ -2046,29 +2126,6 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                     <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
                       READY FOR REVIEW — check the opened tab, or Source Control for a batch run.
                     </span>
-                  )}
-                  {stages[nodeStageKey(selectedNode)] === 'blocked' && (
-                    <>
-                      {generateError && (
-                        <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
-                      )}
-                      <button
-                        onClick={() => runSingleNodeBuild(selectedNode)}
-                        disabled={runningPlan || generatingNodeId !== null}
-                        style={{
-                          background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
-                          border: '1px solid var(--border-2)',
-                          color: 'var(--text-1)',
-                          fontSize: 10,
-                          letterSpacing: '0.08em',
-                          padding: '8px 12px',
-                          cursor: 'pointer',
-                          ...MONO,
-                        }}
-                      >
-                        RETRY
-                      </button>
-                    </>
                   )}
                 </>
               )}
@@ -2133,6 +2190,20 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
           )}
         </Frame>
         {planBuildStatus && <PlanBuildStatusBar status={planBuildStatus} onApproveAll={approveAllDrafts} />}
+        {approvingStep && (
+          <ApproveStepModal
+            step={approvingStep}
+            plannedNodes={live.nodes.filter((n) => n.type === 'planned-file' && n.planId === approvingStep.planId)}
+            edges={live.edges}
+            planId={removablePlanFor(mapId)?.id}
+            onClose={() => setApprovingStep(null)}
+            onApproved={() => {
+              setApprovingStep(null)
+              refreshAll().catch(() => {})
+              onWorkspaceChanged?.()
+            }}
+          />
+        )}
       </Frame>
     </Frame>
   )

@@ -4,7 +4,6 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import { ListRow } from '../UIKit/ListRow/ListRow'
-import { Chip } from '../UIKit/Chip/Chip'
 import { Search } from '../UIKit/Search/Search'
 import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../UIKit/Search/iSearch'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
@@ -237,6 +236,19 @@ function sortTree(nodes: FileTreeNode[], order: SortOrder): FileTreeNode[] {
   return [...dirs, ...files].map((n) => (n.children ? { ...n, children: sortTree(n.children, order) } : n))
 }
 
+// Sleipnir's own project folders, pinned (in this order) to the top of the
+// workspace root regardless of sort — see pinRootFolders.
+export const PINNED_ROOT_FOLDERS = ['.planning', '.canvas']
+
+// Root level only: pulls PINNED_ROOT_FOLDERS to the front, keeping the sorted
+// order for everything else.
+function pinRootFolders(nodes: FileTreeNode[]): FileTreeNode[] {
+  const pinned = PINNED_ROOT_FOLDERS
+    .map((name) => nodes.find((n) => n.type === 'dir' && n.name === name))
+    .filter((n): n is FileTreeNode => !!n)
+  return [...pinned, ...nodes.filter((n) => !pinned.includes(n))]
+}
+
 const TIER_FILTER_OPTIONS = [
   { id: 'atom', label: 'Atoms' },
   { id: 'molecule', label: 'Molecules' },
@@ -434,12 +446,12 @@ function TreeNodeRow({
             <Icon
               // Sleipnir's own folders get their feature's icon so they read as
               // app furniture rather than project source. '.canvas' is the
-              // staging tier for canvas components; 'canvas' is the board store
-              // nested inside '.planning'.
+              // staging tier for canvas components; '.boards' is the board store
+              // nested inside it.
               name={
                 node.name === '.planning'
                   ? 'network'
-                  : node.name === '.canvas' || node.name === 'canvas'
+                  : node.name === '.canvas' || node.name === '.boards'
                     ? 'frame'
                     : 'folder'
               }
@@ -448,9 +460,6 @@ function TreeNodeRow({
           }
           trailing={(hovered) => (
             <>
-              {/* NEW chip at rest; hidden on hover so the action buttons take
-                  that space. */}
-              {isNew && !hovered && <Chip variant="new">NEW</Chip>}
               {(hovered || containsActive) && action && (
                 <IconButton onClick={(e) => { e.stopPropagation(); action.onClick() }} title={action.title} icon={action.icon} />
               )}
@@ -540,7 +549,6 @@ function TreeNodeRow({
       iconStart={<Icon name="file" size={16} />}
       trailing={(hovered) => (
         <>
-          {isNew && !hovered && <Chip variant="new">NEW</Chip>}
           {/* Planning status of the plan node this file backs, at rest — the same
               glyph the planning list and git view show; 'proposed' by default. */}
           {!hovered && <StatusGlyph stage={fileStages.get(node.path)} />}
@@ -839,7 +847,7 @@ export const LeftRailing = ({
       }
     : undefined
 
-  const visibleTree = sortTree(filterTreeByTier(filterTreeByQuery(tree, query), tierFilter), sortOrder)
+  const visibleTree = pinRootFolders(sortTree(filterTreeByTier(filterTreeByQuery(tree, query), tierFilter), sortOrder))
   // ↑/↓/Enter over the current search results — only while actually
   // searching (forceExpanded below keeps every match's ancestors open then,
   // so the flattened file order matches what's rendered).
@@ -917,9 +925,16 @@ export const LeftRailing = ({
         />
       )}
 
-      {visibleTree.map((node) => (
+      {visibleTree.map((node, i) => {
+        // Thin divider after the last pinned root folder (.planning/.canvas),
+        // only when something else follows it.
+        const isLastPinned =
+          PINNED_ROOT_FOLDERS.includes(node.name) && node.type === 'dir' &&
+          !(visibleTree[i + 1] && visibleTree[i + 1].type === 'dir' && PINNED_ROOT_FOLDERS.includes(visibleTree[i + 1].name)) &&
+          i < visibleTree.length - 1
+        return (
+        <div key={node.path} style={{ display: 'contents' }}>
         <TreeNodeRow
-          key={node.path}
           node={node}
           depth={0}
           activePath={activePath}
@@ -942,7 +957,12 @@ export const LeftRailing = ({
           pendingCreate={pendingCreate}
           onPendingCreateConsumed={() => setPendingCreate(null)}
         />
-      ))}
+        {isLastPinned && (
+          <div style={{ height: 1, background: 'var(--border-1)', margin: '4px 0' }} />
+        )}
+        </div>
+        )
+      })}
 
       {supportsArchive && !readOnly && archivedEntries.length > 0 && (
         <Frame flow="vertical" gap={0} padding={{ top: 12 }}>

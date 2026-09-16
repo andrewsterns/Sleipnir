@@ -5,7 +5,7 @@
 // matches what the real graph would show.
 import { forceSimulation, forceManyBody, forceLink, forceCenter, forceCollide } from 'd3-force-3d'
 import type { Simulation } from 'd3-force-3d'
-import type { GraphData, GraphNode } from './types'
+import type { EdgeKind, GraphData, GraphNode } from './types'
 
 export interface SimNode extends GraphNode {
   x?: number
@@ -19,8 +19,10 @@ export interface SimNode extends GraphNode {
 export interface SimLink {
   // forceLink() resolves these from id strings to SimNode references in place
   // once the simulation initializes, so both shapes have to be handled.
+  // Sequence links never enter forceLink, so theirs stay id strings.
   source: string | SimNode
   target: string | SimNode
+  kind: EdgeKind
 }
 
 export const linkNode = (endpoint: string | SimNode, nodes: SimNode[]): SimNode | undefined =>
@@ -30,9 +32,13 @@ export const linkId = (endpoint: string | SimNode): string => (typeof endpoint =
 
 export const nodeRadius = (node: SimNode): number => (node.kind === 'proposed' ? 4 : 6)
 
+// How far from its step a newly appearing planned-file placeholder is seeded.
+const PLANNED_FILE_SEED_DISTANCE = 60
+
 export interface ForceLayout {
-  simNodes: SimNode[]
+  /** Every drawable link, sequence links included. */
   simLinks: SimLink[]
+  simNodes: SimNode[]
   simulation: Simulation<SimNode>
   neighbors: Map<string, Set<string>>
 }
@@ -53,9 +59,25 @@ export function buildForceLayout(data: GraphData, prev?: NodePositions): ForceLa
     const spread = 40 + Math.sqrt(data.nodes.length) * 20
     return { ...n, x: Math.cos(angle) * spread, y: Math.sin(angle) * spread }
   })
+
+  // A planned file that just appeared starts beside the step that declared it
+  // (golden-angle spread so siblings don't stack), not on the far rim.
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  nodes.forEach((n, i) => {
+    if (!n.stepId || prev?.has(n.id)) return
+    const step = byId.get(n.stepId)
+    if (!step) return
+    const angle = i * 2.399963
+    n.x = (step.x ?? 0) + Math.cos(angle) * PLANNED_FILE_SEED_DISTANCE
+    n.y = (step.y ?? 0) + Math.sin(angle) * PLANNED_FILE_SEED_DISTANCE
+  })
+
   const idSet = new Set(nodes.map((n) => n.id))
   const filteredEdges = data.edges.filter((e) => idSet.has(e.source) && idSet.has(e.target))
-  const links: SimLink[] = filteredEdges.map((e) => ({ source: e.source, target: e.target }))
+  const links: SimLink[] = filteredEdges.map((e) => ({ source: e.source, target: e.target, kind: e.kind }))
+  // Sequence links describe work order, not structure — pulling them tight
+  // would drag a long plan into a single line across the architecture.
+  const structuralLinks = links.filter((l) => l.kind !== 'sequence')
 
   const neighborMap = new Map<string, Set<string>>()
   for (const edge of filteredEdges) {
@@ -67,7 +89,7 @@ export function buildForceLayout(data: GraphData, prev?: NodePositions): ForceLa
 
   const sim: Simulation<SimNode> = forceSimulation(nodes, 2)
     .force('charge', forceManyBody<SimNode>().strength(-360))
-    .force('link', forceLink<SimNode, SimLink>(links).id((n) => n.id).distance(140).strength(0.4))
+    .force('link', forceLink<SimNode, SimLink>(structuralLinks).id((n) => n.id).distance(140).strength(0.4))
     .force('center', forceCenter(0, 0))
     .force('collide', forceCollide<SimNode>((n) => nodeRadius(n) + 26))
     .stop()

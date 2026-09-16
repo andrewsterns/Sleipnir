@@ -103,6 +103,21 @@ function CommitDot({ commit, accent }: { commit: GitCommitSummary; accent: strin
 }
 
 const BRANCH_ACCENT = '#7aa8e0'
+
+// STAGED / CHANGES / UNTRACKED header: the label plus an optional bulk action
+// on the right (hidden when the section is empty — onAction undefined).
+function SectionHeader({ label, actionLabel, onAction }: { label: string; actionLabel: string; onAction?: () => void }) {
+  return (
+    <Frame flow="horizontal" align="center" justify="between" minH={18}>
+      <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>{label}</span>
+      {onAction && (
+        <Button variant="ghost" size="sm" onClick={onAction}>
+          {actionLabel}
+        </Button>
+      )}
+    </Frame>
+  )
+}
 const PRIMARY_ACCENT = '#7ec98f'
 
 function BranchRow({ branch, accent }: { branch: GitBranchTreeEntry; accent: string }) {
@@ -318,16 +333,40 @@ export default function SourceControlView({
               />
             </Frame>
           ) : (
-            <Frame flow="horizontal" align="center" justify="between">
-              <Frame flow="horizontal" align="center" gap={6} style={{ cursor: 'pointer' }} onClick={() => setShowBranches((s) => !s)}>
-                <Icon name="git-branch" size={13} />
-                <span style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
-                  {status.branch ?? 'detached HEAD'}
-                </span>
-              </Frame>
-              <Frame flow="horizontal" align="center" gap={4}>
+            <Frame flow="horizontal" align="center" justify="between" gap={8}>
+              {/* Branch switcher reads as a dropdown (box + caret); the
+                  ahead/behind count and refresh sit right beside it. */}
+              <Frame flow="horizontal" align="center" gap={6} minW={0}>
+                <button
+                  type="button"
+                  title="Switch branch"
+                  aria-expanded={showBranches}
+                  onClick={() => setShowBranches((s) => !s)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    minWidth: 0,
+                    maxWidth: 190,
+                    padding: '3px 6px 3px 8px',
+                    background: showBranches ? 'rgba(var(--item-ink, 255,255,255), 0.08)' : 'transparent',
+                    border: '1px solid var(--border-2)',
+                    borderRadius: 'var(--radius-2)',
+                    color: 'var(--text-1)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Icon name="git-branch" size={12} />
+                  <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...MONO }}>
+                    {status.branch ?? 'detached HEAD'}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{showBranches ? '\u25b4' : '\u25be'}</span>
+                </button>
                 {(status.ahead > 0 || status.behind > 0) && (
-                  <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>
+                  <span
+                    title={`${status.ahead} commit(s) ahead, ${status.behind} behind the remote`}
+                    style={{ fontSize: 9, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}
+                  >
                     {status.ahead > 0 ? `\u2191${status.ahead}` : ''}{status.behind > 0 ? ` \u2193${status.behind}` : ''}
                   </span>
                 )}
@@ -339,6 +378,8 @@ export default function SourceControlView({
                   textColor="var(--text-3)"
                   onClick={() => { vm.refresh(); vm.refreshBranchTree() }}
                 />
+              </Frame>
+              <Frame flow="horizontal" align="center" gap={4}>
                 <IconButton
                   as="span"
                   icon="search"
@@ -579,27 +620,35 @@ export default function SourceControlView({
           )}
 
           <Frame flow="vertical" gap={2}>
-            <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-              STAGED ({vm.staged.length})
-            </span>
+            <SectionHeader
+              label={`STAGED (${vm.staged.length})`}
+              actionLabel="Unstage All"
+              onAction={vm.staged.length > 0 ? () => vm.unstageMany(vm.staged) : undefined}
+            />
             {filterFiles(vm.staged).map((f) => (
               <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
           <Frame flow="vertical" gap={2}>
-            <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-              CHANGES ({vm.unstaged.length})
-            </span>
+            <SectionHeader
+              label={`CHANGES (${vm.unstaged.length})`}
+              actionLabel="Stage All"
+              // Stages every change *and* untracked file — the usual "take
+              // everything" intent; UNTRACKED has its own button to add only those.
+              onAction={vm.unstaged.length + vm.untracked.length > 0 ? () => vm.stageMany([...vm.unstaged, ...vm.untracked]) : undefined}
+            />
             {filterFiles(vm.unstaged).map((f) => (
               <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}
           </Frame>
 
           <Frame flow="vertical" gap={2}>
-            <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-              UNTRACKED ({vm.untracked.length})
-            </span>
+            <SectionHeader
+              label={`UNTRACKED (${vm.untracked.length})`}
+              actionLabel="Stage All"
+              onAction={vm.untracked.length > 0 ? () => vm.stageMany(vm.untracked) : undefined}
+            />
             {filterFiles(vm.untracked).map((f) => (
               <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
             ))}

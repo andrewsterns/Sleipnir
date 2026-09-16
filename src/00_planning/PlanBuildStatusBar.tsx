@@ -74,7 +74,7 @@ export const PlanBuildStatusBar: React.FC<PlanBuildStatusBarProps> = ({ status, 
         </span>
         {complete && draftFileCount > 0 && (
           <span style={{ fontSize: 9, letterSpacing: '0.04em', color: 'var(--text-3)', ...MONO }}>
-            {draftFileCount} proposed file{draftFileCount === 1 ? '' : 's'} — review individually below, nothing writes automatically
+            {draftFileCount} step{draftFileCount === 1 ? '' : 's'} with files — review each one below, nothing writes automatically
           </span>
         )}
         {!complete && (

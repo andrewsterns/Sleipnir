@@ -76,6 +76,42 @@ export async function isIgnored(relPath) {
   return (await getIgnoredPaths([relPath])).has(relPath)
 }
 
+// Parses `--name-status` output (from `git log` or `git diff`) into an
+// old→new Map of rename pairs, ignoring every non-rename line. `git log` lists
+// newest commits first, so the first mapping seen for a source path wins —
+// that's the most recent place it was renamed to.
+export function parseRenameLog(stdout) {
+  const renames = new Map()
+  for (const line of String(stdout ?? '').split('\n')) {
+    const parts = line.replace(/\r$/, '').split('\t')
+    if (parts.length !== 3 || !/^R\d*$/.test(parts[0])) continue
+    const [, from, to] = parts
+    if (!renames.has(from)) renames.set(from, to)
+  }
+  return renames
+}
+
+// Every rename git knows about in recent history plus any staged-but-not-yet-
+// committed ones — backs Planning's stale-path suggestions (see
+// sleipnir-backend.mjs's checkPlanningPaths), so a file moved in another
+// editor can be relinked with confidence. Staged renames are newer than any
+// commit, so they override. `cwd` is passed explicitly rather than read from
+// the shared workspace root, which another window can repoint between awaits.
+// An empty Map when this isn't a repo — "no suggestion" is the right answer.
+export async function getRenameMap(cwd = getWorkspaceRoot()) {
+  if (!cwd) return new Map()
+  const noQuote = ['-c', 'core.quotePath=false']
+  const [log, staged] = await Promise.all([
+    git([...noQuote, 'log', '-M', '--diff-filter=R', '--name-status', '--format=', '-n', '500'], cwd),
+    git([...noQuote, 'diff', '-M', '--cached', '--diff-filter=R', '--name-status'], cwd),
+  ])
+  const renames = log.exitCode === 0 ? parseRenameLog(log.stdout) : new Map()
+  if (staged.exitCode === 0) {
+    for (const [from, to] of parseRenameLog(staged.stdout)) renames.set(from, to)
+  }
+  return renames
+}
+
 // Parses `git status --porcelain -b` — the v1 porcelain format, one line per
 // changed file plus a leading `## branch...upstream [ahead N, behind M]`
 // header. Simpler and stable enough for a status list; v2 porcelain's richer
@@ -408,14 +444,31 @@ export async function getCommitFileMap() {
   return { files }
 }
 
+// Switching branches never blocks on uncommitted work:
+//  1. A plain checkout first — git carries local changes across on its own
+//     whenever they don't clash with the target branch (the common case).
+//  2. If git refuses because local changes would be overwritten, they're
+//     saved to a named stash (untracked files included) and the switch is
+//     retried. The stash is left in the Stashes list to re-apply when wanted,
+//     so nothing is lost and nothing is silently merged with conflicts.
 export async function checkoutBranch(name) {
   await ensureRepo()
-  const status = await getStatus()
-  if (status.files.length > 0) {
-    throw new Error('Working tree has uncommitted changes — commit or stash before switching branches.')
+  const first = await git(['checkout', name])
+  if (first.exitCode === 0) return getStatus()
+
+  const blockedByLocalChanges = /would be overwritten|commit your changes or stash them/i.test(first.stderr ?? '')
+  if (!blockedByLocalChanges) throw new Error(first.stderr || `Failed to switch to "${name}"`)
+
+  const current = (await getStatus()).branch ?? 'detached HEAD'
+  const stash = await git(['stash', 'push', '--include-untracked', '-m', `sleipnir: auto-stash from ${current} before switching to ${name}`])
+  if (stash.exitCode !== 0) throw new Error(stash.stderr || 'Failed to stash local changes before switching')
+
+  const retry = await git(['checkout', name])
+  if (retry.exitCode !== 0) {
+    // Put the work back where it was so a failed switch leaves no trace.
+    await git(['stash', 'pop'])
+    throw new Error(retry.stderr || `Failed to switch to "${name}"`)
   }
-  const { exitCode, stderr } = await git(['checkout', name])
-  if (exitCode !== 0) throw new Error(stderr || `Failed to switch to "${name}"`)
   return getStatus()
 }
 

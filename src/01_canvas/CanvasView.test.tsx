@@ -164,7 +164,8 @@ async function findModal(): Promise<HTMLElement> {
 
 /** Real component code — everything written outside the board store. */
 function componentFiles(): string[] {
-  return [...files.keys()].filter((p) => !p.startsWith('.planning/'))
+  // Everything except board JSON (which now lives in .canvas/.boards/).
+  return [...files.keys()].filter((p) => !p.startsWith('.canvas/.boards/') && !p.startsWith('.planning/'))
 }
 
 /**
@@ -182,7 +183,7 @@ async function promoteFrame(): Promise<void> {
 
 function savedDocs() {
   return [...files.entries()]
-    .filter(([p]) => p.startsWith('.planning/canvas/'))
+    .filter(([p]) => p.startsWith('.canvas/.boards/'))
     .map(([, content]) => JSON.parse(content))
 }
 
@@ -203,13 +204,14 @@ describe('CanvasView', () => {
     expect(await screen.findByText('NO BOARDS YET')).toBeInTheDocument()
   })
 
-  it('creates a board and persists it under .planning/canvas/', async () => {
+  it('creates a board and persists it under .canvas/.boards/', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
 
     await waitFor(() => expect(savedDocs()).toHaveLength(1))
     const [path] = [...files.keys()]
-    expect(path).toMatch(/^\.planning\/canvas\/canvas-.*\.json$/)
+    expect(path).toMatch(/^\.canvas\/\.boards\/canvas-.*\.json$/)
+    expect([...files.keys()].some((p) => p.startsWith('.planning/'))).toBe(false)
     expect(savedDocs()[0].nodes).toEqual([])
     expect(savedDocs()[0].version).toBe(1)
   })

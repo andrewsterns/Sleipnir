@@ -9,6 +9,8 @@ import { writeFile as writeSrcFile, runScript, type RunResult } from '../../00_p
 import { getTypeScriptLspClient, lspLanguageIdForPath, uriForPath, goToDefinitionOnModClick, modHoverDefinitionLink, lspHoverTooltips, type LspRoot } from './lspClient'
 import { graphLinkExtension } from './graphLinkExtension'
 import type { GraphNode } from '../../00_planning/graph/types'
+import { promoteFileStage } from '../../00_planning/useFileStages'
+import { invalidateWorkspacePaths } from '../../00_planning/graph/workspaceScanCache'
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -129,6 +131,12 @@ export function useCodeEditorViewModel({
       await writeFile(path, content)
       setStatus('saved')
       setDirty(false)
+      // Code written and saved → the file is now In Progress.
+      if (scope === 'workspace') {
+        promoteFileStage(path)
+        // Its imports may have changed — re-read it on the next architecture view.
+        invalidateWorkspacePaths([path])
+      }
       onImportsChanged?.(path, content)
     } catch (e) {
       setStatus('error')

@@ -31,10 +31,10 @@ vi.mock('../../00_planning/api/sleipnirApi', () => ({
   }),
 }))
 
-import { reconcileMove } from './store'
+import { listDocs, reconcileMove } from './store'
 import type { CanvasComponent, CanvasDoc } from './types'
 
-const BOARD = '.planning/canvas/canvas-1.json'
+const BOARD = '.canvas/.boards/canvas-1.json'
 
 function frameRoot(id: string, children: CanvasComponent['variants'][0]['root']['children'] = []) {
   return { id: `f-${id}`, name: id, kind: 'frame' as const, rect: { x: 0, y: 0, w: 10, h: 10 }, style: {}, children }
@@ -75,6 +75,40 @@ function board(): CanvasDoc {
 
 beforeEach(() => {
   files.clear()
+})
+
+describe('legacy board migration', () => {
+  const legacyDoc = (id: string, name: string) =>
+    JSON.stringify({ version: 1, id, name, nodes: [], components: [], createdAt: 1, updatedAt: 1 })
+
+  it('moves boards out of .planning/canvas into .canvas/.boards and leaves nothing canvas in .planning', async () => {
+    files.set('.planning/canvas/canvas-old.json', legacyDoc('canvas-old', 'Old'))
+
+    const docs = await listDocs()
+
+    expect(docs.map((d) => d.id)).toEqual(['canvas-old'])
+    expect(files.has('.canvas/.boards/canvas-old.json')).toBe(true)
+    expect([...files.keys()].some((p) => p.startsWith('.planning/canvas'))).toBe(false)
+  })
+
+  it('never overwrites a board already at the new location', async () => {
+    files.set('.canvas/.boards/canvas-1.json', legacyDoc('canvas-1', 'New'))
+    files.set('.planning/canvas/canvas-1.json', legacyDoc('canvas-1', 'Stale'))
+
+    await listDocs()
+
+    expect(JSON.parse(files.get('.canvas/.boards/canvas-1.json')!).name).toBe('New')
+    expect(files.has('.planning/canvas/canvas-1.json')).toBe(false)
+  })
+
+  it('leaves other .planning files alone', async () => {
+    files.set('.planning/notes.json', '{}')
+    files.set('.planning/canvas/canvas-old.json', legacyDoc('canvas-old', 'Old'))
+
+    await listDocs()
+
+    expect(files.get('.planning/notes.json')).toBe('{}')
+  })
 })
 
 describe('reconcileMove', () => {
@@ -159,7 +193,7 @@ describe('reconcileMove', () => {
   })
 
   it('survives a corrupt board without abandoning the sweep', async () => {
-    files.set('.planning/canvas/broken.json', '{ not json')
+    files.set('.canvas/.boards/broken.json', '{ not json')
     writeBoard([component('a', 'Card', '.canvas/card/card.tsx')])
     files.set('src/components/card/card.tsx', 'export const Card = () => null\n')
 

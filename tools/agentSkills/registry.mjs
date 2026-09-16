@@ -23,7 +23,8 @@
 // Bumped whenever any emitted content changes. Stamped into the managed block
 // markers and .sleipnir/scaffold.json so scaffold.mjs can tell "this project is
 // on an older template" from "a human edited this" without diffing prose.
-export const SCAFFOLD_VERSION = 1
+// v2: detect-project, ordered steps (--after), planned files (--file/--edits), plan.md.
+export const SCAFFOLD_VERSION = 2
 
 // Where the vendored CLI lands, relative to the project root. Relative on
 // purpose: the emitted files are committed and cloned by people who have never
@@ -55,7 +56,7 @@ A plan in \`plans.json\`:
       "expectedSteps": 3
     }
 
-A step in \`notes.json\`'s \`nodes\`:
+A step in \`notes.json\`'s \`nodes\` (\`order\` is its 1-based position in the plan):
 
     {
       "id": "plan/<planSlug>/<stepSlug>-<epochMillis>",
@@ -65,20 +66,40 @@ A step in \`notes.json\`'s \`nodes\`:
       "type": "plan-step",
       "description": "What this step does",
       "status": "draft",
-      "planId": "plan/my-plan-1700000000000"
+      "planId": "plan/my-plan-1700000000000",
+      "order": 1
     }
 
-To nest a step, add to \`notes.json\`'s \`edges\`:
-\`{ "source": "<parentNodeId>", "target": "<childNodeId>", "kind": "plan-step" }\`
+A new file a step will create (a placeholder — never write the real file):
+
+    {
+      "id": "planned/<planSlug>/src/cart/cartView.tsx",
+      "label": "cartView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/my-plan-1700000000000",
+      "stepId": "<the step's id>",
+      "filePath": "src/cart/cartView.tsx",
+      "role": "view",
+      "language": "react"
+    }
+
+Edges in \`notes.json\`'s \`edges\`:
+
+- step order: \`{ "source": "<previousStepId>", "target": "<stepId>", "kind": "sequence" }\`
+- step to its planned file, or parent to nested step: \`{ "source": "<stepId>", "target": "<id>", "kind": "plan-step" }\`
+- a planned file importing another: \`{ "source": "<viewId>", "target": "<viewModelId>", "kind": "borrows" }\`
 
 A slug is the label lowercased with every run of non-alphanumeric characters
 replaced by \`-\` and leading/trailing \`-\` trimmed. Step ids embed the plan's slug
 with any leading \`plan/\` stripped, so they read \`plan/my-plan-.../step-...\`, never
-\`plan/plan/...\`. Every id ends in \`Date.now()\`.
+\`plan/plan/...\`. Every step id ends in \`Date.now()\`.
 
 The rule worth repeating: a plan's \`nodeIds\` must list ids that actually exist in
-\`notes.json\`. A plan whose \`nodeIds\` is \`[]\` renders as a named tab with nothing
-in it.`
+\`notes.json\` — its steps and their planned files. A plan whose \`nodeIds\` is \`[]\`
+renders as a named tab with nothing in it.`
 
 // Persistent context — rendered into AGENTS.md and pointed at from CLAUDE.md and
 // GEMINI.md. Loaded in every session, so it earns its length by covering the
@@ -97,37 +118,67 @@ is the most common way this goes wrong.
 Use the bundled CLI instead. It needs Node and nothing else — no install step, no
 \`package.json\`, and Sleipnir does not have to be running:
 
+    node ${PLAN_CLI} detect-project --root .
     node ${PLAN_CLI} create-plan --root . --label "My plan" [--total-steps N] [--temporary]
     node ${PLAN_CLI} create-node --root . --plan-id <id> \\
-        --label "Step name" --description "What this step does" [--parent-id <nodeId>]
+        --label "Step name" --description "What this step does" \\
+        [--file <path>:<role>[:<language>]]... [--edits <path1,path2>] [--after <stepId|none>]
+
+\`detect-project\` prints the project's languages (\`primary\`, \`languages\`), any it can
+see but can't scaffold (\`unsupported\`), and layout hints (\`conventions.srcDir\`). Plan
+in that language and that layout.
 
 \`create-plan\` prints the new plan's id. Pass it as \`--plan-id\` to every \`create-node\`
 so the steps land on that plan's own tab. Steps also always land in Sleipnir's shared
-"Claude" review tab, grouped by plan id, so a human can review and approve each one
+"AI" review tab, grouped by plan id, so a human can review and approve each one
 from either place.
 
 Pass \`--total-steps\` when you know the count up front: Sleipnir then shows a real
-N-of-M progress bar and a definitive completion moment, instead of inferring you are
-done from a quiet period after your last write. Harmless to omit.
+N-of-M progress bar and a definitive completion moment. Harmless to omit.
 
-### Proposing a new file as part of a step
+### Order
+
+Steps are drawn as a sequence in the order you create them. \`--after <stepId>\`
+inserts a step after an earlier one instead (later steps shift down);
+\`--after none\` leaves a step unlinked, for work that can happen in parallel.
+\`--parent-id <nodeId>\` nests a step under another.
+
+### Planned files
+
+\`--file <path>:<role>[:<language>]\` declares a NEW file the step will create. Repeat it
+once per file. Use the file's **real project path** following the detected layout
+(e.g. \`src/features/cart/cartView.tsx\`) — never a path under \`.planning/\`, and never
+a path that already exists (those go in \`--edits\`).
+
+- Roles: \`node\`, \`view\`, \`view-model\`, \`interface\`, \`controller\`, \`presenter\`.
+  Name sibling files of one feature \`<name><Role>\` (\`cartView.tsx\`, \`cartViewModel.tsx\`)
+  and Sleipnir links them the way the architecture implies: a View imports its
+  ViewModel/Controller/Presenter, a ViewModel imports its Interface.
+- Language comes from the extension (\`.tsx\` react, \`.ts\` typescript, \`.rs\` rust,
+  \`.py\` python, \`.go\` go, \`.js\` javascript, \`.html\`, \`.css\`), else the detected
+  primary language.
+
+A planned file is a **placeholder**: nothing is written to disk. When a human approves
+the step in Sleipnir, Sleipnir generates the files and wires their imports.
+
+\`--edits a,b\` lists EXISTING files the step will change, so they are highlighted in
+the architecture view.
+
+### plan.md
+
+Every plan gets \`.planning/<plan>/plan.md\`, one section per step, regenerated as steps
+are written. Anything written under the title, or between a step's \`/step-meta\` and
+\`/step\` markers, is kept.
+
+### Proposing a file with its full content (legacy)
 
     node ${PLAN_CLI} propose-file --root . --plan-id <id> --label "Step name" \\
         --description "What this file does" --file-path <workspace-relative-path> \\
         --content-file <path-to-a-file-with-the-content|-> [--links <nodeId1,nodeId2>]
 
-This does **not** write the file. Nothing touches real disk until a human reviews the
-content in Sleipnir and explicitly saves it — the same trust boundary the in-app AI
-chat's own code generation runs under.
-
-\`--content-file\` takes a path to a file holding the proposed content (write it there
-first; a CLI flag cannot cleanly carry multi-line source with quotes and backticks in
-it), or \`-\` to read from stdin. \`--links\` takes node ids you already created and draws
-visible "borrows" edges to them, so a batch of proposed files shows its real import
-relationships in the graph before any of them exist on disk.
-
-\`propose-file\` accepts only paths that do not exist yet. To change a file that already
-exists, edit it directly — it is already under version control and already visible.
+Stages one new file's complete content on a step for review — also never written until
+a human saves it. Prefer \`create-node --file\`, which lets Sleipnir generate the file
+from the project's own templates.
 
 ${FALLBACK_SHAPES}
 
@@ -136,21 +187,31 @@ ${FALLBACK_SHAPES}
 | File | Holds |
 | --- | --- |
 | \`plans.json\` | Named plan tabs. \`nodeIds\` only ever *references* ids in \`notes.json\`. |
-| \`notes.json\` | The real node content — drafts, scaffolds, plan steps. |
-| \`stages.json\` | Per-node sprint stage tags (\`todo\`, \`blocked\`, …). |
-| \`archive.json\` | Archived/hidden node ids. |`
+| \`notes.json\` | The real node content — drafts, scaffolds, plan steps, planned files. |
+| \`stages.json\` | Per-node sprint stage tags (\`proposed\`, \`in-progress\`, …). |
+| \`archive.json\` | Archived/hidden node ids. |
+| \`<plan>/plan.md\` | A plan's readable document, generated from \`notes.json\`. |`
 
 // The imperative form, rendered into each agent's slash-command file. Separate
 // from PLAN_CONTEXT because the jobs differ: context is ambient and describes
 // the system, a command is invoked once and says what to do now.
 const PLAN_COMMAND = `The user wants a plan for: ${ARGS_TOKEN}
 
-Draft it into Sleipnir's Planning graph, one reviewable node per step:
+Draft it into Sleipnir's Planning graph: an ordered set of reviewable steps, each
+declaring the files it will create or change, placed in the project's real architecture.
 
-1. Explore enough of the codebase to ground the plan in what is actually there.
-   A plan that names real files and real functions is worth reviewing; a generic
-   one is not.
-2. Decide the steps before writing any of them, so you know the count.
+1. Learn the project before planning:
+
+       node ${PLAN_CLI} detect-project --root .
+
+   Then explore enough of the codebase to ground the plan in what is actually there —
+   the folder layout, naming, and the existing files the work touches. A plan that
+   names real files and follows the project's own structure is worth reviewing; a
+   generic one is not.
+2. Decide the steps, in order, before writing any of them, so you know the count.
+   For each step decide which NEW files it creates (real project paths, in the
+   detected language, sibling role files named \`<name><Role>\`) and which EXISTING
+   files it edits.
 3. Create the plan. It prints an id — use that id for every step:
 
        node ${PLAN_CLI} create-plan --root . --label "<short plan name>" --total-steps <N>
@@ -158,25 +219,27 @@ Draft it into Sleipnir's Planning graph, one reviewable node per step:
 4. Create each step in order:
 
        node ${PLAN_CLI} create-node --root . --plan-id <id> \\
-           --label "<step name>" --description "<what this step does and why>"
+           --label "<step name>" --description "<what this step does and why>" \\
+           --file <path>:<role> --edits <existing1,existing2>
 
-   Use \`--parent-id <nodeId>\` to nest a step under an earlier one. When a step's
-   deliverable is a brand-new file, use \`propose-file\` instead so the content
-   rides along for review — see AGENTS.md for its flags.
-5. Report the plan id, how many steps you created, and that each one is waiting
-   for review in Sleipnir's Planning graph.
+   Repeat \`--file\` once per new file; omit \`--file\`/\`--edits\` when a step has none.
+   Steps chain in creation order; use \`--after <stepId>\` to insert elsewhere or
+   \`--after none\` for independent work.
+5. Report the plan id, the steps in order with their files, and that the plan is
+   waiting for review in Sleipnir's Planning graph (and in \`.planning/<plan>/plan.md\`).
 
 Constraints:
 
-- Do not write \`.planning/*.json\` directly. Use the CLI.
-- Do not create or edit real source files. A plan step is a proposal a human
-  approves; \`propose-file\` stages content without touching disk.
+- Do not write \`.planning/*.json\` or \`plan.md\` directly. Use the CLI.
+- Do not create or edit real source files. Planned files are placeholders; Sleipnir
+  writes them only after a human approves the step.
+- Never plan a file under \`.planning/\`.
 - Use one plan id for the whole plan, or the steps scatter across tabs.`
 
 export const SKILLS = [
   {
     id: 'plan',
-    description: "Draft a plan into Sleipnir's Planning graph, one reviewable node per step.",
+    description: "Draft an ordered, architecture-aware plan into Sleipnir's Planning graph.",
     argumentHint: '<what to plan>',
     context: PLAN_CONTEXT,
     command: PLAN_COMMAND,

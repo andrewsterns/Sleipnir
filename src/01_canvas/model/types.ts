@@ -1,5 +1,5 @@
 // The canvas document IR — what a Canvas board serializes to
-// (.planning/canvas/<id>.json) and what every emitter reads from.
+// (.canvas/.boards/<id>.json) and what every emitter reads from.
 //
 // ── Why there is no <Frame/> in Rust, Go, or anywhere else ──────────────────
 //
@@ -358,7 +358,7 @@ export interface CanvasComponent {
 // ── Document ───────────────────────────────────────────────────────────────
 
 /**
- * One board, one JSON file under <workspace>/.planning/canvas/.
+ * One board, one JSON file under <workspace>/.canvas/.boards/.
  *
  * `nodes` are the loose frames on the infinite board; `components` are the
  * promoted, reusable definitions that instances point at. Promoting a frame

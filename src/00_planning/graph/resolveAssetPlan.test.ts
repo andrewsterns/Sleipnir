@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { FileTreeNode } from '../api/PlatformAPI'
 import type { SavedPlan } from './types'
 
@@ -24,12 +24,17 @@ vi.mock('../api/sleipnirApi', () => ({
 }))
 
 const { resolveAssetPlanGraph } = await import('./resolveAssetPlan')
+const { resetWorkspaceScanCache } = await import('./workspaceScanCache')
 
 function plan(overrides: Partial<SavedPlan>): SavedPlan {
   return { id: 'plan-1', label: 'Test Plan', nodeIds: [], createdAt: 0, ...overrides }
 }
 
 describe('resolveAssetPlanGraph', () => {
+  // The workspace scan is cached across calls (see workspaceScanCache.ts);
+  // each test builds its own fake workspace, so each starts uncached.
+  beforeEach(() => resetWorkspaceScanCache())
+
   it('follows a multi-hop import chain beyond the explicitly-added file, marking pulled-in files as discovered', async () => {
     files.clear()
     files.set('src/A.tsx', `import { B } from './B'\nexport const A = () => B\n`)

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { forceCenter } from 'd3-force-3d'
 import type { GraphData, GraphNode, NodeStage } from './types'
-import { stageConfig, nodeStageKey } from './stages'
+import { stageConfig, nodeStageKey, STAGE_PATH_LENGTH } from './stages'
 import { buildForceLayout, linkNode, linkId, nodeRadius, type NodePositions } from './layout'
 import { Icon, type IconName } from '../../app/UIKit/Icon/Icon'
 
@@ -52,6 +52,10 @@ const ARROW_GAP = 7
 // outside the source node's own radius instead of at its center, so it never
 // visually touches the node it leaves from.
 const SOURCE_GAP = 7
+
+// The plan overlay color — sequence arrows, step order badges and planned-file
+// placeholders. Themes may define --graph-plan; the fallback reads on both.
+const PLAN_COLOR = 'var(--graph-plan, #5b9dff)'
 
 // The file extension a node's path ends in (".tsx", ".rs", …), or "" for a
 // note with no backing file — appended to the label (dimmer) so a node reads
@@ -117,9 +121,14 @@ export interface GraphCanvasProps {
   centerSignal?: number
   /** Per-node sprint stage overlay ({ [nodeId]: stage }) — drives each node's color + stroke (see graph/stages.ts). Passed separately from `data` on purpose: folding it in would rebuild the force layout on every tag change. Omit/empty = every node renders by its `kind` as before. */
   stages?: Record<string, NodeStage>
+  /** Workspace-relative paths `.planning/` points at that no longer exist (see usePlanningHealth). A node backed by one is drawn with a dashed danger ring instead of its stage. */
+  missingPaths?: Set<string>
+  /** Node ids that belong to the active plan (see graph/composePlanView.ts). When non-empty, those nodes and the links between them are drawn in the plan color and everything else is dimmed. Passed separately from `data` for the same reason as `stages`: it never changes the layout. */
+  overlay?: Set<string>
 }
 
-export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages }) => {
+export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages, missingPaths, overlay }) => {
+  const overlayActive = !!overlay && overlay.size > 0
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const viewportRef = useRef<SVGGElement>(null)
@@ -158,12 +167,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
   )
 
   // What the force layout actually depends on: the set of nodes and the
-  // *undirected* set of edges. A direction flip reverses an edge but leaves
-  // this key identical, as does any pure metadata edit (label, status) — the
+  // *undirected* set of structural edges. A direction flip reverses an edge but
+  // leaves this key identical, as does any pure metadata edit (label, status)
+  // or a plan reorder (sequence edges aren't simulated — see layout.ts) — the
   // signal for whether a rebuild needs to reheat gravity or can render cooled.
   const topologyKey = useMemo(() => {
     const nodeKey = data.nodes.map((n) => n.id).sort().join(',')
     const edgeKey = data.edges
+      .filter((e) => e.kind !== 'sequence')
       .map((e) => (e.source < e.target ? `${e.source}~${e.target}` : `${e.target}~${e.source}`))
       .sort()
       .join(',')
@@ -490,6 +501,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
             <marker id="graph-edge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.5" markerHeight="4.5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M2,1 L9,5 L2,9" fill="none" style={{ stroke: 'var(--graph-edge, #ffffff)' }} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />
             </marker>
+            {/* Plan sequence arrowhead — solid, in the plan color, at the END
+                of the line: the arrow points from a step to the one after it. */}
+            <marker id="graph-seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto">
+              <path d="M1,1 L9,5 L1,9 Z" style={{ fill: PLAN_COLOR }} />
+            </marker>
           </defs>
           {simLinks.map((edge, i) => {
             const sourceId = linkId(edge.source)
@@ -499,9 +515,29 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
               id === selectedId || (neighbors.get(selectedId ?? '')?.has(id) ?? false)
             const isSelectedEdge = hasSelection && isHighlighted(sourceId) && isHighlighted(targetId)
             const dimmed = hasSelection && !isSelectedEdge
+            // A plan's work order: dashed, plan-colored, arrow toward the next step.
+            if (edge.kind === 'sequence') {
+              return (
+                <line
+                  key={`${sourceId}->${targetId}:sequence:${i}`}
+                  ref={(el) => {
+                    if (el) edgeRefs.current.set(i, el)
+                    else edgeRefs.current.delete(i)
+                  }}
+                  style={{ stroke: PLAN_COLOR }}
+                  strokeWidth={isSelectedEdge ? 1.5 : 1}
+                  strokeDasharray="5 4"
+                  opacity={dimmed ? 0.2 : 0.9}
+                  markerEnd="url(#graph-seq-arrow)"
+                />
+              )
+            }
+            // A link inside the plan (both ends belong to it) is drawn in the
+            // plan color; with a plan overlay active, everything else recedes.
+            const inPlan = overlayActive && overlay!.has(sourceId) && overlay!.has(targetId)
             return (
               <line
-                key={`${sourceId}-${targetId}-${i}`}
+                key={`${sourceId}->${targetId}:${edge.kind}:${i}`}
                 ref={(el) => {
                   if (el) edgeRefs.current.set(i, el)
                   else edgeRefs.current.delete(i)
@@ -510,13 +546,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 // near-black on light — see 00_themes/*.css) at half opacity —
                 // `opacity` still fades unrelated edges further when a node is
                 // selected, and applies to the arrowhead marker too (same element).
-                style={{ stroke: 'var(--graph-edge, #ffffff)' }}
+                style={{ stroke: inPlan ? PLAN_COLOR : 'var(--graph-edge, #ffffff)' }}
                 // Thin link lines: the base edge drops from 1px → 0.5px, and a
                 // highlighted (selected-node) edge from 1.5px → 1px, so the
                 // graph reads as fine hairlines rather than heavy strokes.
-                strokeWidth={isSelectedEdge ? 1 : 0.5}
-                opacity={dimmed ? 0.08 : 0.5}
-                markerEnd="url(#graph-edge-arrow)"
+                strokeWidth={isSelectedEdge || inPlan ? 1 : 0.5}
+                opacity={dimmed ? 0.08 : inPlan ? 0.8 : overlayActive ? 0.25 : 0.5}
+                // Edges run importer → imported, but the arrow shows the import
+                // flowing *into* the importer, so the head sits at the source
+                // end (auto-start-reverse points it back toward the source).
+                markerStart="url(#graph-edge-arrow)"
               />
             )
           })}
@@ -578,10 +617,30 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
             // default-fill effect) fall back to the same built/proposed look
             // as before.
             const stage = stageConfig(stages?.[nodeStageKey(node)])
-            const circleStyle = stage
-              ? { fill: stage.fill === 'solid' ? stage.color : 'none', stroke: stage.color }
-              : { fill: isProposed ? 'none' : color, stroke: isProposed ? 'var(--text-1)' : color }
-            const circleStrokeWidth = stage ? (stage.fill === 'solid' ? 0 : stage.strokeWidth) : isProposed ? 1.5 : 0
+            // A node whose backing file is gone overrides its stage look — the
+            // file moved or was deleted outside Sleipnir, and opening it would
+            // only fail. A red ring no stage uses.
+            const isMissing = !!node.filePath && !node.proposedFile && !node.planned && !!missingPaths?.has(node.filePath)
+            // A planned file that hasn't been built: a dashed ring in the plan
+            // color. Once its step moves it past Proposed, the stage look wins.
+            const isPlannedPlaceholder = !!node.planned && !isMissing && (!stage || stage.id === 'proposed')
+            const inPlan = overlayActive && overlay!.has(node.id)
+            const baseStyle = isMissing
+              ? { fill: 'none', stroke: '#e07a7a' }
+              : isPlannedPlaceholder
+                ? { fill: 'none', stroke: PLAN_COLOR }
+                : stage
+                  ? { fill: stage.fill === 'solid' ? stage.color : 'none', stroke: stage.color }
+                  : { fill: isProposed ? 'none' : color, stroke: isProposed ? 'var(--text-1)' : color }
+            const baseStrokeWidth = isMissing ? 2 : isPlannedPlaceholder ? 1.5 : stage ? (stage.fill === 'solid' ? 0 : stage.strokeWidth) : isProposed ? 1.5 : 0
+            // Part of the plan: same shape (stage/placeholder still readable),
+            // recolored to the plan color. Missing files keep their warning ring.
+            const planColored = inPlan && !isMissing && !isPlannedPlaceholder
+            const circleStyle = planColored
+              ? { fill: baseStyle.fill === 'none' ? 'none' : PLAN_COLOR, stroke: PLAN_COLOR }
+              : baseStyle
+            const circleStrokeWidth = planColored && baseStyle.fill === 'none' ? Math.max(baseStrokeWidth, 1.5) : baseStrokeWidth
+            const circleDash = isMissing ? '2 2' : isPlannedPlaceholder ? '1.5 1' : stage?.dash
             return (
               <g
                 key={node.id}
@@ -602,9 +661,19 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 // "context" rather than a first-class member of the plan: a
                 // touch dimmer at rest, same full brightness as any other
                 // node once it's selected or a selected node's neighbor.
-                opacity={dimmed ? 0.25 : node.discovered && !isHighlighted ? 0.6 : 1}
+                opacity={
+                  dimmed
+                    ? 0.25
+                    : overlayActive && !inPlan && !isHighlighted
+                      ? 0.35
+                      : node.discovered && !inPlan && !isHighlighted
+                        ? 0.6
+                        : 1
+                }
                 style={{ cursor: 'pointer' }}
               >
+                {isMissing && <title>File missing: {node.filePath} (moved or deleted outside Sleipnir)</title>}
+                {isPlannedPlaceholder && <title>Planned: {node.filePath} — created when its step is approved</title>}
                 <circle r={radius + NODE_HIT_PADDING} fill="transparent" pointerEvents="all" />
                 {/* Selection ring for stage-tagged nodes only — the untagged
                     ones still signal selection by turning white (see `color`). */}
@@ -615,9 +684,26 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                   r={radius}
                   style={circleStyle}
                   strokeWidth={circleStrokeWidth}
-                  strokeDasharray={stage?.dash}
+                  strokeDasharray={circleDash}
+                  pathLength={!isMissing && circleDash ? STAGE_PATH_LENGTH : undefined}
                   opacity={0.9}
                 />
+                {!isMissing && !isPlannedPlaceholder && stage?.centerDot && (
+                  <circle r={radius * 0.35} style={{ fill: stage.color }} opacity={0.9} />
+                )}
+                {/* A plan step's position in its plan. */}
+                {node.type === 'plan-step' && node.order !== undefined && (
+                  <text
+                    x={radius + 4}
+                    y={radius + 7}
+                    fontFamily="var(--font-mono)"
+                    fontSize={8}
+                    fontWeight={700}
+                    style={{ fill: PLAN_COLOR, pointerEvents: 'none' }}
+                  >
+                    {node.order}
+                  </text>
+                )}
                 <rect
                   x={contentLeft - 7}
                   y={labelY - labelHeight / 2}

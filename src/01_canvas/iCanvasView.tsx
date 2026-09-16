@@ -7,7 +7,7 @@ export interface CanvasViewProps {
    * there is no "Choose Folder…" here, same as Research — and App.tsx keys this
    * view on the project path, so switching projects remounts the whole view and
    * there is no local state to reset. Boards live in that project's own
-   * `.planning/canvas/` folder (see model/store.ts).
+   * `.canvas/.boards/` folder (see model/store.ts).
    */
   activeProject: { path: string; name: string } | null
   /**
@@ -34,8 +34,8 @@ export interface CanvasViewProps {
    * (promote, push, remove). The Workspace tab's file tree only refetches on
    * mount and on project change, so a write originating anywhere else lands on
    * disk invisibly until you switch projects and back — App.tsx uses this to
-   * refresh it. Not needed for board autosaves: those go to `.planning/canvas/`
-   * and reach the renderer through the planning watcher instead.
+   * refresh it. Not called for board autosaves (`.canvas/.boards/`): those fire
+   * every ~400ms while dragging, and refetching the tree that often isn't worth it.
    */
   onWorkspaceChanged?: () => void
 }

@@ -48,6 +48,13 @@ export async function refreshStages() {
   await load()
 }
 
+// Current stage for one id, fetching the overlay first if nothing has yet —
+// for non-React callers (e.g. promoteFileStage) that need to read before writing.
+export async function getStage(id: string): Promise<NodeStage | undefined> {
+  await load()
+  return stages[id]
+}
+
 // Tags (or, passing null, clears) one id's stage — any node id, or a
 // useFileStages `file:<path>` synthetic key. Optimistic: updates the shared
 // cache (so every subscriber recolors instantly) before the write-through

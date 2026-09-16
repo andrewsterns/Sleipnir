@@ -32,6 +32,16 @@ export interface WorkspaceInfo {
   repoRelativeRoot?: string | null
 }
 
+/** A path stored in `.planning/` that no longer exists in the Workspace — usually renamed, moved, or deleted outside Sleipnir. See tools/sleipnir-backend.mjs's checkPlanningPaths. */
+export interface MissingPlanningRef {
+  path: string
+  isDir: boolean
+  /** Everything that stores this path: a plan's assetPaths/assetFolders entry, or a notes.json node's filePath. */
+  refs: { kind: 'assetPath' | 'assetFolder' | 'note'; planId?: string; nodeId?: string; /** A note node's own map (fixed map or plan id), for jumping to it. */ mapId?: string; label: string }[]
+  /** Where it probably went. `git` comes from recorded renames and is safe to bulk-apply; `name` is the only file in the Workspace with the same filename and needs a human to confirm. */
+  suggestion?: { path: string; source: 'git' | 'name' }
+}
+
 /** One entry in File > Open Recent — see electron/workspaceStore.cjs. `name` is the project's display name (custom, via Rename Project, or the folder's basename) as of when it was last opened; may be stale if renamed from disk elsewhere. */
 export interface RecentProject {
   path: string
@@ -282,6 +292,8 @@ export interface PlatformAPI {
   setNodeStatus(id: string, status: NodeStatus): Promise<{ node: GraphNode }>
   /** Full-replace of a node's outgoing 'borrows' edges — used by the node-card link editor and by re-scanning a saved file's real imports (see WorkspaceView's onImportsChanged). */
   setNodeBorrows(nodeId: string, targetIds: string[]): Promise<{ edges: GraphEdge[] }>
+  /** Moves a planned-file placeholder (a plan step's not-yet-written file) to another path before approval. Validated like a declaration: a real project path, not under `.planning/`, not an existing file. The node's id embeds its path, so the returned node carries the NEW id; edges, the plan's nodeIds and plan.md follow. */
+  updatePlannedFilePath(nodeId: string, path: string): Promise<{ node: GraphNode }>
   /** Edits a notes.json node's label/description in place (the rename counterpart to addNote). Only nodes stored in notes.json (note, scaffolded, plan-step) are editable; throws for build-generated src nodes, which regenerate from source — callers gate "Rename" to notes-backed nodes. */
   updateNote(id: string, patch: { label?: string; description?: string }): Promise<{ node: GraphNode }>
   /** Permanently deletes a notes.json node (note, scaffolded, or plan-step) plus every edge touching it. The restorable-soft-hide counterpart, setArchived, is for build-generated src nodes instead. Does not delete any real Workspace file a scaffolded node points at — callers pair this with deleteWorkspacePath when the file should go too. */
@@ -306,6 +318,12 @@ export interface PlatformAPI {
   addPlanAssets(id: string, paths?: string[], folders?: string[]): Promise<{ plan: SavedPlan }>
   /** Changes a plan's display label. The id is left alone: it embeds a slug of the ORIGINAL label but is referenced by graph nodes' `planId` and by open tabs, none of which would follow a re-slug. */
   renamePlan(id: string, label: string): Promise<{ plan: SavedPlan }>
+  /** Every `.planning/` file reference that no longer exists on disk, each with a suggested new location when one can be found. Read-only. */
+  checkPlanningPaths(): Promise<{ missing: MissingPlanningRef[] }>
+  /** Rewrites every stored reference to `from` (or anything under it, for a folder) to `to` — plan asset paths/edges, notes' filePath, and `file:` stage keys. `changed` is the number of references rewritten. */
+  relinkPlanningPath(from: string, to: string): Promise<{ changed: number }>
+  /** Drops every stored reference to `path` (or anything under it) — removes it from plans, deletes notes nodes backed by it, and clears its stage tag. Never touches the Workspace file itself. */
+  removePlanningRef(path: string): Promise<{ removed: number }>
   /** The plan record is always removed. `opts.deleteFiles` also deletes the plan's `generatedFiles` (and, with `deleteNodes`, each removed node's backing file), resolved against the open Workspace root. `opts.deleteNodes` also removes the plan's nodes from the graph and every edge touching them. */
   deletePlan(id: string, opts?: { deleteFiles?: boolean; deleteNodes?: boolean }): Promise<void>
   /**

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getGraphForMap, refreshGraphForMap, partitionArchived } from './graph/combine'
 import { resolvePlanGraph } from './graph/resolvePlan'
 import { resolveAssetPlanGraph } from './graph/resolveAssetPlan'
+import { composePlanView, type PlanView, type PlanViewMode } from './graph/composePlanView'
+import { getWorkspaceScan, invalidateWorkspaceListing, invalidateWorkspaceScan, type WorkspaceScan } from './graph/workspaceScanCache'
 import { getGraphMaps, type GraphData, type GraphEdge, type GraphMapId, type GraphNode, type NodeStage, type NodeStatus, type SavedPlan } from './graph/types'
 import {
   regenerateGraph,
@@ -294,16 +296,18 @@ export function usePlanningViewModel(
   // rides alongside as its own `stages` map instead — consumers look a node's
   // stage up by id (see GraphCanvas's `stages` prop, and the card/list below).
   const live = useMemo(() => {
-    // A saved-plan tab renders notes two ways: those authored directly into
-    // it (map === plan id) PLUS any note the plan explicitly *references* by
-    // id — the latter is how a node linked in from another plan (see addLink)
-    // becomes part of this one. De-duped against liveGenerated so a node
-    // already resolved there (a build-time node the plan's nodeIds point at)
-    // isn't added twice.
+    // A saved-plan tab renders notes three ways: those authored directly into
+    // it (map === plan id), any note the plan explicitly *references* by id —
+    // how a node linked in from another plan (see addLink) becomes part of this
+    // one — and any plan step or planned file that belongs to it by `planId`
+    // (the same membership the status bar and approvePlanNodes count). De-duped
+    // against liveGenerated so a node already resolved there (a build-time node
+    // the plan's nodeIds point at) isn't added twice.
     const planNodeIds = new Set(planFor(mapId)?.nodeIds ?? [])
     const generatedIds = new Set(liveGenerated.nodes.map((n) => n.id))
+    const isPlanTab = !!planFor(mapId)
     const notesForMap = notes.filter(
-      (n) => !generatedIds.has(n.id) && (n.map === mapId || planNodeIds.has(n.id)),
+      (n) => !generatedIds.has(n.id) && (n.map === mapId || planNodeIds.has(n.id) || (isPlanTab && n.planId === mapId)),
     )
     const noteIds = new Set(notesForMap.map((n) => n.id))
     const notesEdgesForMap = notesEdges.filter((e) => noteIds.has(e.source) || noteIds.has(e.target))
@@ -313,6 +317,52 @@ export function usePlanningViewModel(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveGenerated, notes, notesEdges, mapId, plans])
+
+  // A plan tab shows the plan over the project's real architecture by default
+  // ('architecture' — see graph/composePlanView.ts), or just the plan ('plan').
+  // Remembered per plan tab for the session.
+  const [planViewModes, setPlanViewModes] = useState<Record<string, PlanViewMode>>({})
+  const activePlanId = planFor(mapId)?.id
+  const planViewMode: PlanViewMode = planViewModes[mapId] ?? 'architecture'
+  const setPlanViewMode = (mode: PlanViewMode) => setPlanViewModes((prev) => ({ ...prev, [mapId]: mode }))
+
+  // The shared cached workspace scan (graph/workspaceScanCache.ts). Until it
+  // arrives the plan renders alone; bumping scanVersion re-asks the cache,
+  // which only does work for whatever was invalidated.
+  const [workspaceScan, setWorkspaceScan] = useState<WorkspaceScan | null>(null)
+  const [scanVersion, setScanVersion] = useState(0)
+  const wantsArchitecture = !!activePlanId && planViewMode === 'architecture'
+  useEffect(() => {
+    if (!wantsArchitecture) return
+    let cancelled = false
+    getWorkspaceScan()
+      .then((scan) => {
+        if (!cancelled) setWorkspaceScan(scan)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [wantsArchitecture, scanVersion])
+  // Files may have been added or removed outside Sleipnir while the window was
+  // in the background — pick those up (cheaply: new files only) on return.
+  useEffect(() => {
+    const onFocus = () => {
+      invalidateWorkspaceListing()
+      setScanVersion((v) => v + 1)
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
+  const planView: PlanView = useMemo(
+    () => (activePlanId ? composePlanView(live, activePlanId, workspaceScan, planViewMode) : { data: live, overlay: new Set<string>() }),
+    [live, activePlanId, workspaceScan, planViewMode],
+  )
+  // Full re-read of every file (a manual refresh).
+  const rescanWorkspace = () => {
+    invalidateWorkspaceScan()
+    setScanVersion((v) => v + 1)
+  }
 
   // Jumping straight to a library right after creating it can't rely on
   // getGraphForMap's static import.meta.glob snapshot (it may not have
@@ -345,6 +395,9 @@ export function usePlanningViewModel(
       refreshStagesStore(),
     ])
     setData(fresh)
+    // A plan change can mean files were written (an approved step) — re-list.
+    invalidateWorkspaceListing()
+    setScanVersion((v) => v + 1)
     // A manual refresh doesn't change mapId, so the asset-plan live-resolve
     // effect above won't re-fire on its own — trigger it directly here too.
     if (plan?.assetPaths?.length || plan?.assetFolders?.length) {
@@ -381,11 +434,10 @@ export function usePlanningViewModel(
         refreshStagesStore().catch(() => {})
         return
       }
-      // A canvas-only batch is a Canvas board autosave (.planning/canvas/*.json,
-      // see src/01_canvas/model/store.ts). Boards hold no graph nodes, and that
-      // file is written every ~400ms while a frame is being dragged — so this
-      // is the same force-layout-reheat problem stagesOnly solves, just from
-      // the other direction.
+      // A canvas-only batch is the legacy .planning/canvas/ folder being
+      // emptied by Canvas's board migration (boards now save to
+      // .canvas/.boards/, outside .planning). Boards hold no graph nodes, so
+      // there's nothing to refetch.
       if (info?.canvasOnly) return
       refreshAllRef.current().catch(() => {})
     })
@@ -431,18 +483,20 @@ export function usePlanningViewModel(
       (n) => n.type === 'plan-step' && n.status === 'draft' && (n.planId === activePlan.id || refIds.has(n.id)),
     ).length
   }, [activePlan, notes])
-  // Of draftStepCount, how many carry a staged proposedFile (see backend's
-  // proposeFileNode) — these are never included in Approve All's bulk write
-  // (see approvePlanNodes' needsReviewIds), so the status bar can say so
-  // instead of silently under-counting what Approve All actually did.
+  // Of draftStepCount, how many need an individual file review — a staged
+  // proposedFile (see backend's proposeFileNode) or planned files (see
+  // ApproveStepModal). Neither is included in Approve All's bulk write (see
+  // approvePlanNodes' needsReviewIds), so the status bar can say so instead of
+  // silently under-counting what Approve All actually did.
   const draftFileStepCount = useMemo(() => {
     if (!activePlan) return 0
     const refIds = new Set(activePlan.nodeIds ?? [])
+    const stepsWithPlannedFiles = new Set(notes.filter((n) => n.stepId).map((n) => n.stepId))
     return notes.filter(
       (n) =>
         n.type === 'plan-step' &&
         n.status === 'draft' &&
-        !!n.proposedFile &&
+        (!!n.proposedFile || stepsWithPlannedFiles.has(n.id)) &&
         (n.planId === activePlan.id || refIds.has(n.id)),
     ).length
   }, [activePlan, notes])
@@ -551,9 +605,11 @@ export function usePlanningViewModel(
     await refreshAll()
   }
 
+  // What's drawn (planView) first, so an architecture file or folder node in a
+  // plan tab's architecture view has a card too.
   const selectedNode = useMemo(
-    () => live.nodes.find((n) => n.id === selectedId) ?? null,
-    [live, selectedId],
+    () => planView.data.nodes.find((n) => n.id === selectedId) ?? live.nodes.find((n) => n.id === selectedId) ?? null,
+    [planView, live, selectedId],
   )
 
   // Links now span plans (see addLink/addImporter's own comments) — the
@@ -786,14 +842,15 @@ export function usePlanningViewModel(
     [sortedNodes, kindFilter],
   )
 
-  // Every node in the current map/plan tagged 'todo' — the "RUN PLAN" batch
-  // driver's queue (see PlanningView.tsx's runPlan). Same order as the NODES
+  // Every node in the current map/plan explicitly tagged 'proposed' — the "RUN
+  // PLAN" batch driver's queue (see PlanningView.tsx's runPlan). Untagged nodes
+  // are left out so a whole build-generated map isn't queued. Same order as the NODES
   // list itself (whatever sortOrder is active); v1 deliberately doesn't try
   // to derive a dependency/topological order from edges — plan-step edges
   // only exist for AI-created nodes, import/borrows edges aren't guaranteed
   // to form a usable DAG, and the single-node BUILD WITH AI button already
   // gives manual ordering control when it matters for one node.
-  const todoNodes = useMemo(() => sortedNodes.filter((n) => stages[nodeStageKey(n)] === 'todo'), [sortedNodes, stages])
+  const todoNodes = useMemo(() => sortedNodes.filter((n) => stages[nodeStageKey(n)] === 'proposed'), [sortedNodes, stages])
 
   const mapLabelFor = (id: GraphMapId): string =>
     getGraphMaps().find((m) => m.id === id)?.label ?? planFor(id)?.label ?? id
@@ -895,5 +952,11 @@ export function usePlanningViewModel(
     isGlobalSearch,
     mapLabelFor,
     todoNodes,
+    isPlanTab: !!activePlanId,
+    planView,
+    planViewMode,
+    setPlanViewMode,
+    workspaceScanReady: !!workspaceScan,
+    rescanWorkspace,
   }
 }

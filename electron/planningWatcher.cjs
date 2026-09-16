@@ -14,9 +14,10 @@ const path = require('node:path')
 const PLANNING_DIR = '.planning'
 const DEBOUNCE_MS = 200
 const STAGES_FILE = 'stages.json'
-// Canvas boards live one level deeper, in .planning/canvas/. fs.watch reports
-// nested paths with a separator, so a canvas write arrives as
-// 'canvas\foo.json' / 'canvas/foo.json' rather than a bare filename.
+// Canvas boards now live in .canvas/.boards/, outside this watcher entirely.
+// This only still matters for the legacy .planning/canvas/ folder while
+// store.ts's migrateLegacyBoards moves old boards out of it. fs.watch reports
+// nested paths with a separator ('canvas\foo.json' / 'canvas/foo.json').
 const CANVAS_SUBDIR = 'canvas'
 
 // wcId -> { root, sender, watcher, timer, changedFiles }

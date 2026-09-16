@@ -68,8 +68,38 @@ const TOOL_DEFS = [
         type: 'string',
         description: 'Optional: the node id returned by a previous create_plan_node call in this same plan, to link this step under it.',
       },
+      after: {
+        type: 'string',
+        description: 'Optional: steps are ordered in creation order by default. Pass a previous step id to insert this step after it, or "none" for work that runs in parallel.',
+      },
+      files: {
+        type: 'array',
+        description:
+          'Optional: NEW files this step will create, at their real project paths (never under .planning/, never an existing file). Placeholders only — Sleipnir writes them when the user approves the step. Name sibling role files <name><Role> (cartView.tsx, cartViewModel.tsx) so they are linked. Call detect_project first to match the project\'s language.',
+        items: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'Workspace-relative path, e.g. "src/features/cart/cartView.tsx".' },
+            role: { type: 'string', enum: ['node', 'view', 'view-model', 'interface', 'controller', 'presenter'] },
+            language: { type: 'string', enum: ['react', 'typescript', 'javascript', 'jquery', 'python', 'rust', 'go', 'html', 'css'] },
+          },
+          required: ['path'],
+        },
+      },
+      edits: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional: EXISTING workspace-relative files this step will change.',
+      },
     },
     required: ['plan_id', 'label'],
+  },
+  {
+    name: 'detect_project',
+    description:
+      "Report the open project's languages and layout (primary language, detected manifests, unsupported languages, src folder). Call before planning so planned files match the codebase.",
+    properties: {},
+    required: [],
   },
   {
     name: 'read_file',
@@ -128,8 +158,17 @@ async function executeTool(call, ctx) {
   b.setWorkspaceRoot(ctx.workspaceRoot)
 
   if (call.name === 'create_plan_node') {
-    const { node } = b.createPlanNode(call.input.plan_id, call.input.label, call.input.description, call.input.parent_id)
-    return { node, result: { created: true, node_id: node.id } }
+    const files = Array.isArray(call.input.files) ? call.input.files : []
+    const { node, planned } = b.createPlanNode(call.input.plan_id, call.input.label, call.input.description, call.input.parent_id, {
+      after: call.input.after,
+      files,
+      edits: Array.isArray(call.input.edits) ? call.input.edits : [],
+      defaultLanguage: files.length ? b.detectProject().primary ?? undefined : undefined,
+    })
+    return { node, result: { created: true, node_id: node.id, planned_file_ids: (planned ?? []).map((p) => p.id) } }
+  }
+  if (call.name === 'detect_project') {
+    return { result: b.detectProject() }
   }
   if (call.name === 'read_file') {
     const { content } = b.readWorkspaceFile(call.input.path)

@@ -432,6 +432,7 @@ function registerIpcHandlers() {
     b.proposeFileNode(planId, label, description, filePath, content, parentId, linkTargetIds))
   ws('sleipnir:setNodeStatus', (b, _e, id, status) => b.setNodeStatus(id, status))
   ws('sleipnir:setNodeBorrows', (b, _e, nodeId, targetIds) => b.setNodeBorrows(nodeId, targetIds))
+  ws('sleipnir:updatePlannedFilePath', (b, _e, nodeId, plannedPath) => b.updatePlannedFilePath(nodeId, plannedPath))
   ws('sleipnir:updateNote', (b, _e, id, patch) => b.updateNote(id, patch))
   ws('sleipnir:deleteNote', (b, _e, id) => b.deleteNote(id))
   ws('sleipnir:getNodeStages', (b) => b.getNodeStages())
@@ -444,6 +445,9 @@ function registerIpcHandlers() {
   ws('sleipnir:approvePlanNodes', (b, _e, planId) => b.approvePlanNodes(planId))
   ws('sleipnir:addPlanAssets', (b, _e, id, paths, folders) => b.addPlanAssets(id, paths, folders))
   ws('sleipnir:renamePlan', (b, _e, id, label) => b.renamePlan(id, label))
+  ws('sleipnir:checkPlanningPaths', (b) => b.checkPlanningPaths())
+  ws('sleipnir:relinkPlanningPath', (b, _e, from, to) => b.relinkPlanningPath(from, to))
+  ws('sleipnir:removePlanningRef', (b, _e, filePath) => b.removePlanningRef(filePath))
   ws('sleipnir:deletePlan', (b, _e, id, opts) => b.deletePlan(id, opts))
   ws('sleipnir:runScript', (b, _e, filePath) => b.runScript(filePath))
 
