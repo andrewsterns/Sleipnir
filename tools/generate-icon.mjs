@@ -1,5 +1,6 @@
 // One-off generator: rasterizes build/icon.svg into build/icon.ico (Windows
-// app/taskbar icon) and build/icon.png (used as a fallback / Linux icon).
+// app/taskbar icon) and build/icon.png (the macOS/Linux icon — electron-builder
+// rejects anything under 512x512 there, so it's rendered at 1024).
 // Not part of the build pipeline — rerun manually if the source mark changes.
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -17,7 +18,7 @@ const pngBuffers = await Promise.all(
   sizes.map((size) => sharp(svg, { density: 384 }).resize(size, size).png().toBuffer())
 )
 
-writeFileSync(path.join(buildDir, 'icon.png'), pngBuffers[pngBuffers.length - 1])
+writeFileSync(path.join(buildDir, 'icon.png'), await sharp(svg, { density: 1536 }).resize(1024, 1024).png().toBuffer())
 
 const ico = await toIco(pngBuffers)
 writeFileSync(path.join(buildDir, 'icon.ico'), ico)
