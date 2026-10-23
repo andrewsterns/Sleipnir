@@ -44,7 +44,9 @@ function initUpdater({ isDev, logError, confirmCloseAll }) {
   ipcMain.handle('updater:install', async () => {
     if (!autoUpdater || status.state !== 'ready') return false
     if (!(await confirmCloseAll())) return false
-    autoUpdater.quitAndInstall()
+    // Silent + relaunch: the installer is a wizard (package.json's nsis
+    // block), and an update shouldn't walk the user through it again.
+    autoUpdater.quitAndInstall(true, true)
     return true
   })
 

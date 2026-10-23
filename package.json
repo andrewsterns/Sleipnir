@@ -152,6 +152,16 @@
       "target": "nsis",
       "icon": "build/icon.ico"
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Sleipnir",
+      "runAfterFinish": true,
+      "license": "LICENSE"
+    },
     "linux": {
       "target": "AppImage",
       "icon": "build/icon.png"
