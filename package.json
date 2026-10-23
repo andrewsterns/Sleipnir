@@ -1,7 +1,7 @@
 {
   "name": "sleipnir",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A tactical desktop workbench for research-driven UI design with a built-in AI coding agent.",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Andrew Sterns",
