@@ -19,6 +19,7 @@ const modelStore = require('./modelStore.cjs')
 const agentSettingsStore = require('./agent/agentSettingsStore.cjs')
 const workspaceStore = require('./workspaceStore.cjs')
 const planningWatcher = require('./planningWatcher.cjs')
+const { initUpdater } = require('./updater.cjs')
 
 // Two Sleipnir processes sharing one userData dir (e.g. the app launched
 // twice, or a leftover dev instance still running when a packaged build
@@ -316,37 +317,6 @@ async function stopLspProxy() {
   const lspProxyPath = path.join(__dirname, '..', 'tools', 'lsp-proxy.mjs')
   const { stopLspProxy: stop } = await import(pathToFileURL(lspProxyPath).href)
   stop()
-}
-
-// Auto-update via electron-updater against GitHub Releases (see package.json's
-// build.publish → github andrewsterns/Sleipnir). Packaged builds only — there
-// is no release feed to check in dev. checkForUpdatesAndNotify downloads a
-// newer version in the background and shows a native "update ready"
-// notification, installing on the NEXT quit, so it never interrupts a working
-// session. NOTE: on macOS an update only APPLIES for a signed + notarized
-// build; unsigned Windows/Linux builds update fine. Also exposes a manual
-// "check now" over IPC for a future menu/button.
-function initAutoUpdater() {
-  if (isDev) return
-  let autoUpdater
-  try {
-    ({ autoUpdater } = require('electron-updater'))
-  } catch (err) {
-    logMainError('autoUpdater require', err)
-    return
-  }
-  autoUpdater.on('error', (err) => logMainError('autoUpdater', err))
-  autoUpdater.checkForUpdatesAndNotify().catch((err) => logMainError('autoUpdater check', err))
-
-  ipcMain.handle('sleipnir:checkForUpdates', async () => {
-    try {
-      const result = await autoUpdater.checkForUpdates()
-      return { ok: true, version: result?.updateInfo?.version ?? null }
-    } catch (err) {
-      logMainError('autoUpdater manual check', err)
-      return { ok: false, error: err instanceof Error ? err.message : String(err) }
-    }
-  })
 }
 
 // Every handler mirrors src/00_planning/api/PlatformAPI.ts exactly — the
@@ -823,12 +793,30 @@ function readSavedProjectName(dest) {
 // closing. Only forceCloses (win.__forceClose, checked by the 'close'
 // listener) once the human has decided.
 async function handleCloseAttempt(win, wcId) {
-  if (!(await confirmPendingAiContent(win, wcId))) return
-  if (win.isDestroyed()) return
-  if (!(await confirmScratchOnClose(win, wcId))) return
-  if (win.isDestroyed()) return
+  if (!(await confirmClose(win, wcId))) return
   win.__forceClose = true
   win.close()
+}
+
+// Both save prompts, without closing — true once the human is fine with this
+// window going away.
+async function confirmClose(win, wcId) {
+  if (!(await confirmPendingAiContent(win, wcId))) return false
+  if (win.isDestroyed()) return false
+  if (!(await confirmScratchOnClose(win, wcId))) return false
+  return !win.isDestroyed()
+}
+
+// "Restart to update" (see updater.cjs) — every window's prompts first, and
+// only once ALL of them are answered does any window get marked forceClose,
+// so cancelling the third window's prompt leaves the first two open as-is.
+async function confirmCloseAll() {
+  const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed())
+  for (const win of wins) {
+    if (!(await confirmClose(win, win.webContents.id))) return false
+  }
+  for (const win of wins) win.__forceClose = true
+  return true
 }
 
 // initialRoot/initialName seed the window's own project (see windowRoots) —
@@ -966,7 +954,7 @@ app.whenReady().then(async () => {
   // the packaged build (no Vite server around) needs Electron to start it.
   if (!isDev) startLspProxy()
   createWindow(restored?.root ?? null, restored?.name ?? null)
-  initAutoUpdater()
+  initUpdater({ isDev, logError: logMainError, confirmCloseAll })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(restored?.root ?? null, restored?.name ?? null)

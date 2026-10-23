@@ -1,9 +1,22 @@
 # Releasing Sleipnir
 
-Sleipnir ships as signed-or-unsigned desktop installers published to
-[GitHub Releases](https://github.com/andrewsterns/Sleipnir/releases), which is
-also the feed the in-app auto-updater checks (`electron-updater`, wired in
-`electron/main.cjs`).
+Sleipnir ships as signed-or-unsigned desktop installers published to the
+releases of the **public**
+[andrewsterns/sleipnir-releases](https://github.com/andrewsterns/sleipnir-releases/releases)
+repo — that page is the download link to share, and also the feed the in-app
+auto-updater checks (`electron-updater`, wired in `electron/updater.cjs`). The
+source repo stays private; a private repo's releases can't be downloaded by
+users or read by the updater.
+
+## One-time setup
+
+1. Create the public repo `andrewsterns/sleipnir-releases` **with a README**
+   (a release needs at least one commit to hang its tag on).
+2. Create a fine-grained personal access token (GitHub → Settings → Developer
+   settings → Fine-grained tokens) with **Repository access: only
+   sleipnir-releases** and **Permissions → Contents: Read and write**.
+3. In this (private) repo: Settings → Secrets and variables → Actions → New
+   repository secret, name `RELEASES_TOKEN`, value = that token.
 
 ## The normal flow (recommended): tag → CI builds & publishes
 
@@ -21,19 +34,34 @@ need to own both machines.
    ```bash
    git push && git push --tags
    ```
-4. The tag push triggers the release workflow. When it finishes, a GitHub
-   Release with the Windows (`.exe`) and macOS (`.dmg` / `.zip`) installers plus
-   the `latest.yml` / `latest-mac.yml` update manifests will exist. Installed
-   apps pick up the update on their next launch.
+4. The tag push triggers the release workflow. Each platform uploads its
+   installers — Windows (`.exe`), macOS (`.dmg` / `.zip`) — plus the
+   `latest.yml` / `latest-mac.yml` update manifests into one draft release on
+   sleipnir-releases, and once every platform has succeeded the workflow
+   publishes it. Installed apps pick it up on their next check.
 
-The workflow uses the built-in `GITHUB_TOKEN` (via `permissions: contents:
-write`) — no personal token or secret to configure.
+If a platform fails, the release stays a draft (invisible to users): fix,
+then delete the draft and re-push the tag, or publish it by hand.
+
+## What installed apps do
+
+Only a published GitHub Release is an update — ordinary pushes and commits are
+never seen by installed apps. An installed Sleipnir (`electron/updater.cjs`):
+
+- checks the release feed on launch and every 4 hours, plus on demand via
+  **Help ▸ Check for Updates…**;
+- downloads a newer version in the background (title bar shows the progress);
+- shows **Restart to update** in the title bar once it's downloaded. Clicking it
+  runs the usual save-on-close prompts, then installs and relaunches. If the
+  user ignores it, the update installs the next time they quit.
 
 ## Building/publishing locally (optional)
 
 You can only build installers for the OS you're on (a macOS `.dmg` must be built
 on a Mac). To publish from your machine you need a GitHub Personal Access Token
-with `repo` scope exported as `GH_TOKEN`:
+with write access to sleipnir-releases exported as `GH_TOKEN` (the same kind
+of token as `RELEASES_TOKEN` above). electron-builder uploads a **draft** —
+publish it from the releases page:
 
 ```bash
 # Windows (PowerShell):  $env:GH_TOKEN="ghp_..."

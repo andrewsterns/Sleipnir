@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Logo } from '../UIKit/Logo/Logo'
 import type { RecentProject } from '../../00_planning/api/sleipnirApi'
+import { isUpdaterAvailable, useAppUpdate, type UpdateState, type UpdateStatus } from './iUpdater'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -47,6 +48,12 @@ export interface TitleBarProps {
   onNewWindow?: () => void
 }
 
+/** What buildMenus needs from useAppUpdate — kept off TitleBarProps since the TitleBar owns its own update state. */
+interface UpdateMenuProps {
+  updateStatus: UpdateStatus | null
+  onCheckForUpdates?: () => void
+}
+
 // Open Recent's flyout: the recent projects themselves, then a divided
 // "Clear Recent Projects" action. Shown only when there's something to
 // clear, so the empty state stays a single "No Recent Projects" line.
@@ -80,7 +87,9 @@ function buildMenus({
   onOpenRecentProject,
   onClearRecentProjects,
   onNewWindow,
-}: TitleBarProps): MenuDef[] {
+  updateStatus,
+  onCheckForUpdates,
+}: TitleBarProps & UpdateMenuProps): MenuDef[] {
   return [
     {
       label: 'File',
@@ -126,6 +135,16 @@ function buildMenus({
       label: 'Window',
       items: [{ label: 'Minimize', onSelect: undefined }],
     },
+    {
+      label: 'Help',
+      items: [
+        { label: 'Check for Updates…', onSelect: onCheckForUpdates },
+        {
+          label: updateStatus ? `Version ${updateStatus.currentVersion}` : 'Version —',
+          separatorBefore: true,
+        },
+      ],
+    },
   ]
 }
 
@@ -150,9 +169,66 @@ const menuItemStyle = (active: boolean): React.CSSProperties => ({
   ...MONO,
 })
 
+// The transient line a manual Help ▸ Check for Updates leaves in the title
+// bar — background checks never set this, so a quiet failure (offline, no
+// release feed yet) doesn't nag.
+const MANUAL_RESULT_TEXT: Partial<Record<UpdateState, (s: UpdateStatus) => string>> = {
+  upToDate: (s) => `Up to date (v${s.currentVersion})`,
+  error: () => 'Update check failed',
+  unsupported: () => 'Updates only run in the installed app',
+}
+
+// Right-hand title bar slot: download progress, then the "Restart to update"
+// button once the new version is on disk (see electron/updater.cjs).
+const UpdateIndicator: React.FC<{
+  status: UpdateStatus | null
+  manualResult: UpdateState | null
+  onInstall: () => void
+}> = ({ status, manualResult, onInstall }) => {
+  if (!status) return null
+  if (status.state === 'ready') {
+    return (
+      <button
+        onClick={onInstall}
+        title={`Version ${status.version} is downloaded — restart Sleipnir to install it`}
+        style={{
+          background: 'transparent',
+          border: '1px solid var(--nominal)',
+          borderRadius: 'var(--radius-control)',
+          color: 'var(--nominal)',
+          cursor: 'pointer',
+          fontSize: 11,
+          padding: '2px 8px',
+          whiteSpace: 'nowrap',
+          ...MONO,
+        }}
+      >
+        Restart to update{status.version ? ` · v${status.version}` : ''}
+      </button>
+    )
+  }
+  const text =
+    status.state === 'downloading'
+      ? `Downloading update${status.percent ? ` ${status.percent}%` : '…'}`
+      : manualResult
+        ? MANUAL_RESULT_TEXT[manualResult]?.(status)
+        : undefined
+  if (!text) return null
+  return (
+    <span title={status.error} style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}>
+      {text}
+    </span>
+  )
+}
+
 export const TitleBar: React.FC<TitleBarProps> = (props) => {
   const { projectName, isScratch } = props
-  const MENUS = buildMenus(props)
+  const update = useAppUpdate()
+  const MENUS = buildMenus({
+    ...props,
+    updateStatus: update.status,
+    onCheckForUpdates: isUpdaterAvailable() ? update.check : undefined,
+  })
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -298,6 +374,22 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
             {isScratch && <span style={{ color: '#e0a040' }}> ●</span>}
           </span>
         )}
+      </div>
+
+      {/* Pushed right, and clear of the OS-drawn minimize/maximize/close
+          overlay (main.cjs's titleBarOverlay) — titlebar-area-* is where the
+          page may draw, so the gap to the window's right edge is exactly the
+          overlay's width. Falls back to 0 where there's no overlay. */}
+      <div
+        style={{
+          marginLeft: 'auto',
+          marginRight: 'calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 10px)',
+          display: 'flex',
+          alignItems: 'center',
+          ...NO_DRAG,
+        }}
+      >
+        <UpdateIndicator status={update.status} manualResult={update.manualResult} onInstall={update.install} />
       </div>
     </Frame>
   )

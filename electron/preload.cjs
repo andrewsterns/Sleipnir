@@ -230,6 +230,20 @@ contextBridge.exposeInMainWorld('planningWatchAPI', {
   },
 })
 
+// App self-update (see electron/updater.cjs) — request/response plus a pushed
+// 'updater:status' on every state change, broadcast to every window. No web
+// equivalent (a browser tab is always the latest deploy).
+contextBridge.exposeInMainWorld('updaterAPI', {
+  getStatus: () => ipcRenderer.invoke('updater:getStatus'),
+  check: () => ipcRenderer.invoke('updater:check'),
+  install: () => ipcRenderer.invoke('updater:install'),
+  onStatus: (callback) => {
+    const listener = (_e, status) => callback(status)
+    ipcRenderer.on('updater:status', listener)
+    return () => ipcRenderer.removeListener('updater:status', listener)
+  },
+})
+
 // BYOK settings — request/response, like electronAPI. Never exposes the raw
 // key back to the renderer once saved (see electron/apiKeyStore.cjs).
 contextBridge.exposeInMainWorld('settingsAPI', {
