@@ -932,7 +932,10 @@ app.whenReady().then(async () => {
   // than being replaced by Sleipnir's own repo. Runs at most once per install
   // (the legacySeeded flag) — an emptied recent list is also the state after
   // File > Open Recent > Clear Recent Projects, which must not re-seed.
-  if (!workspaceStore.isLegacySeeded() && workspaceStore.getRecentProjects().length === 0) {
+  // Dev only: in an installed build REPO_ROOT (process.cwd()) is the install
+  // folder, so seeding would open the app's own program files as a project
+  // named 'Sleipnir' on a new user's first launch.
+  if (isDev && !workspaceStore.isLegacySeeded() && workspaceStore.getRecentProjects().length === 0) {
     b.migrateLegacyPlanningData(b.REPO_ROOT)
     const existingActive = workspaceStore.getActiveProjectPath()
     // renameProject (not just touchProject) so 'Sleipnir' is written into
