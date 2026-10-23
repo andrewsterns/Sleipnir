@@ -16,6 +16,7 @@ import { useAppTheme } from '../../00_themes/ThemeController'
 import { THEME_OPTIONS, type Theme } from '../../00_themes'
 import { useKeybindings } from '../../00_keybindings/KeybindingsController'
 import { DEFAULT_KEYBINDINGS } from '../../00_keybindings'
+import { UpdatesSection } from './UpdatesSection'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -35,6 +36,7 @@ const SECTIONS: SettingsSection[] = [
   { id: 'git-identity', label: 'Git Identity' },
   { id: 'agent-scaffolding', label: 'Agent Scaffolding' },
   { id: 'keybindings', label: 'Keybindings' },
+  { id: 'updates', label: 'Updates' },
 ]
 
 // A live, in-theme preview of a theme's own palette — the swatch itself is
@@ -613,6 +615,7 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'git-identity' && <GitIdentitySection />}
           {activeSection === 'agent-scaffolding' && <AgentScaffoldingSection />}
           {activeSection === 'keybindings' && <KeybindingsSection />}
+          {activeSection === 'updates' && <UpdatesSection />}
         </Frame>
       </Frame>
     </Frame>
