@@ -1,22 +1,14 @@
 # Releasing Sleipnir
 
-Sleipnir ships as signed-or-unsigned desktop installers published to the
-releases of the **public**
-[andrewsterns/sleipnir-releases](https://github.com/andrewsterns/sleipnir-releases/releases)
-repo — that page is the download link to share, and also the feed the in-app
-auto-updater checks (`electron-updater`, wired in `electron/updater.cjs`). The
-source repo stays private; a private repo's releases can't be downloaded by
-users or read by the updater.
+Sleipnir ships as signed-or-unsigned desktop installers published to
+[GitHub Releases](https://github.com/andrewsterns/Sleipnir/releases) — that
+page is the download link to share, and also the feed the in-app auto-updater
+checks (`electron-updater`, wired in `electron/updater.cjs`). The repo must
+stay **public**: a private repo's releases can't be downloaded by users or read
+by the updater.
 
-## One-time setup
-
-1. Create the public repo `andrewsterns/sleipnir-releases` **with a README**
-   (a release needs at least one commit to hang its tag on).
-2. Create a fine-grained personal access token (GitHub → Settings → Developer
-   settings → Fine-grained tokens) with **Repository access: only
-   sleipnir-releases** and **Permissions → Contents: Read and write**.
-3. In this (private) repo: Settings → Secrets and variables → Actions → New
-   repository secret, name `RELEASES_TOKEN`, value = that token.
+The workflow uses the built-in `GITHUB_TOKEN` (via `permissions: contents:
+write`) — no personal token or secret to configure.
 
 ## The normal flow (recommended): tag → CI builds & publishes
 
@@ -36,8 +28,8 @@ need to own both machines.
    ```
 4. The tag push triggers the release workflow. Each platform uploads its
    installers — Windows (`.exe`), macOS (`.dmg` / `.zip`) — plus the
-   `latest.yml` / `latest-mac.yml` update manifests into one draft release on
-   sleipnir-releases, and once every platform has succeeded the workflow
+   `latest.yml` / `latest-mac.yml` update manifests into one draft release,
+   and once every platform has succeeded the workflow
    publishes it. Installed apps pick it up on their next check.
 
 If a platform fails, the release stays a draft (invisible to users): fix,
@@ -59,8 +51,7 @@ never seen by installed apps. An installed Sleipnir (`electron/updater.cjs`):
 
 You can only build installers for the OS you're on (a macOS `.dmg` must be built
 on a Mac). To publish from your machine you need a GitHub Personal Access Token
-with write access to sleipnir-releases exported as `GH_TOKEN` (the same kind
-of token as `RELEASES_TOKEN` above). electron-builder uploads a **draft** —
+with `repo` scope exported as `GH_TOKEN`. electron-builder uploads a **draft** —
 publish it from the releases page:
 
 ```bash

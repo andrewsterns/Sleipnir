@@ -7,13 +7,8 @@ on:
     tags:
       - 'v*'
 
-# Installers are published to the PUBLIC andrewsterns/sleipnir-releases repo
-# (package.json's build.publish), not this private one — a private repo's
-# releases can't be downloaded by users or read by the in-app updater. The
-# built-in GITHUB_TOKEN can't write to another repo, so publishing uses the
-# RELEASES_TOKEN secret instead (see RELEASING.md).
 permissions:
-  contents: read
+  contents: write # required so electron-builder can create/upload the GitHub Release
 
 jobs:
   release:
@@ -36,9 +31,9 @@ jobs:
       - name: Build and publish installers
         run: npm run electron:publish
         env:
-          # electron-builder reads GH_TOKEN to upload to GitHub Releases — a
-          # fine-grained PAT with Contents: read & write on sleipnir-releases.
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          # electron-builder reads GH_TOKEN to upload to GitHub Releases; the
+          # built-in GITHUB_TOKEN works thanks to `permissions: contents: write`.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Builds are unsigned for now — disable macOS signing-identity
           # discovery so the mac build doesn't fail looking for a certificate.
           # Remove this once an Apple Developer ID is configured (see RELEASING.md).
@@ -52,6 +47,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Publish the draft release
-        run: gh release edit "$GITHUB_REF_NAME" --repo andrewsterns/sleipnir-releases --draft=false
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
