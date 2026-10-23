@@ -701,9 +701,22 @@ function isDarkHex(hex) {
 // Asks the renderer whether this window has unsaved staged AI content
 // (App.tsx's pendingOverride) so it can't be silently lost. Resolves false
 // when the human cancels the close outright.
+const BEFORE_CLOSE_TIMEOUT_MS = 3000
+
 async function confirmPendingAiContent(win, wcId) {
   win.webContents.send('app:beforeClose')
-  const hasUnsaved = await new Promise((resolve) => pendingBeforeClose.set(wcId, resolve))
+  // A renderer that never booted (load failure, crash, hung script) never
+  // answers — without the timeout the window could never be closed at all.
+  const hasUnsaved = await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingBeforeClose.delete(wcId)
+      resolve(false)
+    }, BEFORE_CLOSE_TIMEOUT_MS)
+    pendingBeforeClose.set(wcId, (value) => {
+      clearTimeout(timer)
+      resolve(value)
+    })
+  })
   if (!hasUnsaved) return true
   const { response } = await dialog.showMessageBox(win, {
     type: 'warning',

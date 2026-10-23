@@ -819,6 +819,10 @@ function sleipnirApiPlugin() {
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Relative asset URLs: the packaged app loads dist/index.html from disk
+  // (main.cjs's loadFile), where Vite's default '/assets/…' resolves to the
+  // drive root and the window stays black.
+  base: './',
   plugins: [
     react(),
     sleipnirApiPlugin(),
