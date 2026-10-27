@@ -160,12 +160,12 @@ describe('DEFAULT_COMPONENT_ROOT', () => {
     // correct for code that is not part of the app yet. A component earns
     // tooling coverage by being MOVED out of here (see relink.ts), which
     // rewrites its componentRoot to wherever it landed.
-    expect(DEFAULT_COMPONENT_ROOT).toBe('.canvas')
+    expect(DEFAULT_COMPONENT_ROOT).toBe('.components')
     expect(DEFAULT_COMPONENT_ROOT.startsWith('.')).toBe(true)
   })
 
   it('contains paths exactly as any other root would', () => {
-    expect(deriveComponentPath(DEFAULT_COMPONENT_ROOT, 'Card')).toBe('.canvas/card/card.tsx')
+    expect(deriveComponentPath(DEFAULT_COMPONENT_ROOT, 'Card')).toBe('.components/card/card.tsx')
     expect(() => resolveComponentPath(DEFAULT_COMPONENT_ROOT, '../escape.tsx')).toThrow(PathEscapeError)
   })
 })

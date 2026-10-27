@@ -128,6 +128,47 @@ export function reconcileDeletedPath(doc: CanvasDoc, deletedPath: string): Canva
   return next
 }
 
+/**
+ * Reattaches components to files found at new locations — the external-move
+ * counterpart of relinkAfterMove, for a move made in VS Code, Explorer or git,
+ * which Sleipnir never saw happen. `found` maps component id → the one path
+ * whose layout sentinel names it (see store.ts's findRelocatedComponentFiles).
+ *
+ * Without the move itself there is no record of whether the file or its whole
+ * folder moved, so the sandbox is inferred from the path: a file still inside a
+ * folder of the same name it had before (`.canvas/card/card.tsx` →
+ * `src/ui/card/card.tsx`) was carried by its folder, and the root is the
+ * folder's new parent — the same root relinkAfterMove derives for a folder
+ * move. Otherwise the file moved alone and its new folder is the root.
+ *
+ * Returns the same doc object when nothing was relinked.
+ */
+export function relinkRelocated(doc: CanvasDoc, found: Map<string, string>): CanvasDoc {
+  let changed = false
+  const components = doc.components.map((component) => {
+    const nextPath = found.get(component.id)
+    if (!nextPath || !component.filePath) return component
+    const next = normalizeRelPath(nextPath)
+    const prev = normalizeRelPath(component.filePath)
+    if (next === prev) return component
+
+    const folderOf = (p: string) => parentDir(p).split('/').pop() ?? ''
+    const carriedByFolder = folderOf(prev) !== '' && folderOf(prev) === folderOf(next)
+    changed = true
+    return {
+      ...component,
+      filePath: next,
+      componentRoot: carriedByFolder ? parentDir(parentDir(next)) : parentDir(next),
+      // A board saved while the file was missing carries the "is gone" flag
+      // (see the ViewModel's markVanishedComponents); it isn't any more.
+      ...(component.sync === 'detached' ? { sync: 'live' as const, ejectReason: undefined } : {}),
+      updatedAt: Date.now(),
+    } satisfies CanvasComponent
+  })
+  if (!changed) return doc
+  return { ...doc, components, updatedAt: Date.now() }
+}
+
 /** The components whose files this move relocated, paired with their old paths. */
 export function movedComponents(
   doc: CanvasDoc,

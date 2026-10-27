@@ -124,6 +124,20 @@ export const webApi: PlatformAPI = {
     }).then((res) => asJson<void>(res))
   },
 
+  readWorkspaceImageDataUrl(path: string): Promise<{ dataUrl: string }> {
+    return fetch(`/api/sleipnir/workspace/read-image?path=${encodeURIComponent(path)}`).then((res) =>
+      asJson<{ dataUrl: string }>(res),
+    )
+  },
+
+  createWorkspaceBinaryFile(path: string, base64: string): Promise<void> {
+    return fetch('/api/sleipnir/workspace/create-binary-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, base64 }),
+    }).then((res) => asJson<void>(res))
+  },
+
   createWorkspaceDir(path: string): Promise<void> {
     return fetch('/api/sleipnir/workspace/create-dir', {
       method: 'POST',

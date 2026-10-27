@@ -63,7 +63,7 @@ export function useStatusReconciler(projectKey?: string | null) {
     window.addEventListener('focus', onFocus)
     const unwatch = isPlanningWatchAvailable()
       ? window.planningWatchAPI!.onChanged((info) => {
-          if (!info?.stagesOnly) void reconcile()
+          if (!info?.stagesOnly && !info?.canvasOnly) void reconcile()
         })
       : undefined
     return () => {

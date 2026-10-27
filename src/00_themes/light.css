@@ -100,9 +100,8 @@
      opacity reads far fainter on a light surface than white does on dark, so
      the same 0.20 head would nearly vanish. Emphasis ladder mirrors tactical:
      selected = highest contrast (darkest), neighbour mid, base lightest. */
-  --graph-node:          #6b7280;              /* base node dot */
-  --graph-node-neighbor: #4a515b;              /* a selected node's neighbours */
-  --graph-node-selected: #14161a;              /* the selected node */
+  --graph-node:          #14161a;              /* node dot — the theme's ink; full strength at rest (see GraphCanvas's opacity ladder) */
+  --graph-node-new:      #2f6fe0;              /* a node created since the project opened, until clicked */
   --graph-ring:          #14161a;              /* selection ring */
   --graph-edge:          #14161a;              /* solid edge line + arrowhead */
 

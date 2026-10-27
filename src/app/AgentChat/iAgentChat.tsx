@@ -81,6 +81,10 @@ export interface ChatMessage {
 export interface AgentChatProps {
   /** Fired every time a plan node streams in, so the host app can jump to (and stay on) Planning's AI tab to watch the build live instead of wherever the user last navigated. */
   onPlanNodeCreated?: (node: GraphNode) => void
+  /** True when no model is usable yet (no cloud key, local Ollama not running) — the empty chat shows a setup card instead of a hint. */
+  needsSetup?: boolean
+  /** Opens the Connect models panel. */
+  onConnectModels?: () => void
 }
 
 export interface GeneratedFile {

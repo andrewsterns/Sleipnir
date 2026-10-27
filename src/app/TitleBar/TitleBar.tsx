@@ -3,6 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Logo } from '../UIKit/Logo/Logo'
 import type { RecentProject } from '../../00_planning/api/sleipnirApi'
 import { isUpdaterAvailable, useAppUpdate, type UpdateState, type UpdateStatus } from './iUpdater'
+import { isLicenseAvailable, useLicense } from '../License/iLicense'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -36,16 +37,22 @@ export interface TitleBarProps {
   onSaveAll?: () => void
   /** The currently open project's display name — null when none is open (blank/New Window state). Rendered next to the Logo since the OS title bar is hidden (see main.cjs's titleBarStyle). */
   projectName?: string | null
-  /** True when the project is the auto-provided "scratch" project (no real folder chosen yet) — shows an unsaved marker next to the name and enables "Save Project to Folder…". */
+  /** True when the project is the auto-provided "scratch" project (no real folder chosen yet) — shows an unsaved marker next to the name, and makes "Save Project" ask for a folder. */
   isScratch?: boolean
-  /** Relocates the scratch project into a real folder the user picks (see App's onSaveProjectToFolder). Only meaningful while `isScratch`. */
-  onSaveProjectToFolder?: () => void
+  /** Saves the whole project: picks a folder for an unsaved one, flushes pending autosaves for a real one (see App's onSaveProject). */
+  onSaveProject?: () => void
+  /** Copies the project into a new folder and switches to the copy (see App's onSaveProjectAs). */
+  onSaveProjectAs?: () => void
   onOpenProject?: () => void
   recentProjects?: RecentProject[]
   onOpenRecentProject?: (path: string) => void
   /** Empties the recent-projects list — nothing on disk is touched and the open project stays open (see App's onClearRecentProjects). Omitted (or with an empty list) hides the menu item. */
   onClearRecentProjects?: () => void
   onNewWindow?: () => void
+  /** Opens Settings ▸ License — the target of the title bar's PRO / Upgrade badge. */
+  onOpenLicense?: () => void
+  /** The Play button (app/Run/RunControl), placed after the project name. Passed in rather than built here because App.tsx owns the runner it shares with the Run dock. */
+  runControl?: React.ReactNode
 }
 
 /** What buildMenus needs from useAppUpdate — kept off TitleBarProps since the TitleBar owns its own update state. */
@@ -81,7 +88,8 @@ function buildMenus({
   onSave,
   onSaveAll,
   isScratch,
-  onSaveProjectToFolder,
+  onSaveProject,
+  onSaveProjectAs,
   onOpenProject,
   recentProjects,
   onOpenRecentProject,
@@ -100,10 +108,10 @@ function buildMenus({
           items: buildRecentItems(recentProjects, onOpenRecentProject, onClearRecentProjects),
         },
         { label: 'New Window', onSelect: onNewWindow },
-        // Only actionable while unsaved (scratch) — a real project is already
-        // on disk, so there's nothing to relocate.
-        { label: 'Save Project to Folder…', onSelect: isScratch ? onSaveProjectToFolder : undefined },
-        { label: 'Save', onSelect: onSave },
+        // An unsaved project needs a folder chosen, hence the ellipsis.
+        { label: isScratch ? 'Save Project…' : 'Save Project', onSelect: onSaveProject, separatorBefore: true },
+        { label: 'Save Project As…', onSelect: onSaveProjectAs },
+        { label: 'Save', onSelect: onSave, separatorBefore: true },
         { label: 'Save All', onSelect: onSaveAll },
         { label: 'Reload', onSelect: () => window.location.reload() },
         { label: 'Exit', onSelect: () => window.close() },
@@ -218,6 +226,34 @@ const UpdateIndicator: React.FC<{
     <span title={status.error} style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}>
       {text}
     </span>
+  )
+}
+
+// Right-hand title bar badge: a quiet "PRO" once licensed, otherwise an
+// "Upgrade" link — both open Settings ▸ License (see electron/license.cjs).
+const LicenseBadge: React.FC<{ onOpen?: () => void }> = ({ onOpen }) => {
+  const { status, isPro } = useLicense()
+  if (!status || !isLicenseAvailable()) return null
+  return (
+    <button
+      onClick={onOpen}
+      title={isPro ? 'Sleipnir Pro' : 'Free version — see what Sleipnir Pro adds'}
+      style={{
+        background: 'transparent',
+        border: '1px solid var(--border-2)',
+        borderRadius: 'var(--radius-control)',
+        color: isPro ? 'var(--nominal)' : 'var(--text-3)',
+        cursor: 'pointer',
+        fontSize: 10,
+        letterSpacing: '0.08em',
+        padding: '2px 8px',
+        marginLeft: 8,
+        whiteSpace: 'nowrap',
+        ...MONO,
+      }}
+    >
+      {isPro ? 'PRO' : 'Upgrade'}
+    </button>
   )
 }
 
@@ -367,13 +403,14 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
 
         {projectName && (
           <span
-            title={isScratch ? 'Unsaved — File ▸ Save Project to Folder…' : projectName}
+            title={isScratch ? 'Unsaved — File ▸ Save Project…' : projectName}
             style={{ marginLeft: 10, fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}
           >
             {projectName}
             {isScratch && <span style={{ color: '#e0a040' }}> ●</span>}
           </span>
         )}
+        {props.runControl}
       </div>
 
       {/* Pushed right, and clear of the OS-drawn minimize/maximize/close
@@ -390,6 +427,7 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
         }}
       >
         <UpdateIndicator status={update.status} manualResult={update.manualResult} onInstall={update.install} />
+        <LicenseBadge onOpen={props.onOpenLicense} />
       </div>
     </Frame>
   )

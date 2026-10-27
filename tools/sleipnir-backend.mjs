@@ -7,7 +7,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { isSourceFile } from './source-extensions.mjs'
 import { PLAN_CLI, SCAFFOLD_VERSION } from './agentSkills/registry.mjs'
 import {
@@ -305,10 +305,73 @@ const WORKSPACE_SKIP_DIRS = new Set([
   'venv', '.venv', '__pycache__', 'coverage', 'out',
 ])
 
-function buildWorkspaceTree(absDir, relDir) {
+// What git ignores, so a walk skips it the way VS Code's search and ripgrep do.
+//
+// A fixed name list can't know a project's own output and caches: this repo's
+// `release/` (installers, 138 MB) and `.claude/worktrees/` (whole checkouts of
+// the repo) were walked on every tree refresh and every search — the worktrees
+// turning each search hit, and each basename the Problems dock tries to
+// relocate, into several. `git ls-files --others --ignored --directory` lists
+// exactly the ignored, untracked folders (collapsed, never their contents), so
+// it stays cheap even beside a large node_modules. Folders holding tracked
+// files are never listed, so nothing committed is ever hidden.
+//
+// Cached briefly per root: the tree refreshes in bursts. Outside a repo, or
+// with no git on PATH, the set is empty and the fixed list alone applies.
+const IGNORED_DIRS_TTL_MS = 5_000
+const ignoredDirsCache = new Map() // absRoot -> { at, dirs: Set<relPath> }
+// Sleipnir's own folders stay visible even in a project that ignores them —
+// a gitignored .components must still show its staged components.
+const NEVER_SKIPPED_ROOTS = new Set([PLANNING_DIR, '.components', '.canvas', '.research'])
+
+function gitIgnoredDirs(absRoot) {
+  const cached = ignoredDirsCache.get(absRoot)
+  if (cached && Date.now() - cached.at < IGNORED_DIRS_TTL_MS) return cached.dirs
+  let dirs = new Set()
+  try {
+    const out = execFileSync('git', ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'], {
+      cwd: absRoot,
+      timeout: 3_000,
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    }).toString('utf8')
+    dirs = new Set(out.split('\0').filter((p) => p.endsWith('/')).map((p) => p.slice(0, -1)))
+  } catch {
+    // Not a repo, no git, or too slow — fall back to the fixed list.
+  }
+  ignoredDirsCache.set(absRoot, { at: Date.now(), dirs })
+  return dirs
+}
+
+// Known-huge nested folders that a name list can't express: Claude Code's
+// worktrees are full checkouts of the repo, and live inside a `.claude/` that
+// the tree deliberately keeps showing (below).
+const NESTED_SKIP_DIRS = new Set(['.claude/worktrees'])
+
+// The one skip rule every workspace walker shares: the fixed list, the nested
+// list, plus whatever git ignores under `absRoot` (relPaths are root-relative).
+//
+// `forTree` keeps ignored DOT-folders visible. Search should skip everything
+// git ignores, exactly as VS Code's does; the tree is where you go to look at
+// `.claude/`, `.vscode/` or `.idea/`, and those are usually ignored whole
+// (git then reports the folder rather than its contents). Ignored output —
+// `release/`, `.nx/cache/`, `tmp/` — is not dot-named, and is what this hides.
+function skipDirFor(absRoot, { forTree = false } = {}) {
+  const ignored = gitIgnoredDirs(absRoot)
+  return (name, relPath) => {
+    if (WORKSPACE_SKIP_DIRS.has(name) || NESTED_SKIP_DIRS.has(relPath)) return true
+    if (NEVER_SKIPPED_ROOTS.has(relPath.split('/')[0])) return false
+    if (forTree && name.startsWith('.')) return false
+    return ignored.has(relPath)
+  }
+}
+
+function buildWorkspaceTree(absDir, relDir, skipDir = skipDirFor(absDir, { forTree: true })) {
   const entries = fs.readdirSync(absDir, { withFileTypes: true })
+  const join = (name) => (relDir ? `${relDir}/${name}` : name)
   const dirs = entries
-    .filter((e) => e.isDirectory() && !WORKSPACE_SKIP_DIRS.has(e.name))
+    .filter((e) => e.isDirectory() && !skipDir(e.name, join(e.name)))
     .sort((a, b) => a.name.localeCompare(b.name))
   const files = entries
     .filter((e) => e.isFile())
@@ -319,8 +382,6 @@ function buildWorkspaceTree(absDir, relDir) {
   // "/newfile.txt"), which resolveSafe's path.relative-based containment
   // check then rejects as escaping the root on Windows. Every nested level
   // already has a non-empty relDir, so this only ever matters at the root.
-  const join = (name) => (relDir ? `${relDir}/${name}` : name)
-
   const dirNodes = dirs.map((d) => {
     const childRel = join(d.name)
     const abs = path.join(absDir, d.name)
@@ -329,7 +390,7 @@ function buildWorkspaceTree(absDir, relDir) {
       path: childRel,
       type: 'dir',
       createdAt: fs.statSync(abs).birthtimeMs,
-      children: buildWorkspaceTree(abs, childRel),
+      children: buildWorkspaceTree(abs, childRel, skipDir),
     }
   })
 
@@ -354,7 +415,7 @@ export function listWorkspaceDir(relPath) {
   // Same "missing == empty, not thrown" convention as readNotesFile/
   // readPlansFile above.
   if (!fs.existsSync(dirPath)) return { tree: [] }
-  return { tree: buildWorkspaceTree(dirPath, relPath || '') }
+  return { tree: buildWorkspaceTree(dirPath, relPath || '', skipDirFor(root, { forTree: true })) }
 }
 
 export function readWorkspaceFile(relPath) {
@@ -370,6 +431,44 @@ export function writeWorkspaceFile(relPath, content) {
   const filePath = resolveSafe(requireWorkspaceRoot(), relPath)
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, content)
+}
+
+// Binary files for the Canvas's image fills. Text reads (readWorkspaceFile)
+// decode as UTF-8, which mangles an image; these move raw bytes as base64 so
+// the same JSON/IPC transports carry them.
+const MAX_BINARY_BYTES = 25 * 1024 * 1024
+const IMAGE_MIME = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  svg: 'image/svg+xml',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+}
+
+// A workspace image as a data URL. Images only — this is not a general
+// binary read — and size-capped, since the result crosses IPC in one piece.
+export function readWorkspaceImageDataUrl(relPath) {
+  const filePath = resolveSafe(requireWorkspaceRoot(), relPath)
+  const mime = IMAGE_MIME[path.extname(filePath).slice(1).toLowerCase()]
+  if (!mime) throw new Error(`${relPath} is not an image`)
+  const { size } = fs.statSync(filePath)
+  if (size > MAX_BINARY_BYTES) throw new Error(`${relPath} is larger than 25 MB`)
+  return { dataUrl: `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}` }
+}
+
+// Creates a binary file from base64. Refuses an existing path, like
+// createWorkspaceFile — callers de-conflict the name first.
+export function createWorkspaceBinaryFile(relPath, base64) {
+  const filePath = resolveSafe(requireWorkspaceRoot(), relPath)
+  if (fs.existsSync(filePath)) throw new Error(`${relPath} already exists`)
+  const bytes = Buffer.from(String(base64 ?? ''), 'base64')
+  if (bytes.length > MAX_BINARY_BYTES) throw new Error('File is larger than 25 MB')
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, bytes)
 }
 
 export function createWorkspaceFile(relPath, content) {
@@ -450,7 +549,7 @@ export function copyWorkspacePath(fromRel, toRel) {
 const SEARCH_RESULT_LIMIT = 500
 const MAX_SEARCH_FILE_BYTES = 2 * 1024 * 1024
 
-function* walkFiles(absDir, relDir) {
+function* walkFiles(absDir, relDir, skipDir = skipDirFor(absDir)) {
   let entries
   try {
     entries = fs.readdirSync(absDir, { withFileTypes: true })
@@ -459,8 +558,9 @@ function* walkFiles(absDir, relDir) {
   }
   for (const e of entries) {
     if (e.isDirectory()) {
-      if (WORKSPACE_SKIP_DIRS.has(e.name)) continue
-      yield* walkFiles(path.join(absDir, e.name), relDir ? `${relDir}/${e.name}` : e.name)
+      const childRel = relDir ? `${relDir}/${e.name}` : e.name
+      if (skipDir(e.name, childRel)) continue
+      yield* walkFiles(path.join(absDir, e.name), childRel, skipDir)
     } else if (e.isFile()) {
       yield { abs: path.join(absDir, e.name), rel: relDir ? `${relDir}/${e.name}` : e.name }
     }
@@ -596,6 +696,12 @@ function ensurePlanningDir() {
   fs.mkdirSync(dir, { recursive: true })
   const readmePath = path.join(dir, 'README.md')
   if (!fs.existsSync(readmePath)) fs.writeFileSync(readmePath, planningReadmeContent())
+  // The first real Planning write is what opts a project into the agent files
+  // (see isAgentScaffoldingActive). Keyed on the vendored CLI so steady-state
+  // writes pay one existsSync, not a scaffolder run.
+  if (getAgentScaffolding(root).enabled !== false && !fs.existsSync(path.join(root, PLAN_CLI))) {
+    ensureAgentScaffolding(root, { firstUse: true })
+  }
 }
 
 // --- agent scaffolding -----------------------------------------------------
@@ -620,11 +726,33 @@ export function getAgentScaffolding(root = getWorkspaceRoot()) {
   }
 }
 
+// Whether this project gets the agent files at all.
+//
+// Opening a folder is not consent to write seven files into it. Scaffolding
+// used to run on every open, so merely looking at a repo in Sleipnir lit up
+// its git status with AGENTS.md, CLAUDE.md, GEMINI.md, three command files and
+// .sleipnir/ — before anyone had planned anything. Now an explicit choice in
+// Settings (`enabled`) wins, and without one a project is in only once it
+// actually uses Planning: it has plan data, or it was already scaffolded
+// (which keeps existing projects' files up to date). ensurePlanningDir opts a
+// project in on its first Planning write.
+function isAgentScaffoldingActive(root) {
+  const { enabled } = getAgentScaffolding(root)
+  if (typeof enabled === 'boolean') return enabled
+  return (
+    fs.existsSync(path.join(root, PLAN_CLI)) ||
+    ['notes.json', 'plans.json'].some((f) => fs.existsSync(path.join(root, PLANNING_DIR, f)))
+  )
+}
+
 // Persists the toggle and immediately re-runs the scaffolder, so flipping
 // "share with the team" off takes effect without waiting for the next open.
+// Choosing share or local IS opting in, so either implies `enabled: true`;
+// turning it off stops future writes and leaves existing files where they are
+// — they may already be committed, and deleting them is the human's call.
 export function setAgentScaffolding(root, patch) {
   const target = root ?? requireWorkspaceRoot()
-  const next = { ...getAgentScaffolding(target), ...patch, version: SCAFFOLD_VERSION }
+  const next = { ...getAgentScaffolding(target), enabled: true, ...patch, version: SCAFFOLD_VERSION }
   writeProjectMeta(target, { agentScaffolding: next })
   return { agentScaffolding: next, ...ensureAgentScaffolding(target) }
 }
@@ -633,10 +761,12 @@ export function setAgentScaffolding(root, patch) {
 // setWindowRoot). Deliberately never throws: this runs on the path that opens a
 // project — including the boot restore that blocks the first window — so a
 // read-only folder has to degrade to "scaffolded less", never to "couldn't open
-// the project".
-export function ensureAgentScaffolding(root = getWorkspaceRoot()) {
+// the project". A no-op for a project that hasn't opted in, unless `firstUse`
+// says the caller is the opt-in.
+export function ensureAgentScaffolding(root = getWorkspaceRoot(), { firstUse = false } = {}) {
   if (!root) return { written: [], skipped: [], excluded: [] }
   try {
+    if (!firstUse && !isAgentScaffoldingActive(root)) return { written: [], skipped: [], excluded: [] }
     return writeAgentScaffolding(root, { commit: getAgentScaffolding(root).commit })
   } catch (err) {
     return {
@@ -649,7 +779,12 @@ export function ensureAgentScaffolding(root = getWorkspaceRoot()) {
 
 export function getAgentScaffoldingState(root = getWorkspaceRoot()) {
   if (!root) return null
-  return { ...getAgentScaffolding(root), state: readScaffoldState(root), paths: scaffoldPaths() }
+  return {
+    ...getAgentScaffolding(root),
+    active: isAgentScaffoldingActive(root),
+    state: readScaffoldState(root),
+    paths: scaffoldPaths(),
+  }
 }
 
 // One-time migration for installs that predate per-project Planning data —
@@ -1129,6 +1264,11 @@ export function deletePlan(id, opts = {}) {
   if (plan && (opts.deleteFiles || opts.deleteNodes)) {
     const nodeIds = new Set(plan.nodeIds ?? [])
     const data = readNotesFile()
+    // Notes authored straight into the plan (map === plan id, via AddNodeModal)
+    // belong to it too, even if they never made it into plan.nodeIds.
+    for (const n of data.nodes) {
+      if (n.map === id) nodeIds.add(n.id)
+    }
 
     // Delete the workspace files this plan is responsible for: the ones it
     // generated via "Generate Code" (plan.generatedFiles) plus the real file
@@ -1449,9 +1589,18 @@ export function setNodeBorrows(nodeId, targetIds) {
     throw new Error('targetIds must be an array')
   }
   const data = readNotesFile()
+  // Called on every editor save with the file's freshly scanned imports, which
+  // usually haven't changed. Rewriting notes.json anyway fires the planning
+  // watcher, and every open Planning view refetches and redraws its graph —
+  // so an unchanged set is left exactly as it is, file untouched.
+  const wanted = new Set(targetIds.filter((targetId) => targetId !== nodeId))
+  const current = data.edges.filter((e) => e.source === nodeId && e.kind === 'borrows').map((e) => e.target)
+  if (current.length === wanted.size && current.every((targetId) => wanted.has(targetId))) {
+    return { edges: data.edges.filter((e) => e.source === nodeId) }
+  }
   data.edges = data.edges.filter((e) => !(e.source === nodeId && e.kind === 'borrows'))
-  for (const targetId of targetIds) {
-    if (targetId !== nodeId) data.edges.push({ source: nodeId, target: targetId, kind: 'borrows' })
+  for (const targetId of wanted) {
+    data.edges.push({ source: nodeId, target: targetId, kind: 'borrows' })
   }
   writeNotesFile(data)
   return { edges: data.edges.filter((e) => e.source === nodeId) }

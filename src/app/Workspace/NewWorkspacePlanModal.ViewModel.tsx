@@ -10,6 +10,8 @@ import { setStage as setStageStore } from '../../00_planning/stagesStore'
 export interface NewWorkspacePlanModalProps {
   onClose: () => void
   onCreated: (plan: SavedPlan) => void
+  /** Seeds the plan name — e.g. what was typed into the PLANS picker before choosing "New plan". */
+  initialLabel?: string
 }
 
 // One "ADD NODES" row — resolves to an existing file, an existing folder (no
@@ -93,10 +95,10 @@ async function detectEdges(paths: string[]): Promise<{ source: string; target: s
   return detectEdgesForPaths(paths, (p) => readWorkspaceFile(p).then((r) => r.content))
 }
 
-export function useNewWorkspacePlanViewModel({ onClose, onCreated }: NewWorkspacePlanModalProps) {
+export function useNewWorkspacePlanViewModel({ onClose, onCreated, initialLabel }: NewWorkspacePlanModalProps) {
   const [tree, setTree] = useState<FileTreeNode[]>([])
   const [loading, setLoading] = useState(true)
-  const [label, setLabel] = useState('')
+  const [label, setLabel] = useState(initialLabel ?? '')
   const [query, setQuery] = useState('')
   // A single flat id list drives the Search filter dropdown's checklist —
   // "asset:<suffix>" and "ext:<extension>" ids, split back out by prefix

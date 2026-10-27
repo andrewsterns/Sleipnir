@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/01_canvas/model/clipboardImage.ts"
+        ],
+        "createdAt": "2026-10-26T20:56:58.476Z",
+        "reason": "Claude: L58 is a regex that parses <img src> out of pasted clipboard HTML, not a rendered image tag"
+      }
+    ]
+  }
+}

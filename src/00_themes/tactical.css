@@ -1,32 +1,37 @@
 .theme-tactical {
   color-scheme: dark;
 
-  /* ── Backgrounds ─────────────────────────────────────────────────────── */
-  --bg-1: rgba(8, 8, 8, 0.97);
-  --bg-2: rgba(15, 15, 15, 0.90);
-  --bg-3: rgba(24, 24, 24, 0.78);
+  /* ── Backgrounds ───────────────────────────────────────────────────────
+     A violet-tinted charcoal base (#1D1C1F), not black. Raised surfaces step
+     LIGHTER from it — on a black base the old translucent-dark layers could
+     only darken, which no longer reads as elevation here. */
+  --bg-1: #1d1c1f;
+  --bg-2: #232227;
+  --bg-3: #2a292f;
 
-  /* ── Text (white-primary) ────────────────────────────────────────────── */
-  --text-1: #e8e8e8;           /* near-white, neutral */
-  --text-2: #9a9a9a;           /* secondary grey */
-  --text-3: #4a4a4a;           /* tertiary / dim labels */
+  /* ── Text (ink-primary) ────────────────────────────────────────────────
+     Every "white" in this theme is the same cool off-white ink, #E5E3ED.
+     text-2/text-3 are that ink at ~62% / ~38% over bg-1. */
+  --text-1: #e5e3ed;           /* ink */
+  --text-2: #99979f;           /* secondary */
+  --text-3: #69686d;           /* tertiary / dim labels */
 
   /* ── Borders ─────────────────────────────────────────────────────────── */
-  --border-1: rgba(255, 255, 255, 0.07);
-  --border-2: rgba(255, 255, 255, 0.16);
+  --border-1: rgba(229, 227, 237, 0.08);
+  --border-2: rgba(229, 227, 237, 0.17);
 
   /* ── Button/Frame variant surfaces ───────────────────────────────────────
      Left undefined before, so variant="primary"/"secondary"/"accent" fell
      through to whatever ancestor theme was active (usually theme-default's
      light slate/blue ramp) and rendered as a near-white box. Defined here as
      translucent dark washes consistent with tactical's own bg layering. */
-  --primary-1:   rgba(255, 255, 255, 0.06);
-  --primary-2:   #e8e8e8;
-  --primary-3:   rgba(255, 255, 255, 0.16);
-  --secondary-1: rgba(255, 255, 255, 0.03);
-  --secondary-2: #9a9a9a;
-  --secondary-3: rgba(255, 255, 255, 0.10);
-  --accent-1:    rgba(232, 232, 232, 0.14);
+  --primary-1:   rgba(229, 227, 237, 0.06);
+  --primary-2:   #e5e3ed;
+  --primary-3:   rgba(229, 227, 237, 0.16);
+  --secondary-1: rgba(229, 227, 237, 0.03);
+  --secondary-2: #99979f;
+  --secondary-3: rgba(229, 227, 237, 0.10);
+  --accent-1:    rgba(229, 227, 237, 0.14);
 
   /* ── Status accent palette — white spectrum only ─────────────────────── */
   --scan:           #dce8f0;           /* operational / nominal: near-white */
@@ -35,9 +40,9 @@
   --warn:           #b8ccd8;           /* degraded: medium grey-blue */
   --warn-dim:       rgba(184,204,216,0.08);
   --warn-mid:       rgba(184,204,216,0.20);
-  --critical:       #ffffff;           /* critical: full white (maximum contrast) */
-  --critical-dim:   rgba(255,255,255,0.10);
-  --critical-mid:   rgba(255,255,255,0.25);
+  --critical:       #e5e3ed;           /* critical: full ink (maximum contrast) */
+  --critical-dim:   rgba(229,227,237,0.10);
+  --critical-mid:   rgba(229,227,237,0.25);
   --track:          #c8dce8;           /* tracking: light grey */
   --track-dim:      rgba(200,220,232,0.10);
   --nominal:        #9ab4c4;
@@ -45,12 +50,12 @@
   --caution:        #a8bccc;           /* caution: muted grey */
 
   /* ── Gradient stroke presets — white only ────────────────────────────── */
-  --stroke-default:  135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.03);
+  --stroke-default:  135deg, rgba(229,227,237,0.28), rgba(229,227,237,0.03);
   --stroke-scan:     135deg, rgba(220,232,240,0.35), rgba(220,232,240,0.03);
-  --stroke-warn:     135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.03);
-  --stroke-critical: 135deg, rgba(255,255,255,0.48), rgba(255,255,255,0.03);
+  --stroke-warn:     135deg, rgba(229,227,237,0.22), rgba(229,227,237,0.03);
+  --stroke-critical: 135deg, rgba(229,227,237,0.48), rgba(229,227,237,0.03);
   --stroke-track:    135deg, rgba(200,220,232,0.32), rgba(200,220,232,0.03);
-  --stroke-dim:      135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02);
+  --stroke-dim:      135deg, rgba(229,227,237,0.10), rgba(229,227,237,0.02);
 
   /* ── Chamfer size tokens (numeric px) ────────────────────────────────── */
   --chamfer-xs: 3;
@@ -77,8 +82,8 @@
   /* ── Shadows ─────────────────────────────────────────────────────────── */
   --shadow-1:             0 4px 24px rgba(0, 0, 0, 0.7);
   --shadow-glow-scan:     0 0 16px rgba(220, 232, 240, 0.10);
-  --shadow-glow-warn:     0 0 16px rgba(255, 255, 255, 0.08);
-  --shadow-glow-critical: 0 0 20px rgba(255, 255, 255, 0.14);
+  --shadow-glow-warn:     0 0 16px rgba(229, 227, 237, 0.08);
+  --shadow-glow-critical: 0 0 20px rgba(229, 227, 237, 0.14);
   --shadow-glow-track:    0 0 16px rgba(200, 220, 232, 0.10);
 
   /* ── Planning graph (GraphCanvas) ─────────────────────────────────────────
@@ -88,9 +93,8 @@
      colour so each theme tunes visibility independently. label-bg/label-text
      are the node-label pill and its ink (a high-contrast chip vs. the graph
      ground — light pill on dark here, dark pill on light in light.css). */
-  --graph-node:          #8a94a3;              /* base node dot */
-  --graph-node-neighbor: #9aa4ae;              /* a selected node's neighbours */
-  --graph-node-selected: #ffffff;              /* the selected node */
+  --graph-node:          #ffffff;              /* node dot — pure white, full strength at rest (see GraphCanvas's opacity ladder) */
+  --graph-node-new:      #5b9dff;              /* a node created since the project opened, until clicked */
   --graph-ring:          #ffffff;              /* selection ring */
   --graph-edge:          #ffffff;              /* solid edge line + arrowhead */
 
@@ -100,8 +104,8 @@
      used as text on filled states. See item-states.css for the ladder:
        idle → no fill / 80% ink text · hover → 40% ink · connected → 20% ink ·
        selected → solid ink, all with ground-coloured text on fills. */
-  --item-ink:    255, 255, 255;
-  --item-ground: #000000;
+  --item-ink:    229, 227, 237;
+  --item-ground: #1d1c1f;
 
   /* ── Code editor syntax palette (CodeMirror highlight tokens) ─────────────
      Read by codeEditorTheme.ts's HighlightStyle so syntax colours invert with
@@ -116,7 +120,7 @@
   --code-tag:       #ffa89d;           /* JSX/HTML element names + self */
   --code-attribute: #a8e6b2;           /* JSX/HTML attribute (prop) names */
   --code-type:      #a8c8ff;           /* type / class / namespace names */
-  --code-function:  #f4f5f7;           /* function names */
+  --code-function:  #e5e3ed;           /* function names */
   --code-property:  #a8c8ff;           /* object property names */
   --code-invalid:   #ffa89d;           /* lexically invalid tokens */
 }

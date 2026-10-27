@@ -22,7 +22,19 @@ export interface SidebarHeaderProps {
   searchOpen?: boolean
   /** The inline search control shown in place of the label while `searchOpen`. Pass a `w="fill"` <Search/> — its own filter/clear affordances ride along inside it, so they stay put on the right where they were. */
   search?: React.ReactNode
+  /**
+   * The panel-top form: padded, with a hairline under it — the header of a
+   * docked side panel (Planning's NODES, Canvas's LAYERS) rather than a title
+   * inside a padded rail (LeftRailing).
+   */
+  framed?: boolean
 }
+
+/** Width of a docked side panel — Planning's NODES and Canvas's LAYERS share it so switching views doesn't shift the content edge. */
+export const SIDE_PANEL_W = 224
+
+/** Height of a framed header's title row — matches a list row, so the panel reads as one rhythm. */
+const FRAMED_ROW_H = 28
 
 // The "label on the left, action icons on the right" row shared by every
 // sidebar-style panel — LeftRailing's own root-folder header (Workspace,
@@ -34,9 +46,9 @@ export interface SidebarHeaderProps {
 // slides over where the title was (title hidden, not pushed down), and the
 // action icons that shared the row drop to a second row beneath so the input
 // owns the full width. Collapsing search restores the single title row.
-export const SidebarHeader: React.FC<SidebarHeaderProps> = ({ label, actions, searchOpen, search }) => {
-  if (searchOpen && search) {
-    return (
+export const SidebarHeader: React.FC<SidebarHeaderProps> = ({ label, actions, searchOpen, search, framed }) => {
+  const body =
+    searchOpen && search ? (
       <Frame flow="vertical" gap={8} shrink={0}>
         {search}
         {actions && (
@@ -45,13 +57,21 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({ label, actions, se
           </Frame>
         )}
       </Frame>
+    ) : (
+      <Frame flow="horizontal" align="center" justify="between" shrink={0} minH={framed ? FRAMED_ROW_H : undefined}>
+        <span style={LABEL_STYLE}>{label}</span>
+        {actions && (
+          <Frame flow="horizontal" align="center" gap={2} shrink={0}>
+            {actions}
+          </Frame>
+        )}
+      </Frame>
     )
-  }
 
+  if (!framed) return body
   return (
-    <Frame flow="horizontal" align="center" justify="between" shrink={0}>
-      <span style={LABEL_STYLE}>{label}</span>
-      {actions}
+    <Frame flow="vertical" shrink={0} padding={{ top: 6, bottom: 6, left: 10, right: 6 }} stroke={{ bottom: { color: 'border-1' } }}>
+      {body}
     </Frame>
   )
 }

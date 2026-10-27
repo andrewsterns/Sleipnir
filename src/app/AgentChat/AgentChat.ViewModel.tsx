@@ -29,6 +29,20 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
   const [streaming, setStreaming] = useState(false)
   const [mode, setMode] = useState<AgentMode>('ask')
   const available = isChatAvailable()
+  // When the provider last said anything (a token, a tool update, output) —
+  // so the view can tell "thinking" from "streaming", and flag a turn that
+  // has gone quiet for long enough to look stuck.
+  const lastActivityRef = useRef(0)
+  const [now, setNow] = useState(() => Date.now())
+  const touch = () => {
+    lastActivityRef.current = Date.now()
+  }
+  useEffect(() => {
+    if (!streaming) return
+    const timer = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(timer)
+  }, [streaming])
+  const silentForMs = streaming ? Math.max(0, now - lastActivityRef.current) : 0
 
   // One session for the component's lifetime — same one-session-per-mount
   // idea as the terminal's pty session (see Terminal.ViewModel.tsx).
@@ -58,6 +72,7 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
     const sessionId = sessionIdRef.current
 
     const unsubToken = api.onToken(sessionId, (delta) => {
+      touch()
       setMessages((prev) => {
         const last = prev[prev.length - 1]
         if (last?.role === 'assistant' && last.streaming) {
@@ -72,6 +87,7 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
     })
 
     const unsubTool = api.onTool(sessionId, (update) => {
+      touch()
       setMessages((prev) => {
         if (prev.some((m) => m.tool?.callId === update.callId)) {
           return prev.map((m) => (m.tool?.callId === update.callId ? { ...m, tool: mergeTool(m.tool, update) } : m))
@@ -84,6 +100,7 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
     })
 
     const unsubToolOutput = api.onToolOutput(sessionId, ({ callId, text }) => {
+      touch()
       patchTool(callId, (t) => ({ ...t, output: t.output + text }))
     })
 
@@ -170,7 +187,17 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
     setInput('')
     setMessages((prev) => [...prev, { role: 'user', content: text, timestamp: Date.now() }])
     setStreaming(true)
-    await api.sendMessage(sessionIdRef.current, history, text, { mode })
+    touch()
+    setNow(Date.now())
+    try {
+      await api.sendMessage(sessionIdRef.current, history, text, { mode })
+    } catch (e) {
+      // A send that never got going sends no chat:error either — without
+      // this the turn would spin forever.
+      const message = e instanceof Error ? e.message : String(e)
+      setMessages((prev) => [...prev, { role: 'system', content: `Error: ${message}`, timestamp: Date.now() }])
+      setStreaming(false)
+    }
   }
 
   const cancel = () => {
@@ -185,6 +212,7 @@ export function useAgentChatViewModel(onPlanNodeCreated?: (node: GraphNode) => v
     sendMessage,
     cancel,
     streaming,
+    silentForMs,
     available,
     mode,
     setMode,

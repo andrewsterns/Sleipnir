@@ -58,6 +58,15 @@ Download the installer for your OS from the
 > automatically from GitHub Releases (on macOS, auto-update turns on once the
 > build is signed).
 
+### Free and Pro
+
+Sleipnir is free for personal and noncommercial use (up to 3 projects).
+**Sleipnir Pro** adds unlimited projects, multiple windows, MCP servers for
+the agent, and a commercial-use license. A Founder license is a one-time
+purchase from the [website](https://andrewsterns.github.io/Sleipnir/#pricing);
+enter the key in **Settings ▸ License**. AI usage is never part of the price:
+you bring your own provider key or a local Ollama model.
+
 Everything below is for **running from source / development**.
 
 ## Quick start
@@ -192,7 +201,8 @@ and notes on growing this into a true multi-project workspace.
 Sleipnir is **source-available** under the
 [PolyForm Noncommercial License 1.0.0](LICENSE): you may view, run, and modify
 it for **noncommercial** purposes; commercial use requires a separate license
-from the copyright holder. Copyright © 2026 Andrew Sterns.
+from the copyright holder, which a [Sleipnir Pro](https://andrewsterns.github.io/Sleipnir/#pricing)
+license provides. Copyright © 2026 Andrew Sterns.
 
 - **[PRIVACY.md](PRIVACY.md)** — what stays on your device and the few things
   that don't. Short version: your code stays local, the AI can run fully local

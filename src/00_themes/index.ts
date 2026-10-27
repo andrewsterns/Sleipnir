@@ -20,7 +20,7 @@ export interface ThemeOption {
   description: string;
 }
 export const THEME_OPTIONS: ThemeOption[] = [
-  { id: 'tactical', label: 'Tactical', description: 'The default dark HUD — near-black panels, mono type.' },
+  { id: 'tactical', label: 'Tactical', description: 'The default dark HUD — charcoal panels, mono type.' },
   { id: 'light',    label: 'Light',    description: 'A crisp cool-neutral light surface with dark ink.' },
 ];
 

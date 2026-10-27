@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
-import { ApiKeySettings } from '../AgentChat/ApiKeySettings'
-import { MODEL_OPTIONS, OLLAMA_MODEL_ID, type AgentSettings, type KeyStatus, type ModelStatus } from '../AgentChat/iApiKeySettings'
+import { ConnectModels } from '../AgentChat/ConnectModels'
+import { ModelPicker } from '../AgentChat/ModelPicker'
+import { useAiSettings } from '../AgentChat/useAiSettings'
+import type { AgentSettings } from '../AgentChat/iApiKeySettings'
 import { AGENT_MODES, AGENT_MODE_HINT, AGENT_MODE_LABEL } from '../AgentChat/iAgentChat'
 import {
   getAgentScaffolding,
@@ -17,6 +19,7 @@ import { THEME_OPTIONS, type Theme } from '../../00_themes'
 import { useKeybindings } from '../../00_keybindings/KeybindingsController'
 import { DEFAULT_KEYBINDINGS } from '../../00_keybindings'
 import { UpdatesSection } from './UpdatesSection'
+import { LicenseSection } from './LicenseSection'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -31,12 +34,13 @@ interface SettingsSection {
 // to accommodate them.
 const SECTIONS: SettingsSection[] = [
   { id: 'appearance', label: 'Appearance' },
-  { id: 'api-keys', label: 'API Keys' },
+  { id: 'api-keys', label: 'AI Models' },
   { id: 'agent-permissions', label: 'AI Permissions' },
   { id: 'git-identity', label: 'Git Identity' },
   { id: 'agent-scaffolding', label: 'Agent Scaffolding' },
   { id: 'keybindings', label: 'Keybindings' },
   { id: 'updates', label: 'Updates' },
+  { id: 'license', label: 'License' },
 ]
 
 // A live, in-theme preview of a theme's own palette — the swatch itself is
@@ -122,56 +126,22 @@ function AppearanceSection() {
 }
 
 function ApiKeysSection() {
-  const [popoverOpen, setPopoverOpen] = useState(false)
-  const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null)
-  const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null)
+  const ai = useAiSettings()
 
-  useEffect(() => {
-    window.settingsAPI?.getKeyStatus('anthropic').then(setKeyStatus)
-    window.settingsAPI?.getModel().then(setModelStatus)
-  }, [])
-
-  const modelLabel = MODEL_OPTIONS.find((m) => m.id === modelStatus?.model)?.label
-  const usingOllama = modelStatus?.model === OLLAMA_MODEL_ID
+  if (!window.settingsAPI) {
+    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>AI settings are desktop-only.</span>
+  }
 
   return (
-    <Frame flow="vertical" gap={10} style={{ maxWidth: 360 }}>
-      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-        AI CHAT
-      </span>
-      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
-        API key and model used by the AI chat — pick Local Ollama in the model list to run free and local instead.
-      </span>
-      <Frame flow="horizontal" align="center" gap={10} style={{ position: 'relative' }}>
-        <span style={{ fontSize: 10, color: 'var(--text-2)', ...MONO }}>
-          {usingOllama
-            ? 'Using local Ollama'
-            : keyStatus?.configured
-              ? `Anthropic key configured (····${keyStatus.hint})${modelLabel ? ` · ${modelLabel}` : ''}`
-              : 'No key set — using local Ollama'}
+    <Frame flow="vertical" gap={20} style={{ maxWidth: 480 }}>
+      <Frame flow="vertical" gap={8}>
+        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>AI CHAT MODEL</span>
+        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+          Every connected provider’s models are listed. Switch any time — also from the AI chat header.
         </span>
-        <button
-          onClick={() => setPopoverOpen((v) => !v)}
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--border-2)',
-            color: 'var(--text-1)',
-            fontSize: 9,
-            letterSpacing: '0.08em',
-            padding: '5px 10px',
-            cursor: 'pointer',
-            ...MONO,
-          }}
-        >
-          {keyStatus?.configured ? 'MANAGE' : 'SET KEY'}
-        </button>
-        {popoverOpen && (
-          <ApiKeySettings
-            onClose={() => setPopoverOpen(false)}
-            onChanged={setKeyStatus}
-          />
-        )}
+        <ModelPicker ai={ai} />
       </Frame>
+      <ConnectModels ai={ai} />
     </Frame>
   )
 }
@@ -399,11 +369,11 @@ function AgentScaffoldingSection() {
     pending.then((next) => (next ? setConfig(next) : setUnavailable(true))).catch(() => setUnavailable(true))
   }, [])
 
-  const setCommit = async (commit: boolean) => {
+  const choose = async (patch: { commit?: boolean; enabled: boolean }) => {
     setBusy(true)
     setError(null)
     try {
-      await setAgentScaffolding({ commit })
+      await setAgentScaffolding(patch)
       const next = await getAgentScaffolding()
       if (next) setConfig(next)
     } catch (e) {
@@ -419,10 +389,11 @@ function AgentScaffoldingSection() {
         AGENT SCAFFOLDING
       </span>
       <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
-        Sleipnir writes <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>GEMINI.md</code> and a{' '}
-        <code>/plan</code> command for Claude Code, Codex and Gemini into every project it opens, plus a
-        self-contained planning CLI at <code>.sleipnir/plan.mjs</code>. Any edits you make outside the
-        generated block are kept.
+        Once you start planning in a project, Sleipnir writes <code>AGENTS.md</code>, <code>CLAUDE.md</code>,{' '}
+        <code>GEMINI.md</code> and a <code>/plan</code> command for Claude Code, Codex and Gemini into it, plus
+        a self-contained planning CLI at <code>.sleipnir/plan.mjs</code>. Just opening a folder writes nothing.
+        Any edits you make outside the generated block are kept, and a <code>/plan</code> command you wrote
+        yourself is never replaced.
       </span>
 
       {unavailable ? (
@@ -434,21 +405,26 @@ function AgentScaffoldingSection() {
           <Frame flow="vertical" gap={4}>
             {[
               {
-                commit: true,
+                patch: { enabled: true, commit: true },
                 label: 'SHARE WITH THE TEAM',
                 help: 'Leave the files committable. Anyone who clones the repo gets a working /plan with only Node installed — no Sleipnir needed.',
               },
               {
-                commit: false,
+                patch: { enabled: true, commit: false },
                 label: 'KEEP LOCAL',
                 help: 'Add the generated files to .git/info/exclude, which is per-clone and never committed. Your .gitignore is left alone, and AGENTS.md / CLAUDE.md / GEMINI.md stay visible to git since they may hold your own notes.',
               },
+              {
+                patch: { enabled: false },
+                label: 'DON’T WRITE AGENT FILES',
+                help: 'Sleipnir writes and updates none of them in this project. Files it already wrote are left in place — delete them yourself if you want them gone.',
+              },
             ].map((option) => {
-              const active = config?.commit === option.commit
+              const active = !!config && (option.patch.enabled ? config.active && config.commit === option.patch.commit : !config.active)
               return (
                 <button
                   key={option.label}
-                  onClick={() => !active && setCommit(option.commit)}
+                  onClick={() => !active && choose(option.patch)}
                   disabled={busy || !config}
                   style={{
                     background: active ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
@@ -562,8 +538,14 @@ function KeybindingsSection() {
 // section rail does. Reached via the gear pinned to the bottom of NavRail
 // (see App.tsx), same as any other category — not a floating toggle/panel
 // like TerminalDock/AgentDock/ProblemsDock.
-export const SettingsView: React.FC = () => {
-  const [activeSection, setActiveSection] = useState(SECTIONS[0].id)
+export const SettingsView: React.FC<{
+  /** Jumps to a section when set — a fresh object per request, so asking for the same section twice still lands there (e.g. the title bar's Upgrade link). */
+  sectionRequest?: { id: string } | null
+}> = ({ sectionRequest }) => {
+  const [activeSection, setActiveSection] = useState(sectionRequest?.id ?? SECTIONS[0].id)
+  useEffect(() => {
+    if (sectionRequest) setActiveSection(sectionRequest.id)
+  }, [sectionRequest])
   const { theme } = useAppTheme()
 
   return (
@@ -616,6 +598,7 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'agent-scaffolding' && <AgentScaffoldingSection />}
           {activeSection === 'keybindings' && <KeybindingsSection />}
           {activeSection === 'updates' && <UpdatesSection />}
+          {activeSection === 'license' && <LicenseSection />}
         </Frame>
       </Frame>
     </Frame>

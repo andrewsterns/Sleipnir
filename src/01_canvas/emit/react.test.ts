@@ -39,9 +39,9 @@ describe('naming', () => {
 })
 
 describe('emitPropsInterface', () => {
-  it('emits an empty interface for a component with no props', () => {
+  it('emits a lint-clean empty props type for a component with no props', () => {
     const { component } = cardComponent()
-    expect(emitPropsInterface(component)).toBe('export interface CardProps {}')
+    expect(emitPropsInterface(component)).toBe('export type CardProps = Record<string, never>')
   })
 
   it('emits a union type for an enum prop, which is what makes variants self-documenting', () => {
@@ -215,8 +215,8 @@ describe('emitComponentFile', () => {
     const file = emitComponentFile(component, ctxFor(doc), 'h1')
 
     expect(file.fileName).toBe('card.tsx')
-    expect(file.content).toContain('export interface CardProps {}')
-    expect(file.content).toContain('export const Card = ({}: CardProps) => {')
+    expect(file.content).toContain('export type CardProps = Record<string, never>')
+    expect(file.content).toContain('export const Card = () => {')
     expect(file.content).toContain(`// <sleipnir:layout component="${component.id}" hash="h1">`)
     expect(file.content).toContain('// </sleipnir:layout>')
     expect(file.content.endsWith('}\n')).toBe(true)
@@ -247,5 +247,114 @@ describe('emitComponentFile', () => {
     const a = emitComponentFile(component, ctxFor(doc), 'h')
     const b = emitComponentFile(component, ctxFor(doc), 'h')
     expect(a.content).toBe(b.content)
+  })
+})
+
+describe('paint emission', () => {
+  /** A promoted component whose root carries `style`, emitted at FILE_PATH. */
+  function painted(style: CanvasFrameNode['style'], name = 'Card') {
+    let doc = createDoc('board')
+    const frame = { ...createFrameNode({ x: 0, y: 0, w: 200, h: 100 }, name), style }
+    doc = insertNode(doc, frame, null)
+    const promoted = createComponentFromFrame(doc, frame)
+    return { doc: promoted.doc, component: promoted.component }
+  }
+
+  it('writes a gradient stack as the same background the board paints', () => {
+    const { doc, component } = painted({
+      fills: [
+        { color: '#101014' },
+        { type: 'linear', angle: 135, stops: [{ position: 0, color: '#ff0080' }, { position: 1, color: '#7928ca', opacity: 0.5 }] },
+      ],
+    })
+    expect(emitRegionBody(component, ctxFor(doc))).toContain(
+      "background: 'linear-gradient(135deg, #ff0080 0%, rgba(121, 40, 202, 0.5) 100%), linear-gradient(#101014, #101014)',",
+    )
+  })
+
+  it('writes shadows and blurs', () => {
+    const { doc, component } = painted({
+      effects: [
+        { type: 'drop-shadow', x: 0, y: 8, blur: 24, color: '#000000', opacity: 0.3 },
+        { type: 'inner-shadow', x: 0, y: 1, blur: 0, color: '#ffffff', opacity: 0.1 },
+        { type: 'background-blur', radius: 16 },
+      ],
+    })
+    const body = emitRegionBody(component, ctxFor(doc))
+    expect(body).toContain("boxShadow: '0px 8px 24px 0px rgba(0, 0, 0, 0.3), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.1)',")
+    expect(body).toContain("backdropFilter: 'blur(16px)',")
+    expect(body).toContain("WebkitBackdropFilter: 'blur(16px)',")
+  })
+
+  // The bundler, not the canvas, decides what an asset's URL is.
+  it('imports a workspace image and interpolates it, rather than inlining a path', () => {
+    const { doc, component } = painted({ fills: [{ type: 'image', src: 'src/assets/hero-banner.png', scaleMode: 'fit' }] })
+    const ctx = ctxFor(doc)
+    expect(collectImports(component, ctx)).toEqual(["import heroBannerImage from '../../assets/hero-banner.png'"])
+    expect(emitRegionBody(component, ctx)).toContain('background: `url("${heroBannerImage}") center / contain no-repeat`,')
+  })
+
+  it('leaves an absolute image URL a plain string, with nothing to import', () => {
+    const { doc, component } = painted({ fills: [{ type: 'image', src: 'https://example.test/a.png' }] })
+    expect(collectImports(component, ctxFor(doc))).toEqual([])
+    expect(emitRegionBody(component, ctxFor(doc))).toContain(`background: 'url("https://example.test/a.png") center / cover no-repeat',`)
+  })
+
+  it('gives each image one import, and distinct images distinct names', () => {
+    const { doc, component } = painted({
+      fills: [
+        { type: 'image', src: '.components/assets/a/photo.jpg' },
+        { type: 'image', src: '.components/assets/b/photo.jpg' },
+        { type: 'image', src: '.components/assets/a/photo.jpg' },
+      ],
+    })
+    expect(collectImports(component, ctxFor(doc, '.components/card/card.tsx'))).toEqual([
+      "import photoImage from '../assets/a/photo.jpg'",
+      "import photoImage2 from '../assets/b/photo.jpg'",
+    ])
+  })
+
+  it('emits a translucent image as a layer behind the children', () => {
+    const { doc, component } = painted({ fills: [{ type: 'image', src: 'https://example.test/a.png', opacity: 0.4 }] })
+    const body = emitRegionBody(component, ctxFor(doc))
+    expect(body).toContain('<div aria-hidden style={{')
+    expect(body).toContain('opacity: 0.4,')
+    expect(body).toContain('zIndex: -1,')
+    expect(body).toContain("isolation: 'isolate',")
+  })
+})
+
+describe('rotation', () => {
+  it('emits a rotated child as a CSS rotate about its center, same as the board', () => {
+    let doc = createDoc('board')
+    const card = createFrameNode({ x: 0, y: 0, w: 200, h: 200 }, 'Card')
+    const badge = createFrameNode({ x: 10, y: 10, w: 40, h: 20 }, 'Badge')
+    badge.style = { ...badge.style, rotate: -30 }
+    doc = insertNode(insertNode(doc, card, null), badge, card.id)
+    const promoted = createComponentFromFrame(doc, doc.nodes[0] as CanvasFrameNode)
+    expect(emitRegionBody(promoted.component, ctxFor(promoted.doc))).toContain("transform: 'rotate(-30deg)',")
+  })
+})
+
+describe('patterns', () => {
+  it('write a repeated item once, mapped over its positions', async () => {
+    const { reflowPaths } = await import('../model/pathFlow')
+    const { createVectorNode } = await import('../model/doc')
+    let doc = createDoc('board')
+    const frame = createFrameNode({ x: 0, y: 0, w: 300, h: 100 }, 'Row')
+    frame.style = { ...frame.style, alongPath: { repeat: 3, orient: true } }
+    doc = insertNode(doc, frame, null)
+    doc = insertNode(doc, createVectorNode({ x: 0, y: 50, w: 200, h: 0 }, 'path', { points: [{ x: 0, y: 0 }, { x: 200, y: 0 }], viewBox: { w: 200, h: 0 } }), frame.id)
+    doc = insertNode(doc, createFrameNode({ x: 0, y: 0, w: 20, h: 10 }, 'Dot'), frame.id)
+    doc = reflowPaths(doc)
+    const promoted = createComponentFromFrame(doc, doc.nodes[0] as CanvasFrameNode)
+    const body = emitRegionBody(promoted.component, ctxFor(promoted.doc))
+    expect(body).toContain('[-10, 45, 0],')
+    expect(body).toContain('[190, 45, 0],')
+    expect(body).toContain('].map(([x, y, r], i) => (')
+    expect(body).toContain('<div key={i} style={{')
+    expect(body).toContain('left: `${x}px`,')
+    // Written once, not three times.
+    expect(body.match(/key=\{i\}/g)).toHaveLength(1)
   })
 })

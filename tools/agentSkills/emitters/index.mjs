@@ -7,7 +7,7 @@
 // keeps them trivially unit-testable, which matters most for the TOML one, where
 // a quoting mistake produces a file Gemini silently refuses to load.
 
-import { ARGS_TOKEN, PLAN_CLI } from '../registry.mjs'
+import { ARGS_TOKEN, CANVAS_CLI, PLAN_CLI } from '../registry.mjs'
 
 // Each target's own placeholder for "the text the user typed after the command".
 const CLAUDE_ARGS = '$ARGUMENTS'
@@ -38,13 +38,18 @@ function frontmatter(fields) {
 // ---------------------------------------------------------------------------
 
 export function emitAgentsMd(skills) {
-  const sections = skills.map((s) => `## ${titleFor(s)}\n\n${s.context}`)
+  const sections = skills.filter((s) => s.context).map((s) => `## ${titleFor(s)}\n\n${s.context}`)
   return [{ path: 'AGENTS.md', content: sections.join('\n\n'), managed: true }]
 }
 
 function titleFor(skill) {
-  return skill.id === 'plan' ? 'Planning with Sleipnir' : `Sleipnir: ${skill.id}`
+  if (skill.id === 'plan') return 'Planning with Sleipnir'
+  if (skill.id === 'frame') return 'Designing on the Sleipnir Canvas'
+  return `Sleipnir: ${skill.id}`
 }
+
+/** The one line telling a human which commands exist. */
+const COMMANDS_LINE = 'Run `/plan <what to plan>` to draft a plan into the graph, `/frame <what to design>` to\ndesign on the Canvas board, or `/component <what to build>` to design a component that\nSleipnir turns into code.'
 
 // ---------------------------------------------------------------------------
 // Claude Code — reads CLAUDE.md and not AGENTS.md, so the officially documented
@@ -57,7 +62,7 @@ export function emitClaude(skills) {
     {
       path: 'CLAUDE.md',
       managed: true,
-      content: `@AGENTS.md\n\nThe import above carries this project's Sleipnir planning instructions.\nRun \`/plan <what to plan>\` to draft one into the Planning graph.`,
+      content: `@AGENTS.md\n\nThe import above carries this project's Sleipnir planning and design instructions.\n${COMMANDS_LINE}`,
     },
   ]
   for (const skill of skills) {
@@ -118,7 +123,7 @@ export function emitGemini(skills) {
     {
       path: 'GEMINI.md',
       managed: true,
-      content: `## Planning with Sleipnir\n\nRead \`AGENTS.md\` at the project root before planning or writing code here — it\ndocuments this project's \`.planning/\` graph and the \`node ${PLAN_CLI}\` CLI that\nwrites to it correctly.\n\nRun \`/plan <what to plan>\` to draft a plan into the graph.`,
+      content: `## Planning with Sleipnir\n\nRead \`AGENTS.md\` at the project root before planning, designing or writing code here —\nit documents this project's \`.planning/\` graph, its Canvas boards, and the\n\`node ${PLAN_CLI}\` and \`node ${CANVAS_CLI}\` CLIs that write to them correctly.\n\n${COMMANDS_LINE}`,
     },
   ]
   for (const skill of skills) {

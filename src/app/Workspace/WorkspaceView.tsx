@@ -203,20 +203,34 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
   // PlanningView's node-card link editor for the reverse direction). A no-op
   // for a language with no adapter (none currently — TSX/Python/Rust/Go all
   // have one) or a file with no matching scaffolded node.
+  //
+  // Runs on every autosave (1.2s after typing pauses), so it stays cheap: the
+  // tsconfig alias chain is read once and reused until a tsconfig/jsconfig is
+  // itself saved, and nothing is written unless the scan actually changed the
+  // node's links — an unchanged write would bounce through the planning
+  // watcher and redraw every open graph mid-typing.
+  const aliasesRef = useRef<ReturnType<typeof loadPathAliases> | null>(null)
   const handleImportsChanged = async (path: string, content: string) => {
+    if (/(^|\/)[jt]sconfig[^/]*\.json$/.test(path)) aliasesRef.current = null
     const adapter = adapterForPath(path)
     if (!adapter) return
-    const { nodes } = await getNotes()
+    const { nodes, edges } = await getNotes()
     const sourceNode = nodes.find((n) => n.filePath === path)
     if (!sourceNode) return
-    const candidatePaths = nodes.filter((n): n is typeof n & { filePath: string } => !!n.filePath).map((n) => n.filePath)
-    const aliases = await loadPathAliases((p) => readWorkspaceFile(p).then((r) => r.content)).catch(() => undefined)
+    const nodeByPath = new Map<string, GraphNode>()
+    // First wins on a shared path, as the find() this replaced did.
+    for (const n of nodes) if (n.filePath && !nodeByPath.has(n.filePath)) nodeByPath.set(n.filePath, n)
+    const candidatePaths = [...nodeByPath.keys()]
+    aliasesRef.current ??= loadPathAliases((p) => readWorkspaceFile(p).then((r) => r.content))
+    const aliases = await aliasesRef.current.catch(() => undefined)
     const targetIds = new Set<string>()
     for (const spec of adapter.detectImports(content)) {
       const targetPath = adapter.resolveSpecifier(path, spec.raw, candidatePaths, aliases)
-      const targetNode = targetPath ? nodes.find((n) => n.filePath === targetPath) : undefined
-      if (targetNode) targetIds.add(targetNode.id)
+      const targetNode = targetPath ? nodeByPath.get(targetPath) : undefined
+      if (targetNode && targetNode.id !== sourceNode.id) targetIds.add(targetNode.id)
     }
+    const current = edges.filter((e) => e.source === sourceNode.id && e.kind === 'borrows').map((e) => e.target)
+    if (current.length === targetIds.size && current.every((id) => targetIds.has(id))) return
     setNodeBorrows(sourceNode.id, [...targetIds]).catch(() => {})
   }
 

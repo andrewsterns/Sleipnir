@@ -53,13 +53,20 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
   // "FILE TYPE") read cramped at the plain single-column 160px floor — widen
   // the floor so labels + group headers don't wrap.
   const hasGroups = options.some((o) => o.group)
+  const groupCount = new Set(options.map((o) => o.group).filter(Boolean)).size
 
   useLayoutEffect(() => {
     if (!isOpen) return
     const updateRect = () => {
       const rect = triggerRef.current?.getBoundingClientRect()
       if (!rect) return
-      setMenuRect({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, hasGroups ? 240 : 160) })
+      // Opens upward when there isn't room below but there is above — e.g. a
+      // trigger in a panel docked to the bottom of the window. Height is an
+      // estimate from row/header sizes below, capped at the grouped maxH.
+      const estimated = Math.min(hasGroups ? 320 : Infinity, options.length * 24 + groupCount * 22 + 12)
+      const spaceBelow = window.innerHeight - rect.bottom - 8
+      const top = spaceBelow < estimated && rect.top > spaceBelow ? Math.max(8, rect.top - 4 - estimated) : rect.bottom + 4
+      setMenuRect({ top, left: rect.left, width: Math.max(rect.width, hasGroups ? 240 : 160) })
     }
     let node: HTMLElement | null = triggerRef.current
     while (node && !Array.from(node.classList).some((c) => c.startsWith('theme-'))) {
@@ -73,7 +80,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
       window.removeEventListener('resize', updateRect)
       window.removeEventListener('scroll', updateRect, true)
     }
-  }, [isOpen, hasGroups])
+  }, [isOpen, hasGroups, groupCount, options.length])
 
   const handleSelect = (val: string) => {
     if (multiple) {

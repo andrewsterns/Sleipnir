@@ -30,4 +30,6 @@ export interface WorkspaceTabStripProps {
    * strip). Takes precedence over `onAddTab` when both are set.
    */
   onAddTabClick?: () => void
+  /** The inline name input's placeholder. Default 'filename'. */
+  addPlaceholder?: string
 }

@@ -8,30 +8,39 @@
 // project to depend on Sleipnir's UIKit — see toCss.ts's header.)
 
 import { memo } from 'react'
+import { paintOverlays, type ImageUrlResolver } from '../model/paint'
+import { vectorSvg } from '../model/vector'
+import { renderSvgEl } from './svgElements'
 import { mergeCss, positionCss, textCss, toCss } from '../model/toCss'
 import { resolveVariant } from '../model/variants'
+import { normalizeRelPath } from '../model/paths'
+import { variantValuesOf } from '../model/clipboard'
+import type { LinkedComponents } from '../hooks/useLinkedComponents'
 import {
   childrenOf,
   isExternalNode,
   isFrameNode,
   isInstanceNode,
   isTextNode,
+  isVectorNode,
   type CanvasComponent,
   type CanvasNode,
   type CanvasStyle,
-  type NodeId,
 } from '../model/types'
 
 export interface CanvasNodeViewProps {
   node: CanvasNode
   /** The parent's flow — decides whether this node's rect.x/y is authoritative. */
   parentFlow: CanvasStyle['flow']
-  selectedIds: Set<NodeId>
   components: CanvasComponent[]
   /** Suppresses self-positioning for a component's own root inside an instance. */
   asRoot?: boolean
   /** Guards against a cyclic instance graph blowing the stack. */
   depth?: number
+  /** Loads workspace image fills — see useWorkspaceImages. */
+  imageUrl: ImageUrlResolver
+  /** Canvas components external nodes point at — see useLinkedComponents. Absent renders every external as a placeholder. */
+  linked?: LinkedComponents
 }
 
 const MAX_INSTANCE_DEPTH = 12
@@ -71,10 +80,11 @@ function Placeholder({ label, sub }: { label: string; sub?: string }) {
 export const CanvasNodeView = memo(function CanvasNodeView({
   node,
   parentFlow,
-  selectedIds,
   components,
   asRoot = false,
   depth = 0,
+  imageUrl,
+  linked,
 }: CanvasNodeViewProps) {
   if (node.hidden) return null
 
@@ -83,24 +93,54 @@ export const CanvasNodeView = memo(function CanvasNodeView({
   const position = asRoot
     ? { width: '100%', height: '100%' }
     : positionCss(node.rect, parentFlow, node.style)
-  const style = mergeCss(toCss(node.style), position)
+  // A vector is drawn as SVG, the same element the emitter writes — never as a
+  // styled box (see model/vector.ts).
+  if (isVectorNode(node)) {
+    return renderSvgEl(vectorSvg(node, node.id, imageUrl, position), undefined, {
+      'data-canvas-node': node.id,
+    })
+  }
+  const style = mergeCss(toCss(node.style, { imageUrl, text: isTextNode(node) }), position)
+  // A fill stack one background can't express (a translucent image) is drawn
+  // as layers behind the children — the same layers emit/react.ts writes.
+  const paintLayers = paintOverlays(node.style.fills, imageUrl).map((css, i) => (
+    <div key={`paint-${i}`} aria-hidden style={css} />
+  ))
 
   const common = {
     style,
     'data-canvas-node': node.id,
-    'data-selected': selectedIds.has(node.id) ? 'true' : undefined,
   }
 
   if (isTextNode(node)) {
     return (
       <div {...common} style={mergeCss(style, textCss(node.font), { overflow: 'hidden' })}>
+        {paintLayers}
         <span style={{ width: '100%', pointerEvents: 'none', whiteSpace: 'pre-wrap' }}>{node.text}</span>
       </div>
     )
   }
 
   if (isExternalNode(node)) {
-    // The pixel is a placeholder; the EMITTED CODE IS REAL (a true import plus a
+    // A canvas component pasted in from another board (model/clipboard.ts):
+    // drawn live from the board that owns it, the way an instance is.
+    const link = linked?.get(normalizeRelPath(node.filePath))
+    if (link && depth < MAX_INSTANCE_DEPTH) {
+      return (
+        <div {...common}>
+          <CanvasNodeView
+            node={resolveVariant(link.component, variantValuesOf(link.component, node.propValues)).root}
+            parentFlow="freeform"
+            components={link.components}
+            asRoot
+            depth={depth + 1}
+            imageUrl={imageUrl}
+            linked={linked}
+          />
+        </div>
+      )
+    }
+    // Any other workspace component: the pixel is a placeholder; the EMITTED CODE IS REAL (a true import plus a
     // true call site). Live-rendering a foreign project's component needs a
     // transform pipeline, its own dependency graph and a sandbox — a later stage,
     // not a v1 gap.
@@ -143,10 +183,11 @@ export const CanvasNodeView = memo(function CanvasNodeView({
         <CanvasNodeView
           node={variant.root}
           parentFlow="freeform"
-          selectedIds={selectedIds}
           components={components}
           asRoot
           depth={depth + 1}
+          imageUrl={imageUrl}
+          linked={linked}
         />
       </div>
     )
@@ -156,14 +197,16 @@ export const CanvasNodeView = memo(function CanvasNodeView({
     const flow = node.style.flow ?? 'freeform'
     return (
       <div {...common}>
+        {paintLayers}
         {childrenOf(node).map((child) => (
           <CanvasNodeView
             key={child.id}
             node={child}
             parentFlow={flow}
-            selectedIds={selectedIds}
-            components={components}
+              components={components}
             depth={depth}
+            imageUrl={imageUrl}
+            linked={linked}
           />
         ))}
       </div>

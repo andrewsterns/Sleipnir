@@ -60,7 +60,13 @@ export type IconName =
   | 'check'
   | 'layout-columns'
   | 'canvas'
-  | 'component';
+  | 'component'
+  | 'shape-rectangle'
+  | 'shape-ellipse'
+  | 'shape-triangle'
+  | 'pen'
+  | 'vector'
+  | 'chevron-down';
 
 interface IconProps {
   name: IconName;
@@ -75,6 +81,29 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 24 }) => {
         return <path d="M3 12H6M12 3V6M7.79998 7.8001L5.59998 5.6001M16.2 7.8001L18.4 5.6001M7.79998 16.2L5.59998 18.4M12 12L21 15L17 17L15 21L12 12Z" />;
       case 'frame':
         return <path d="M4 7H20M4 17H20M7 4V20M17 4V20" />;
+      // Canvas shape and pen tools (see 01_canvas/board/CanvasToolbar.tsx).
+      case 'shape-rectangle':
+        return <rect x="4" y="5" width="16" height="14" rx="1" />;
+      case 'shape-ellipse':
+        return <ellipse cx="12" cy="12" rx="8" ry="7" />;
+      case 'shape-triangle':
+        return <path d="M12 4.5L20.5 19H3.5L12 4.5Z" />;
+      // A fountain-pen nib — the vector pen tool.
+      case 'pen':
+        return <>
+          <path d="M12 3L19 10L15 21H9L5 10L12 3Z" />
+          <path d="M12 3V12" />
+          <circle cx="12" cy="13.5" r="1.5" />
+        </>;
+      // A bezier segment between two anchors — a vector layer.
+      case 'vector':
+        return <>
+          <path d="M6 18C6 10 18 14 18 6" />
+          <rect x="4" y="16" width="4" height="4" />
+          <rect x="16" y="4" width="4" height="4" />
+        </>;
+      case 'chevron-down':
+        return <path d="M7 10L12 15L17 10" />;
       // Four diamonds — the main-component mark. Used wherever a canvas
       // instance is shown (the layers row and the on-board label).
       case 'component':

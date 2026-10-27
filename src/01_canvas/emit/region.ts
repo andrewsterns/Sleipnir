@@ -214,16 +214,21 @@ export function spliceImports(source: string, imports: string[]): string {
 // is added — and under automatic promotion the file is written before any prop
 // exists, which made that the normal case rather than the exotic one. Splicing
 // only the region would leave a body referencing `state` above a signature that
-// still reads `({}: FrameProps)`: code that doesn't compile.
+// still reads `()`: code that doesn't compile.
 //
 // Everything BETWEEN the signature and the region — hooks, handlers, whatever a
 // human put there — is preserved, as is everything after the region's close.
 
 /** `export const Card = ({ … }: CardProps) => {` — the canonical shape emitComponentFile writes. */
 const SIGNATURE_RE = /^export const \S+ = \(.*\) => \{[ \t]*$/
-/** `export interface CardProps {` or the empty `export interface CardProps {}`. */
-const PROPS_OPEN_RE = /^export interface \S+Props \{/
-const PROPS_EMPTY_RE = /^export interface \S+Props \{\}[ \t]*$/
+/**
+ * `export interface CardProps {`, or one of the single-line empty forms:
+ * `export type CardProps = Record<string, never>` (what emitPropsInterface
+ * writes now) or `export interface CardProps {}` (what it wrote before — still
+ * recognized so older files keep splicing).
+ */
+const PROPS_OPEN_RE = /^export (?:interface \S+Props \{|type \S+Props = Record<string, never>)/
+const PROPS_EMPTY_RE = /^export (?:interface \S+Props \{\}|type \S+Props = Record<string, never>;?)[ \t]*$/
 
 /**
  * Replaces the props interface and the component's signature line.

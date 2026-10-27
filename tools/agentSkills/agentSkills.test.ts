@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, ARGS_TOKEN } from './registry.mjs'
+import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ARGS_TOKEN } from './registry.mjs'
 import { emitAll, emitAgentsMd, emitClaude, emitCodex, emitGemini } from './emitters/index.mjs'
 import { mergeBlock, wrapBlock, hasBlock } from './managedBlock.mjs'
 import { planScaffold, ensureAgentScaffolding, scaffoldPaths, ownedScaffoldPaths, readState } from './scaffold.mjs'
@@ -13,8 +13,14 @@ const byPath = (files: { path: string }[], path: string) => files.find((f) => f.
 describe('emitters', () => {
   it('emit every file each target agent actually reads', () => {
     expect(emitAll(SKILLS).map((f) => f.path).sort()).toEqual([
+      '.claude/commands/component.md',
+      '.claude/commands/frame.md',
       '.claude/commands/plan.md',
+      '.codex/prompts/component.md',
+      '.codex/prompts/frame.md',
       '.codex/prompts/plan.md',
+      '.gemini/commands/component.toml',
+      '.gemini/commands/frame.toml',
       '.gemini/commands/plan.toml',
       'AGENTS.md',
       'CLAUDE.md',
@@ -188,7 +194,7 @@ describe('scaffolder', () => {
 
   it('records its version and skills in scaffold.json', () => {
     ensureAgentScaffolding(root)
-    expect(readState(root)).toMatchObject({ version: SCAFFOLD_VERSION, skills: ['plan'] })
+    expect(readState(root)).toMatchObject({ version: SCAFFOLD_VERSION, skills: ['plan', 'frame', 'component'] })
   })
 
   it('preserves human content in the shared files', () => {
@@ -206,9 +212,50 @@ describe('scaffolder', () => {
 
   it('overwrites a Sleipnir-owned file the human edited', () => {
     ensureAgentScaffolding(root)
-    writeFileSync(join(root, '.claude/commands/plan.md'), 'clobber me')
+    writeFileSync(join(root, '.claude/commands/plan.md'), `tweaked, still runs node ${PLAN_CLI}`)
     expect(ensureAgentScaffolding(root).written).toEqual(['.claude/commands/plan.md'])
     expect(read('.claude/commands/plan.md')).toContain('$ARGUMENTS')
+  })
+
+  // The project's own /plan predates Sleipnir: it is the human's, and
+  // replacing it on open was silent data loss.
+  it('leaves a same-named command the human wrote alone, and says so', () => {
+    mkdirSync(join(root, '.claude/commands'), { recursive: true })
+    writeFileSync(join(root, '.claude/commands/plan.md'), '# my own /plan\n')
+    const { written, skipped } = ensureAgentScaffolding(root)
+    expect(read('.claude/commands/plan.md')).toBe('# my own /plan\n')
+    expect(written).not.toContain('.claude/commands/plan.md')
+    expect(skipped.map((s) => s.path)).toEqual(['.claude/commands/plan.md'])
+    expect(readState(root)?.skipped?.[0]?.path).toBe('.claude/commands/plan.md')
+  })
+
+  // Ownership is recognized by the vendored CLI call, so this must hold for
+  // every command Sleipnir emits or an older copy of one could never update.
+  it('emits only unmanaged files it can recognize as its own', () => {
+    for (const file of emitAll(SKILLS).filter((f) => !f.managed)) {
+      // Every command Sleipnir writes drives one of its own vendored CLIs.
+      expect(file.content.includes(PLAN_CLI) || file.content.includes(CANVAS_CLI), file.path).toBe(true)
+    }
+  })
+
+  describe('CRLF checkouts', () => {
+    const toCrlf = (rel: string) => writeFileSync(join(root, rel), read(rel).replace(/\n/g, '\r\n'))
+
+    // Git for Windows' autocrlf converts every text file on checkout; an exact
+    // byte compare then never matches and every open rewrote the lot.
+    it('writes nothing when the only difference is line endings', () => {
+      ensureAgentScaffolding(root)
+      for (const rel of ['AGENTS.md', 'CLAUDE.md', '.claude/commands/plan.md', PLAN_CLI]) toCrlf(rel)
+      expect(ensureAgentScaffolding(root).written).toEqual([])
+    })
+
+    it('keeps a CRLF file CRLF when it really does change', () => {
+      writeFileSync(join(root, 'CLAUDE.md'), '# Mine\r\nkeep me\r\n')
+      ensureAgentScaffolding(root)
+      const content = read('CLAUDE.md')
+      expect(content).toContain('@AGENTS.md\r\n')
+      expect(content.replace(/\r\n/g, '')).not.toContain('\n')
+    })
   })
 
   // Scaffolding runs when a project opens, so a collision has to degrade to
@@ -259,5 +306,35 @@ describe('scaffolder', () => {
       expect(ensureAgentScaffolding(root, { commit: false }).excluded).toEqual([])
       expect(existsSync(join(root, '.git'))).toBe(false)
     })
+  })
+})
+
+describe('the canvas CLI', () => {
+  it('builds a spec onto a board, and asks Sleipnir to make it a component', async () => {
+    const { mkdtempSync, readdirSync, readFileSync } = await import('node:fs')
+    const { tmpdir } = await import('node:os')
+    const { buildOnBoard, listBoards } = await import('./vendor/canvas.mjs')
+    const root = mkdtempSync(join(tmpdir(), 'sleipnir-canvas-'))
+    const result = buildOnBoard(root, {
+      spec: { name: 'Card', layout: 'vertical', gap: 8, padding: 16, children: [{ type: 'text', text: 'Hi', size: 20 }, { type: 'rect', w: 40, h: 40, fill: '#ff0000' }] },
+      component: 'PricingCard',
+    })
+    expect(result.component).toEqual({ name: 'PricingCard' })
+    const [file] = readdirSync(join(root, '.components', '.boards'))
+    const doc = JSON.parse(readFileSync(join(root, '.components', '.boards', file), 'utf8'))
+    const frame = doc.nodes[0]
+    expect(frame).toMatchObject({ kind: 'frame', name: 'PricingCard', style: { flow: 'vertical', gap: 8, padding: 16 }, request: { focus: true, component: { name: 'PricingCard' } } })
+    expect(frame.children.map((c: { kind: string }) => c.kind)).toEqual(['text', 'vector'])
+    // A second build lands beside the first, on the same (most recent) board.
+    buildOnBoard(root, { spec: { name: 'Second', w: 100, h: 100 } })
+    const boards = listBoards(root)
+    expect(boards).toHaveLength(1)
+    expect(boards[0].nodes).toBe(2)
+  })
+
+  it('rejects a spec it cannot build, with a reason', async () => {
+    const { buildOnBoard } = await import('./vendor/canvas.mjs')
+    expect(() => buildOnBoard('/tmp/x', { spec: '{not json' })).toThrow(/valid JSON/)
+    expect(() => buildOnBoard('/tmp/x', { spec: { children: [{ type: 'sparkle' }] } })).toThrow(/Unknown node type/)
   })
 })

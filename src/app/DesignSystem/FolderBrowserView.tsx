@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useRef } from 'react'
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import { LeftRailing } from './LeftRailingView'
@@ -8,6 +8,7 @@ import { CodeEditorView, type CodeEditorHandle } from './CodeEditorView'
 import { LOADING_PLACEHOLDER } from './CodeEditorView.ViewModel'
 import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir, deleteWorkspacePath, deleteNote, planNodesUnderPath } from '../../00_planning/api/sleipnirApi'
 import { useFolderBrowserViewModel } from './FolderBrowserView.ViewModel'
+import { registerPendingWrite } from '../pendingWrites'
 import type { FolderBrowserHandle, FolderBrowserViewProps, PaneId, PaneState } from './iFolderBrowserView'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
@@ -44,6 +45,26 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
     startPaneDrag,
   } = useFolderBrowserViewModel(props)
   const editorRefs = useRef<Map<string, CodeEditorHandle | null>>(new Map())
+
+  // Every dirty tab that would have autosaved anyway, written now — for File ▸
+  // Save Project and window close (see app/pendingWrites). Staged AI content
+  // is left alone: it only ever reaches disk through an explicit human save.
+  const latest = useRef({ panes, pendingOverride })
+  latest.current = { panes, pendingOverride }
+  useEffect(
+    () =>
+      registerPendingWrite(async () => {
+        const { panes: p, pendingOverride: override } = latest.current
+        await Promise.all(
+          [...p.primary.tabs, ...p.secondary.tabs]
+            .filter((t) => t.path !== override?.path)
+            .map((t) => editorRefs.current.get(t.path))
+            .filter((h): h is CodeEditorHandle => !!h?.dirty)
+            .map((h) => h.save()),
+        )
+      }),
+    [],
+  )
 
   useImperativeHandle(ref, () => ({
     save: async () => {

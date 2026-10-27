@@ -17,6 +17,7 @@
 // sizing), because that vocabulary is a good Figma-shaped box model — we just
 // resolve it ourselves.
 
+import { effectsCss, paintCss, type ImageUrlResolver } from './paint'
 import type { CanvasRect, CanvasStyle, CanvasTextStyle, ColorRef, Size } from './types'
 
 /** A plain CSS property bag — the shape React's `style` prop takes. */
@@ -69,12 +70,21 @@ function radiusValue(radius: CanvasStyle['radius']): string | undefined {
   return `${tl}px ${tr}px ${br}px ${bl}px`
 }
 
+export interface ToCssOptions {
+  /** Where image fills load from — see paint.ts's ImageUrlResolver. Without one, workspace images are skipped. */
+  imageUrl?: ImageUrlResolver
+  /** The node is text: drop shadows follow its glyphs instead of its box. */
+  text?: boolean
+}
+
+const NO_IMAGES: ImageUrlResolver = () => undefined
+
 /**
  * The style for a node's own box, excluding position (see positionCss) — the
  * part that is identical whether the node is free-positioned or laid out by a
  * parent's flow.
  */
-export function toCss(style: CanvasStyle): CssProps {
+export function toCss(style: CanvasStyle, { imageUrl = NO_IMAGES, text = false }: ToCssOptions = {}): CssProps {
   const css: CssProps = {}
 
   // W and H mean the BORDER BOX, exactly as they do in Figma — the number in the
@@ -115,13 +125,10 @@ export function toCss(style: CanvasStyle): CssProps {
   if (style.grow) css.flexGrow = 1
 
   // ── paint ──
-  // v1 authors at most one fill; the list exists so gradients can land later
-  // without a shape change.
-  const fill = style.fills?.[0]
-  if (fill) {
-    css.background = cssColor(fill.color)
-    if (fill.opacity !== undefined && fill.opacity < 1) css.opacity = fill.opacity
-  }
+  // The whole fill stack (see paint.ts). Each paint's opacity stays inside its
+  // own colors: it used to be written to `opacity`, which faded the node's
+  // children along with its background — layer opacity, not fill opacity.
+  Object.assign(css, paintCss(style.fills, imageUrl))
   if (style.stroke && style.stroke.width > 0) {
     const { color, width, style: lineStyle = 'solid', position = 'inside' } = style.stroke
     // EVERY stroke position is an outline, never a border. A stroke is paint, not
@@ -151,10 +158,7 @@ export function toCss(style: CanvasStyle): CssProps {
   if (radius !== undefined) css.borderRadius = radius
   if (style.opacity !== undefined) css.opacity = style.opacity
   if (style.clip) css.overflow = 'hidden'
-  if (style.shadow) {
-    const { x, y, blur, spread = 0, color } = style.shadow
-    css.boxShadow = `${x}px ${y}px ${blur}px ${spread}px ${cssColor(color)}`
-  }
+  Object.assign(css, effectsCss(style, { text }))
 
   return css
 }
@@ -182,7 +186,15 @@ export function positionCss(
     css.position = 'absolute'
     css.left = rect.x
     css.top = rect.y
+  } else {
+    // A margin is part of how a layout spaces its children — it has no
+    // meaning (and would only misplace the node) where the rect is the position.
+    const margin = paddingValue(style.margin)
+    if (margin !== undefined) css.margin = margin
   }
+  // About the box's center — CSS's default transform-origin, and the point an
+  // along-path layout centers each child on.
+  if (style.rotate) css.transform = `rotate(${style.rotate}deg)`
   return css
 }
 

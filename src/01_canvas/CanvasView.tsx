@@ -5,7 +5,7 @@
 // over `.research/`. Those docs aren't lost: the Docs pane below is that exact
 // same browser, now living beside the board instead of owning a whole tab.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { IconButton } from '../app/UIKit/IconButton/IconButton'
 import { DeletePathModal } from '../app/DesignSystem/DeletePathModal'
@@ -17,14 +17,25 @@ import { ResearchView } from '../01_research/ResearchView'
 import { DEFAULT_COMPONENT_ROOT } from './model/paths'
 import { CanvasBoard } from './board/CanvasBoard'
 import { CanvasInspector } from './panels/CanvasInspector'
-import { CanvasLayersPanel } from './panels/CanvasLayersPanel'
+import { CanvasLayersPanel, layerMatches } from './panels/CanvasLayersPanel'
+import { SIDE_PANEL_W, SidebarHeader } from '../app/UIKit/SidebarHeader/SidebarHeader'
+import { Search } from '../app/UIKit/Search/Search'
+import { childrenOf, type CanvasNode } from './model/types'
 import { CreateComponentModal } from './panels/CreateComponentModal'
 import type { ComponentDraft } from './panels/CreateComponentModal'
 import { useCanvasViewModel } from './CanvasView.ViewModel'
+import { useWorkspaceImages } from './board/useWorkspaceImages'
+import { useBoardTabs } from './useBoardTabs'
+import { WorkspaceTabStrip } from '../app/WorkspaceTabStrip/WorkspaceTabStrip'
+import { TAB_ROW_H, TabPicker } from '../app/WorkspaceTabStrip/TabPicker'
 import type { CanvasViewProps } from './iCanvasView'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
-const PANEL_W = 224
+// Shared with Planning's NODES panel, so the two side panels line up.
+const PANEL_W = SIDE_PANEL_W
+// Figma's properties panel is 240; the fill, gradient-stop and effect rows
+// need the room for a color's text field to stay readable.
+const INSPECTOR_W = 248
 const DOCS_W = 260
 
 export function CanvasView({
@@ -36,10 +47,12 @@ export function CanvasView({
   onShowInPlanning,
   onWorkspaceChanged,
 }: CanvasViewProps) {
-  const vm = useCanvasViewModel(activeProject?.path, { pendingFocus, onFocusConsumed })
+  const vm = useCanvasViewModel(activeProject?.path, { pendingFocus, onFocusConsumed, onFilesChanged: onWorkspaceChanged })
+  // One image cache for the board and the inspector's fill swatches.
+  const linkedComponents = useMemo(() => [...vm.linked.values()].map((l) => l.component), [vm.linked])
+  const imageUrl = useWorkspaceImages(vm.doc, linkedComponents)
   const [showDocs, setShowDocs] = useState(false)
-  const [naming, setNaming] = useState(false)
-  const [newName, setNewName] = useState('')
+  const boardTabs = useBoardTabs(vm, activeProject?.path)
   // Which already-written component the Create Component modal is open over.
   //
   // It no longer has a "promote" mode: promotion writes its own file into
@@ -100,6 +113,46 @@ export function CanvasView({
     return () => { cancelled = true }
   }, [pendingDelete])
 
+  // Stable for the view's lifetime — reading the latest ViewModel through a
+  // ref — so the memoized layer rows only re-render for layers that changed.
+  // (The ViewModel's own callbacks change with every doc change, i.e. every
+  // frame of a drag.)
+  // ── Layer search (same pattern as Planning's node search) ──
+  const [layerSearchOpen, setLayerSearchOpen] = useState(false)
+  const [layerQuery, setLayerQuery] = useState('')
+  const [layerHighlightId, setLayerHighlightId] = useState<string | null>(null)
+  const layerSearchRef = useRef<HTMLElement>(null)
+  const layerCount = useMemo(() => {
+    let n = 0
+    const visit = (nodes: CanvasNode[]) => nodes.forEach((node) => { n += 1; visit(childrenOf(node)) })
+    visit(vm.doc?.nodes ?? [])
+    return n
+  }, [vm.doc])
+  const layerListItems = useMemo(
+    () => (vm.doc ? layerMatches(vm.doc, layerQuery).map((node) => ({ id: node.id, onSelect: () => vmRef.current.selectOnly(node.id) })) : []),
+    [vm.doc, layerQuery],
+  )
+  // A click anywhere else closes an empty search, as Planning's does. The list
+  // rows are excluded: picking a match keeps the search where it is.
+  useEffect(() => {
+    if (!layerSearchOpen || layerQuery) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (layerSearchRef.current?.contains(e.target as Node)) return
+      setLayerSearchOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [layerSearchOpen, layerQuery])
+
+  const vmRef = useRef(vm)
+  vmRef.current = vm
+  const selectLayer = useCallback(
+    (id: string, additive: boolean) => (additive ? vmRef.current.toggleSelect(id) : vmRef.current.selectOnly(id)),
+    [],
+  )
+  const toggleLayerHidden = useCallback((id: string, hidden: boolean) => vmRef.current.updateNodeFields(id, { hidden }), [])
+  const toggleLayerLocked = useCallback((id: string, locked: boolean) => vmRef.current.updateNodeFields(id, { locked }), [])
+
   const handleDeleteLayer = (nodeId: string) => {
     const decision = vm.describeLayerDelete(nodeId)
     if (!decision) return
@@ -129,132 +182,110 @@ export function CanvasView({
     )
   }
 
-  const submitNewBoard = async () => {
-    await vm.createBoard(newName)
-    setNaming(false)
-    setNewName('')
-  }
-
   return (
     <Frame flow="vertical" grow w="fill" style={{ minHeight: 0 }}>
       {/* ── Toolbar ── */}
       <Frame
         flow="horizontal"
         align="center"
-        gap={8}
+        gap={0}
         w="fill"
-        padding={{ top: 6, bottom: 6, left: 10, right: 10 }}
+        padding={{ top: 0, bottom: 0, left: 10, right: 10 }}
+        // Same height as Planning's header row whether or not any tab is open.
+        minH={TAB_ROW_H}
         stroke={{ bottom: { color: 'border-1' } }}
       >
-        {/* Board picker — the tool picker now floats over the board itself
-            (see board/CanvasToolbar), so the top bar is board/file actions only. */}
-        <select
-          value={vm.doc?.id ?? ''}
-          onChange={(e) => vm.openDoc(e.target.value)}
-          style={{
-            ...MONO,
-            fontSize: 10,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border-1)',
-            borderRadius: 'var(--radius-control)',
-            color: 'var(--text-1)',
-            padding: '4px 6px',
-            outline: 'none',
-            maxWidth: 200,
+        {/* Every board on the left, the open ones as tabs beside it — the
+            same pattern as Planning's plans. The tab strip's "+" names and
+            creates a board. The tool picker floats over the board itself (see
+            board/CanvasToolbar), so this row is boards and view actions only. */}
+        {/* Picker + the open board's own action, grouped exactly like
+            Planning's (WorkspaceHeader's leading slot): same gap, same icon. */}
+        <Frame flow="horizontal" align="center" gap={4} shrink={0} padding={{ right: 4 }}>
+        <TabPicker
+          noun="Boards"
+          icon="canvas"
+          items={vm.docs.map((d) => ({ id: d.id, label: d.name }))}
+          openIds={boardTabs.tabs.map((t) => t.id)}
+          activeId={vm.doc?.id ?? null}
+          onPick={(id) => void vm.openDoc(id)}
+          create={{
+            icon: 'file-add',
+            label: (q) => (q ? `New board “${q}”` : 'New board'),
+            onCreate: (q) => void vm.createBoard(q || 'Untitled'),
           }}
-        >
-          {vm.docs.length === 0 && <option value="">No boards</option>}
-          {vm.docs.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-
-        {naming ? (
-          <input
-            autoFocus
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submitNewBoard()
-              if (e.key === 'Escape') { setNaming(false); setNewName('') }
-            }}
-            onBlur={() => { if (!newName) setNaming(false) }}
-            placeholder="board name"
-            style={{
-              ...MONO,
-              fontSize: 10,
-              background: 'var(--bg-2)',
-              border: '1px solid var(--border-1)',
-              borderRadius: 'var(--radius-control)',
-              color: 'var(--text-1)',
-              padding: '4px 8px',
-              outline: 'none',
-              width: 130,
-            }}
-          />
-        ) : (
-          <IconButton icon="file-add" title="New board" onClick={() => setNaming(true)} />
-        )}
+        />
         {vm.doc && (
           <IconButton
             icon="trash"
+            iconSize={13}
+            textColor="var(--text-3)"
             title="Delete this board"
             onClick={() => vm.removeBoard(vm.doc!.id)}
           />
         )}
+        </Frame>
+        <WorkspaceTabStrip
+          tabs={boardTabs.tabs}
+          activeTabId={boardTabs.activeId ?? ''}
+          onActivate={boardTabs.activate}
+          onClose={boardTabs.close}
+          onAddTab={(name) => void vm.createBoard(name)}
+          addPlaceholder="board name"
+        />
 
-        <div style={{ flex: 1 }} />
+        {/* History and view controls — their own group, so the row itself
+            can run gap-free and the tabs start exactly where Planning's do. */}
+        <Frame flow="horizontal" align="center" gap={8} shrink={0}>
+          <button
+            type="button"
+            onClick={vm.undo}
+            disabled={!vm.canUndo}
+            title="Undo (Ctrl+Z)"
+            style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: vm.canUndo ? 'var(--text-2)' : 'var(--text-3)', cursor: vm.canUndo ? 'pointer' : 'default' }}
+          >
+            UNDO
+          </button>
+          <button
+            type="button"
+            onClick={vm.redo}
+            disabled={!vm.canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: vm.canRedo ? 'var(--text-2)' : 'var(--text-3)', cursor: vm.canRedo ? 'pointer' : 'default' }}
+          >
+            REDO
+          </button>
 
-        <button
-          type="button"
-          onClick={vm.undo}
-          disabled={!vm.canUndo}
-          title="Undo (Ctrl+Z)"
-          style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: vm.canUndo ? 'var(--text-2)' : 'var(--text-3)', cursor: vm.canUndo ? 'pointer' : 'default' }}
-        >
-          UNDO
-        </button>
-        <button
-          type="button"
-          onClick={vm.redo}
-          disabled={!vm.canRedo}
-          title="Redo (Ctrl+Shift+Z)"
-          style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: vm.canRedo ? 'var(--text-2)' : 'var(--text-3)', cursor: vm.canRedo ? 'pointer' : 'default' }}
-        >
-          REDO
-        </button>
+          <div style={{ width: 1, height: 16, background: 'var(--border-1)' }} />
 
-        <div style={{ width: 1, height: 16, background: 'var(--border-1)' }} />
+          <button
+            type="button"
+            onClick={vm.zoomToFit}
+            title="Zoom to fit (Ctrl+1)"
+            style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}
+          >
+            FIT
+          </button>
+          <button
+            type="button"
+            onClick={vm.resetZoom}
+            title="Reset zoom (Ctrl+0)"
+            style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', minWidth: 44, textAlign: 'right' }}
+          >
+            {Math.round(vm.zoom * 100)}%
+          </button>
 
-        <button
-          type="button"
-          onClick={vm.zoomToFit}
-          title="Zoom to fit (Ctrl+1)"
-          style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}
-        >
-          FIT
-        </button>
-        <button
-          type="button"
-          onClick={vm.resetZoom}
-          title="Reset zoom (Ctrl+0)"
-          style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', minWidth: 44, textAlign: 'right' }}
-        >
-          {Math.round(vm.zoom * 100)}%
-        </button>
+          <div style={{ width: 1, height: 16, background: 'var(--border-1)' }} />
 
-        <div style={{ width: 1, height: 16, background: 'var(--border-1)' }} />
-
-        <button
-          type="button"
-          onClick={() => setShowDocs((v) => !v)}
-          title="Toggle the project's .research docs"
-          style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: showDocs ? 'var(--text-1)' : 'var(--text-3)', cursor: 'pointer' }}
-        >
-          DOCS
-        </button>
+          <button
+            type="button"
+            onClick={() => setShowDocs((v) => !v)}
+            title="Toggle the project's .research docs"
+            style={{ ...MONO, fontSize: 10, background: 'transparent', border: 'none', color: showDocs ? 'var(--text-1)' : 'var(--text-3)', cursor: 'pointer' }}
+          >
+            DOCS
+          </button>
+        </Frame>
       </Frame>
 
       {vm.error && (
@@ -286,16 +317,45 @@ export function CanvasView({
           style={{ width: PANEL_W, minWidth: PANEL_W, minHeight: 0 }}
           stroke={{ right: { color: 'border-1' } }}
         >
-          <Frame padding={{ top: 8, bottom: 8, left: 10, right: 10 }} stroke={{ bottom: { color: 'border-1' } }}>
-            <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.08em' }}>LAYERS</span>
+          {/* Same docked-panel header as Planning's NODES — search slides over
+              the title and the list flattens to the matches. */}
+          <Frame ref={layerSearchRef} shrink={0}>
+            <SidebarHeader
+              framed
+              label={`LAYERS (${layerCount})`}
+              searchOpen={layerSearchOpen || !!layerQuery}
+              actions={
+                !layerSearchOpen && !layerQuery ? (
+                  <IconButton
+                    as="span"
+                    icon="search"
+                    iconSize={14}
+                    title="Search layers"
+                    textColor="var(--text-3)"
+                    onClick={() => setLayerSearchOpen(true)}
+                  />
+                ) : undefined
+              }
+              search={
+                <Search
+                  value={layerQuery}
+                  onChange={setLayerQuery}
+                  placeholder="Search layers…"
+                  w="fill"
+                  autoFocus={layerSearchOpen && !layerQuery}
+                  listItems={layerListItems}
+                  onHighlightChange={setLayerHighlightId}
+                />
+              }
+            />
           </Frame>
           {vm.doc ? (
             <CanvasLayersPanel
               doc={vm.doc}
               selectedIds={vm.selectedIds}
-              onSelect={(id, additive) => (additive ? vm.toggleSelect(id) : vm.selectOnly(id))}
-              onToggleHidden={(id, hidden) => vm.updateNodeFields(id, { hidden })}
-              onToggleLocked={(id, locked) => vm.updateNodeFields(id, { locked })}
+              onSelect={selectLayer}
+              onToggleHidden={toggleLayerHidden}
+              onToggleLocked={toggleLayerLocked}
               dirtyComponentIds={vm.dirtyComponentIds}
               onPush={(componentId) => vm.pushComponent(componentId)}
               fileStages={fileStages}
@@ -304,6 +364,8 @@ export function CanvasView({
               planNodeLinks={planNodeLinks}
               onShowInWorkspace={onOpenFile}
               onShowInPlanning={onShowInPlanning}
+              query={layerQuery}
+              highlightId={layerHighlightId}
             />
           ) : (
             <Frame grow />
@@ -318,6 +380,8 @@ export function CanvasView({
         ) : vm.doc ? (
           <CanvasBoard
             doc={vm.doc}
+            imageUrl={imageUrl}
+            linked={vm.linked}
             // From state, not the ref: the screen-space chrome has to repaint
             // when the camera moves, and panning never changes the zoom level.
             camera={vm.camera}
@@ -325,10 +389,17 @@ export function CanvasView({
             // derived elsewhere — so the selection ring lands on the frame it
             // names instead of on its stale model coordinates.
             rectOf={vm.rectOf}
+            orientedOf={vm.orientedOf}
+            pathHint={vm.pathHint}
             selectedIds={vm.selectedIds}
             previewRect={vm.previewRect}
-            previewKind={vm.dragKind === 'draw' || vm.dragKind === 'marquee' ? vm.dragKind : null}
-            showHandles={vm.dragKind === null || vm.dragKind === 'resize'}
+            previewKind={vm.dragKind === 'draw' || vm.dragKind === 'marquee' ? vm.dragKind : vm.dragKind === 'point-marquee' ? 'marquee' : null}
+            pen={vm.pen}
+            penCursor={vm.penCursor}
+            vectorEdit={vm.vectorEdit}
+            onPointPointerDown={vm.startPointDrag}
+            insertPreview={vm.insertPreview}
+            showHandles={(vm.dragKind === null || vm.dragKind === 'resize' || vm.dragKind === 'rotate' || vm.dragKind === 'path-slide') && !vm.editingVectorId}
             resizeHandles={vm.resizeHandles}
             containerRef={vm.panZoom.containerRef}
             viewportRef={vm.panZoom.viewportRef}
@@ -346,20 +417,14 @@ export function CanvasView({
             }}
             onPointerLeave={vm.onBoardPointerLeave}
             onStartResize={vm.startResize}
+            onStartRotate={vm.startRotate}
+            onStartPathSlide={vm.startPathSlide}
             onStartMove={vm.startMoveDrag}
             onDoubleClick={vm.onBoardDoubleClick}
             guides={vm.guides}
             dropTargetId={vm.dropTargetId}
             dropIndicator={vm.dropIndicator}
             hoverId={vm.hoverId}
-            canAlign={vm.canAlign}
-            canDistribute={vm.canDistribute}
-            canGroup={vm.canGroup}
-            canUngroup={vm.canUngroup}
-            onAlign={vm.alignSelected}
-            onDistribute={vm.distributeSelected}
-            onGroup={vm.groupSelected}
-            onUngroup={vm.ungroupSelected}
             crosshair={vm.tool !== 'select'}
             tool={vm.tool}
             onSelectTool={vm.setTool}
@@ -375,7 +440,7 @@ export function CanvasView({
         ) : (
           <Frame grow flow="vertical" align="center" justify="center" gap={12}>
             <span style={{ ...MONO, fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.06em' }}>
-              NO BOARDS YET
+              {vm.docs.length > 0 ? 'NO BOARD OPEN' : 'NO BOARDS YET'}
             </span>
             <button
               type="button"
@@ -399,16 +464,31 @@ export function CanvasView({
         {/* Inspector */}
         <Frame
           flow="vertical"
-          style={{ width: PANEL_W, minWidth: PANEL_W, minHeight: 0 }}
+          style={{ width: INSPECTOR_W, minWidth: INSPECTOR_W, minHeight: 0 }}
           stroke={{ left: { color: 'border-1' } }}
         >
-          <Frame padding={{ top: 8, bottom: 8, left: 10, right: 10 }} stroke={{ bottom: { color: 'border-1' } }}>
-            <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.08em' }}>PROPERTIES</span>
-          </Frame>
+          <SidebarHeader framed label="PROPERTIES" />
           <CanvasInspector
             node={vm.singleSelected}
+            linked={vm.selectedLinked}
+            onLinkedPropChange={vm.setLinkedPropValue}
+            onOpenMainComponent={(filePath) => void vm.openMainComponent(filePath)}
+            onDetachLinked={vm.detachSelectedLinked}
             selectionCount={vm.selectedIds.size}
             parentFlow={vm.selectionParentFlow}
+            pathPiece={vm.selectionPathPiece}
+            arrange={{
+              canAlign: vm.canAlign,
+              canDistribute: vm.canDistribute,
+              canGroup: vm.canGroup,
+              canUngroup: vm.canUngroup,
+              onAlign: vm.alignSelected,
+              onDistribute: vm.distributeSelected,
+              onGroup: vm.groupSelected,
+              onUngroup: vm.ungroupSelected,
+              canPattern: vm.canPattern,
+              onPattern: vm.patternSelected,
+            }}
             component={vm.selectedComponent}
             activeVariant={vm.selectedVariant}
             canPromote={vm.canPromote}
@@ -416,6 +496,26 @@ export function CanvasView({
             onRectChange={vm.updateSelectedRect}
             onStyleChange={vm.updateSelectedStyle}
             onTextChange={(id, text) => vm.updateNodeFields(id, { text } as never)}
+            onFontChange={vm.updateNodeFont}
+            onComponentStyleChange={vm.updateVariantRootStyle}
+            onVectorChange={(id, patch, gesture) => vm.updateNodeFields(id, patch as never, gesture)}
+            editingVectorId={vm.editingVectorId}
+            pointSelection={vm.pointSelection}
+            onPointType={vm.setSelectedPointType}
+            onPointRadius={vm.setSelectedPointRadius}
+            onEditPoints={vm.enterVectorEdit}
+            onDoneEditing={vm.exitVectorEdit}
+            canMakeSvgComponent={vm.canMakeSvgComponent}
+            onMakeSvgComponent={async () => {
+              try {
+                await vm.makeSvgComponent()
+                onWorkspaceChanged?.()
+              } catch (e) {
+                vm.setError(e instanceof Error ? e.message : String(e))
+              }
+            }}
+            imageUrl={imageUrl}
+            images={vm.imageSources}
             // Promotion writes straight into `.canvas` with a derived path —
             // no modal, because a staging file needs no approval. Renaming or
             // relocating it is what the modal is for now, opened separately.

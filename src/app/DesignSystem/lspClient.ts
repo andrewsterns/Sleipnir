@@ -2,6 +2,7 @@ import { LSPClient, languageServerExtensions, Workspace, LSPPlugin, jumpToDefini
 import { Text, StateField, StateEffect, type TransactionSpec, type ChangeSet } from '@codemirror/state'
 import { EditorView, Decoration, type DecorationSet } from '@codemirror/view'
 import { readRepoFile, readWorkspaceFile } from '../../00_planning/api/sleipnirApi'
+import { getLspFileOpener } from './lspFileOpener'
 
 // Must match tools/lsp-proxy.mjs's FAKE_ROOT_URI exactly — the proxy
 // rewrites this to the real absolute repo path server-side, since the
@@ -127,18 +128,6 @@ export function uriForPath(root: LspRoot, relPath: string): string {
   return schemeFor(root).uriForPath(relPath)
 }
 
-// Bridges this plain (non-React) module to App.tsx's openFile() routing
-// (Components vs Open Files) — registered once from an App.tsx effect. Lets
-// SleipnirWorkspace actually bring a not-yet-open file's tab to front for a
-// cross-file LSP navigation or rename, which the library's default
-// Workspace has no hook for at all (ROADMAP.md's Phase 1 — the fix for
-// "go-to-definition/rename only work for already-open tabs").
-type LspFileOpener = (repoRelativePath: string) => void
-let lspFileOpener: LspFileOpener | null = null
-export function registerLspFileOpener(handler: LspFileOpener) {
-  lspFileOpener = handler
-}
-
 // Resolved once openFile()'s resulting CodeEditorView mounts and registers
 // itself with the workspace (see SleipnirWorkspace.openFile below) — or
 // after a timeout, so a jump to a path that can't actually be opened (a
@@ -260,6 +249,7 @@ class SleipnirWorkspace extends Workspace {
     if (existingView) return existingView
 
     const path = this.pathForUri(uri)
+    const lspFileOpener = getLspFileOpener()
     if (path == null || !lspFileOpener) {
       console.info(`[lsp] can't display ${uri} — outside this workspace, or no file-opener registered yet`)
       return null
@@ -307,6 +297,7 @@ class SleipnirWorkspace extends Workspace {
       return
     }
     const path = this.pathForUri(uri)
+    const lspFileOpener = getLspFileOpener()
     if (path == null || !lspFileOpener) return
     lspFileOpener(path)
     waitForFile(uri).then((file) => {

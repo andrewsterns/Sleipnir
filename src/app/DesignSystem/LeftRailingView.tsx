@@ -238,7 +238,7 @@ function sortTree(nodes: FileTreeNode[], order: SortOrder): FileTreeNode[] {
 
 // Sleipnir's own project folders, pinned (in this order) to the top of the
 // workspace root regardless of sort — see pinRootFolders.
-export const PINNED_ROOT_FOLDERS = ['.planning', '.canvas']
+export const PINNED_ROOT_FOLDERS = ['.planning', '.components']
 
 // Root level only: pulls PINNED_ROOT_FOLDERS to the front, keeping the sorted
 // order for everything else.
@@ -445,15 +445,17 @@ function TreeNodeRow({
           iconStart={
             <Icon
               // Sleipnir's own folders get their feature's icon so they read as
-              // app furniture rather than project source. '.canvas' is the
+              // app furniture rather than project source. '.components' is the
               // staging tier for canvas components; '.boards' is the board store
               // nested inside it.
               name={
                 node.name === '.planning'
                   ? 'network'
-                  : node.name === '.canvas' || node.name === '.boards'
-                    ? 'frame'
-                    : 'folder'
+                  : node.name === '.components'
+                    ? 'component'
+                    : node.name === '.boards'
+                      ? 'canvas'
+                      : 'folder'
               }
               size={16}
             />

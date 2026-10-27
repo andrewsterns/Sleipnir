@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sleipnir: desktop workbench for UI design and code</title>
+  <meta name="description" content="Plan, design and build UI in one desktop app: a live planning graph, a canvas that writes real React, a code editor, terminal and AI agent." />
+  <link rel="icon" href="icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sometype+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="logo.svg" alt="" />SLEIPNIR</a>
+      <nav class="links">
+        <a href="#features" class="hide-sm">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#download">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="intro" id="download">
+      <div class="wrap">
+        <p class="label">Desktop app · Windows &amp; macOS · <span data-version>latest</span></p>
+        <h1>Plan it, draw it, ship it, all in one workbench.</h1>
+        <p class="lede">
+          Sleipnir connects a live planning graph, a design canvas that writes real React into your repo, a code
+          editor with a real TypeScript language server, a terminal and an AI agent. Bring your own Claude, Gemini or
+          local Ollama model. Your code never leaves your machine unless you send it.
+        </p>
+        <div class="actions">
+          <a class="btn primary" data-download="win" href="https://github.com/andrewsterns/Sleipnir/releases/latest">Download for Windows</a>
+          <a class="btn" data-download="mac" href="https://github.com/andrewsterns/Sleipnir/releases/latest">Download for macOS</a>
+          <a class="btn" data-download="linux" href="https://github.com/andrewsterns/Sleipnir/releases/latest" hidden>Linux AppImage</a>
+        </div>
+        <p class="meta">Free for personal use. Updates install themselves. <a href="https://github.com/andrewsterns/Sleipnir/releases">All releases</a></p>
+        <!-- Swap in a real screenshot: save it as website/screenshot.png and replace this div's contents with <img src="screenshot.png" alt="…" />. -->
+        <div class="shot" aria-hidden="true">SCREENSHOT</div>
+      </div>
+    </div>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>What's inside</h2>
+        <div class="grid">
+          <div class="cell">
+            <h3>Planning graph</h3>
+            <p>Break a product into a live dependency graph of plans and components, stored as files in your repo.</p>
+          </div>
+          <div class="cell">
+            <h3>Canvas → React</h3>
+            <p>Lay out frames visually; Sleipnir writes and keeps in sync the React source for them.</p>
+          </div>
+          <div class="cell">
+            <h3>A real editor</h3>
+            <p>CodeMirror with a TypeScript language server: hover, diagnostics, go-to-definition, rename.</p>
+          </div>
+          <div class="cell">
+            <h3>AI agent, your model</h3>
+            <p>An agent that plans and stages changes for review. Use your own Anthropic, Gemini or OpenAI key, or Ollama locally.</p>
+          </div>
+          <div class="cell">
+            <h3>Terminal &amp; Git</h3>
+            <p>Multiple real shells, source control and test results without leaving the app.</p>
+          </div>
+          <div class="cell">
+            <h3>Local-first</h3>
+            <p>No account, no telemetry. Files stay on disk; only what you send to an AI provider leaves.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <div class="wrap">
+        <h2>Pricing</h2>
+        <div class="plans">
+          <div class="plan">
+            <span class="name">Free</span>
+            <span class="price">$0</span>
+            <ul>
+              <li>Every core feature</li>
+              <li>Up to 3 projects</li>
+              <li>Bring your own AI model</li>
+              <li>Personal &amp; noncommercial use</li>
+            </ul>
+            <a class="btn" data-download="win" href="https://github.com/andrewsterns/Sleipnir/releases/latest">Download</a>
+          </div>
+          <div class="plan pro">
+            <span class="name">Pro · Founder license</span>
+            <span class="price">$39<small>once, for life</small></span>
+            <ul>
+              <li>Everything in Free</li>
+              <li>Unlimited projects</li>
+              <li>Multiple windows</li>
+              <li>MCP servers for the agent</li>
+              <li>Commercial-use license</li>
+              <li>Every future update</li>
+            </ul>
+            <a class="btn primary" data-buy href="#pricing">Buy Founder license</a>
+          </div>
+        </div>
+        <p class="meta">
+          Prices in USD; tax is calculated at checkout. Payments are handled by Lemon Squeezy, our merchant of record.
+          Activate your key in Settings ▸ License. 14-day refunds, no questions asked.
+        </p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap">
+        <h2>Questions</h2>
+        <dl class="faq">
+          <div>
+            <dt>Does Pro include AI usage?</dt>
+            <dd>No. You use your own Claude, Gemini or OpenAI key, or a free local model with Ollama, so you only pay your provider for what you use.</dd>
+          </div>
+          <div>
+            <dt>What counts as commercial use?</dt>
+            <dd>Using Sleipnir for paid work or inside a business. Personal projects, learning and open-source hobby work are free.</dd>
+          </div>
+          <div>
+            <dt>How many computers can I use it on?</dt>
+            <dd>Up to 3 of your own. Remove the key from one in Settings ▸ License to move it to another.</dd>
+          </div>
+          <div>
+            <dt>Is "Founder" pricing going away?</dt>
+            <dd>Yes. It's for early supporters. Later licenses may cost more or be subscriptions; founder keys stay lifetime.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© <span id="year">2026</span> Andrew Sterns</span>
+      <nav>
+        <a href="terms.html">Terms</a>
+        <a href="refund.html">Refunds</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/andrewsterns/Sleipnir/issues">Support</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="site.js" defer></script>
+</body>
+</html>

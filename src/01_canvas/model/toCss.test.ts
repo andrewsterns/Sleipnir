@@ -71,3 +71,12 @@ describe('board/IR agreement', () => {
     expect(padded).toMatchObject({ boxSizing: 'border-box', width: 246.5, height: 227.5, padding: '17px' })
   })
 })
+
+describe('margin', () => {
+  it('is spacing inside a layout, and ignored where the rect is the position', () => {
+    const rect = { x: 5, y: 5, w: 10, h: 10 }
+    expect(positionCss(rect, 'vertical', { margin: 8 }).margin).toBe('8px')
+    expect(positionCss(rect, 'horizontal', { margin: { top: 1, right: 2, bottom: 3, left: 4 } }).margin).toBe('1px 2px 3px 4px')
+    expect(positionCss(rect, 'freeform', { margin: 8 }).margin).toBeUndefined()
+  })
+})

@@ -89,6 +89,14 @@ export function createWorkspaceFile(...args: Parameters<PlatformAPI['createWorks
   return getPlatformAPI().createWorkspaceFile(...args)
 }
 
+export function readWorkspaceImageDataUrl(...args: Parameters<PlatformAPI['readWorkspaceImageDataUrl']>) {
+  return getPlatformAPI().readWorkspaceImageDataUrl(...args)
+}
+
+export function createWorkspaceBinaryFile(...args: Parameters<PlatformAPI['createWorkspaceBinaryFile']>) {
+  return getPlatformAPI().createWorkspaceBinaryFile(...args)
+}
+
 export function createWorkspaceDir(...args: Parameters<PlatformAPI['createWorkspaceDir']>) {
   return getPlatformAPI().createWorkspaceDir(...args)
 }
@@ -254,6 +262,12 @@ export function saveScratchToFolder() {
   return window.electronAPI?.saveScratchToFolder?.()
 }
 
+// Copies the open project (scratch or real) into a new folder the user picks
+// and switches this window to the copy. Electron-only, same as above.
+export function saveProjectAs() {
+  return window.electronAPI?.saveProjectAs?.()
+}
+
 // Project switching — also Electron-only, same reasoning as openWorkspace
 // above. `undefined` in a plain browser tab; callers should treat that as
 // "unavailable" (e.g. disabling the File menu's Open Recent/New Window items).
@@ -286,7 +300,7 @@ export function getAgentScaffolding() {
   return window.electronAPI?.getAgentScaffolding?.()
 }
 
-export function setAgentScaffolding(patch: { commit?: boolean }) {
+export function setAgentScaffolding(patch: { commit?: boolean; enabled?: boolean }) {
   return window.electronAPI?.setAgentScaffolding?.(patch)
 }
 

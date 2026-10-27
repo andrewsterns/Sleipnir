@@ -1,6 +1,6 @@
 # Privacy
 
-_Last updated: 2026-08-10_
+_Last updated: 2026-10-26_
 
 Sleipnir is a **local desktop application**. There is no Sleipnir account, no
 Sleipnir server, and no Sleipnir-operated backend that your data passes
@@ -71,10 +71,22 @@ being checked), handled under
 [GitHub's privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
 No personal data of yours is attached to these checks by Sleipnir.
 
+**3. License activation — to Lemon Squeezy, only if you enter a Sleipnir Pro key.**
+
+Sleipnir Pro is sold through [Lemon Squeezy](https://www.lemonsqueezy.com),
+which acts as the merchant of record. When you enter a license key, the app
+sends that key and your computer's name (so you can tell your activations
+apart) to Lemon Squeezy's license API to activate it, then re-checks the key
+about once a week. Nothing else is sent: no files, usage, or activity. The free
+version never makes this call. Your purchase itself (name, email, payment) is
+handled by Lemon Squeezy under its
+[privacy policy](https://www.lemonsqueezy.com/privacy); the key is stored
+encrypted on your machine, like API keys above.
+
 ## What we do **not** do
 
 - No analytics, usage tracking, telemetry, fingerprinting, or advertising.
-- No Sleipnir account, login, or user database.
+- No Sleipnir account, login, or user database (a Pro license is just a key).
 - No Sleipnir-operated servers that your files or activity pass through.
 - No selling or sharing of data (there is none to sell).
 

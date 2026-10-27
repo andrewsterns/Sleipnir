@@ -5,8 +5,78 @@
     <link rel="icon" type="image/svg+xml" href="/Sleipnir.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sleipnir | IBCS Tactical Dashboard</title>
+    <script>
+      // Apply the saved theme before first paint so the boot screen (and the
+      // app after it) never flashes the wrong ground. Mirrors applyTheme /
+      // getSavedTheme in src/00_themes/index.ts.
+      (function () {
+        var theme = 'tactical'
+        try { theme = localStorage.getItem('sleipnir-theme') || theme } catch (e) {}
+        document.documentElement.classList.add('theme-' + theme)
+      })()
+    </script>
+    <style>
+      /* Boot screen: covers the app while it mounts and warms up; src/boot.ts
+         drives the progress bar and removes it once that work is done. */
+      html, body { margin: 0; background: #1d1c1f; }
+      .sleipnir-boot {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        align-items: center;
+        justify-content: center;
+        background: #1d1c1f;
+        color: #e5e3ed;
+        transition: opacity 200ms ease-out;
+      }
+      .sleipnir-boot.is-done { opacity: 0; pointer-events: none; }
+      .sleipnir-boot .sleipnir-loader { width: 92px; }
+      .sleipnir-boot-status {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+      }
+      .sleipnir-boot-label {
+        font: 11px 'Sometype Mono', 'Courier New', monospace;
+        letter-spacing: 0.08em;
+        opacity: 0.6;
+      }
+      .sleipnir-boot-bar {
+        width: 120px;
+        height: 2px;
+        overflow: hidden;
+        background: color-mix(in srgb, currentColor 15%, transparent);
+      }
+      .sleipnir-boot-bar-fill {
+        width: 0;
+        height: 100%;
+        background: currentColor;
+        transition: width 250ms ease-out;
+        /* Until the bundle runs and reports real progress. */
+        animation: sleipnir-boot-creep 1.5s ease-out forwards;
+      }
+      @keyframes sleipnir-boot-creep { to { width: 30%; } }
+      .sleipnir-boot.is-preview .sleipnir-boot-bar-fill {
+        animation: sleipnir-boot-fill 2.4s ease-in-out infinite;
+      }
+      @keyframes sleipnir-boot-fill { from { width: 0; } to { width: 100%; } }
+      html.theme-light, html.theme-light body, .theme-light .sleipnir-boot { background: #eceef2; }
+      .theme-light .sleipnir-boot { color: #14161a; }
+    </style>
+    <!--sleipnir-loader-css-->
   </head>
   <body>
+    <div id="sleipnir-boot" class="sleipnir-boot">
+      <!--sleipnir-loader-->
+      <div class="sleipnir-boot-status">
+        <span class="sleipnir-boot-label">loading...</span>
+        <div class="sleipnir-boot-bar" role="progressbar" aria-label="Loading Sleipnir"><div class="sleipnir-boot-bar-fill"></div></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

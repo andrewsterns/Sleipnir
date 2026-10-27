@@ -179,10 +179,9 @@ export function usePanZoom(options: UsePanZoomOptions = {}): PanZoomHandle {
   // attaches wheel listeners passively, and a passive listener cannot
   // preventDefault — which would let ctrl+wheel trigger the browser's own page
   // zoom right through the canvas.
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const onWheel = (e: WheelEvent) => {
+  const onWheel = useCallback(
+    (e: WheelEvent) => {
+      const el = e.currentTarget as HTMLElement
       e.preventDefault()
       const rect = el.getBoundingClientRect()
       const px = e.clientX - rect.left
@@ -194,13 +193,40 @@ export function usePanZoom(options: UsePanZoomOptions = {}): PanZoomHandle {
         // a mouse wheel (few large ones) feel like the same gesture.
         camera.current = zoomAt(camera.current, px, py, camera.current.k * Math.exp(-e.deltaY * 0.002))
       } else {
-        camera.current = panBy(camera.current, -e.deltaX, -e.deltaY)
+        // Shift+wheel scrolls sideways on a mouse with no horizontal wheel.
+        const dx = e.shiftKey && e.deltaX === 0 ? e.deltaY : e.deltaX
+        const dy = e.shiftKey && e.deltaX === 0 ? 0 : e.deltaY
+        camera.current = panBy(camera.current, -dx, -dy)
       }
       apply()
-    }
+    },
+    [wheelMode, apply],
+  )
+
+  // Bound to whichever element the container ref holds NOW, re-checked after
+  // every commit — the same reason as the transform effect above. A one-shot
+  // effect on mount found no element (the board renders only once a board has
+  // loaded) and never ran again, so the wheel did nothing at all: no scroll,
+  // no ctrl+wheel zoom.
+  const wheelBinding = useRef<{ el: HTMLDivElement; listener: (e: WheelEvent) => void } | null>(null)
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    const bound = wheelBinding.current
+    if (bound?.el === el && bound?.listener === onWheel) return
+    bound?.el.removeEventListener('wheel', bound.listener)
+    wheelBinding.current = null
+    if (!el) return
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [wheelMode, apply])
+    wheelBinding.current = { el, listener: onWheel }
+  })
+  useEffect(
+    () => () => {
+      const bound = wheelBinding.current
+      bound?.el.removeEventListener('wheel', bound.listener)
+      wheelBinding.current = null
+    },
+    [],
+  )
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     // Middle button or space+drag pans from anywhere, including over a node —

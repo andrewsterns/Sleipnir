@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { AgentChat } from '../AgentChat/AgentChat'
 import { ApiKeySettings } from '../AgentChat/ApiKeySettings'
-import { MODEL_OPTIONS, OLLAMA_MODEL_ID, type KeyStatus, type ModelStatus } from '../AgentChat/iApiKeySettings'
+import { ModelPicker } from '../AgentChat/ModelPicker'
+import { useAiSettings } from '../AgentChat/useAiSettings'
 import type { GraphNode } from '../../00_planning/graph/types'
 import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from '../shellLayout'
 
@@ -25,20 +26,14 @@ interface AgentDockProps {
 // mounted afterward so the conversation survives closing the panel.
 export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlanNodeCreated, shiftUp }) => {
   const [everOpened, setEverOpened] = useState(false)
-  const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null)
-  const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null)
-  // The gear here is the primary place to manage the key/model — right where
+  const ai = useAiSettings()
+  // The gear here is the primary place to connect models — right where
   // you're chatting — not buried in the full Settings page (Settings still
   // has its own copy for discoverability from the gear in NavRail).
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  useEffect(() => {
-    window.settingsAPI?.getKeyStatus('anthropic').then(setKeyStatus)
-    window.settingsAPI?.getModel().then(setModelStatus)
-  }, [])
-
-  const modelLabel = MODEL_OPTIONS.find((m) => m.id === modelStatus?.model)?.label
-  const usingOllama = modelStatus?.model === OLLAMA_MODEL_ID
+  const ollamaRunning = !!ai.providers?.find((p) => p.id === 'ollama')?.connected
+  const needsSetup = ai.providers !== null && !ai.anyCloudConnected && !ollamaRunning
 
   const toggle = () => {
     onOpenChange(!open)
@@ -81,7 +76,10 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
             left: 0,
             bottom: 0,
             height: DOCK_PANEL_HEIGHT,
-            zIndex: LAYER.dock,
+            // The sibling docks' floating toggles share LAYER.dock and come
+            // later in the DOM, so they'd paint over the Connect popover that
+            // hangs above this panel — lift the panel while it's open.
+            zIndex: settingsOpen ? LAYER.dock + 1 : LAYER.dock,
             display: open ? 'flex' : 'none',
           }}
           fill={{ solid: 'bg-1' }}
@@ -95,22 +93,14 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
             stroke={{ bottom: { color: 'border-1' } }}
             shrink={0}
           >
-            <Frame flow="horizontal" align="center" gap={10}>
-              <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-                AI CHAT
-              </span>
-              {keyStatus && (
-                <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-3)', opacity: 0.7, ...MONO }}>
-                  {usingOllama || !keyStatus.configured
-                    ? '· Local Ollama'
-                    : `· ${modelLabel ?? 'Anthropic'} (····${keyStatus.hint})`}
-                </span>
-              )}
+            <Frame flow="horizontal" align="center" gap={10} minW={0}>
+              <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>AI CHAT</span>
+              {window.settingsAPI && <ModelPicker ai={ai} onConnect={() => setSettingsOpen(true)} />}
             </Frame>
             <Frame flow="horizontal" align="center" gap={12} style={{ position: 'relative' }}>
               <button
                 onClick={() => setSettingsOpen((v) => !v)}
-                title="AI chat settings — key & model"
+                title="Connect models"
                 style={{
                   background: settingsOpen ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
                   border: 'none',
@@ -124,13 +114,7 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
                 <Icon name="settings" size={13} />
               </button>
               {settingsOpen && (
-                <ApiKeySettings
-                  align="right"
-                  direction="up"
-                  onClose={() => setSettingsOpen(false)}
-                  onChanged={setKeyStatus}
-                  onModelChanged={(id) => setModelStatus((s) => (s ? { ...s, model: id } : s))}
-                />
+                <ApiKeySettings ai={ai} align="right" direction="up" onClose={() => setSettingsOpen(false)} />
               )}
               <button
                 onClick={() => onOpenChange(false)}
@@ -142,7 +126,11 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
             </Frame>
           </Frame>
           <Frame grow minH={0}>
-            <AgentChat onPlanNodeCreated={onPlanNodeCreated} />
+            <AgentChat
+              onPlanNodeCreated={onPlanNodeCreated}
+              needsSetup={needsSetup}
+              onConnectModels={() => setSettingsOpen(true)}
+            />
           </Frame>
         </Frame>
       )}

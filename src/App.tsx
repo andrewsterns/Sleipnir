@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import './00_themes/default.css'
 import './00_themes/dark.css'
 import './00_themes/houseplant.css'
@@ -11,16 +11,17 @@ import { KeybindingsController } from './00_keybindings/KeybindingsController'
 import { Frame } from './app/UIKit/Frame/Frame'
 import { NavRail, type NavRailItem } from './app/NavRail/NavRail'
 import { TerminalDock } from './app/TerminalDock/TerminalDock'
+import { UpgradePrompt } from './app/License/UpgradePrompt'
 import { AgentDock } from './app/AgentDock/AgentDock'
 import { ProblemsDock } from './app/ProblemsDock/ProblemsDock'
-import { SettingsView } from './app/SettingsView/SettingsView'
+import { RunDock } from './app/RunDock/RunDock'
+import { RunControl } from './app/Run/RunControl'
+import { useRunner } from './app/Run/useRunner'
 import { TitleBar } from './app/TitleBar/TitleBar'
-import { WorkspaceView } from './app/Workspace/WorkspaceView'
 import { CommandPalette } from './app/CommandPalette/CommandPalette'
 import { PlanningView } from './00_planning/PlanningView'
-import { CanvasView } from './01_canvas/CanvasView'
-import SourceControlView from './06_source_control/SourceControlView'
-import ValidationView from './04_validation/ValidationView'
+import { CanvasView, SettingsView, SourceControlView, ValidationView, WorkspaceView } from './app/lazyViews'
+import { bootSignal } from './boot'
 import type { GraphMapId, SavedPlan } from './00_planning/graph/types'
 import {
   getPlans,
@@ -28,6 +29,7 @@ import {
   getWorkspaceInfo,
   openWorkspace,
   saveScratchToFolder,
+  saveProjectAs,
   getRecentProjects,
   openRecentProject,
   clearRecentProjects,
@@ -44,8 +46,9 @@ import { useCanvasComponentPaths } from './01_canvas/useCanvasComponentPaths'
 import { reconcileDelete, reconcileMove } from './01_canvas/model/store'
 import type { FolderBrowserHandle } from './app/DesignSystem/iFolderBrowserView'
 import type { GeneratedFile } from './app/AgentChat/iAgentChat'
-import { registerLspFileOpener } from './app/DesignSystem/lspClient'
+import { registerLspFileOpener } from './app/DesignSystem/lspFileOpener'
 import { DOCK_PANEL_HEIGHT } from './app/shellLayout'
+import { flushPendingWrites } from './app/pendingWrites'
 import { isTerminalToggle, TERMINAL_TOGGLE_DEFAULT_KEY, TERMINAL_TOGGLE_ID } from './app/shortcuts'
 import { useKeybindings } from './00_keybindings/KeybindingsController'
 
@@ -70,6 +73,10 @@ const NAV_ITEMS: NavRailItem[] = [
   { id: 'source-control', tag: 'GIT', title: 'Source Control', icon: 'git-branch' },
 ]
 
+// The boot screen stays up until the restored project's info and plans are in
+// (or there's no project to load), so the first frame isn't an empty board.
+const projectLoaded = bootSignal()
+
 function tabLabelFor(path: string): string {
   return path.split('/').pop() ?? path
 }
@@ -84,6 +91,8 @@ function App() {
   // state (open tabs, scroll position, ...) survives switching away and
   // back, without ever showing two categories' content side by side.
   const [activeCategory, setActiveCategory] = useState('planning')
+  // Set by the title bar's PRO / Upgrade badge to open Settings on its License section.
+  const [settingsRequest, setSettingsRequest] = useState<{ id: string } | null>(null)
   // Ctrl/Cmd-clicking a NavRail item opens it in a second, side-by-side pane
   // instead of replacing the primary one (see switchTo) — null means no
   // split is open, in which case the primary pane fills the whole width.
@@ -139,11 +148,14 @@ function App() {
   // folder chosen yet) — drives the TitleBar's "unsaved" label + Save action.
   const [isScratch, setIsScratch] = useState(false)
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
-  // Terminal, AI Chat, and Problems share one full-width bottom dock slot —
+  // Terminal, AI Chat, Problems and Run share one full-width bottom dock slot —
   // only one can be open at a time, or their panels would fully overlap.
   // Settings is a full page (see 'settings' in renderCategory), not part of
   // this family.
-  const [activeDock, setActiveDock] = useState<'terminal' | 'agent' | 'problems' | null>(null)
+  const [activeDock, setActiveDock] = useState<'terminal' | 'agent' | 'problems' | 'run' | null>(null)
+  // The Play button's runner — one instance, read by both the title bar's
+  // Run control and the Run dock.
+  const run = useRunner(activeProject?.path)
 
   // Ctrl+` toggles the terminal, as it does in VS Code (see app/shortcuts.ts for
   // the rule, and 00_keybindings for why it is not registered through Frame's
@@ -242,8 +254,9 @@ function App() {
       .then((info) => {
         setActiveProject(info.root ? { path: info.root, name: info.name ?? tabLabelFor(info.root) } : null)
         setIsScratch(!!info.isScratch)
+        if (!info.root) projectLoaded()
       })
-      .catch(() => {})
+      .catch(projectLoaded)
     refreshRecentProjects()
   }, [])
 
@@ -261,7 +274,11 @@ function App() {
   useEffect(() => {
     const api = window.electronAPI
     if (!api?.onBeforeClose) return
-    const unsubBeforeClose = api.onBeforeClose(() => {
+    const unsubBeforeClose = api.onBeforeClose(async () => {
+      // Debounced Canvas/editor autosaves first, so main's unsaved-project
+      // check (which runs right after this answer) sees the latest edits on
+      // disk, and a real project doesn't lose an edit made a moment ago.
+      await flushPendingWrites()
       api.respondBeforeClose?.(pendingOverrideRef.current !== null)
     })
     const unsubSaveBeforeClose = api.onSaveBeforeClose?.(async () => {
@@ -283,7 +300,10 @@ function App() {
       setPlans([])
       return
     }
-    getPlans().then(({ plans }) => setPlans(plans)).catch(() => {})
+    getPlans()
+      .then(({ plans }) => setPlans(plans))
+      .catch(() => {})
+      .finally(projectLoaded)
   }, [activeProject?.path])
 
   // Unlike `notes`/`stages` (kept live inside PlanningView.ViewModel.tsx's
@@ -296,7 +316,7 @@ function App() {
   useEffect(() => {
     if (!isPlanningWatchAvailable() || !activeProject) return
     return window.planningWatchAPI!.onChanged((info) => {
-      if (info?.stagesOnly) return
+      if (info?.stagesOnly || info?.canvasOnly) return
       getPlans().then(({ plans }) => setPlans(plans)).catch(() => {})
     })
   }, [activeProject?.path])
@@ -366,14 +386,28 @@ function App() {
     await newWindow()
   }
 
-  // File > Save Project to Folder… — relocates the scratch/unsaved project into
-  // a real folder the user picks (see electron/main.cjs's saveScratchToFolder),
-  // then repoints this window (and Planning's board) to it.
-  const onSaveProjectToFolder = async () => {
+  // File > Save Project — always available. An unsaved (scratch) project asks
+  // for a folder and moves there (see electron/main.cjs's saveScratchToFolder);
+  // a real project is already its folder, so saving it means writing the
+  // Canvas/editor autosaves still waiting on their debounce.
+  const onSaveProject = async () => {
+    await flushPendingWrites()
+    if (!isScratch) {
+      setGitRefreshToken((v) => v + 1)
+      return
+    }
     const result = await saveScratchToFolder()
     if (!result || 'error' in result) return
     applyProjectInfo(result)
-    switchTo('workspace')
+  }
+
+  // File > Save Project As… — copies the project (scratch or real) into a new
+  // folder and switches this window to the copy.
+  const onSaveProjectAs = async () => {
+    await flushPendingWrites()
+    const result = await saveProjectAs()
+    if (!result || 'error' in result) return
+    applyProjectInfo(result)
   }
 
   const onCreatePlan = (plan: SavedPlan) => {
@@ -648,7 +682,7 @@ function App() {
           />
         )
       case 'settings':
-        return <SettingsView />
+        return <SettingsView sectionRequest={settingsRequest} />
       default:
         return null
     }
@@ -668,12 +702,25 @@ function App() {
           onSaveAll={onSaveAll}
           projectName={activeProject?.name ?? null}
           isScratch={isScratch}
-          onSaveProjectToFolder={onSaveProjectToFolder}
+          onSaveProject={onSaveProject}
+          onSaveProjectAs={onSaveProjectAs}
           onOpenProject={onOpenProject}
           recentProjects={recentProjects}
           onOpenRecentProject={onOpenRecentProject}
           onClearRecentProjects={onClearRecentProjects}
           onNewWindow={onNewWindow}
+          onOpenLicense={() => {
+            setSettingsRequest({ id: 'license' })
+            switchTo('settings')
+          }}
+          runControl={
+            <RunControl
+              run={run}
+              panelOpen={activeDock === 'run'}
+              onShowPanel={() => setActiveDock('run')}
+              onTogglePanel={() => setActiveDock((cur) => (cur === 'run' ? null : 'run'))}
+            />
+          }
         />
 
         <Frame flow="horizontal" grow minH={0} clipContent>
@@ -731,7 +778,9 @@ function App() {
                       ×
                     </button>
                   )}
-                  {renderCategory(id)}
+                  {/* Non-Planning views are lazy chunks (see app/lazyViews.ts),
+                      normally already warmed by the boot screen. */}
+                  <Suspense fallback={null}>{renderCategory(id)}</Suspense>
                 </div>
               )
             })}
@@ -745,6 +794,8 @@ function App() {
             Settings gear included). */}
         {activeDock && <Frame h={DOCK_PANEL_HEIGHT} shrink={0} />}
       </Frame>
+      {/* Opens itself whenever a main-process Pro gate stops an action here. */}
+      <UpgradePrompt />
       <TerminalDock
         open={activeDock === 'terminal'}
         onOpenChange={(o) => setActiveDock(o ? 'terminal' : null)}
@@ -771,6 +822,9 @@ function App() {
           onShow: showMissingInPlanning,
         }}
       />
+      {/* Last of the docks on purpose: expanded, it covers the window below
+          the title bar — including the sibling docks' floating toggles. */}
+      <RunDock run={run} open={activeDock === 'run'} onOpenChange={(o) => setActiveDock(o ? 'run' : null)} />
       <CommandPalette onJumpToFile={jumpToProjectFile} />
     </ThemeProvider>
   )

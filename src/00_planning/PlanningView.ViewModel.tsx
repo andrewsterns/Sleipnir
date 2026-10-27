@@ -126,6 +126,13 @@ function defaultProposeAssetStages(nodes: GraphNode[]) {
     .catch(() => {})
 }
 
+// `prev` when `next` holds the same content, else `next` — a refetch that
+// changed nothing keeps the old object, so memos keyed on it stay put.
+// JSON is enough: these are plain data straight off the planning files.
+function keepIfSame<T>(prev: T, next: T): T {
+  return prev === next || JSON.stringify(prev) === JSON.stringify(next) ? prev : next
+}
+
 export function usePlanningViewModel(
   initialMapId: GraphMapId = 'welcome',
   // Set by App.tsx right before switching into Planning (see jumpToAiTab,
@@ -161,17 +168,18 @@ export function usePlanningViewModel(
     return plan ? graphForPlan(plan) : getGraphForMap(id)
   }
   const [mapId, setMapIdRaw] = useState<GraphMapId>(initialMapId)
-  // Only the initial map starts open as a tab — a fresh launch should show
-  // just Welcome, not every registered map at once. Closing a tab (see
+  // Only the initial map starts open as a tab — except Welcome, which never
+  // auto-opens: a fresh window lands on the create-plan start page, and the
+  // guide is opened on demand via its "Get Started" button. Closing a tab (see
   // closeMap) only removes it from this list, it never touches the
   // registry/graph, so every other map is still one click away via the left
-  // "PLANS" list in PlanningView.tsx.
+  // PLANS picker beside the tabs in PlanningView.tsx.
   const [openMapIds, setOpenMapIds] = useState<GraphMapId[]>(() =>
-    welcomeDismissed && initialMapId === 'welcome' ? [] : [initialMapId],
+    initialMapId === 'welcome' ? [] : [initialMapId],
   )
 
   // The single entry point for "go to this map" — opens it (if not already)
-  // and makes it active. Used by tab clicks, the left PLANS list, and
+  // and makes it active. Used by tab clicks, the PLANS picker, and
   // external jumps (focusTarget below). Exposed as `setMapId` too so existing
   // call sites (handleRemoveLibrary, DeleteLibraryModal) that just want to
   // navigate to a known-open map (e.g. 'dsm') don't need to change.
@@ -188,7 +196,7 @@ export function usePlanningViewModel(
   const setMapId = openMap
 
   // Closes a tab without deleting anything — the map stays registered and
-  // reappears in the left PLANS list, just no longer pinned to a tab.
+  // stays in the PLANS picker, just no longer pinned to a tab.
   // Welcome closes like any other tab now (it's just the default content
   // shown once nothing else is open, not a tab that refuses to close). If
   // the closed tab was active, falls back to a neighboring open tab, or
@@ -216,10 +224,18 @@ export function usePlanningViewModel(
   const [selectedId, setSelectedId] = useState<string | null>(
     initialMapId === 'welcome' && !welcomeDismissed ? WELCOME_EXAMPLE_NODE_ID : null,
   )
-  const [data, setData] = useState<GraphData>(() => graphForMap(mapId))
+  const [data, setDataRaw] = useState<GraphData>(() => graphForMap(mapId))
   const [archivedEntries, setArchivedEntries] = useState<ArchiveEntry[]>([])
-  const [notes, setNotes] = useState<GraphNode[]>([])
-  const [notesEdges, setNotesEdges] = useState<GraphEdge[]>([])
+  const [notes, setNotesRaw] = useState<GraphNode[]>([])
+  const [notesEdges, setNotesEdgesRaw] = useState<GraphEdge[]>([])
+  // Every planning-file change refetches all of these (see the watcher
+  // subscription below), and most refetches — another window's write, a
+  // stage-only touch, a re-save with nothing new — return exactly what's
+  // already here. Keeping the existing value then means nothing downstream
+  // (live, planView, the NODES list, the graph) recomputes for no change.
+  const setData = (next: GraphData) => setDataRaw((prev) => keepIfSame(prev, next))
+  const setNotes = (next: GraphNode[]) => setNotesRaw((prev) => keepIfSame(prev, next))
+  const setNotesEdges = (next: GraphEdge[]) => setNotesEdgesRaw((prev) => keepIfSame(prev, next))
   // Per-node sprint stage overlay ({ [nodeId]: stage }) — hydrated onto every
   // node in `live` below, drives the card toggle + graph visuals. Kept apart
   // from the node records so build-generated nodes can be tagged too. Backed
@@ -273,11 +289,38 @@ export function usePlanningViewModel(
     getArchivedPaths().then(({ entries }) => setArchivedEntries(entries)).catch(() => {})
   }, [])
 
+  // Nodes created since the project opened — by Add Node, the AI, or the CLI,
+  // every one of which lands in notes.json — drawn blue in the graph until
+  // they're clicked. The same "new until seen" rule the Workspace tree applies
+  // to files (see FolderBrowserView.ViewModel's newPaths). The baseline is the
+  // first notes load; PlanningView remounts per project, so it resets with one.
+  const baselineNoteIdsRef = useRef<Set<string> | null>(null)
+  const seenNewIdsRef = useRef(new Set<string>())
+  const [newNodeIds, setNewNodeIds] = useState<ReadonlySet<string>>(new Set())
+
   const refreshNotes = async () => {
     const { nodes: fresh, edges } = await getNotes()
     setNotes(fresh)
     setNotesEdges(edges)
+    const baseline = baselineNoteIdsRef.current
+    if (!baseline) {
+      baselineNoteIdsRef.current = new Set(fresh.map((n) => n.id))
+      return
+    }
+    const next = fresh.map((n) => n.id).filter((id) => !baseline.has(id) && !seenNewIdsRef.current.has(id))
+    setNewNodeIds((prev) => (prev.size === next.length && next.every((id) => prev.has(id)) ? prev : new Set(next)))
   }
+
+  // Clicking a new node is seeing it.
+  useEffect(() => {
+    if (!selectedId || !newNodeIds.has(selectedId)) return
+    seenNewIdsRef.current.add(selectedId)
+    setNewNodeIds((prev) => {
+      const next = new Set(prev)
+      next.delete(selectedId)
+      return next
+    })
+  }, [selectedId, newNodeIds])
 
   useEffect(() => {
     refreshNotes().catch(() => {})
@@ -906,6 +949,7 @@ export function usePlanningViewModel(
   return {
     mapId,
     setMapId,
+    newNodeIds,
     openMapIds,
     openMap,
     closeMap,

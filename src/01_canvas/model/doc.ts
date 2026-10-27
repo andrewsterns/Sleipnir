@@ -7,18 +7,23 @@
 // holds references to previous docs, so an in-place edit would silently
 // rewrite history.
 
+import { angleOf, apply, boundsOf, IDENTITY, invert, multiply, nodeMatrix, orientedFrom, quadOf, type Mat, type OrientedBox } from './rotation'
 import {
   CANVAS_SCHEMA_VERSION,
   childrenOf,
   isFrameNode,
+  isVectorNode,
   type CanvasDoc,
   type CanvasFrameNode,
   type CanvasNode,
   type CanvasRect,
   type CanvasStyle,
   type CanvasTextNode,
+  type CanvasVectorNode,
+  type VectorShape,
   type NodeId,
 } from './types'
+import { vectorContains } from './vectorEdit'
 
 // ── Ids ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +82,36 @@ export function createTextNode(rect: CanvasRect, text = 'Text'): CanvasTextNode 
   }
 }
 
+/** Figma's default shape fill — and the pen's default stroke, so a fresh path shows on a dark board too. */
+export const DEFAULT_VECTOR_COLOR = '#d9d9d9'
+
+const VECTOR_NAMES: Record<VectorShape, string> = { rectangle: 'Rectangle', ellipse: 'Ellipse', polygon: 'Polygon', path: 'Vector' }
+
+/**
+ * A shape or pen path. Shapes start filled, as Figma's do; a pen path starts
+ * stroked and unfilled, since an open path has no inside to fill.
+ */
+export function createVectorNode(
+  rect: CanvasRect,
+  shape: VectorShape,
+  extra: Pick<CanvasVectorNode, 'sides' | 'points' | 'closed' | 'viewBox'> = {},
+): CanvasVectorNode {
+  const name = shape === 'polygon' && (extra.sides ?? 3) === 3 ? 'Triangle' : VECTOR_NAMES[shape]
+  return {
+    id: nextId('vector'),
+    name,
+    kind: 'vector',
+    rect,
+    style:
+      shape === 'path'
+        ? { stroke: { color: DEFAULT_VECTOR_COLOR, width: 2 } }
+        : { fills: [{ type: 'solid', color: DEFAULT_VECTOR_COLOR }] },
+    shape,
+    ...(shape === 'polygon' ? { sides: extra.sides ?? 3 } : {}),
+    ...(shape === 'path' ? { points: extra.points ?? [], closed: !!extra.closed, viewBox: extra.viewBox ?? { w: rect.w, h: rect.h } } : {}),
+  }
+}
+
 // ── Traversal ──────────────────────────────────────────────────────────────
 
 /** Depth-first, parents before children. */
@@ -90,36 +125,45 @@ export function walk(doc: CanvasDoc, visit: (node: CanvasNode, parent: CanvasFra
   step(doc.nodes, null)
 }
 
+// An id → node / parent index per doc, built on first lookup and kept for as
+// long as that doc object lives. Lookups used to walk the whole tree every
+// call, and a drag makes hundreds per frame (every sibling's board rect for
+// snapping, every label's position) — quadratic in the board's size. Docs are
+// immutable (see doc.test.ts), so a doc's index can never go stale.
+interface DocIndex {
+  nodes: Map<NodeId, CanvasNode>
+  parents: Map<NodeId, CanvasFrameNode | null>
+}
+
+const indexes = new WeakMap<CanvasDoc, DocIndex>()
+
+function indexOf(doc: CanvasDoc): DocIndex {
+  let index = indexes.get(doc)
+  if (!index) {
+    const built: DocIndex = { nodes: new Map(), parents: new Map() }
+    walk(doc, (node, parent) => {
+      built.nodes.set(node.id, node)
+      built.parents.set(node.id, parent)
+    })
+    index = built
+    indexes.set(doc, index)
+  }
+  return index
+}
+
 export function findNode(doc: CanvasDoc, id: NodeId): CanvasNode | null {
-  let found: CanvasNode | null = null
-  walk(doc, (node) => {
-    if (node.id === id) found = node
-  })
-  return found
+  return indexOf(doc).nodes.get(id) ?? null
 }
 
 export function findParent(doc: CanvasDoc, id: NodeId): CanvasFrameNode | null {
-  let found: CanvasFrameNode | null = null
-  walk(doc, (node, parent) => {
-    if (node.id === id) found = parent
-  })
-  return found
+  return indexOf(doc).parents.get(id) ?? null
 }
 
 /** Ancestors outermost-first, excluding the node itself. */
 export function ancestorsOf(doc: CanvasDoc, id: NodeId): CanvasFrameNode[] {
+  const { parents } = indexOf(doc)
   const path: CanvasFrameNode[] = []
-  const step = (nodes: CanvasNode[], trail: CanvasFrameNode[]): boolean => {
-    for (const node of nodes) {
-      if (node.id === id) {
-        path.push(...trail)
-        return true
-      }
-      if (isFrameNode(node) && step(node.children, [...trail, node])) return true
-    }
-    return false
-  }
-  step(doc.nodes, [])
+  for (let parent = parents.get(id) ?? null; parent; parent = parents.get(parent.id) ?? null) path.unshift(parent)
   return path
 }
 
@@ -182,20 +226,82 @@ export function boardRectOf(doc: CanvasDoc, id: NodeId, measured?: MeasuredRects
   return { x, y, w: node.rect.w, h: node.rect.h }
 }
 
+/**
+ * The map from a node's own space (0,0 at its unrotated top-left) to the
+ * board, through every ancestor's offset AND rotation (see model/rotation.ts).
+ * A measured node's box is absolute, so it restarts the chain, exactly as in
+ * boardRectOf.
+ */
+export function boardMatrixOf(doc: CanvasDoc, id: NodeId, measured?: MeasuredRects): Mat | null {
+  const node = findNode(doc, id)
+  if (!node) return null
+  let m = IDENTITY
+  for (const n of [...ancestorsOf(doc, id), node]) {
+    const box = measured?.get(n.id)
+    m = box ? nodeMatrix(box, n.style.rotate) : multiply(m, nodeMatrix(n.rect, n.style.rotate))
+  }
+  return m
+}
+
+/**
+ * Where a node really is on the board — center, unrotated size and total
+ * rotation. Equal to boardRectOf's box (as a center) whenever nothing on the
+ * way up is rotated; the selection ring and handles are drawn from this.
+ */
+export function orientedBoxOf(doc: CanvasDoc, id: NodeId, measured?: MeasuredRects): OrientedBox | null {
+  const node = findNode(doc, id)
+  const m = boardMatrixOf(doc, id, measured)
+  if (!node || !m) return null
+  const size = measured?.get(id) ?? node.rect
+  return orientedFrom(m, size.w, size.h)
+}
+
+/** The total rotation a node shows on the board — its own plus every ancestor's. */
+export function boardAngleOf(doc: CanvasDoc, id: NodeId, measured?: MeasuredRects): number {
+  const m = boardMatrixOf(doc, id, measured)
+  return m ? angleOf(m) : 0
+}
+
+/** The axis-aligned board box around a node as drawn — rotation included. */
+export function boardBoundsOf(doc: CanvasDoc, id: NodeId, measured?: MeasuredRects): CanvasRect | null {
+  const node = findNode(doc, id)
+  const m = boardMatrixOf(doc, id, measured)
+  if (!node || !m) return null
+  const size = measured?.get(id) ?? node.rect
+  return boundsOf(quadOf(m, size.w, size.h))
+}
+
 // ── Structural edits ───────────────────────────────────────────────────────
 
 /** Rebuilds the tree, replacing the node with `id` by `fn`'s result (null deletes). */
+/**
+ * `nodes` with node `id` replaced by `fn(node)` (or removed, for null), sharing
+ * every subtree the edit doesn't touch: only the edited node's ancestors are
+ * new objects. That sharing is what lets the memoized node views and layer
+ * rows skip everything else — copying every frame on every edit re-rendered
+ * the whole board on each frame of a drag.
+ */
 function rewrite(nodes: CanvasNode[], id: NodeId, fn: (node: CanvasNode) => CanvasNode | null): CanvasNode[] {
+  let changed = false
   const out: CanvasNode[] = []
   for (const node of nodes) {
     if (node.id === id) {
+      changed = true
       const next = fn(node)
       if (next) out.push(next)
       continue
     }
-    out.push(isFrameNode(node) ? { ...node, children: rewrite(node.children, id, fn) } : node)
+    if (isFrameNode(node)) {
+      const children = rewrite(node.children, id, fn)
+      if (children !== node.children) {
+        changed = true
+        out.push({ ...node, children })
+        continue
+      }
+    }
+    out.push(node)
   }
-  return out
+  return changed ? out : nodes
 }
 
 function touch(doc: CanvasDoc, nodes: CanvasNode[]): CanvasDoc {
@@ -221,6 +327,40 @@ export function insertNode(doc: CanvasDoc, node: CanvasNode, parentId: NodeId | 
       return { ...frame, children }
     }),
   )
+}
+
+/**
+ * Swaps a node — subtree and all — for another. For whole-node edits a patch
+ * can't express: dropping a field (a shape becoming a path loses `sides`), or
+ * rebuilding a frame's children (baking a layout into fixed positions).
+ */
+export function replaceNodeById(doc: CanvasDoc, id: NodeId, next: CanvasNode): CanvasDoc {
+  if (!findNode(doc, id)) return doc
+  return touch(doc, rewrite(doc.nodes, id, () => next))
+}
+
+/**
+ * `frameId`'s subtree with every auto-layout frame turned freeform and each
+ * child pinned to where the layout actually drew it (the measured rects), so
+ * nothing moves on the board and positions survive into an SVG, which has no
+ * layout. A subtree with no auto-layout is returned as it was.
+ */
+export function bakeLayout(doc: CanvasDoc, frameId: NodeId, measured: MeasuredRects): CanvasDoc {
+  const frame = findNode(doc, frameId)
+  if (!frame || !isFrameNode(frame)) return doc
+  const bake = (node: CanvasFrameNode): CanvasFrameNode => {
+    const parentBox = boardRectOf(doc, node.id, measured)
+    const children = node.children.map((child) => {
+      const box = boardRectOf(doc, child.id, measured)
+      const placed =
+        box && parentBox && node.style.flow && node.style.flow !== 'freeform'
+          ? { ...child, rect: { x: box.x - parentBox.x, y: box.y - parentBox.y, w: box.w, h: box.h } }
+          : child
+      return isFrameNode(placed) ? bake(placed) : placed
+    })
+    return { ...node, style: { ...node.style, flow: 'freeform' }, children }
+  }
+  return replaceNodeById(doc, frameId, bake(frame))
 }
 
 export function deleteNode(doc: CanvasDoc, id: NodeId): CanvasDoc {
@@ -316,6 +456,12 @@ export interface HitOptions {
    */
   ignore?: Set<NodeId>
   /**
+   * How near a vector's outline counts as on it, in board units — callers pass
+   * a few screen pixels divided by zoom. Vectors hit by their shape, not their
+   * box, so a click in a triangle's empty corner reaches what is behind it.
+   */
+  tolerance?: number
+  /**
    * Real board rects for auto-layout-positioned nodes.
    *
    * Without these the search tests the cursor against a box that isn't on
@@ -345,26 +491,28 @@ export interface HitOptions {
 export function hitPath(doc: CanvasDoc, x: number, y: number, opts?: HitOptions): CanvasNode[] {
   const ignore = opts?.ignore
   const measured = opts?.measured
-  const search = (
-    nodes: CanvasNode[],
-    offsetX: number,
-    offsetY: number,
-    trail: CanvasNode[],
-  ): CanvasNode[] | null => {
+  const search = (nodes: CanvasNode[], parent: Mat, trail: CanvasNode[]): CanvasNode[] | null => {
     // Iterate back-to-front so the topmost sibling is found first.
     for (let i = nodes.length - 1; i >= 0; i -= 1) {
       const node = nodes[i]
       if (node.hidden) continue
       if (ignore?.has(node.id)) continue
       // A measured rect is already absolute, so it REPLACES the accumulated
-      // offset rather than adding to it — and becomes the origin its own
-      // freeform children are then offset from.
-      const rect: CanvasRect =
-        measured?.get(node.id) ?? { ...node.rect, x: node.rect.x + offsetX, y: node.rect.y + offsetY }
-      const inside = rectContains(rect, x, y)
-      if (inside || !node.style.clip) {
+      // transform rather than composing with it — and becomes the origin its
+      // own freeform children are then placed from.
+      const box = measured?.get(node.id)
+      const m = box ? nodeMatrix(box, node.style.rotate) : multiply(parent, nodeMatrix(node.rect, node.style.rotate))
+      const size = box ?? node.rect
+      // The point in the node's own unrotated space — so a rotated node is hit
+      // by its turned shape, not by the upright box it was drawn as.
+      const local = apply(invert(m), { x, y })
+      const inside =
+        rectContains({ x: 0, y: 0, w: size.w, h: size.h }, local.x, local.y) &&
+        (!isVectorNode(node) || vectorContains(node, local.x, local.y, opts?.tolerance ?? 3))
+      // A pattern piece is one unit: its insides belong to the template.
+      if ((inside || !node.style.clip) && !node.repeatOf) {
         const nextTrail = node.locked ? trail : [...trail, node]
-        const deeper = search(childrenOf(node), rect.x, rect.y, nextTrail)
+        const deeper = search(childrenOf(node), m, nextTrail)
         // Children paint over their parent, so a hit inside one wins outright.
         if (deeper !== null) return deeper
       }
@@ -375,7 +523,7 @@ export function hitPath(doc: CanvasDoc, x: number, y: number, opts?: HitOptions)
     }
     return null
   }
-  return search(doc.nodes, 0, 0, []) ?? []
+  return search(doc.nodes, IDENTITY, []) ?? []
 }
 
 /** Deepest visible, unlocked node under the point, or null. */
@@ -442,8 +590,11 @@ export function dropTargetAt(
     // hitPath can pass through an ancestor whose own box the point is outside
     // (a child that was dragged past its parent's edge). Such an ancestor is not
     // under the cursor, so offering it as a drop target would be a lie.
-    const rect = boardRectOf(doc, node.id, measured)
-    if (!rect || !rectContains(rect, x, y)) continue
+    const m = boardMatrixOf(doc, node.id, measured)
+    if (!m) continue
+    const local = apply(invert(m), { x, y })
+    const size = measured?.get(node.id) ?? node.rect
+    if (!rectContains({ x: 0, y: 0, w: size.w, h: size.h }, local.x, local.y)) continue
     return node
   }
   return null
@@ -475,8 +626,8 @@ export function boundingBoxOf(
  * Wraps the given nodes in a new parent frame sized to their bounding box —
  * the fastest way to build hierarchy, and the inverse of ungroup.
  *
- * The group is inserted at the position of the topmost member so z-order is
- * preserved, and lands in that member's parent so grouping never moves the
+ * The group is inserted at the position of the topmost member so nothing
+ * that was drawn over a member ends up under it, and lands in that member's parent so grouping never moves the
  * selection somewhere else in the tree. Children are re-based into the group's
  * coordinate space, so nothing visually moves.
  */
@@ -515,13 +666,23 @@ export function groupNodes(
       return { ...node, rect: { ...node.rect, x: board.x - box.x, y: board.y - box.y } }
     })
 
-  // Insert where the first member sat, so z-order survives.
+  // The group takes the TOPMOST member's place in the stack (Figma's rule).
+  // It used to take the bottom-most one's, which dropped every other member
+  // beneath whatever sat between them — a frame or image drawn in between
+  // then covered them, and grouping looked like it made shapes disappear.
+  // Members keep their own order inside the group.
   const container = parent ? parent.children : doc.nodes
-  const index = container.findIndex((n) => siblings.includes(n.id))
+  let top = -1
+  container.forEach((n, i) => {
+    if (siblings.includes(n.id)) top = i
+  })
+  // Where that slot is once the members themselves are lifted out.
+  const index = top < 0 ? undefined : container.slice(0, top).filter((n) => !siblings.includes(n.id)).length
+  const ordered = container.filter((n) => siblings.includes(n.id)).map((n) => members.find((m) => m.id === n.id)!)
 
   let next = doc
   for (const id of siblings) next = deleteNode(next, id)
-  next = insertNode(next, { ...group, children: members }, parent?.id ?? null, index < 0 ? undefined : index)
+  next = insertNode(next, { ...group, children: ordered }, parent?.id ?? null, index)
   return { doc: next, groupId: group.id }
 }
 
@@ -564,16 +725,16 @@ export function nodesInRect(
   measured?: MeasuredRects,
 ): CanvasNode[] {
   const out: CanvasNode[] = []
-  const step = (nodes: CanvasNode[], offsetX: number, offsetY: number) => {
+  const step = (nodes: CanvasNode[], parent: Mat) => {
     for (const node of nodes) {
       if (node.hidden || node.locked) continue
       // Same override rule as hitPath: a measured rect is absolute and becomes
       // the origin for this node's own children.
       const box = measured?.get(node.id)
-      const x = box ? box.x : node.rect.x + offsetX
-      const y = box ? box.y : node.rect.y + offsetY
-      const w = box ? box.w : node.rect.w
-      const h = box ? box.h : node.rect.h
+      const m = box ? nodeMatrix(box, node.style.rotate) : multiply(parent, nodeMatrix(node.rect, node.style.rotate))
+      const size = box ?? node.rect
+      // A rotated node is inside when its turned corners are.
+      const { x, y, w, h } = boundsOf(quadOf(m, size.w, size.h))
       const inside =
         x >= marquee.x &&
         y >= marquee.y &&
@@ -582,9 +743,9 @@ export function nodesInRect(
       // A selected frame takes its whole subtree with it, so descendants are
       // never added alongside their own ancestor.
       if (inside) out.push(node)
-      else step(childrenOf(node), x, y)
+      else step(childrenOf(node), m)
     }
   }
-  step(doc.nodes, 0, 0)
+  step(doc.nodes, IDENTITY)
   return out
 }

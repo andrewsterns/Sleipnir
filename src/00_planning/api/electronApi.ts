@@ -25,6 +25,8 @@ export interface ElectronBridge extends PlatformAPI {
   openWorkspace?(): Promise<WorkspaceInfo | { error: string } | null>
   /** Relocates the auto-provided "scratch" project (its .planning + any files created while unsaved) into a folder the user picks, repoints this window to it, and resets scratch for next time. `null` if canceled, `{error}` on failure. Only meaningful while `getWorkspaceInfo().isScratch` is true. */
   saveScratchToFolder?(): Promise<WorkspaceInfo | { error: string } | null>
+  /** File > Save Project As… — copies this window's project (scratch or real; `node_modules` skipped) into a folder the user picks and repoints this window to the copy, leaving the original untouched. `null` if canceled, `{error}` on failure. */
+  saveProjectAs?(): Promise<WorkspaceInfo | { error: string } | null>
   /** File > Open Recent's list — most-recently-opened first, capped at 10. */
   getRecentProjects?(): Promise<{ projects: RecentProject[] }>
   /** Reopens a known project path without the folder-picker dialog. `{error}` if the folder no longer exists on disk. */
@@ -32,17 +34,19 @@ export interface ElectronBridge extends PlatformAPI {
   /** File > Open Recent > Clear Recent Projects — empties the list (nothing on disk is touched, and the open project stays open). Resolves with the now-empty list. */
   clearRecentProjects?(): Promise<{ projects: RecentProject[] }>
   /** File > New Window — closes the current project in place (single-window reset; see App.tsx). Workspace and Planning both go back to their blank/no-project states. */
-  newWindow?(): Promise<{ ok: true }>
+  newWindow?(): Promise<{ ok: true } | { error: string }>
   /** File > Rename Project — sets a custom display name, stored inside the project's own `.planning/project.json` so it travels with the folder. */
   renameProject?(projectPath: string, name: string): Promise<{ name: string }>
   /** The open project's generated agent scaffolding (AGENTS.md, CLAUDE.md, the `/plan` slash commands, the vendored CLI) plus its share-with-the-team setting. `null` when no project is open. Electron-only: the web transport never calls openWorkspace, so it never scaffolds. */
   getAgentScaffolding?(): Promise<AgentScaffolding | null>
   /** Persists the share setting into this project's `.planning/project.json` and immediately re-runs the scaffolder, so flipping it takes effect without waiting for the next open. */
-  setAgentScaffolding?(patch: { commit?: boolean }): Promise<AgentScaffoldingResult>
+  setAgentScaffolding?(patch: { commit?: boolean; enabled?: boolean }): Promise<AgentScaffoldingResult>
   /** Recolors this window's native (OS-drawn) minimize/maximize/close overlay to match the active theme. Fire-and-forget; Windows-only (a no-op elsewhere). Called by ThemeController whenever the theme changes. */
   setTitleBarTheme?(colors: { color: string; symbolColor: string }): void
   /** Clones a repo from `url` into a user-picked folder (native picker), then opens it as this window's project — same repoint flow as openWorkspace. `null` if canceled, `{error}` on failure. Electron-only. */
   cloneRepo?(url: string): Promise<WorkspaceInfo | { error: string } | null>
+  /** The clipboard's image read natively — a copied PNG/JPEG/SVG/GIF/WebP file, or else a copied bitmap as PNG. `null` when there's neither. The canvas's paste fallback for what the page's paste event can't see (see src/01_canvas/model/clipboardImage.ts). Electron-only. */
+  readClipboardImage?(): Promise<{ name: string; mime: string; base64: string } | null>
   /** Fired when this window's close button/Cmd+Q is pressed — the handler must call respondBeforeClose so main knows whether to warn about unsaved staged AI content (see App.tsx's pendingOverride). */
   onBeforeClose?(callback: () => void): () => void
   respondBeforeClose?(hasUnsavedChanges: boolean): Promise<void>

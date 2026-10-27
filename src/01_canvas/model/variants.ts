@@ -60,7 +60,7 @@ export function toIdentifier(name: string): string {
 export function createComponentFromFrame(
   doc: CanvasDoc,
   frame: CanvasFrameNode,
-  options: { name?: string; target?: CanvasTarget; componentRoot?: string } = {},
+  options: { name?: string; target?: CanvasTarget; componentRoot?: string; format?: CanvasComponent['format'] } = {},
 ): { doc: CanvasDoc; component: CanvasComponent; instanceId: NodeId } {
   const now = Date.now()
   const component: CanvasComponent = {
@@ -79,6 +79,7 @@ export function createComponentFromFrame(
     props: [],
     variantPropIds: [],
     target: options.target ?? 'react',
+    ...(options.format ? { format: options.format } : {}),
     componentRoot: options.componentRoot ?? DEFAULT_COMPONENT_ROOT,
     sync: 'live',
     createdAt: now,

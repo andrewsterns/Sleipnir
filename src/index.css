@@ -34,3 +34,11 @@ body {
 .scroll-window--no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* The properties panel's number fields scrub by dragging (see
+   01_canvas/panels/useScrub.ts), so the spinners only crowd the value. */
+.scrub-field::-webkit-inner-spin-button,
+.scrub-field::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

@@ -4,8 +4,8 @@ import { createDoc, createFrameNode, insertNode } from './doc'
 
 describe('canvasDocPath', () => {
   it('lands boards inside .planning so they travel with the project and are already watched', () => {
-    expect(CANVAS_DIR).toBe('.canvas/.boards')
-    expect(canvasDocPath('canvas-abc')).toBe('.canvas/.boards/canvas-abc.json')
+    expect(CANVAS_DIR).toBe('.components/.boards')
+    expect(canvasDocPath('canvas-abc')).toBe('.components/.boards/canvas-abc.json')
   })
 })
 
@@ -19,6 +19,13 @@ describe('serialize/parse round-trip', () => {
 
     const parsed = parseDoc(serializeDoc(doc))
     expect(parsed).toEqual(doc)
+  })
+
+  // The one field the list of defaults below once forgot: losing it undid
+  // "New folder" in the components panel on every reload.
+  it('keeps component folders that hold nothing yet', () => {
+    const doc = { ...createDoc('Board'), componentFolders: ['buttons', 'forms/inputs'] }
+    expect(parseDoc(serializeDoc(doc))?.componentFolders).toEqual(['buttons', 'forms/inputs'])
   })
 })
 
@@ -54,5 +61,21 @@ describe('hashContent', () => {
 
   it('distinguishes single-character edits, so the self-echo guard is not fooled', () => {
     expect(hashContent('{"x":1}')).not.toBe(hashContent('{"x":2}'))
+  })
+})
+
+describe('the .canvas → .components rename', () => {
+  it('rewrites a board’s old folder paths as it loads, and leaves current boards alone', async () => {
+    const { parseDoc, renameLegacyPaths } = await import('./store')
+    const old = JSON.stringify({
+      id: 'b',
+      nodes: [{ id: 'n', style: { fills: [{ type: 'image', src: '.canvas/assets/hero.png' }] } }],
+      components: [{ id: 'c', componentRoot: '.canvas', filePath: '.canvas/card/card.tsx' }],
+    })
+    const doc = parseDoc(old)!
+    expect(doc.components[0]).toMatchObject({ componentRoot: '.components', filePath: '.components/card/card.tsx' })
+    expect(JSON.stringify(doc.nodes)).toContain('.components/assets/hero.png')
+    const current = '{"id":"b","nodes":[],"note":"src/.canvas-like/not-a-root"}'
+    expect(renameLegacyPaths(current)).toBe(current)
   })
 })

@@ -7,7 +7,9 @@
 //
 //   - Never clobber a file the human also owns. AGENTS.md/CLAUDE.md/GEMINI.md
 //     are merged block-wise (see ./managedBlock.mjs); everything else is
-//     Sleipnir's own and is overwritten when it differs.
+//     Sleipnir's own and is overwritten when it differs — but only once it is
+//     recognizably Sleipnir's (see isOwnedBySleipnir). A same-named file the
+//     human wrote is left alone and reported in `skipped`.
 //   - Never throw. This runs when a project is opened, so a read-only folder or
 //     a name collision has to degrade to "scaffolded less" rather than "failed
 //     to open the project". Callers get the problems back in `skipped`.
@@ -20,7 +22,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI } from './registry.mjs'
+import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI } from './registry.mjs'
 import { emitAll } from './emitters/index.mjs'
 import { mergeBlock } from './managedBlock.mjs'
 
@@ -28,6 +30,7 @@ import { mergeBlock } from './managedBlock.mjs'
 // one legitimate absolute path in the feature: it's used to *read* a file here,
 // never written into anything the project commits.
 const VENDOR_CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'plan.mjs')
+const VENDOR_CANVAS_CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'canvas.mjs')
 
 const STATE_FILE = '.sleipnir/scaffold.json'
 
@@ -37,6 +40,7 @@ const STATE_FILE = '.sleipnir/scaffold.json'
 export function scaffoldFiles() {
   const files = emitAll(SKILLS)
   files.push({ path: PLAN_CLI, content: readVendoredCli(), managed: false })
+  files.push({ path: CANVAS_CLI, content: fs.readFileSync(VENDOR_CANVAS_CLI, 'utf8'), managed: false })
   return files
 }
 
@@ -55,6 +59,41 @@ export function scaffoldPaths() {
 // Hiding a file someone wrote is worse than leaving it visible in git status.
 export function ownedScaffoldPaths() {
   return [...scaffoldFiles().filter((f) => !f.managed).map((f) => f.path), STATE_FILE]
+}
+
+// --- line endings ------------------------------------------------------------
+//
+// Everything is rendered with LF, but a checkout can hand us CRLF: Git for
+// Windows defaults to core.autocrlf=true, and a project with no .gitattributes
+// gets every text file converted on checkout. Comparing bytes then never
+// matches, so every open rewrote AGENTS.md, CLAUDE.md and the commands — mtime
+// churn, "file changed on disk" prompts in an editor that has them open, and an
+// LF block spliced into a CRLF file. So comparison happens on LF-normalized
+// text, and a real write goes out in whatever convention the file already used.
+
+function toLf(text) {
+  return text.replace(/\r\n/g, '\n')
+}
+
+function eolOf(text) {
+  return text && text.includes('\r\n') ? '\r\n' : '\n'
+}
+
+function withEol(text, eol) {
+  return eol === '\n' ? text : text.replace(/\n/g, eol)
+}
+
+// --- ownership -----------------------------------------------------------------
+
+// Whether an existing, unmanaged file at one of our paths is Sleipnir's to
+// overwrite. `.sleipnir/` is Sleipnir's own folder. Anywhere else — the
+// `.claude/commands/`, `.codex/prompts/`, `.gemini/commands/` folders belong to
+// the human first — a file is ours only if it drives the vendored CLI, which
+// every command Sleipnir emits does and a human's own `/plan` would not.
+// Without this check, a project's existing `/plan` command was silently
+// replaced the first time Sleipnir opened it.
+function isOwnedBySleipnir(relPath, existing) {
+  return relPath.startsWith('.sleipnir/') || existing.includes(PLAN_CLI) || existing.includes(CANVAS_CLI)
 }
 
 // What would change, without touching disk. Split out from the write so it can
@@ -79,13 +118,20 @@ export function planScaffold(root) {
       continue
     }
 
-    const next = file.managed
-      ? mergeBlock(existing, SCAFFOLD_VERSION, file.content)
-      : existing === file.content
-        ? null
-        : file.content
+    if (existing !== null && !file.managed && !isOwnedBySleipnir(file.path, existing)) {
+      skipped.push({ path: file.path, reason: 'a file Sleipnir did not write already exists here — left as is' })
+      continue
+    }
 
-    if (next !== null) writes.push({ path: file.path, abs, content: next })
+    const current = existing === null ? null : toLf(existing)
+    const content = toLf(file.content)
+    const next = file.managed
+      ? mergeBlock(current, SCAFFOLD_VERSION, content)
+      : current === content
+        ? null
+        : content
+
+    if (next !== null) writes.push({ path: file.path, abs, content: withEol(next, eolOf(existing)) })
   }
 
   return { writes, skipped }
@@ -110,8 +156,10 @@ export function ensureAgentScaffolding(root, { commit = true } = {}) {
   }
 
   // Only touch the state file when something else actually changed, so an
-  // unchanged project stays byte-for-byte untouched on open.
-  if (written.length) writeState(root, skipped)
+  // unchanged project stays byte-for-byte untouched on open. A change in what
+  // was skipped counts: it is the only place Settings learns that a human's own
+  // file is standing where a command would go.
+  if (written.length || !sameSkipped(readState(root)?.skipped, skipped)) writeState(root, skipped)
 
   // scaffold.json stays out of git even in share mode: it is a purely
   // informational record (when this machine last wrote the files, and what it
@@ -136,6 +184,10 @@ function writeState(root, skipped) {
   } catch {
     // Losing the state file costs nothing — it's a record, not an input.
   }
+}
+
+function sameSkipped(stored = [], skipped) {
+  return JSON.stringify(stored) === JSON.stringify(skipped)
 }
 
 export function readState(root) {

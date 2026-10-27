@@ -4,7 +4,8 @@ import { Frame } from '../Frame/Frame';
 export type ChipVariant = 'new' | 'default';
 
 const VARIANT_STYLE: Record<ChipVariant, { bg: string; color: string }> = {
-  new:     { bg: '#ffffff', color: '#0a0a0a' },
+  // Solid theme ink with ground-coloured text — the same inversion as a selected row.
+  new:     { bg: 'rgb(var(--item-ink, 255,255,255))', color: 'var(--item-ground, #0a0a0a)' },
   default: { bg: 'rgba(var(--item-ink, 255,255,255), 0.08)', color: 'var(--text-2)' },
 };
 

@@ -1,1 +1,57 @@
-[]
+[
+  {
+    "id": "plan/lsp-typing-latency-1793049413729",
+    "label": "LSP typing latency",
+    "nodeIds": [
+      "plan/lsp-typing-latency-1793049413729/instrument-lsp-round-trips-1793049428561",
+      "planned/lsp-typing-latency-1793049413729/src/app/DesignSystem/lspMetrics.ts",
+      "plan/lsp-typing-latency-1793049413729/drop-the-duplicate-hover-source-1793049428640",
+      "plan/lsp-typing-latency-1793049413729/dedupe-ctrl-hover-definition-lookups-1793049428763",
+      "plan/lsp-typing-latency-1793049413729/trim-per-keystroke-editor-work-1793049428904",
+      "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "planned/lsp-typing-latency-1793049413729/tools/lspRouter.mjs",
+      "planned/lsp-typing-latency-1793049413729/tools/lspRouter.test.ts",
+      "plan/lsp-typing-latency-1793049413729/verify-typing-latency-before-after-1793049435760"
+    ],
+    "expectedSteps": 6,
+    "createdAt": 1793049413729,
+    "docPath": ".planning/lsp-typing-latency-1793049413729/plan.md"
+  },
+  {
+    "id": "plan/canvas-rotation-scaling-path-patterns-1793102384176",
+    "label": "Canvas rotation, scaling & path patterns",
+    "nodeIds": [
+      "plan/canvas-rotation-scaling-path-patterns-1793102384176/rotate-on-the-board-1793102411311",
+      "plan/canvas-rotation-scaling-path-patterns-1793102384176/rotation-in-the-inspector-and-every-emitter-1793102411398",
+      "plan/canvas-rotation-scaling-path-patterns-1793102384176/emit-patterns-compactly-1793102411854",
+      "plan/canvas-rotation-scaling-path-patterns-1793102384176/optimize-along-path-layout-for-big-patterns-1793102412075",
+      "plan/canvas-rotation-scaling-path-patterns-1793102384176/path-flow-editing-on-the-board-1793102412451"
+    ],
+    "expectedSteps": 8,
+    "createdAt": 1793102384176,
+    "docPath": ".planning/canvas-rotation-scaling-path-patterns-1793102384176/plan.md"
+  },
+  {
+    "id": "plan/canvas-rotation-path-patterns-1793102450237",
+    "label": "Canvas rotation & path patterns",
+    "nodeIds": [
+      "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/rotation.ts",
+      "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/rotation.test.ts",
+      "plan/canvas-rotation-path-patterns-1793102450237/rotate-on-the-board-1793102466210",
+      "plan/canvas-rotation-path-patterns-1793102450237/rotation-in-the-inspector-and-every-emitter-1793102466403",
+      "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/imageSizing.ts",
+      "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/imageSizing.test.ts",
+      "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/pathPattern.ts",
+      "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/pathPattern.test.ts",
+      "plan/canvas-rotation-path-patterns-1793102450237/emit-patterns-compactly-1793102467236",
+      "plan/canvas-rotation-path-patterns-1793102450237/optimize-along-path-layout-for-big-patterns-1793102467555",
+      "plan/canvas-rotation-path-patterns-1793102450237/path-flow-editing-on-the-board-1793102467817"
+    ],
+    "expectedSteps": 8,
+    "createdAt": 1793102450237,
+    "docPath": ".planning/canvas-rotation-path-patterns-1793102450237/plan.md"
+  }
+]

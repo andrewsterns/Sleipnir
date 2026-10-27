@@ -7,6 +7,10 @@ import { ToolActivityRow } from './ToolActivityRow'
 import { AGENT_MODE_HINT, AGENT_MODE_LABEL, type AgentChatProps, type AgentMode } from './iAgentChat'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+/** A reply that pauses this long mid-stream is thinking again (writing a tool call, usually). */
+const QUIET_MS = 1500
+/** Past this with no word from the provider, say so — it may be stuck. */
+const STALL_MS = 30_000
 
 let _kfInjected = false
 function ensureCursorCSS() {
@@ -46,7 +50,43 @@ const EMPTY_HINT: Record<AgentMode, string> = {
   auto: 'The AI runs changes without asking. Push, pull and destructive tools still ask.',
 }
 
-export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
+function SetupCard({ onConnectModels }: { onConnectModels?: () => void }) {
+  return (
+    <Frame flow="vertical" gap={8} padding={12} fill={{ solid: 'bg-0' }} stroke={{ color: 'var(--border-1)' }} style={{ maxWidth: 520 }}>
+      <span style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-1)', ...MONO }}>CONNECT A MODEL TO START</span>
+      <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
+        Paste an API key for Claude, ChatGPT or Gemini — each provider’s “Get key” button takes you straight to its key page.
+        Or run a model on this computer with Ollama, free and offline.
+      </span>
+      {onConnectModels && (
+        <button
+          onClick={onConnectModels}
+          style={{
+            alignSelf: 'flex-start',
+            background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+            border: '1px solid var(--border-2)',
+            color: 'var(--text-1)',
+            fontSize: 9,
+            letterSpacing: '0.08em',
+            padding: '5px 10px',
+            cursor: 'pointer',
+            ...MONO,
+          }}
+        >
+          CONNECT MODELS
+        </button>
+      )}
+    </Frame>
+  )
+}
+
+/** The design commands the agent understands (see electron/agent/systemPrompt.cjs and tools/canvas.cjs). */
+const SLASH_COMMANDS = [
+  { name: '/frame', hint: 'design it on the Canvas board as editable frames' },
+  { name: '/component', hint: 'design it as a component — Sleipnir writes the code' },
+]
+
+export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSetup, onConnectModels }) => {
   const {
     messages,
     input,
@@ -54,6 +94,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
     sendMessage,
     cancel,
     streaming,
+    silentForMs,
     available,
     mode,
     cycleMode,
@@ -63,15 +104,21 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
   } = useAgentChatViewModel(onPlanNodeCreated)
   const scrollRef = useRef<HTMLElement>(null)
 
-  // Gap between "sent" and the first token: no assistant message exists yet
-  // to show a streaming cursor on, so show the gallop here instead.
+  // The horse gallops whenever the model is working with nothing to show for
+  // it: before the first token, after a tool finishes (the model is reading
+  // its result), and when a reply goes quiet mid-stream. Not while a tool
+  // waits on your approval — that's waiting on you, not on the model.
   const lastMessage = messages[messages.length - 1]
-  const waitingForFirstToken = streaming && lastMessage?.role !== 'assistant'
+  const textStreaming = lastMessage?.role === 'assistant' && !!lastMessage.streaming && !lastMessage.tool
+  const awaitingYou = lastMessage?.tool?.status === 'awaiting-approval'
+  const thinking = streaming && !awaitingYou && (!textStreaming || silentForMs > QUIET_MS)
+  const stalledSeconds = silentForMs >= STALL_MS ? Math.floor(silentForMs / 1000) : 0
+  const stalled = stalledSeconds > 0
 
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages, waitingForFirstToken])
+  }, [messages, thinking, stalled])
 
   if (!available) {
     return (
@@ -99,9 +146,12 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
   return (
     <Frame flow="vertical" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
       <ScrollWindow ref={scrollRef} axis="y" flow="vertical" gap={10} padding={12} style={{ flex: 1, minHeight: 0 }}>
-        {messages.length === 0 && (
-          <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>{EMPTY_HINT[mode]}</span>
-        )}
+        {messages.length === 0 &&
+          (needsSetup ? (
+            <SetupCard onConnectModels={onConnectModels} />
+          ) : (
+            <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>{EMPTY_HINT[mode]}</span>
+          ))}
         {messages.map((m, i) => {
           // Consecutive tool rows sit under one AI label rather than repeating it.
           const previous = messages[i - 1]
@@ -137,15 +187,39 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
             </div>
           )
         })}
-        {waitingForFirstToken && (
+        {thinking && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR.assistant, opacity: 0.7, ...MONO }}>
-              {ROLE_LABEL.assistant}
-            </span>
+            {!textStreaming && (
+              <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR.assistant, opacity: 0.7, ...MONO }}>
+                {ROLE_LABEL.assistant}
+              </span>
+            )}
             <SleipnirLoader size={32} />
+            {stalledSeconds > 0 && (
+              <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>
+                No response for {stalledSeconds}s — still waiting. STOP cancels this turn.
+              </span>
+            )}
           </div>
         )}
       </ScrollWindow>
+
+      {/* Design commands, offered while a "/" word is being typed. */}
+      {/^\/\w*$/.test(input) && (
+        <Frame flow="vertical" gap={0} stroke={{ top: { color: 'var(--border-1)' } }}>
+          {SLASH_COMMANDS.filter((c) => c.name.startsWith(input)).map((c) => (
+            <button
+              key={c.name}
+              type="button"
+              onClick={() => setInput(`${c.name} `)}
+              style={{ display: 'flex', gap: 10, alignItems: 'baseline', textAlign: 'left', background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', ...MONO }}
+            >
+              <span style={{ fontSize: 11, color: 'var(--text-1)' }}>{c.name}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{c.hint}</span>
+            </button>
+          ))}
+        </Frame>
+      )}
 
       <Frame
         as="form"
@@ -179,7 +253,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated }) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={mode === 'plan' ? 'Describe what to plan…' : 'Ask AI…'}
+          placeholder={mode === 'plan' ? 'Describe what to plan…' : 'Ask AI… (/frame or /component to design on the canvas)'}
           disabled={streaming}
           style={{
             flex: 1,

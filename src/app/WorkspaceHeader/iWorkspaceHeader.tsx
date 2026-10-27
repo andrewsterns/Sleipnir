@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import type { WorkspaceTabStripItem } from '../WorkspaceTabStrip/iWorkspaceTabStrip'
 
 export interface WorkspaceHeaderProps {
+  /** Left of the tabs — the everything-picker (see TabPicker) and its actions. */
+  leading?: ReactNode
   /** Right-aligned controls (Delete Plan dropdown, node/edge count, ...), trailing the tabs in the same row — there's no separate title bar above them. */
   actions?: ReactNode
   tabs: WorkspaceTabStripItem[]

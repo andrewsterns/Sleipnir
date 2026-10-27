@@ -28,7 +28,7 @@ export interface PathAliasConfig {
 // undiscovered bug: it broke alias resolution for every project whose
 // tsconfig.json had both wildcard paths AND a trailing comment after them,
 // which is an extremely ordinary shape for a hand-written tsconfig.
-function stripJsonComments(text: string): string {
+export function stripJsonComments(text: string): string {
   let withoutComments = ''
   for (let i = 0; i < text.length; i++) {
     const c = text[i]

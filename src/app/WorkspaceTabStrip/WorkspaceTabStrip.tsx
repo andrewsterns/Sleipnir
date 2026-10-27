@@ -11,7 +11,7 @@ const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 // WorkspaceHeader's own row (which owns the border/background) so it can
 // share that row with trailing actions instead of owning a full-width strip
 // of its own.
-export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose, onAddTab, onAddTabClick }) => {
+export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose, onAddTab, onAddTabClick, addPlaceholder = 'filename' }) => {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
 
@@ -92,7 +92,7 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
               if (e.key === 'Escape') { setAdding(false); setName('') }
             }}
             onBlur={() => { if (!name) setAdding(false) }}
-            placeholder="filename"
+            placeholder={addPlaceholder}
             style={{
               flexShrink: 0,
               background: 'var(--bg-2)',

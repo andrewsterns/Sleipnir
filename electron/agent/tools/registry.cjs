@@ -20,10 +20,20 @@ const BUILTIN = [
   ...require('./planning.cjs'),
   ...require('./files.cjs'),
   ...require('./command.cjs'),
+  ...require('./canvas.cjs'),
 ]
 
 // name -> (ctx) => tool[]
 const sources = new Map()
+
+// Whether registered sources (MCP servers) are offered at all — main.cjs
+// points this at license.cjs's isPro, since they're a Sleipnir Pro feature.
+// Injected rather than required so this file stays Electron-free for tests.
+let sourcesEnabled = () => true
+
+function setSourceGate(fn) {
+  sourcesEnabled = fn
+}
 
 function registerSource(name, listFn) {
   sources.set(name, listFn)
@@ -35,7 +45,7 @@ function unregisterSource(name) {
 
 async function allTools(ctx) {
   const extra = []
-  for (const listFn of sources.values()) {
+  for (const listFn of sourcesEnabled() ? sources.values() : []) {
     try {
       extra.push(...((await listFn(ctx)) ?? []))
     } catch {
@@ -64,4 +74,4 @@ function toDefs(tools) {
   return tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
 }
 
-module.exports = { registerSource, unregisterSource, toolsFor, toDefs, BUILTIN }
+module.exports = { registerSource, unregisterSource, setSourceGate, toolsFor, toDefs, BUILTIN }

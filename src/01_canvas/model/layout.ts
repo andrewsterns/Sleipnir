@@ -34,6 +34,7 @@
 //      math.
 
 import { findParent } from './doc'
+import { isOnPath } from './pathFlow'
 import {
   childrenOf,
   isFrameNode,
@@ -65,9 +66,16 @@ export function parentFlowOf(doc: CanvasDoc, id: NodeId): Flow {
  * True when the parent's auto-layout owns this node's position, so its rect.x/y
  * never reach the screen — the case where dragging must reorder rather than move,
  * and where a nudge or an X/Y edit would be a silent no-op.
+ *
+ * Also true for a child spaced along its parent's guide path (model/pathFlow.ts):
+ * its rect does reach the screen, but the layout rewrites it on every change, so
+ * moving it by hand would only snap back.
  */
 export function isLayoutPositioned(doc: CanvasDoc, id: NodeId): boolean {
-  return parentFlowOf(doc, id) !== 'freeform'
+  if (parentFlowOf(doc, id) !== 'freeform') return true
+  const parent = findParent(doc, id)
+  const node = parent?.children.find((c) => c.id === id)
+  return !!node && isOnPath(parent, node)
 }
 
 /**

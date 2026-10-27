@@ -12,7 +12,7 @@
 // exactly the leak CanvasStyle exists to prevent.
 
 import type { FrameProps } from '../../app/UIKit/Frame/iFrame'
-import type { CanvasStyle, CanvasTextStyle, ColorRef, Size } from './types'
+import type { CanvasStyle, CanvasTextStyle, ColorRef, Size, SolidFill } from './types'
 
 /**
  * Frame resolves bare token ids ('bg-2') to var(--bg-2) itself, and passes
@@ -50,11 +50,12 @@ export function toFrameProps(style: CanvasStyle): FrameProps {
   if (style.grow !== undefined) props.grow = style.grow
 
   // ── paint ──
-  // The IR keeps a fill LIST (Figma's model) so gradients/images can land later
-  // without a shape change; v1 authors at most one, and Frame accepts either a
-  // single layer or an array.
-  if (style.fills?.length) {
-    const layers = style.fills.map((f) => ({ solid: color(f.color), ...(f.opacity !== undefined ? { opacity: f.opacity } : {}) }))
+  // Solid fills only. The board stopped rendering through Frame (see
+  // board/CanvasNodeView.tsx), so gradients and images — added since — are
+  // drawn by model/paint.ts and never reach this adapter's callers.
+  const solids = (style.fills ?? []).filter((f): f is SolidFill => f.type === undefined || f.type === 'solid')
+  if (solids.length) {
+    const layers = solids.map((f) => ({ solid: color(f.color), ...(f.opacity !== undefined ? { opacity: f.opacity } : {}) }))
     props.fill = layers.length === 1 ? layers[0] : layers
   }
   if (style.stroke) {

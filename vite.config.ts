@@ -5,6 +5,8 @@ import type { ServerResponse } from 'node:http'
 import type { Connect, ViteDevServer } from 'vite'
 import * as backend from './tools/sleipnir-backend.mjs'
 import { startLspProxy } from './tools/lsp-proxy.mjs'
+import { readFileSync } from 'node:fs'
+import { LOADER_CSS, loaderMarkup } from './src/app/UIKit/SleipnirLoader/loaderMarkup'
 
 // ─── Sleipnir local API (dev server only — never part of the production build) ──
 // Backs the in-app "create component" flow, file browsing/reading, and the
@@ -177,6 +179,27 @@ function sleipnirApiPlugin() {
           try {
             const { path: relPath, content } = await readJsonBody(req)
             backend.createWorkspaceFile(String(relPath ?? ''), content !== undefined ? String(content) : undefined)
+            sendJson(res, 200, { success: true })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/workspace/read-image' && req.method === 'GET') {
+          try {
+            const relPath = url.searchParams.get('path') ?? ''
+            sendJson(res, 200, { success: true, ...backend.readWorkspaceImageDataUrl(relPath) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/workspace/create-binary-file' && req.method === 'POST') {
+          try {
+            const { path: relPath, base64 } = await readJsonBody(req)
+            backend.createWorkspaceBinaryFile(String(relPath ?? ''), String(base64 ?? ''))
             sendJson(res, 200, { success: true })
           } catch (e) {
             sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
@@ -817,6 +840,20 @@ function sleipnirApiPlugin() {
   }
 }
 
+// Inlines the Sleipnir loader into index.html's boot screen so it paints
+// before any JS loads — same markup/CSS as the SleipnirLoader component.
+function sleipnirBootLoaderPlugin() {
+  return {
+    name: 'sleipnir-boot-loader',
+    transformIndexHtml(html: string) {
+      const horseSvg = readFileSync(new URL('./src/app/UIKit/SleipnirLoader/horse-gallop.svg', import.meta.url), 'utf8')
+      return html
+        .replace('<!--sleipnir-loader-css-->', `<style>${LOADER_CSS}</style>`)
+        .replace('<!--sleipnir-loader-->', loaderMarkup(horseSvg))
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   // Relative asset URLs: the packaged app loads dist/index.html from disk
@@ -826,6 +863,7 @@ export default defineConfig({
   plugins: [
     react(),
     sleipnirApiPlugin(),
+    sleipnirBootLoaderPlugin(),
   ],
   server: {
     // Dedicated to this "Copy" checkout so it never collides with a sibling
@@ -842,7 +880,13 @@ export default defineConfig({
       // reload the whole app and wipe the just-shown preview UI (the
       // spawned process itself survives in electron/preview.cjs's own
       // process-level state — only the renderer's view of it gets lost).
-      ignored: ['**/.nx/**', '**/src/00_planning/graph/preview-config.json'],
+      //
+      // .components/ (formerly .canvas/) is the same trap: it's the open project's Canvas data
+      // (boards, staged components, pasted images), never part of this app's
+      // module graph. When the project open in the dev app is this repo
+      // itself, a pasted image landing in .components/assets/ full-reloaded the
+      // page, so the paste looked like it did nothing.
+      ignored: ['**/.nx/**', '**/src/00_planning/graph/preview-config.json', '**/.components/**', '**/.canvas/**'],
     },
   },
   test: {

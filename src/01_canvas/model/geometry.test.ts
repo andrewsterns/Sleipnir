@@ -55,3 +55,45 @@ describe('resizeRect', () => {
     expect(start).toEqual(snapshot)
   })
 })
+
+describe('resizeRect with modifiers', () => {
+  const start = { x: 100, y: 100, w: 200, h: 100 }
+
+  it('keeps proportions from a corner, scaling by the axis that moved further (Shift)', () => {
+    expect(resizeRect(start, 'se', 100, 10, { proportional: true })).toEqual({ x: 100, y: 100, w: 300, h: 150 })
+    expect(resizeRect(start, 'nw', -100, 0, { proportional: true })).toEqual({ x: 0, y: 50, w: 300, h: 150 })
+  })
+
+  it('keeps proportions from an edge, growing the other axis about its middle', () => {
+    expect(resizeRect(start, 'e', 200, 0, { proportional: true })).toEqual({ x: 100, y: 50, w: 400, h: 200 })
+  })
+
+  it('resizes about the center (Alt), moving the opposite side too', () => {
+    expect(resizeRect(start, 'e', 20, 0, { fromCenter: true })).toEqual({ x: 80, y: 100, w: 240, h: 100 })
+    expect(resizeRect(start, 'se', 20, 10, { fromCenter: true, proportional: true })).toEqual({ x: 80, y: 90, w: 240, h: 120 })
+  })
+})
+
+describe('drawRect', () => {
+  it('draws from the press point as the center with Alt', async () => {
+    const { drawRect } = await import('../CanvasView.ViewModel')
+    expect(drawRect({ x: 100, y: 100 }, { x: 150, y: 120 }, false, true)).toEqual({ x: 50, y: 80, w: 100, h: 40 })
+    expect(drawRect({ x: 100, y: 100 }, { x: 150, y: 120 }, true, true)).toEqual({ x: 50, y: 50, w: 100, h: 100 })
+  })
+})
+
+describe('resizeRotatedRect', () => {
+  it('keeps the opposite corner still on screen while a turned box grows', async () => {
+    const { resizeRotatedRect } = await import('../CanvasView.ViewModel')
+    const { nodeMatrix, apply } = await import('./rotation')
+    const start = { x: 0, y: 0, w: 100, h: 50 }
+    // Turned 90°: dragging its SE handle 20px down the screen pulls along the box's own +x.
+    const next = resizeRotatedRect(start, 'se', 0, 20, 90, 90)
+    expect(next.w).toBeCloseTo(120)
+    expect(next.h).toBeCloseTo(50)
+    const nwBefore = apply(nodeMatrix(start, 90), { x: 0, y: 0 })
+    const nwAfter = apply(nodeMatrix(next, 90), { x: 0, y: 0 })
+    expect(nwAfter.x).toBeCloseTo(nwBefore.x)
+    expect(nwAfter.y).toBeCloseTo(nwBefore.y)
+  })
+})

@@ -1,32 +1,50 @@
 import type { AgentMode } from './iAgentChat'
 
-export interface KeyStatus {
-  configured: boolean
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama'
+
+/** One model provider's connection state — see electron/chatProviders/index.cjs. */
+export interface ProviderStatus {
+  id: ProviderId
+  /** Product name shown to people: Claude, ChatGPT, Gemini, Local Ollama. */
+  label: string
+  company: string
+  keyUrl: string
+  keyHint: string | null
+  needsKey: boolean
+  /** Key providers: a key is saved or found in the environment. Ollama: the local server answered. */
+  connected: boolean
+  source: 'saved' | 'env' | null
+  /** Last 4 characters of the key in use. */
   hint: string | null
+  /** Set when the key comes from an environment variable. */
+  envVar: string | null
 }
 
 export interface ModelOption {
   id: string
   label: string
-  description: string
+  description?: string
+  recommended?: boolean
 }
 
-export interface ModelStatus {
+export interface ModelGroup {
+  provider: ProviderId
+  label: string
+  models: ModelOption[]
+  /** Set when the live listing failed — `models` may then be a known fallback list. */
+  error?: string
+}
+
+export interface ActiveModel {
+  provider: ProviderId
+  providerLabel: string
   model: string
-  options: ModelOption[]
+  /** "provider:model" */
+  ref: string
+  /** True when the saved choice's provider isn't connected and this one was picked instead. */
+  fallback: boolean
+  saved: string | null
 }
-
-// Sentinel "model" id meaning "use the local Ollama provider" — keep in sync
-// with OLLAMA_MODEL_ID in electron/modelStore.cjs.
-export const OLLAMA_MODEL_ID = 'ollama:local'
-
-// Keep in sync with AVAILABLE_MODELS in electron/modelStore.cjs.
-export const MODEL_OPTIONS: ModelOption[] = [
-  { id: 'claude-opus-5', label: 'AI Opus 5', description: 'Most capable — best for hard, multi-step work' },
-  { id: 'claude-sonnet-5', label: 'AI Sonnet 5', description: 'Balanced speed and intelligence (default)' },
-  { id: 'claude-haiku-4-5', label: 'AI Haiku 4.5', description: 'Fastest and cheapest' },
-  { id: OLLAMA_MODEL_ID, label: 'Local Ollama', description: 'Runs on your machine via ollama serve — free, no API key, no cloud' },
-]
 
 export interface AgentSettings {
   defaultMode: AgentMode
@@ -34,11 +52,18 @@ export interface AgentSettings {
 }
 
 export interface SettingsAPI {
-  getKeyStatus: (provider: string) => Promise<KeyStatus>
-  setKey: (provider: string, key: string) => Promise<KeyStatus>
-  clearKey: (provider: string) => Promise<KeyStatus>
-  getModel: () => Promise<ModelStatus>
-  setModel: (model: string) => Promise<string>
+  listProviders: () => Promise<ProviderStatus[]>
+  /** Which provider a pasted key looks like it belongs to, by prefix. */
+  detectProvider: (key: string) => Promise<ProviderId | null>
+  /** Checks the key live, then saves it encrypted. Rejects with a readable reason. */
+  connectProvider: (key: string, providerId?: ProviderId) => Promise<ProviderStatus>
+  disconnectProvider: (providerId: ProviderId) => Promise<ProviderStatus>
+  openKeyPage: (providerId: ProviderId) => Promise<void>
+  listModels: (opts?: { refresh?: boolean }) => Promise<ModelGroup[]>
+  getActiveModel: () => Promise<ActiveModel>
+  setModel: (ref: string) => Promise<string>
+  /** Fired in every window after a key or model change. */
+  onAiSettingsChanged: (callback: () => void) => () => void
   getAgentSettings: () => Promise<AgentSettings>
   setAgentSettings: (patch: Partial<AgentSettings>) => Promise<AgentSettings>
 }
@@ -49,8 +74,18 @@ declare global {
   }
 }
 
-// No web-transport equivalent — BYOK keys only ever live in the Electron
-// main process's encrypted local store (see electron/apiKeyStore.cjs).
+// No web-transport equivalent — keys only ever live in the Electron main
+// process's encrypted local store (see electron/apiKeyStore.cjs).
 export function isSettingsAvailable(): boolean {
   return typeof window !== 'undefined' && !!window.settingsAPI
+}
+
+export function modelRef(provider: ProviderId, model: string): string {
+  return `${provider}:${model}`
+}
+
+/** ipcRenderer.invoke wraps main-process errors as "Error invoking remote method '…': Error: <message>". */
+export function ipcErrorMessage(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e)
+  return raw.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '')
 }

@@ -197,6 +197,10 @@ export interface AgentScaffolding {
    * human's own instructions, so whether those get committed is their call.
    */
   commit: boolean
+  /** The explicit choice from Settings. Unset means "decide from use" — see `active`. */
+  enabled?: boolean
+  /** Whether Sleipnir maintains the files in this project: `enabled` when set, otherwise true once the project has Planning data or was already scaffolded. Opening a folder alone never writes them. */
+  active: boolean
   version?: number
   /** Null when this project has never been scaffolded. */
   state: AgentScaffoldingState | null
@@ -206,7 +210,7 @@ export interface AgentScaffolding {
 
 /** The outcome of one scaffolder run. `skipped` is non-fatal by design — scaffolding must never break opening a project. */
 export interface AgentScaffoldingResult {
-  agentScaffolding: { commit: boolean; version: number }
+  agentScaffolding: { commit: boolean; enabled?: boolean; version: number }
   written: string[]
   skipped: { path: string; reason: string }[]
   excluded: string[]
@@ -245,6 +249,10 @@ export interface PlatformAPI {
   readWorkspaceFile(path: string): Promise<{ content: string }>
   writeWorkspaceFile(path: string, content: string): Promise<void>
   createWorkspaceFile(path: string, content?: string): Promise<void>
+  /** A workspace image as a `data:` URL, for the Canvas's image fills. Images only, capped at 25 MB. */
+  readWorkspaceImageDataUrl(path: string): Promise<{ dataUrl: string }>
+  /** Creates a binary file from base64 (an image imported into `.canvas/assets/`). Rejects an existing path — callers de-conflict first. */
+  createWorkspaceBinaryFile(path: string, base64: string): Promise<void>
   createWorkspaceDir(path: string): Promise<void>
   /** Removes a file or folder (recursively) from the currently-open Workspace. The Electron transport moves it to the OS Recycle Bin; the web transport (no browser-accessible trash) deletes it outright — see electron/main.cjs vs. tools/sleipnir-backend.mjs's deleteWorkspacePath. */
   deleteWorkspacePath(path: string): Promise<void>

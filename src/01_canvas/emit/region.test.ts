@@ -278,6 +278,24 @@ describe('spliceDeclaration', () => {
     )
   })
 
+  // The lint-clean empty form emitPropsInterface writes now: no `{}` interface,
+  // no `({})` pattern. It must grow into a real interface and back.
+  it('grows the empty Record alias into an interface when the first prop arrives', () => {
+    const before = `export type CardProps = Record<string, never>\n\nexport const Card = () => {\n  // <sleipnir:layout component="c" hash="h">\n  return null\n  // </sleipnir:layout>\n}\n`
+    const next = spliceDeclaration(before, `export interface CardProps {\n  a?: string\n}`, `export const Card = ({ a }: CardProps) => {`)
+    expect(next).toBe(
+      `export interface CardProps {\n  a?: string\n}\n\nexport const Card = ({ a }: CardProps) => {\n  // <sleipnir:layout component="c" hash="h">\n  return null\n  // </sleipnir:layout>\n}\n`,
+    )
+  })
+
+  it('moves an older file from `interface X {}` to the lint-clean empty form', () => {
+    const before = `export interface CardProps {}\n\nexport const Card = ({}: CardProps) => {\n  // <sleipnir:layout component="c" hash="h">\n  return null\n  // </sleipnir:layout>\n}\n`
+    const next = spliceDeclaration(before, `export type CardProps = Record<string, never>`, `export const Card = () => {`)
+    expect(next).toBe(
+      `export type CardProps = Record<string, never>\n\nexport const Card = () => {\n  // <sleipnir:layout component="c" hash="h">\n  return null\n  // </sleipnir:layout>\n}\n`,
+    )
+  })
+
   it('collapses a multi-line interface back to the empty form', () => {
     const before = `export interface CardProps {\n  a?: string\n}\n\nexport const Card = ({ a }: CardProps) => {\n  // <sleipnir:layout component="c" hash="h">\n  return null\n  // </sleipnir:layout>\n}\n`
     const next = spliceDeclaration(before, `export interface CardProps {}`, `export const Card = ({}: CardProps) => {`)

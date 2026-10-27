@@ -158,6 +158,18 @@ function readRects(
     const id = el.getAttribute('data-canvas-node')
     if (!id || !wanted.has(id)) continue
     const box = el.getBoundingClientRect()
+    // A rotated node's client rect is the box AROUND its turned shape. The
+    // geometry wants the unrotated box (model/rotation.ts), which shares that
+    // box's center and has the element's own layout size.
+    if ((el as HTMLElement | SVGElement).style.transform) {
+      const css = getComputedStyle(el)
+      const w = parseFloat(css.width) || box.width / k
+      const h = parseFloat(css.height) || box.height / k
+      const cx = (box.left + box.width / 2 - base.left - camera.x) / k
+      const cy = (box.top + box.height / 2 - base.top - camera.y) / k
+      out.set(id, { x: cx - w / 2, y: cy - h / 2, w, h })
+      continue
+    }
     out.set(id, {
       x: (box.left - base.left - camera.x) / k,
       y: (box.top - base.top - camera.y) / k,

@@ -57,6 +57,37 @@ export type Flow = 'freeform' | 'vertical' | 'horizontal' | 'grid'
 export type Align = 'start' | 'center' | 'end' | 'stretch'
 export type Justify = 'start' | 'center' | 'end' | 'between' | 'around'
 
+/**
+ * A frame's "along a path" layout — its children are spaced along a curve
+ * instead of stacked in a row or a grid. The curve is the frame's bottom-most
+ * vector layer (a pen path, an ellipse for a ring, a polygon…); every other
+ * child is centered on it in order. See model/pathFlow.ts.
+ *
+ * Unlike vertical/horizontal/grid this is NOT a CSS layout: the frame stays
+ * `flow: 'freeform'`, and the layout writes each child's rect (and, with
+ * `orient`, its rotation) into the document. So the board and the emitted code
+ * both just see absolutely placed children — no runtime layout engine, in any
+ * language, and WYSIWYG for free.
+ */
+export interface AlongPath {
+  /**
+   * `even` (default): the children share the whole path — ends included on an
+   * open path, evenly round a closed one. `gap`: each child follows the last,
+   * `style.gap` px apart edge to edge, starting at `offset`.
+   */
+  spacing?: 'even' | 'gap'
+  /** Px along the path where the first child sits. Default 0. */
+  offset?: number
+  /** Rotate each child to follow the curve's direction. Default false. */
+  orient?: boolean
+  /**
+   * Turns the frame into a PATTERN: its first child (after the guide) is
+   * repeated this many times along the path — the count includes the
+   * original — or as many times as fit, for `fill`. See model/pathPattern.ts.
+   */
+  repeat?: number | 'fill'
+}
+
 export interface Padding {
   top?: number
   right?: number
@@ -66,10 +97,127 @@ export interface Padding {
 
 // ── Style ──────────────────────────────────────────────────────────────────
 
-export interface Fill {
+// ── Paint ──────────────────────────────────────────────────────────────────
+//
+// Figma's paint model: a node carries a LIST of fills, painted bottom to top
+// (fills[0] is the bottom layer, exactly as in Figma's API — the inspector
+// shows the list reversed, topmost first, as Figma's panel does). Every paint
+// has its own opacity, applied to that paint alone, never to the layer — layer
+// opacity is CanvasStyle.opacity. `visible: false` is the eye toggle: the
+// paint stays in the document and simply isn't drawn or emitted.
+//
+// All of it lowers to CSS backgrounds (see model/paint.ts), so the board and
+// the emitted file still come from one derivation.
+
+/** Shared by every paint. */
+interface PaintBase {
+  /** 0–1, applied to this paint only. Default 1. */
+  opacity?: number
+  /** The eye toggle. Default true. */
+  visible?: boolean
+}
+
+/**
+ * A flat color. `type` is optional so boards written before gradients existed
+ * — `{ color, opacity }` and nothing else — read as exactly what they were.
+ */
+export interface SolidFill extends PaintBase {
+  type?: 'solid'
   color: ColorRef
+}
+
+export interface GradientStop {
+  /** 0–1 along the gradient. */
+  position: number
+  color: ColorRef
+  /** 0–1, multiplied with the paint's own opacity. Default 1. */
   opacity?: number
 }
+
+/** A point or extent as fractions of the node's box, 0–1 on each axis. */
+export interface UnitPoint {
+  x: number
+  y: number
+}
+
+export interface LinearGradientFill extends PaintBase {
+  type: 'linear'
+  /** Degrees, CSS convention: 0 runs bottom→top, 90 left→right, 180 top→bottom. */
+  angle: number
+  stops: GradientStop[]
+}
+
+export interface RadialGradientFill extends PaintBase {
+  type: 'radial'
+  /** Default the box's center. */
+  center?: UnitPoint
+  /** The ellipse's radii as fractions of the box. Default half of each side — touching every edge, Figma's default. */
+  radius?: UnitPoint
+  stops: GradientStop[]
+}
+
+/** Figma's "angular" gradient — a conic sweep around a center. */
+export interface AngularGradientFill extends PaintBase {
+  type: 'angular'
+  /** Default the box's center. */
+  center?: UnitPoint
+  /** Degrees the sweep starts from, clockwise from 12 o'clock. Default 0. */
+  angle?: number
+  stops: GradientStop[]
+}
+
+/**
+ * Figma's image scale modes. `fill` covers the box and crops (Figma's
+ * default), `fit` letterboxes, `stretch` distorts to the box, `tile` repeats
+ * at the image's natural size. (Figma's tile scale isn't modeled: CSS sizes a
+ * background relative to the box, not to the image, so it couldn't be honored.)
+ */
+export type ImageScaleMode = 'fill' | 'fit' | 'stretch' | 'tile'
+
+export interface ImageFill extends PaintBase {
+  type: 'image'
+  /**
+   * A workspace-relative path (`.canvas/assets/hero.png`, `src/img/logo.svg`)
+   * or an absolute URL (`https:` / `data:`). A path becomes a real `import` in
+   * the emitted file, so the user's bundler resolves it like any other asset.
+   */
+  src: string
+  scaleMode?: ImageScaleMode
+  /**
+   * The picture's own pixel size, recorded when it was imported — what "100%"
+   * means in the inspector's scale field (see model/imageSizing.ts). Absent for
+   * images added before this existed; the inspector measures those on demand.
+   */
+  natural?: { w: number; h: number }
+}
+
+export type GradientFill = LinearGradientFill | RadialGradientFill | AngularGradientFill
+export type Fill = SolidFill | GradientFill | ImageFill
+export type FillType = NonNullable<Fill['type']>
+
+// ── Effects ────────────────────────────────────────────────────────────────
+
+export interface ShadowEffect {
+  type: 'drop-shadow' | 'inner-shadow'
+  x: number
+  y: number
+  blur: number
+  spread?: number
+  color: ColorRef
+  /** 0–1. Default 1 — Figma's default shadow gets its softness from a translucent color, so this is usually set. */
+  opacity?: number
+  visible?: boolean
+}
+
+export interface BlurEffect {
+  /** `layer-blur` blurs the node itself; `background-blur` blurs what shows through it. */
+  type: 'layer-blur' | 'background-blur'
+  radius: number
+  visible?: boolean
+}
+
+export type Effect = ShadowEffect | BlurEffect
+export type EffectType = Effect['type']
 
 export interface StrokeStyle {
   color: ColorRef
@@ -86,6 +234,7 @@ export interface CornerRadius {
   bl?: number
 }
 
+/** The single shadow boards carried before `effects` existed. Read as one drop shadow; never written any more. */
 export interface ShadowStyle {
   x: number
   y: number
@@ -96,9 +245,16 @@ export interface ShadowStyle {
 
 /**
  * The closed subset of Frame's box model the canvas can author. Deliberately
- * ~25 fields against Frame's ~80: gradients, video fills, glass/noise/texture
- * effects, blend modes and chamfer are all reachable from hand-written code but
- * are NOT authorable here, because no non-CSS emitter could honor them.
+ * smaller than Frame's ~80 fields: video fills, glass/noise/texture effects,
+ * blend modes and chamfer are reachable from hand-written code but not
+ * authorable here.
+ *
+ * Gradients, image fills and Figma's four effects used to be on that list, on
+ * the grounds that no non-CSS emitter could honor them. React is the only
+ * emitter there is, and Figma parity is the point of the canvas, so they are
+ * authorable now. A future emitter that genuinely can't paint one degrades it
+ * (a gradient to its first stop, an image to nothing) rather than the canvas
+ * refusing to let anyone draw it.
  */
 export interface CanvasStyle {
   // layout
@@ -110,6 +266,15 @@ export interface CanvasStyle {
   wrap?: boolean
   /** `grid` flow only. */
   cols?: number
+  /**
+   * Space this node keeps around itself — honored only under an auto-layout
+   * parent (see toCss's positionCss): under a freeform parent the node sits at
+   * its own rect, and a margin there would only shove it off the box the
+   * selection ring is drawn from.
+   */
+  margin?: number | Padding
+  /** Spaces the children along the frame's guide path. See AlongPath. */
+  alongPath?: AlongPath
 
   // sizing
   w?: Size
@@ -120,13 +285,23 @@ export interface CanvasStyle {
   maxH?: number
   grow?: boolean
 
-  // paint — an array so Figma's fill list (gradients, images) can land later
-  // without a shape change. v1 authors at most one.
+  // paint — Figma's fill list, bottom to top (see Paint above)
   fills?: Fill[]
   stroke?: StrokeStyle
   radius?: number | CornerRadius
+  /** Layer opacity — the whole node, children included. Each paint's own opacity is separate. */
   opacity?: number
+  /**
+   * Clockwise degrees about the node's own center — any layer, any kind. The
+   * rect stays the UNROTATED box (rotating never rewrites x/y/w/h), and a
+   * frame's children turn with it. Emitted as `transform: rotate()`, whose
+   * default origin is that same center. See model/rotation.ts.
+   */
+  rotate?: number
   clip?: boolean
+  /** Drop/inner shadows and blurs, in Figma's order. */
+  effects?: Effect[]
+  /** Legacy single shadow; superseded by `effects` and only read when `effects` is unset. */
   shadow?: ShadowStyle
 }
 
@@ -176,7 +351,7 @@ export interface CanvasProp {
 
 // ── Nodes ──────────────────────────────────────────────────────────────────
 
-export type CanvasNodeKind = 'frame' | 'text' | 'instance' | 'external'
+export type CanvasNodeKind = 'frame' | 'text' | 'instance' | 'external' | 'vector'
 
 export interface CanvasNodeBase {
   id: NodeId
@@ -187,6 +362,25 @@ export interface CanvasNodeBase {
   /** Editor-only. Never emitted. */
   hidden?: boolean
   locked?: boolean
+  /**
+   * Set on a copy an along-path pattern made of the template with this id —
+   * rebuilt from the template on every change, never edited on its own (see
+   * model/pathPattern.ts).
+   */
+  repeatOf?: NodeId
+  /**
+   * Extra clockwise degrees for a piece on an along-path frame, on top of
+   * where the path turns it (or on its own, without `orient`) — so each piece
+   * can be spun freely while the path still places it. See model/pathFlow.ts.
+   */
+  pathTurn?: number
+  /**
+   * Left on a top-level node by something outside the app (an AI's /frame or
+   * /component, via tools/agentSkills/vendor/canvas.mjs) for Sleipnir to act
+   * on: bring it into view, and/or promote it to a component and write its
+   * code. Consumed — removed — as soon as the board is open.
+   */
+  request?: { focus?: boolean; component?: { name?: string; format?: 'svg' } }
 }
 
 export interface CanvasFrameNode extends CanvasNodeBase {
@@ -254,7 +448,57 @@ export interface CanvasExternalNode extends CanvasNodeBase {
   propValues?: Record<string, CanvasPropValue>
 }
 
-export type CanvasNode = CanvasFrameNode | CanvasTextNode | CanvasInstanceNode | CanvasExternalNode
+// ── Vectors ────────────────────────────────────────────────────────────────
+
+/**
+ * Figma's shape tools plus the pen. Every one renders as SVG — on the board and
+ * in the emitted file — rather than as a styled div: a circle or a triangle
+ * isn't a box, and its fill, stroke and shadow have to follow the shape.
+ */
+export type VectorShape = 'rectangle' | 'ellipse' | 'polygon' | 'path'
+
+/**
+ * One anchor of a pen path, in the node's `viewBox` space. `in`/`out` are the
+ * absolute positions of its bezier handles; absent means a sharp corner on
+ * that side.
+ */
+export interface VectorPoint {
+  x: number
+  y: number
+  in?: { x: number; y: number }
+  out?: { x: number; y: number }
+  /**
+   * Rounds a SHARP anchor into a circular arc of this radius, in pixels — a
+   * frame's corner radius, one point at a time. Honored where both segments
+   * meeting at the anchor are straight; a smooth anchor is already round.
+   */
+  radius?: number
+}
+
+/**
+ * A shape or pen path. Its geometry is derived from its rect (see
+ * model/vector.ts), so resizing a vector scales it: a rectangle, ellipse or
+ * polygon fills its box, and a path's points — stored in the `viewBox` it was
+ * drawn in — stretch to it.
+ *
+ * Paint is the same `style` every node has: fills (as SVG paint — gradients
+ * become <linearGradient>s, images <pattern>s), stroke, layer opacity and
+ * effects. `radius` rounds a rectangle's corners.
+ */
+export interface CanvasVectorNode extends CanvasNodeBase {
+  kind: 'vector'
+  shape: VectorShape
+  /** `polygon` only: how many sides. 3 is a triangle. */
+  sides?: number
+  /** `path` only. */
+  points?: VectorPoint[]
+  /** `path` only: whether the last point joins back to the first. */
+  closed?: boolean
+  /** `path` only: the space `points` are in — the path's bounds when it was drawn. */
+  viewBox?: { w: number; h: number }
+}
+
+export type CanvasNode = CanvasFrameNode | CanvasTextNode | CanvasInstanceNode | CanvasExternalNode | CanvasVectorNode
 
 // ── Emit targets ───────────────────────────────────────────────────────────
 
@@ -338,6 +582,13 @@ export interface CanvasComponent {
    */
   variantPropIds: string[]
   target: CanvasTarget
+  /**
+   * What the component emits as. Absent is the default — divs, styled from
+   * each frame's box (see emit/react.ts). `svg` is a vector component, made with
+   * MAKE SVG COMPONENT: its root becomes one <svg> and every vector in it a
+   * <path>, <rect>, <ellipse> or <polygon> inside it (see emit/svg.ts).
+   */
+  format?: 'svg'
   /** The sandbox this component's file must live inside. See model/paths.ts. */
   componentRoot: string
   /** Workspace-relative path of the real file, set once written. */
@@ -412,6 +663,10 @@ export function isInstanceNode(node: CanvasNode): node is CanvasInstanceNode {
 
 export function isExternalNode(node: CanvasNode): node is CanvasExternalNode {
   return node.kind === 'external'
+}
+
+export function isVectorNode(node: CanvasNode): node is CanvasVectorNode {
+  return node.kind === 'vector'
 }
 
 /** Only frames hold children; every other kind is a leaf. */

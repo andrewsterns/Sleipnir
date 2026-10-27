@@ -1,16 +1,18 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Frame } from '../app/UIKit/Frame/Frame'
-import { Icon, type IconName } from '../app/UIKit/Icon/Icon'
+import { Icon } from '../app/UIKit/Icon/Icon'
 import { IconButton } from '../app/UIKit/IconButton/IconButton'
 import { Button } from '../app/UIKit/Button/Button'
 import { ScrollWindow } from '../app/UIKit/ScrollWindow/ScrollWindow'
 import { WorkspaceHeader } from '../app/WorkspaceHeader/WorkspaceHeader'
+import { TabPicker } from '../app/WorkspaceTabStrip/TabPicker'
 import { GraphCanvas, fileExtLabel, nodeDisplayLabel, nodeIconName } from './graph/GraphCanvas'
 import { getGraphMaps, type GraphMapId, type GraphNode, type NodeStage, type SavedPlan } from './graph/types'
 import { NODE_STAGES, nodeStageKey } from './graph/stages'
 import { StatusGlyph } from './graph/StatusGlyph'
 import { SleipnirLoader } from '../app/UIKit/SleipnirLoader/SleipnirLoader'
+import { Logo } from '../app/UIKit/Logo/Logo'
 import type { GeneratedFile } from '../app/AgentChat/iAgentChat'
 import { createPlan, getWorkspaceInfo, listWorkspaceDir, readWorkspaceFile, writeWorkspaceFile, appendPlanGeneratedFiles, renamePlan } from './api/sleipnirApi'
 import type { FileTreeNode } from './api/PlatformAPI'
@@ -19,7 +21,7 @@ import { PlanBuildStatusBar } from './PlanBuildStatusBar'
 import { Search } from '../app/UIKit/Search/Search'
 import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../app/UIKit/Search/iSearch'
 import { ListRow } from '../app/UIKit/ListRow/ListRow'
-import { SidebarHeader } from '../app/UIKit/SidebarHeader/SidebarHeader'
+import { SIDE_PANEL_W, SidebarHeader } from '../app/UIKit/SidebarHeader/SidebarHeader'
 import { DeletePlanModal } from './DeletePlanModal'
 import { DeleteNodeModal } from './DeleteNodeModal'
 import { DismissWelcomeModal } from './DismissWelcomeModal'
@@ -519,114 +521,6 @@ function CollapsibleHeader({
   )
 }
 
-// One row in the left "PLANS" list — every registered map (Welcome, the
-// fixed workspace maps), always present regardless of whether it's
-// currently open as a tab. Mirrors the hover-reveals-an-action pattern
-// LeftRailing uses for Workspace. Unlike the tab strip's × (which only
-// *closes* an open tab), the sidebar's hover action is a trash can that
-// *permanently deletes* the plan — routed through a confirm modal by the
-// caller (see onDelete). Just the title — no per-row expand, no preview of
-// contents underneath (plans don't need to; see NODES below for the one
-// place expand/collapse still applies).
-function PlanRow({
-  map,
-  active,
-  onOpen,
-  onDelete,
-  icon,
-  onContextMenu,
-  onMenuButton,
-}: {
-  map: { id: string; label: string }
-  active: boolean
-  onOpen: () => void
-  /** Trash action for the sidebar scroll list — permanently deletes the plan (the caller opens a confirm modal first). Omitted for built-in maps like Welcome, which can't be deleted; closing a tab is the tab strip's × instead. */
-  onDelete?: () => void
-  /** Prefixed before the label — every row gets the same 'network' icon (NavRail's own Planning icon), Welcome included, so any open tab reads as the same identifiable type at a glance. */
-  icon?: IconName
-  /** Right-click — same {x,y,anchorEl}-via-useContextMenu pattern as the NODES list below. Omitted for rows with no menu (Welcome keeps its old direct trash-only affordance). */
-  onContextMenu?: (e: React.MouseEvent) => void
-  /** Hover-revealed "⋯" trigger, paired with onContextMenu — when provided it replaces the plain trash icon so a row's menu opens the same way whether you right-click or click "⋯" (matches the NODES list). */
-  onMenuButton?: (e: React.MouseEvent) => void
-}) {
-  // Full-bleed row: negative margins cancel the sidebar's 8px padding so the
-  // hover/active fill spans edge-to-edge — same ListRow the file tree uses.
-  return (
-    <ListRow
-      selected={active}
-      indent={8}
-      style={{ marginLeft: -8, marginRight: -8, flexShrink: 0 }}
-      onClick={onOpen}
-      onContextMenu={onContextMenu}
-      leading={icon ? <span style={{ display: 'flex', opacity: 0.7 }}><Icon name={icon} size={12} /></span> : undefined}
-      trailing={(hovered) => {
-        if (!hovered) return null
-        if (onMenuButton) {
-          return (
-            <IconButton
-              onClick={(e) => { e.stopPropagation(); onMenuButton(e) }}
-              title="More actions"
-              glyph="⋯"
-              iconSize={16}
-              textColor="var(--text-3)"
-            />
-          )
-        }
-        return onDelete ? (
-          <IconButton
-            onClick={(e) => { e.stopPropagation(); onDelete() }}
-            title="Delete plan"
-            icon="trash"
-            iconSize={13}
-            textColor="var(--text-3)"
-          />
-        ) : null
-      }}
-    >
-      <span style={{ fontWeight: active ? 700 : 400 }}>{map.label}</span>
-    </ListRow>
-  )
-}
-
-// Saved plan rows, listed directly under PLANS with no title/accordion of
-// their own — collapsing is governed entirely by PLANS' own header above.
-function PlanGroup({
-  plans,
-  mapId,
-  onOpen,
-  onDelete,
-  icon,
-  onContextMenu,
-  onMenuButton,
-}: {
-  plans: SavedPlan[]
-  mapId: string
-  onOpen: (id: string) => void
-  onDelete: (plan: SavedPlan) => void
-  icon?: IconName
-  /** Same right-click / "⋯" pattern as the NODES list — see PlanningView's planMenu (useContextMenu). */
-  onContextMenu?: (e: React.MouseEvent, plan: SavedPlan) => void
-  onMenuButton?: (e: React.MouseEvent, plan: SavedPlan) => void
-}) {
-  if (plans.length === 0) return null
-  return (
-    <Frame flow="vertical" gap={0} shrink={0}>
-      {plans.map((plan) => (
-        <PlanRow
-          key={plan.id}
-          map={plan}
-          active={plan.id === mapId}
-          onOpen={() => onOpen(plan.id)}
-          onDelete={() => onDelete(plan)}
-          icon={icon}
-          onContextMenu={onContextMenu ? (e) => onContextMenu(e, plan) : undefined}
-          onMenuButton={onMenuButton ? (e) => onMenuButton(e, plan) : undefined}
-        />
-      ))}
-    </Frame>
-  )
-}
-
 // Shown in the main content area whenever no tab is open — reached by closing
 // the last remaining tab (Welcome included). Mirrors the Workspace's "no
 // folder open" start page (see WorkspaceView): a centered prompt with an
@@ -636,17 +530,15 @@ function PlanGroup({
 function PlanningEmptyState({
   plans,
   onOpenPlan,
-  onOpenWelcome,
-  onRestoreWelcome,
+  onGetStarted,
   onCreatePlan,
   creating,
   error,
 }: {
   plans: SavedPlan[]
   onOpenPlan: (id: string) => void
-  onOpenWelcome?: () => void
-  /** Escape hatch shown only once Welcome has been permanently deleted (see PlanningView's welcomeDismissed) — brings the built-in guide back. Mutually exclusive with onOpenWelcome, which the caller passes only while Welcome is still present. */
-  onRestoreWelcome?: () => void
+  /** Opens the built-in Welcome guide (un-dismissing it first if it was deleted) — Welcome no longer auto-opens on launch. */
+  onGetStarted?: () => void
   onCreatePlan: (label: string) => void
   creating: boolean
   error: string | null
@@ -660,8 +552,8 @@ function PlanningEmptyState({
   }
   return (
     <Frame flow="vertical" grow align="center" justify="center" gap={18} padding={24}>
-      <span style={{ display: 'flex', color: 'var(--text-3)', opacity: 0.5 }}>
-        <Icon name="network" size={40} />
+      <span style={{ display: 'flex', color: 'var(--text-2)', opacity: 0.85, marginBottom: 6 }}>
+        <Logo className="h-40 w-auto" />
       </span>
       <Frame flow="vertical" align="center" gap={6}>
         <span style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
@@ -715,21 +607,12 @@ function PlanningEmptyState({
         </Frame>
       )}
 
-      {onOpenWelcome && (
+      {onGetStarted && (
         <button
-          onClick={onOpenWelcome}
+          onClick={onGetStarted}
           style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.04em', padding: '2px 0', textDecoration: 'underline', ...MONO }}
         >
-          Open Welcome
-        </button>
-      )}
-
-      {onRestoreWelcome && (
-        <button
-          onClick={onRestoreWelcome}
-          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.04em', padding: '2px 0', textDecoration: 'underline', ...MONO }}
-        >
-          Restore Welcome
+          Get Started
         </button>
       )}
     </Frame>
@@ -916,8 +799,8 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   const [renamingNode, setRenamingNode] = useState<GraphNode | null>(null)
   // Right-click / ⋯ menu for the NODES list rows (see nodeMenuItems below).
   const nodeMenu = useContextMenu<GraphNode>()
-  // Same pattern for the PLANS list — saved plans only (not the pinned
-  // Welcome row, which keeps its own dismiss flow/trash icon).
+  // Same pattern for the open plan's actions button beside the PLANS picker —
+  // saved plans only (Welcome keeps its own hide flow/trash icon).
   const planMenu = useContextMenu<SavedPlan>()
 
   const copyNodeRelativePath = (node: GraphNode) => {
@@ -929,16 +812,18 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     const info = await getWorkspaceInfo()
     void navigator.clipboard.writeText(info.root ? `${info.root}/${rel}` : rel)
   }
-  // The sidebar PLANS "+" opens the same Add-Plan-from-Workspace popup the
+  // The PLANS picker's "+ New plan…" opens the same Add-Plan-from-Workspace popup the
   // Workspace/Research file trees use (see WorkspaceView) instead of a bare
   // inline name box — reused wholesale rather than reimplemented, so the
   // name+search+filter+tree picker behaves identically everywhere it appears.
   const [addingPlan, setAddingPlan] = useState(false)
+  // What was typed into the PLANS picker when "New plan" was chosen — seeds the modal's name.
+  const [newPlanName, setNewPlanName] = useState('')
   const [creatingPlan, setCreatingPlan] = useState(false)
   const [createPlanError, setCreatePlanError] = useState<string | null>(null)
   // Forces the full-page create-plan screen (PlanningEmptyState) even while
   // tabs are open — the tab strip's "+" sets this (see onAddTabClick below),
-  // as opposed to the sidebar PLANS "+" which stays an inline type-it-out box.
+  // as opposed to the PLANS picker's "+ New plan…", which opens NewWorkspacePlanModal.
   // Cleared the moment any plan is opened/created (see activateMap).
   const [showCreatePlan, setShowCreatePlan] = useState(false)
 
@@ -1004,7 +889,6 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   // topologyKey) rather than reheating the layout.
   const toggleLinkDirection = (row: LinkedRow) => flipLink(row.node, row.direction)
 
-  const [nodesCollapsed, setNodesCollapsed] = useState(false)
   const [archivedCollapsed, setArchivedCollapsed] = useState(false)
 
   const activateMap = (id: GraphMapId) => {
@@ -1039,7 +923,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   }
 
   // Backs the full-page create screen only (PlanningEmptyState, reached via
-  // the tab strip's "+" or closing every tab) — the sidebar PLANS "+" instead
+  // the tab strip's "+" or closing every tab) — the PLANS picker's "+ New plan…" instead
   // opens NewWorkspacePlanModal (see addingPlan), which creates its own plan
   // directly via createPlan and reports back through onCreated below.
   const submitNewPlan = async (label: string) => {
@@ -1333,7 +1217,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   // left margin, no parent/child nesting or expand/collapse. Plan-step edges
   // still drive the graph and the LINKED panel; they just don't reshape this
   // list into a tree.
-  const visibleNodeRows = nodeRows
+  // With no plan open (start page), the NODES list is empty — the active id
+  // falls back to 'welcome' internally, but its nodes must not leak in here.
+  // A global search still spans every map.
+  const nodesHidden = noOpenTabs && !isGlobalSearch
+  const visibleNodeRows = nodesHidden ? [] : nodeRows
   const nodeRowId = (row: PlanningNodeRow) => (isGlobalSearch ? `${row.mapId}::${row.node.id}` : row.node.id)
   // Backs the NODES search box's ↑/↓/Enter keyboard nav (see Search's
   // `listItems`) — same click behavior as a row's onClick (selectNodeRow).
@@ -1356,679 +1244,645 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   }
 
   return (
-    <Frame theme={theme} h="fill" flow="horizontal" fill={{ solid: 'var(--bg-1)' }} style={MONO}>
-      {/* Sidebar — runs the full height from the true top; the tab strip
-          sits beside it (in the column to the right), not above it. */}
-      <ScrollWindow
-        axis="y"
-        flow="vertical"
-        gap={0}
-        padding={{ x: 8, y: 16 }}
-        w={200}
-        shrink={0}
-        stroke={{ right: { color: 'border-1' } }}
-      >
-        {/* Title row — the search trigger lives in the header actions; opening
-            it slides the input over the "PLANNING" title (see SidebarHeader's
-            search mode), same collapsed-by-default pattern as LeftRailingView. */}
-        <Frame ref={nodeSearchRef} padding={{ bottom: 10 }} shrink={0}>
-          <SidebarHeader
-            label="PLANNING"
-            searchOpen={nodeSearchOpen || !!query}
-            actions={
-              !nodeSearchOpen && !query ? (
-                <IconButton
-                  as="span"
-                  icon="search"
-                  iconSize={14}
-                  title="Search nodes"
-                  textColor="var(--text-3)"
-                  onClick={() => setNodeSearchOpen(true)}
-                />
-              ) : undefined
-            }
-            search={
-              <Search
-                value={query}
-                onChange={setQuery}
-                placeholder="Search in Planning…"
-                w="fill"
-                autoFocus={nodeSearchOpen && !query}
-                // Same sort dropdown the Workspace file tree uses, so both
-                // left-rail searches present an identical sort control.
-                sort={{
-                  options: SEARCH_SORT_OPTIONS,
-                  active: sortOrder,
-                  onChange: (v) => setSortOrder(v as SearchSortId),
-                }}
-                filters={{ options: KIND_FILTER_OPTIONS, active: kindFilter, onChange: setKindFilter }}
-                listItems={nodeListItems}
-                onHighlightChange={setNodeHighlightId}
-              />
-            }
-          />
-        </Frame>
-
-        <Frame flow="vertical" gap={0} shrink={0} padding={{ bottom: 10 }}>
-          <CollapsibleHeader
-            label="PLANS"
-            count={plans.length}
-            right={
-              // The one and only add-plan control — always here next to
-              // "PLANS (n)". Opens NewWorkspacePlanModal (see addingPlan)
-              // rather than an inline field.
-              <IconButton onClick={() => setAddingPlan(true)} title="New plan" icon="plan-add" iconSize={13} textColor="var(--text-2)" />
-            }
-          />
-          <Frame flow="vertical" gap={0} padding={{ top: 6 }}>
-            {welcomeMap && !welcomeDismissed && (
-              // Welcome is a built-in guide map, not a saved plan on disk — its
-              // trash routes through a confirm (DismissWelcomeModal) that
-              // persists a local "hidden" flag rather than deleting anything,
-              // permanently removing it from this list + the empty state (see
-              // deleteWelcome / welcomeDismissed).
-              <PlanRow
-                map={welcomeMap}
-                active={welcomeMap.id === mapId}
-                onOpen={() => activateMap(welcomeMap.id)}
-                onDelete={() => setConfirmingWelcomeDelete(true)}
-                icon="network"
-              />
-            )}
-            <PlanGroup
-              plans={plans}
-              mapId={mapId}
-              onOpen={activateMap}
-              onDelete={setDeletingPlan}
+    <Frame theme={theme} h="fill" flow="vertical" fill={{ solid: 'var(--bg-1)' }} style={MONO}>
+      {/* The tab row runs the full width, over the sidebar too — the same
+          layout as Canvas: PLANS picker + tabs on top, NODES docked left. */}
+      <WorkspaceHeader
+        // Every plan on the left, the open ones as tabs beside it — the same
+        // pattern as Canvas's boards. Picking one opens it as a tab and the
+        // sidebar's NODES list follows it, the way Layers follows a board.
+        leading={
+          <>
+            <TabPicker
+              noun="Plans"
               icon="network"
-              onContextMenu={(e, plan) => planMenu.openFromEvent(e, plan)}
-              onMenuButton={(e, plan) => planMenu.openFromButton(e, plan)}
-            />
-          </Frame>
-        </Frame>
-        <div style={{ height: 1, background: 'var(--border-1)', flexShrink: 0, marginBottom: 10 }} />
-
-        <Frame flow="vertical" gap={0} shrink={0} padding={{ bottom: 10 }}>
-          <CollapsibleHeader
-            label={isGlobalSearch ? 'RESULTS' : 'NODES'}
-            count={isGlobalSearch ? nodeRows.length : live.nodes.length}
-            collapsed={nodesCollapsed}
-            onToggle={() => setNodesCollapsed((v) => !v)}
-            right={
-              // Add-node works on plan tabs too now: a note authored here is
-              // tagged with the plan's id as its map (see AddNodeModal ->
-              // addNote/scaffoldNodes, and isNoteTarget in
-              // tools/sleipnir-backend.mjs, which accepts an existing plan id),
-              // and shows up on this plan's tab via the ViewModel's `live`
-              // notes merge — so a freshly-created plan is no longer a dead end.
-              // Just Add-node here now — linking moved off this header onto the
-              // node itself: right-click / ⋯ a node → "Link", or the add-link
-              // control in the selected node's LINKED panel (see nodeMenu items
-              // and LinkedNodeList's headerAction below).
-              <IconButton onClick={() => setIsAddingNode(true)} title="Add node…" icon="plan-node-add" iconSize={13} textColor="var(--text-2)" />
-            }
-          />
-        </Frame>
-        {!nodesCollapsed && (
-          <Frame ref={nodeResultsRef} flow="vertical" gap={0} shrink={0}>
-        {visibleNodeRows.map((row) => {
-            const n = row.node
-            // The ⋯ menu is meaningless during a global search (a row there may
-            // belong to a map other than the active one). On a plan tab it's
-            // scoped to notes authored directly into *this* plan (map === the
-            // plan id) — the plan's resolved/borrowed nodes live in other maps,
-            // so rename/delete from here would act on the wrong place.
-            const menuEnabled =
-              !isGlobalSearch &&
-              (!removablePlanFor(mapId) || (noteIdSet.has(n.id) && n.map === mapId))
-            return (
-            <ListRow
-              key={isGlobalSearch ? `${row.mapId}::${n.id}` : n.id}
-              selected={n.id === selectedId}
-              connected={n.id !== selectedId && nodeRowId(row) === nodeHighlightId}
-              // Full-bleed flat row — negative margins cancel the sidebar's 8px
-              // padding so the fill spans edge-to-edge. No child indent: the
-              // NODES list is flat, like PLANS.
-              indent={8}
-              style={{ marginLeft: -8, marginRight: -8, flexShrink: 0 }}
-              onClick={() => selectNodeRow(row)}
-              // Double-click jumps to the real file in the Workspace (same as
-              // double-clicking the node in the graph), when it has one.
-              onDoubleClick={() => {
-                const filePath = workspaceFilePath(n)
-                if (filePath && onOpenFile) onOpenFile(filePath)
-              }}
-              onContextMenu={menuEnabled ? (e) => nodeMenu.openFromEvent(e, n) : undefined}
-              title={workspaceFilePath(n) ? 'Double-click to open in Workspace' : undefined}
-              // Type icon: a code-backed node (.tsx/.rs/.py/…) shows the file
-              // icon; a markdown note or file-less idea node keeps the node glyph
-              // — the connection-line mark when linked, the plain ring otherwise
-              // (see nodeIconName). Inherits the row colour so it flips with
-              // hover/selection just like the label.
-              iconStart={
-                <span title={connectedNodeIds.has(n.id) ? 'Linked' : 'No links'} style={{ display: 'inline-flex', flexShrink: 0 }}>
-                  <Icon name={nodeIconName(n, connectedNodeIds.has(n.id))} size={14} />
-                </span>
-              }
-              trailing={(hovered) => {
-                const showMenu = menuEnabled && hovered
-                return (
-                  <>
-                    {/* Map tag only during global search — a per-map row trivially
-                        belongs to the active tab, so tagging it there is clutter. */}
-                    {isGlobalSearch && (
-                      <span style={{ fontSize: 10, color: 'var(--text-3)', flexShrink: 0, whiteSpace: 'nowrap', ...MONO }}>
-                        {row.mapLabel}
-                      </span>
-                    )}
-                    {showMenu ? (
-                      // Unified ⋯ menu (Rename / Copy path / Delete / archive) —
-                      // gated off plan tabs and global search: a row there may
-                      // belong to a map other than the active one.
-                      <IconButton
-                        onClick={(e) => { e.stopPropagation(); nodeMenu.openFromButton(e, n) }}
-                        title="More actions"
-                        glyph="⋯"
-                        iconSize={16}
-                        textColor="var(--text-3)"
-                      />
-                    ) : (
-                      // Status at rest, right-aligned — ONE status mark per row,
-                      // the stage ring, identical to the dot on the graph canvas
-                      // and the glyph in the card's STATUS toggle. Deliberately
-                      // not paired with the AI plan-step `status` (draft/approved/
-                      // done): a row showing two different status symbols reads as
-                      // two competing states, and which one a node gets would then
-                      // depend on whether an AI or a human made it. The AI approval
-                      // step still lives in the detail card, where it belongs — as
-                      // the APPROVE / GENERATE CODE action, not a second glyph.
-                      // Defaults to 'proposed' for any untagged node (the universal
-                      // default), via StatusGlyph. Swapped out for ⋯ on hover.
-                      <StatusGlyph stage={stages[nodeStageKey(n)]} />
-                    )}
-                  </>
-                )
-              }}
-            >
-              {/* A discovered node (pulled in by the asset-plan reference walk,
-                  never explicitly added — see GraphNode.discovered) reads as
-                  context here too, same treatment as the graph canvas. */}
-              <span style={n.discovered ? { opacity: 0.6 } : undefined}>
-                {nodeDisplayLabel(n)}
-                {/* Same ".tsx"/".rs" suffix (dimmer) the graph label shows, so a
-                    node reads identically in both places. */}
-                {fileExtLabel(n.filePath) && <span style={{ opacity: 0.5 }}>{fileExtLabel(n.filePath)}</span>}
-              </span>
-            </ListRow>
-            )
-          })}
-          </Frame>
-        )}
-
-        {archivedEntries.length > 0 && (
-          <Frame flow="vertical" gap={0} padding={{ top: 12 }} shrink={0}>
-            <CollapsibleHeader
-              label={`ARCHIVED (${archivedEntries.length})`}
-              collapsed={archivedCollapsed}
-              onToggle={() => setArchivedCollapsed((v) => !v)}
-            />
-            {!archivedCollapsed && archivedEntries.map((entry) => (
-              // Flat full-bleed row, same ListRow as PLANS/NODES above and the
-              // file tree — dimmed + struck-through to read as archived, and it
-              // brightens on hover like any de-emphasised row.
-              <ListRow
-                key={entry.path}
-                indent={8}
-                labelOpacity={0.6}
-                title="Restore"
-                onClick={() => restoreEntry(entry)}
-                style={{ marginLeft: -8, marginRight: -8, flexShrink: 0 }}
-              >
-                <span style={{ textDecoration: 'line-through' }}>{entry.label}</span>
-              </ListRow>
-            ))}
-          </Frame>
-        )}
-      </ScrollWindow>
-
-      <Frame flow="vertical" grow minW={0} h="fill">
-        <WorkspaceHeader
-          // No node/edge count (nor a Delete-Plan menu) on the create-a-plan
-          // start page — there's no active graph to describe. The tab strip's
-          // "+" still shows, since onAddTabClick stays wired below.
-          actions={
-            showCreateScreen ? undefined : (
-            <>
-              {/* Plan tabs: the plan over the project architecture (blue), or the plan alone. */}
-              {isPlanTab && (
-                <Frame flow="horizontal" align="center" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-2' }} clipContent>
-                  {(['architecture', 'plan'] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      aria-pressed={planViewMode === mode}
-                      onClick={() => setPlanViewMode(mode)}
-                      title={mode === 'architecture' ? 'Show the plan over the project architecture' : 'Show only the plan'}
-                      style={{
-                        fontSize: 9,
-                        letterSpacing: '0.1em',
-                        padding: '4px 8px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: planViewMode === mode ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
-                        color: planViewMode === mode ? 'var(--text-1)' : 'var(--text-3)',
-                        ...MONO,
-                      }}
-                    >
-                      {mode === 'architecture' ? 'ARCHITECTURE' : 'PLAN ONLY'}
-                    </button>
-                  ))}
-                </Frame>
-              )}
-              {runningPlan && runProgress ? (
-                <Frame flow="horizontal" align="center" gap={6}>
-                  <SleipnirLoader size={16} />
-                  <span style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-                    BUILDING {runProgress.index} OF {runProgress.total}: {runProgress.label.toUpperCase()}…
-                  </span>
-                </Frame>
-              ) : (
-                <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
-                  {live.nodes.length} NODES · {live.edges.length} LINKS
-                </span>
-              )}
-            </>
-            )
-          }
-          tabs={openTabs.map((m) => ({
-            id: m.id,
-            label: m.label,
-            closable: true,
-            // Same 'network' icon NavRail's own Planning item and every
-            // sidebar PLANS row use — Welcome included, so every open tab
-            // reads as the same identifiable type at a glance, not just
-            // plain text.
-            icon: removablePlanFor(m.id) || m.id === 'welcome' ? 'network' : undefined,
-          }))}
-          activeTabId={mapId}
-          onActivateTab={activateMap}
-          onCloseTab={closeMap}
-          // The tab strip's "+" opens the full-page blank create-plan screen
-          // (PlanningEmptyState), rather than the inline name box the sidebar
-          // PLANS "+" uses — onAddTabClick fires immediately with no inline
-          // input of its own (see WorkspaceTabStrip).
-          onAddTabClick={() => setShowCreatePlan(true)}
-        />
-
-        {deletingPlan && (
-          <DeletePlanModal
-            plan={deletingPlan}
-            onClose={() => setDeletingPlan(null)}
-            onDeletePlan={onDeletePlan}
-            onDeleted={() => {
-              // Close the just-deleted plan's tab rather than force-opening
-              // Welcome: if it was the last tab, closeMap falls through to
-              // 'welcome' as the active id but leaves nothing open, so the
-              // create-a-plan start page shows. Deleting a plan whose tab
-              // isn't open is a no-op here (closeMap ignores an unknown id).
-              closeMap(deletingPlan.id)
-              setDeletingPlan(null)
-              // A "delete everything" removes the plan's nodes from notes.json;
-              // reload so they vanish from every open map at once instead of
-              // lingering until the next remount. Harmless for a plan-only
-              // delete — notes are unchanged, so the graph re-reads identically.
-              void refreshAll()
-            }}
-          />
-        )}
-
-        {deletingNode && (
-          <DeleteNodeModal
-            node={deletingNode}
-            onClose={() => setDeletingNode(null)}
-            onDelete={deleteNode}
-            onDeleted={() => setDeletingNode(null)}
-          />
-        )}
-
-        {confirmingWelcomeDelete && (
-          <DismissWelcomeModal
-            onClose={() => setConfirmingWelcomeDelete(false)}
-            onConfirm={deleteWelcome}
-          />
-        )}
-
-        {renamingPlan && (
-          <RenamePathModal
-            name={renamingPlan.label}
-            isDir={false}
-            title="RENAME PLAN"
-            // Label only — renamePlan deliberately leaves the id alone, because
-            // graph nodes and open tabs reference it. See its doc comment.
-            rename={async (label) => {
-              const { plan } = await renamePlan(renamingPlan.id, label)
-              onUpdatePlan(plan)
-            }}
-            onClose={() => setRenamingPlan(null)}
-            onRenamed={() => setRenamingPlan(null)}
-          />
-        )}
-
-        {renamingNode && (
-          <RenamePathModal
-            name={renamingNode.label}
-            isDir={false}
-            title="RENAME NODE"
-            rename={(newName) => renameNode(renamingNode, newName)}
-            onClose={() => setRenamingNode(null)}
-            onRenamed={() => setRenamingNode(null)}
-          />
-        )}
-
-        {nodeMenu.menu && (() => {
-          const n = nodeMenu.menu.data
-          const renamable = noteIdSet.has(n.id)
-          const archivable = !n.role && !!folderPathForNode(n)
-          return (
-            <ContextMenu
-              x={nodeMenu.menu.x}
-              y={nodeMenu.menu.y}
-              anchorEl={nodeMenu.menu.anchorEl}
-              onClose={nodeMenu.close}
               items={[
-                // Link lives on the node itself now (was a header shortcut):
-                // selects it and pops its LINKED add-link search open (see
-                // linkNode / LinkAddDropdown's openSignal).
-                { label: 'Link', icon: 'link-add' as const, onSelect: () => linkNode(n) },
-                ...(workspaceFilePath(n) && onOpenFile
-                  ? [{ label: 'Show in Workspace', separator: true, onSelect: () => onOpenFile(workspaceFilePath(n)!) }]
-                  : []),
-                ...(workspaceFilePath(n) && onShowInCanvas && canvasComponentPaths.has(workspaceFilePath(n)!)
-                  ? [{ label: 'Show in Canvas', separator: !onOpenFile, onSelect: () => onShowInCanvas(workspaceFilePath(n)!) }]
-                  : []),
-                ...(renamable ? [{ label: 'Rename', separator: true, onSelect: () => setRenamingNode(n) }] : []),
-                ...(workspaceFilePath(n) ? [{ label: 'Copy path', separator: true, onSelect: () => copyNodeAbsolutePath(n) }] : []),
-                ...(n.filePath ? [{ label: 'Copy relative path', separator: !workspaceFilePath(n), onSelect: () => copyNodeRelativePath(n) }] : []),
-                ...(renamable
-                  ? [{ label: 'Delete node', separator: true, destructive: true, onSelect: () => setDeletingNode(n) }]
-                  : archivable
-                    ? [{ label: 'Remove', separator: true, destructive: true, onSelect: () => archiveNode(n) }]
+                ...(welcomeMap && !welcomeDismissed ? [{ id: welcomeMap.id, label: welcomeMap.label }] : []),
+                ...plans.map((p) => ({ id: p.id, label: p.label })),
+              ]}
+              openIds={openTabs.map((m) => m.id)}
+              activeId={showCreateScreen ? null : mapId}
+              onPick={activateMap}
+              create={{
+                icon: 'plan-add',
+                label: (q) => (q ? `New plan “${q}”…` : 'New plan…'),
+                onCreate: (q) => {
+                  setNewPlanName(q)
+                  setAddingPlan(true)
+                },
+              }}
+            />
+            {/* The open plan's own actions (rename/delete), which the old
+                PLANS rows carried on right-click / "⋯". Welcome is a
+                built-in guide: it can only be hidden. */}
+            {!showCreateScreen && removablePlanFor(mapId) ? (
+              <IconButton
+                onClick={(e) => planMenu.openFromButton(e, removablePlanFor(mapId)!)}
+                title="Plan actions"
+                glyph="⋯"
+                iconSize={16}
+                textColor="var(--text-3)"
+              />
+            ) : !showCreateScreen && mapId === 'welcome' && !welcomeDismissed ? (
+              <IconButton
+                onClick={() => setConfirmingWelcomeDelete(true)}
+                title="Hide the Welcome guide"
+                icon="trash"
+                iconSize={13}
+                textColor="var(--text-3)"
+              />
+            ) : null}
+          </>
+        }
+        // No node/edge count (nor a Delete-Plan menu) on the create-a-plan
+        // start page — there's no active graph to describe. The tab strip's
+        // "+" still shows, since onAddTabClick stays wired below.
+        actions={
+          showCreateScreen ? undefined : (
+          <>
+            {/* Plan tabs: the plan over the project architecture (blue), or the plan alone. */}
+            {isPlanTab && (
+              <Frame flow="horizontal" align="center" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-2' }} clipContent>
+                {(['architecture', 'plan'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={planViewMode === mode}
+                    onClick={() => setPlanViewMode(mode)}
+                    title={mode === 'architecture' ? 'Show the plan over the project architecture' : 'Show only the plan'}
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: '0.1em',
+                      padding: '4px 8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: planViewMode === mode ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
+                      color: planViewMode === mode ? 'var(--text-1)' : 'var(--text-3)',
+                      ...MONO,
+                    }}
+                  >
+                    {mode === 'architecture' ? 'ARCHITECTURE' : 'PLAN ONLY'}
+                  </button>
+                ))}
+              </Frame>
+            )}
+            {runningPlan && runProgress ? (
+              <Frame flow="horizontal" align="center" gap={6}>
+                <SleipnirLoader size={16} />
+                <span style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+                  BUILDING {runProgress.index} OF {runProgress.total}: {runProgress.label.toUpperCase()}…
+                </span>
+              </Frame>
+            ) : (
+              <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
+                {live.nodes.length} NODES · {live.edges.length} LINKS
+              </span>
+            )}
+          </>
+          )
+        }
+        tabs={openTabs.map((m) => ({
+          id: m.id,
+          label: m.label,
+          closable: true,
+          // Same 'network' icon NavRail's own Planning item and every
+          // sidebar PLANS row use — Welcome included, so every open tab
+          // reads as the same identifiable type at a glance, not just
+          // plain text.
+          icon: removablePlanFor(m.id) || m.id === 'welcome' ? 'network' : undefined,
+        }))}
+        activeTabId={mapId}
+        onActivateTab={activateMap}
+        onCloseTab={closeMap}
+        // The tab strip's "+" opens the full-page blank create-plan screen
+        // (PlanningEmptyState), rather than the inline name box the sidebar
+        // PLANS "+" uses — onAddTabClick fires immediately with no inline
+        // input of its own (see WorkspaceTabStrip).
+        onAddTabClick={() => setShowCreatePlan(true)}
+      />
+
+      <Frame flow="horizontal" grow minH={0}>
+        {/* Sidebar — the open plan's NODES, under the full-width tab row, the
+            same docked-panel layout as Canvas's LAYERS (SidebarHeader framed,
+            SIDE_PANEL_W). Search slides over the NODES title; with a query it
+            searches every plan and the list becomes RESULTS. */}
+        <Frame flow="vertical" w={SIDE_PANEL_W} shrink={0} minH={0} stroke={{ right: { color: 'border-1' } }}>
+          <Frame ref={nodeSearchRef} shrink={0}>
+            <SidebarHeader
+              framed
+              label={`${isGlobalSearch ? 'RESULTS' : 'NODES'} (${isGlobalSearch ? nodeRows.length : nodesHidden ? 0 : live.nodes.length})`}
+              searchOpen={nodeSearchOpen || !!query}
+              actions={
+                <>
+                  {!nodeSearchOpen && !query && (
+                    <IconButton
+                      as="span"
+                      icon="search"
+                      iconSize={14}
+                      title="Search nodes"
+                      textColor="var(--text-3)"
+                      onClick={() => setNodeSearchOpen(true)}
+                    />
+                  )}
+                  {/* Add-node works on plan tabs too: a note authored here is
+                      tagged with the plan's id as its map (see AddNodeModal and
+                      isNoteTarget in tools/sleipnir-backend.mjs). Linking lives on
+                      the node itself (right-click / ⋯ → "Link"). */}
+                  {!nodesHidden && (
+                    <IconButton onClick={() => setIsAddingNode(true)} title="Add node…" icon="plan-node-add" iconSize={13} textColor="var(--text-2)" />
+                  )}
+                </>
+              }
+              search={
+                <Search
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search in Planning…"
+                  w="fill"
+                  autoFocus={nodeSearchOpen && !query}
+                  // Same sort dropdown the Workspace file tree uses, so both
+                  // left-rail searches present an identical sort control.
+                  sort={{
+                    options: SEARCH_SORT_OPTIONS,
+                    active: sortOrder,
+                    onChange: (v) => setSortOrder(v as SearchSortId),
+                  }}
+                  filters={{ options: KIND_FILTER_OPTIONS, active: kindFilter, onChange: setKindFilter }}
+                  listItems={nodeListItems}
+                  onHighlightChange={setNodeHighlightId}
+                />
+              }
+            />
+          </Frame>
+          <ScrollWindow axis="y" flow="vertical" gap={0} padding={{ x: 8, y: 6 }} grow minH={0}>
+              <Frame ref={nodeResultsRef} flow="vertical" gap={0} shrink={0}>
+            {visibleNodeRows.map((row) => {
+                const n = row.node
+                // The ⋯ menu is meaningless during a global search (a row there may
+                // belong to a map other than the active one). On a plan tab it's
+                // scoped to notes authored directly into *this* plan (map === the
+                // plan id) — the plan's resolved/borrowed nodes live in other maps,
+                // so rename/delete from here would act on the wrong place.
+                const menuEnabled =
+                  !isGlobalSearch &&
+                  (!removablePlanFor(mapId) || (noteIdSet.has(n.id) && n.map === mapId))
+                return (
+                <ListRow
+                  key={isGlobalSearch ? `${row.mapId}::${n.id}` : n.id}
+                  selected={n.id === selectedId}
+                  connected={n.id !== selectedId && nodeRowId(row) === nodeHighlightId}
+                  // Full-bleed flat row — negative margins cancel the sidebar's 8px
+                  // padding so the fill spans edge-to-edge. No child indent: the
+                  // NODES list is flat, like PLANS.
+                  indent={8}
+                  style={{ marginLeft: -8, marginRight: -8, flexShrink: 0 }}
+                  onClick={() => selectNodeRow(row)}
+                  // Double-click jumps to the real file in the Workspace (same as
+                  // double-clicking the node in the graph), when it has one.
+                  onDoubleClick={() => {
+                    const filePath = workspaceFilePath(n)
+                    if (filePath && onOpenFile) onOpenFile(filePath)
+                  }}
+                  onContextMenu={menuEnabled ? (e) => nodeMenu.openFromEvent(e, n) : undefined}
+                  title={workspaceFilePath(n) ? 'Double-click to open in Workspace' : undefined}
+                  // Type icon: a code-backed node (.tsx/.rs/.py/…) shows the file
+                  // icon; a markdown note or file-less idea node keeps the node glyph
+                  // — the connection-line mark when linked, the plain ring otherwise
+                  // (see nodeIconName). Inherits the row colour so it flips with
+                  // hover/selection just like the label.
+                  iconStart={
+                    <span title={connectedNodeIds.has(n.id) ? 'Linked' : 'No links'} style={{ display: 'inline-flex', flexShrink: 0 }}>
+                      <Icon name={nodeIconName(n, connectedNodeIds.has(n.id))} size={14} />
+                    </span>
+                  }
+                  trailing={(hovered) => {
+                    const showMenu = menuEnabled && hovered
+                    return (
+                      <>
+                        {/* Map tag only during global search — a per-map row trivially
+                            belongs to the active tab, so tagging it there is clutter. */}
+                        {isGlobalSearch && (
+                          <span style={{ fontSize: 10, color: 'var(--text-3)', flexShrink: 0, whiteSpace: 'nowrap', ...MONO }}>
+                            {row.mapLabel}
+                          </span>
+                        )}
+                        {showMenu ? (
+                          // Unified ⋯ menu (Rename / Copy path / Delete / archive) —
+                          // gated off plan tabs and global search: a row there may
+                          // belong to a map other than the active one.
+                          <IconButton
+                            onClick={(e) => { e.stopPropagation(); nodeMenu.openFromButton(e, n) }}
+                            title="More actions"
+                            glyph="⋯"
+                            iconSize={16}
+                            textColor="var(--text-3)"
+                          />
+                        ) : (
+                          // Status at rest, right-aligned — ONE status mark per row,
+                          // the stage ring, identical to the dot on the graph canvas
+                          // and the glyph in the card's STATUS toggle. Deliberately
+                          // not paired with the AI plan-step `status` (draft/approved/
+                          // done): a row showing two different status symbols reads as
+                          // two competing states, and which one a node gets would then
+                          // depend on whether an AI or a human made it. The AI approval
+                          // step still lives in the detail card, where it belongs — as
+                          // the APPROVE / GENERATE CODE action, not a second glyph.
+                          // Defaults to 'proposed' for any untagged node (the universal
+                          // default), via StatusGlyph. Swapped out for ⋯ on hover.
+                          <StatusGlyph stage={stages[nodeStageKey(n)]} />
+                        )}
+                      </>
+                    )
+                  }}
+                >
+                  {/* A discovered node (pulled in by the asset-plan reference walk,
+                      never explicitly added — see GraphNode.discovered) reads as
+                      context here too, same treatment as the graph canvas. */}
+                  <span style={n.discovered ? { opacity: 0.6 } : undefined}>
+                    {nodeDisplayLabel(n)}
+                    {/* Same ".tsx"/".rs" suffix (dimmer) the graph label shows, so a
+                        node reads identically in both places. */}
+                    {fileExtLabel(n.filePath) && <span style={{ opacity: 0.5 }}>{fileExtLabel(n.filePath)}</span>}
+                  </span>
+                </ListRow>
+                )
+              })}
+              </Frame>
+
+            {archivedEntries.length > 0 && (
+              <Frame flow="vertical" gap={0} padding={{ top: 12 }} shrink={0}>
+                <CollapsibleHeader
+                  label={`ARCHIVED (${archivedEntries.length})`}
+                  collapsed={archivedCollapsed}
+                  onToggle={() => setArchivedCollapsed((v) => !v)}
+                />
+                {!archivedCollapsed && archivedEntries.map((entry) => (
+                  // Flat full-bleed row, same ListRow as PLANS/NODES above and the
+                  // file tree — dimmed + struck-through to read as archived, and it
+                  // brightens on hover like any de-emphasised row.
+                  <ListRow
+                    key={entry.path}
+                    indent={8}
+                    labelOpacity={0.6}
+                    title="Restore"
+                    onClick={() => restoreEntry(entry)}
+                    style={{ marginLeft: -8, marginRight: -8, flexShrink: 0 }}
+                  >
+                    <span style={{ textDecoration: 'line-through' }}>{entry.label}</span>
+                  </ListRow>
+                ))}
+              </Frame>
+            )}
+          </ScrollWindow>
+        </Frame>
+
+        <Frame flow="vertical" grow minW={0} h="fill">
+
+          {deletingPlan && (
+            <DeletePlanModal
+              plan={deletingPlan}
+              onClose={() => setDeletingPlan(null)}
+              onDeletePlan={onDeletePlan}
+              onDeleted={() => {
+                // Close the just-deleted plan's tab rather than force-opening
+                // Welcome: if it was the last tab, closeMap falls through to
+                // 'welcome' as the active id but leaves nothing open, so the
+                // create-a-plan start page shows. Deleting a plan whose tab
+                // isn't open is a no-op here (closeMap ignores an unknown id).
+                closeMap(deletingPlan.id)
+                setDeletingPlan(null)
+                // A "delete everything" removes the plan's nodes from notes.json;
+                // reload so they vanish from every open map at once instead of
+                // lingering until the next remount. Harmless for a plan-only
+                // delete — notes are unchanged, so the graph re-reads identically.
+                void refreshAll()
+              }}
+            />
+          )}
+
+          {deletingNode && (
+            <DeleteNodeModal
+              node={deletingNode}
+              onClose={() => setDeletingNode(null)}
+              onDelete={deleteNode}
+              onDeleted={() => setDeletingNode(null)}
+            />
+          )}
+
+          {confirmingWelcomeDelete && (
+            <DismissWelcomeModal
+              onClose={() => setConfirmingWelcomeDelete(false)}
+              onConfirm={deleteWelcome}
+            />
+          )}
+
+          {renamingPlan && (
+            <RenamePathModal
+              name={renamingPlan.label}
+              isDir={false}
+              title="RENAME PLAN"
+              // Label only — renamePlan deliberately leaves the id alone, because
+              // graph nodes and open tabs reference it. See its doc comment.
+              rename={async (label) => {
+                const { plan } = await renamePlan(renamingPlan.id, label)
+                onUpdatePlan(plan)
+              }}
+              onClose={() => setRenamingPlan(null)}
+              onRenamed={() => setRenamingPlan(null)}
+            />
+          )}
+
+          {renamingNode && (
+            <RenamePathModal
+              name={renamingNode.label}
+              isDir={false}
+              title="RENAME NODE"
+              rename={(newName) => renameNode(renamingNode, newName)}
+              onClose={() => setRenamingNode(null)}
+              onRenamed={() => setRenamingNode(null)}
+            />
+          )}
+
+          {nodeMenu.menu && (() => {
+            const n = nodeMenu.menu.data
+            const renamable = noteIdSet.has(n.id)
+            const archivable = !n.role && !!folderPathForNode(n)
+            return (
+              <ContextMenu
+                x={nodeMenu.menu.x}
+                y={nodeMenu.menu.y}
+                anchorEl={nodeMenu.menu.anchorEl}
+                onClose={nodeMenu.close}
+                items={[
+                  // Link lives on the node itself now (was a header shortcut):
+                  // selects it and pops its LINKED add-link search open (see
+                  // linkNode / LinkAddDropdown's openSignal).
+                  { label: 'Link', icon: 'link-add' as const, onSelect: () => linkNode(n) },
+                  ...(workspaceFilePath(n) && onOpenFile
+                    ? [{ label: 'Show in Workspace', separator: true, onSelect: () => onOpenFile(workspaceFilePath(n)!) }]
                     : []),
+                  ...(workspaceFilePath(n) && onShowInCanvas && canvasComponentPaths.has(workspaceFilePath(n)!)
+                    ? [{ label: 'Show in Canvas', separator: !onOpenFile, onSelect: () => onShowInCanvas(workspaceFilePath(n)!) }]
+                    : []),
+                  ...(renamable ? [{ label: 'Rename', separator: true, onSelect: () => setRenamingNode(n) }] : []),
+                  ...(workspaceFilePath(n) ? [{ label: 'Copy path', separator: true, onSelect: () => copyNodeAbsolutePath(n) }] : []),
+                  ...(n.filePath ? [{ label: 'Copy relative path', separator: !workspaceFilePath(n), onSelect: () => copyNodeRelativePath(n) }] : []),
+                  ...(renamable
+                    ? [{ label: 'Delete node', separator: true, destructive: true, onSelect: () => setDeletingNode(n) }]
+                    : archivable
+                      ? [{ label: 'Remove', separator: true, destructive: true, onSelect: () => archiveNode(n) }]
+                      : []),
+                ]}
+              />
+            )
+          })()}
+
+          {planMenu.menu && (
+            <ContextMenu
+              x={planMenu.menu.x}
+              y={planMenu.menu.y}
+              anchorEl={planMenu.menu.anchorEl}
+              onClose={planMenu.close}
+              items={[
+                { label: 'Rename plan', onSelect: () => setRenamingPlan(planMenu.menu!.data) },
+                { label: 'Delete plan', separator: true, destructive: true, onSelect: () => setDeletingPlan(planMenu.menu!.data) },
               ]}
             />
-          )
-        })()}
+          )}
 
-        {planMenu.menu && (
-          <ContextMenu
-            x={planMenu.menu.x}
-            y={planMenu.menu.y}
-            anchorEl={planMenu.menu.anchorEl}
-            onClose={planMenu.close}
-            items={[
-              { label: 'Rename plan', onSelect: () => setRenamingPlan(planMenu.menu!.data) },
-              { label: 'Delete plan', separator: true, destructive: true, onSelect: () => setDeletingPlan(planMenu.menu!.data) },
-            ]}
-          />
-        )}
-
-        {isAddingNode && (
-          <AddNodeModal
-            mapId={mapId}
-            onClose={() => setIsAddingNode(false)}
-            onCreated={async (nodes) => {
-              await refreshAll()
-              if (nodes[0]) setSelectedId(nodes[0].id)
-              // Scaffolding writes real files into the open project (see
-              // AddNodeModal.ViewModel's scaffoldNodes), but the Workspace
-              // tab's tree only refetches on mount and project change — so
-              // without this they sit on disk unseen until the project is
-              // switched and switched back, which reads as "it didn't create
-              // them". Harmless for a note-only creation, which writes nothing.
-              onWorkspaceChanged?.()
-            }}
-          />
-        )}
-
-        {addingPlan && (
-          <NewWorkspacePlanModal
-            onClose={() => setAddingPlan(false)}
-            onCreated={(plan) => {
-              setAddingPlan(false)
-              onCreatePlan(plan)
-              activateMap(plan.id)
-            }}
-          />
-        )}
-
-        {/* Body: the create-a-plan start page when nothing's open (mirrors
-            the Workspace's "no folder open" state), otherwise the graph
-            canvas + detail panel for the active tab. */}
-        <Frame flow="horizontal" grow minH={0}>
-          {showCreateScreen ? (
-            <PlanningEmptyState
-              plans={plans}
-              onOpenPlan={activateMap}
-              onOpenWelcome={welcomeMap && !welcomeDismissed ? () => activateMap(welcomeMap.id) : undefined}
-              onRestoreWelcome={welcomeMap && welcomeDismissed ? restoreWelcome : undefined}
-              onCreatePlan={submitNewPlan}
-              creating={creatingPlan}
-              error={createPlanError}
+          {isAddingNode && (
+            <AddNodeModal
+              mapId={mapId}
+              onClose={() => setIsAddingNode(false)}
+              onCreated={async (nodes) => {
+                await refreshAll()
+                if (nodes[0]) setSelectedId(nodes[0].id)
+                // Scaffolding writes real files into the open project (see
+                // AddNodeModal.ViewModel's scaffoldNodes), but the Workspace
+                // tab's tree only refetches on mount and project change — so
+                // without this they sit on disk unseen until the project is
+                // switched and switched back, which reads as "it didn't create
+                // them". Harmless for a note-only creation, which writes nothing.
+                onWorkspaceChanged?.()
+              }}
             />
-          ) : (
-          <>
-          <Frame grow minW={0} style={{ position: 'relative' }}>
-            <GraphCanvas
-              data={planView.data}
-              overlay={planView.overlay}
-              selectedId={selectedId}
-              stages={stages}
-              onSelectNode={(id) => setSelectedId(id || null)}
-              centerSignal={centerSignal}
-              missingPaths={missingPaths}
-            />
-          </Frame>
+          )}
 
-          {selectedNode && (
-            <Frame
-              flow="vertical"
-              minW={260}
-              w={260}
-              h="fill"
-              fill={{ solid: 'bg-1' }}
-              stroke={{ left: { color: 'border-1' } }}
-              padding={20}
-              gap={14}
-              scroll="y"
-            >
-              <span
-                style={{
-                  fontSize: 9,
-                  letterSpacing: '0.14em',
-                  color: selectedNode.kind === 'proposed' ? '#e0a040' : 'var(--text-3)',
-                  ...MONO,
-                }}
+          {addingPlan && (
+            <NewWorkspacePlanModal
+              initialLabel={newPlanName}
+              onClose={() => setAddingPlan(false)}
+              onCreated={(plan) => {
+                setAddingPlan(false)
+                onCreatePlan(plan)
+                activateMap(plan.id)
+              }}
+            />
+          )}
+
+          {/* Body: the create-a-plan start page when nothing's open (mirrors
+              the Workspace's "no folder open" state), otherwise the graph
+              canvas + detail panel for the active tab. */}
+          <Frame flow="horizontal" grow minH={0}>
+            {showCreateScreen ? (
+              <PlanningEmptyState
+                plans={plans}
+                onOpenPlan={activateMap}
+                onGetStarted={welcomeMap ? restoreWelcome : undefined}
+                onCreatePlan={submitNewPlan}
+                creating={creatingPlan}
+                error={createPlanError}
+              />
+            ) : (
+            <>
+            <Frame grow minW={0} style={{ position: 'relative' }}>
+              <GraphCanvas
+                data={planView.data}
+                overlay={planView.overlay}
+                selectedId={selectedId}
+                stages={stages}
+                onSelectNode={(id) => setSelectedId(id || null)}
+                centerSignal={centerSignal}
+                missingPaths={missingPaths}
+              />
+            </Frame>
+
+            {selectedNode && (
+              <Frame
+                flow="vertical"
+                minW={260}
+                w={260}
+                h="fill"
+                fill={{ solid: 'bg-1' }}
+                stroke={{ left: { color: 'border-1' } }}
+                padding={20}
+                gap={14}
+                scroll="y"
               >
-                {selectedNode.kind === 'proposed' ? 'PROPOSED' : 'BUILT'} · {(selectedNode.type ?? '').toUpperCase()}
-              </span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: '0.14em',
+                    color: selectedNode.kind === 'proposed' ? '#e0a040' : 'var(--text-3)',
+                    ...MONO,
+                  }}
+                >
+                  {selectedNode.kind === 'proposed' ? 'PROPOSED' : 'BUILT'} · {(selectedNode.type ?? '').toUpperCase()}
+                </span>
 
-              {(() => {
-                const openPath = workspaceFilePath(selectedNode)
-                const openable = !!openPath && !!onOpenFile
-                return (
-                  <>
-                    <span
-                      onClick={openable ? () => onOpenFile!(openPath!) : undefined}
-                      title={openable ? 'Open in Workspace' : undefined}
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        letterSpacing: '0.06em',
-                        ...MONO,
-                        ...(openable ? FILE_LINK_STYLE : { color: 'var(--text-1)' }),
-                      }}
-                    >
-                      {nodeDisplayLabel(selectedNode)}
-                      {/* Same dimmer ".tsx"/".rs" suffix the graph + NODES
-                          list show, so the card title reads identically. */}
-                      {fileExtLabel(selectedNode.filePath) && <span style={{ opacity: 0.5 }}>{fileExtLabel(selectedNode.filePath)}</span>}
-                    </span>
-
-                    {selectedNode.filePath && (
+                {(() => {
+                  const openPath = workspaceFilePath(selectedNode)
+                  const openable = !!openPath && !!onOpenFile
+                  return (
+                    <>
                       <span
                         onClick={openable ? () => onOpenFile!(openPath!) : undefined}
                         title={openable ? 'Open in Workspace' : undefined}
                         style={{
-                          fontSize: 9,
-                          letterSpacing: '0.02em',
-                          wordBreak: 'break-all',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          letterSpacing: '0.06em',
                           ...MONO,
-                          ...(openable ? FILE_LINK_STYLE : { color: 'var(--text-3)' }),
+                          ...(openable ? FILE_LINK_STYLE : { color: 'var(--text-1)' }),
                         }}
                       >
-                        {selectedNode.filePath}
+                        {nodeDisplayLabel(selectedNode)}
+                        {/* Same dimmer ".tsx"/".rs" suffix the graph + NODES
+                            list show, so the card title reads identically. */}
+                        {fileExtLabel(selectedNode.filePath) && <span style={{ opacity: 0.5 }}>{fileExtLabel(selectedNode.filePath)}</span>}
                       </span>
-                    )}
-                  </>
-                )
-              })()}
 
-              {selectedNode.description && (
-                <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
-                  {selectedNode.description}
-                </span>
-              )}
-
-              {/* A plan step's place in its plan: order, the new files it will
-                  create (select one to see it in the graph), the existing files
-                  it edits, and the plan's generated plan.md. */}
-              {selectedNode.type === 'plan-step' && (() => {
-                const plannedFiles = live.nodes.filter((n) => n.stepId === selectedNode.id)
-                const edits = selectedNode.editsPaths ?? []
-                const docPath = plans.find((p) => p.id === selectedNode.planId)?.docPath
-                const sectionLabel: React.CSSProperties = { fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }
-                const pathRow: React.CSSProperties = { fontSize: 10, wordBreak: 'break-all', ...MONO }
-                if (selectedNode.order === undefined && !plannedFiles.length && !edits.length && !docPath) return null
-                return (
-                  <Frame flow="vertical" gap={6}>
-                    {selectedNode.order !== undefined && (
-                      <span style={{ ...sectionLabel, color: 'var(--graph-plan, #5b9dff)' }}>STEP {selectedNode.order}</span>
-                    )}
-                    {plannedFiles.length > 0 && (
-                      <>
-                        <span style={sectionLabel}>NEW FILES ({plannedFiles.length})</span>
-                        {plannedFiles.map((f) => (
-                          <span key={f.id} onClick={() => setSelectedId(f.id)} title="Select in graph" style={{ ...pathRow, ...FILE_LINK_STYLE }}>
-                            {f.filePath}
-                            {f.role && <span style={{ opacity: 0.5 }}> · {f.role}</span>}
-                          </span>
-                        ))}
-                      </>
-                    )}
-                    {edits.length > 0 && (
-                      <>
-                        <span style={sectionLabel}>EDITS ({edits.length})</span>
-                        {edits.map((p) => (
-                          <span
-                            key={p}
-                            onClick={onOpenFile ? () => onOpenFile(p) : undefined}
-                            title={onOpenFile ? 'Open in Workspace' : undefined}
-                            style={{ ...pathRow, ...(onOpenFile ? FILE_LINK_STYLE : { color: 'var(--text-2)' }) }}
-                          >
-                            {p}
-                          </span>
-                        ))}
-                      </>
-                    )}
-                    {docPath && onOpenFile && (
-                      <span onClick={() => onOpenFile(docPath)} title={docPath} style={{ ...pathRow, ...FILE_LINK_STYLE }}>
-                        Open plan.md
-                      </span>
-                    )}
-                  </Frame>
-                )
-              })()}
-
-              {selectedNode.planned && (() => {
-                const step = live.nodes.find((n) => n.id === selectedNode.stepId)
-                return (
-                  <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
-                    Planned {selectedNode.role ?? ''} file — created when{' '}
-                    {step ? (
-                      <span onClick={() => setSelectedId(step.id)} title="Select step" style={FILE_LINK_STYLE}>
-                        {step.order !== undefined ? `step ${step.order}: ` : ''}{step.label}
-                      </span>
-                    ) : (
-                      'its step'
-                    )}{' '}
-                    is approved.
-                  </span>
-                )
-              })()}
-
-              {/* Sprint stage — settable on every node (see StageToggle),
-                  drives the node's color + stroke in the graph. Independent of
-                  the AI plan-step approve/generate flow below. */}
-              <div style={{ height: 1, background: 'var(--border-1)' }} />
-              <StageToggle
-                value={stages[nodeStageKey(selectedNode)]}
-                onChange={(stage) => setStage(selectedNode, stage)}
-              />
-
-              {selectedNode.status && (
-                <>
-                  <div style={{ height: 1, background: 'var(--border-1)' }} />
-                  {selectedNode.status === 'draft' ? (
-                    <button
-                      onClick={() => {
-                        // A staged file-carrying node never gets bulk/blind-
-                        // approved — same trust boundary as generate_code
-                        // (see chat.cjs's TOOL_DEFS comment): nothing hits
-                        // real disk until a human sees the actual content.
-                        // Routing through onCodeGenerated reuses that exact
-                        // staged-editor-tab review flow (see App.tsx's
-                        // pendingOverride) instead of writing here directly —
-                        // WorkspaceView's handleOverrideSaved already flips
-                        // this node to 'done' the moment it's actually saved.
-                        // A step with planned files reviews and writes them in
-                        // ApproveStepModal — the only place they become real.
-                        if (live.nodes.some((n) => n.stepId === selectedNode.id)) {
-                          setApprovingStep(selectedNode)
-                        } else if (selectedNode.proposedFile) {
-                          const activePlanId = removablePlanFor(mapId)?.id
-                          onCodeGenerated?.(
-                            selectedNode.id,
-                            [{ path: selectedNode.proposedFile.path, content: selectedNode.proposedFile.content }],
-                            activePlanId,
-                          )
-                        } else {
-                          setPlanNodeStatus(selectedNode, 'approved')
-                        }
-                      }}
-                      style={{
-                        background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
-                        border: '1px solid var(--border-2)',
-                        color: 'var(--text-1)',
-                        fontSize: 10,
-                        letterSpacing: '0.08em',
-                        padding: '8px 12px',
-                        cursor: 'pointer',
-                        ...MONO,
-                      }}
-                    >
-                      {selectedNode.proposedFile || live.nodes.some((n) => n.stepId === selectedNode.id) ? 'REVIEW & APPROVE' : 'APPROVE'}
-                    </button>
-                  ) : selectedNode.status === 'approved' ? (
-                    generatingNodeId === selectedNode.id ? (
-                      <Frame flow="horizontal" align="center" gap={8}>
-                        <SleipnirLoader size={28} />
-                        <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-                          GENERATING…
+                      {selectedNode.filePath && (
+                        <span
+                          onClick={openable ? () => onOpenFile!(openPath!) : undefined}
+                          title={openable ? 'Open in Workspace' : undefined}
+                          style={{
+                            fontSize: 9,
+                            letterSpacing: '0.02em',
+                            wordBreak: 'break-all',
+                            ...MONO,
+                            ...(openable ? FILE_LINK_STYLE : { color: 'var(--text-3)' }),
+                          }}
+                        >
+                          {selectedNode.filePath}
                         </span>
-                      </Frame>
-                    ) : (
+                      )}
+                    </>
+                  )
+                })()}
+
+                {selectedNode.description && (
+                  <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
+                    {selectedNode.description}
+                  </span>
+                )}
+
+                {/* A plan step's place in its plan: order, the new files it will
+                    create (select one to see it in the graph), the existing files
+                    it edits, and the plan's generated plan.md. */}
+                {selectedNode.type === 'plan-step' && (() => {
+                  const plannedFiles = live.nodes.filter((n) => n.stepId === selectedNode.id)
+                  const edits = selectedNode.editsPaths ?? []
+                  const docPath = plans.find((p) => p.id === selectedNode.planId)?.docPath
+                  const sectionLabel: React.CSSProperties = { fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }
+                  const pathRow: React.CSSProperties = { fontSize: 10, wordBreak: 'break-all', ...MONO }
+                  if (selectedNode.order === undefined && !plannedFiles.length && !edits.length && !docPath) return null
+                  return (
+                    <Frame flow="vertical" gap={6}>
+                      {selectedNode.order !== undefined && (
+                        <span style={{ ...sectionLabel, color: 'var(--graph-plan, #5b9dff)' }}>STEP {selectedNode.order}</span>
+                      )}
+                      {plannedFiles.length > 0 && (
+                        <>
+                          <span style={sectionLabel}>NEW FILES ({plannedFiles.length})</span>
+                          {plannedFiles.map((f) => (
+                            <span key={f.id} onClick={() => setSelectedId(f.id)} title="Select in graph" style={{ ...pathRow, ...FILE_LINK_STYLE }}>
+                              {f.filePath}
+                              {f.role && <span style={{ opacity: 0.5 }}> · {f.role}</span>}
+                            </span>
+                          ))}
+                        </>
+                      )}
+                      {edits.length > 0 && (
+                        <>
+                          <span style={sectionLabel}>EDITS ({edits.length})</span>
+                          {edits.map((p) => (
+                            <span
+                              key={p}
+                              onClick={onOpenFile ? () => onOpenFile(p) : undefined}
+                              title={onOpenFile ? 'Open in Workspace' : undefined}
+                              style={{ ...pathRow, ...(onOpenFile ? FILE_LINK_STYLE : { color: 'var(--text-2)' }) }}
+                            >
+                              {p}
+                            </span>
+                          ))}
+                        </>
+                      )}
+                      {docPath && onOpenFile && (
+                        <span onClick={() => onOpenFile(docPath)} title={docPath} style={{ ...pathRow, ...FILE_LINK_STYLE }}>
+                          Open plan.md
+                        </span>
+                      )}
+                    </Frame>
+                  )
+                })()}
+
+                {selectedNode.planned && (() => {
+                  const step = live.nodes.find((n) => n.id === selectedNode.stepId)
+                  return (
+                    <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
+                      Planned {selectedNode.role ?? ''} file — created when{' '}
+                      {step ? (
+                        <span onClick={() => setSelectedId(step.id)} title="Select step" style={FILE_LINK_STYLE}>
+                          {step.order !== undefined ? `step ${step.order}: ` : ''}{step.label}
+                        </span>
+                      ) : (
+                        'its step'
+                      )}{' '}
+                      is approved.
+                    </span>
+                  )
+                })()}
+
+                {/* Sprint stage — settable on every node (see StageToggle),
+                    drives the node's color + stroke in the graph. Independent of
+                    the AI plan-step approve/generate flow below. */}
+                <div style={{ height: 1, background: 'var(--border-1)' }} />
+                <StageToggle
+                  value={stages[nodeStageKey(selectedNode)]}
+                  onChange={(stage) => setStage(selectedNode, stage)}
+                />
+
+                {selectedNode.status && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--border-1)' }} />
+                    {selectedNode.status === 'draft' ? (
                       <button
-                        onClick={() => generateCode(selectedNode)}
+                        onClick={() => {
+                          // A staged file-carrying node never gets bulk/blind-
+                          // approved — same trust boundary as generate_code
+                          // (see chat.cjs's TOOL_DEFS comment): nothing hits
+                          // real disk until a human sees the actual content.
+                          // Routing through onCodeGenerated reuses that exact
+                          // staged-editor-tab review flow (see App.tsx's
+                          // pendingOverride) instead of writing here directly —
+                          // WorkspaceView's handleOverrideSaved already flips
+                          // this node to 'done' the moment it's actually saved.
+                          // A step with planned files reviews and writes them in
+                          // ApproveStepModal — the only place they become real.
+                          if (live.nodes.some((n) => n.stepId === selectedNode.id)) {
+                            setApprovingStep(selectedNode)
+                          } else if (selectedNode.proposedFile) {
+                            const activePlanId = removablePlanFor(mapId)?.id
+                            onCodeGenerated?.(
+                              selectedNode.id,
+                              [{ path: selectedNode.proposedFile.path, content: selectedNode.proposedFile.content }],
+                              activePlanId,
+                            )
+                          } else {
+                            setPlanNodeStatus(selectedNode, 'approved')
+                          }
+                        }}
                         style={{
                           background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
                           border: '1px solid var(--border-2)',
@@ -2040,62 +1894,58 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                           ...MONO,
                         }}
                       >
-                        GENERATE CODE
+                        {selectedNode.proposedFile || live.nodes.some((n) => n.stepId === selectedNode.id) ? 'REVIEW & APPROVE' : 'APPROVE'}
                       </button>
-                    )
-                  ) : (
-                    <span style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
-                      {selectedNode.status.toUpperCase()}
-                    </span>
-                  )}
-                  {generateError && generatingNodeId === null && (
-                    <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
-                  )}
-                </>
-              )}
-
-              {/* AI build, gated on sprint stage rather than the AI plan-step
-                  `status` above — works for every node (custom notes, file-
-                  backed asset nodes), not just AI-created ones. Independent
-                  of the APPROVE/GENERATE CODE block above; a node can only
-                  realistically be in one flow at a time (status only ever
-                  exists on AI-created nodes, which never carry a stage until
-                  a human sets one). */}
-              {(stages[nodeStageKey(selectedNode)] ?? 'proposed') !== 'completed' && (
-                <>
-                  <div style={{ height: 1, background: 'var(--border-1)' }} />
-                  {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && generateError && generatingNodeId === null && (
-                    <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
-                  )}
-                  {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && (
-                    <button
-                      onClick={() => runSingleNodeBuild(selectedNode)}
-                      disabled={runningPlan || generatingNodeId !== null}
-                      style={{
-                        background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
-                        border: '1px solid var(--border-2)',
-                        color: 'var(--text-1)',
-                        fontSize: 10,
-                        letterSpacing: '0.08em',
-                        padding: '8px 12px',
-                        cursor: runningPlan || generatingNodeId !== null ? 'default' : 'pointer',
-                        opacity: runningPlan || generatingNodeId !== null ? 0.5 : 1,
-                        ...MONO,
-                      }}
-                    >
-                      BUILD WITH AI
-                    </button>
-                  )}
-                  {stages[nodeStageKey(selectedNode)] === 'in-progress' && (
-                    generatingNodeId === selectedNode.id ? (
-                      <Frame flow="horizontal" align="center" gap={8}>
-                        <SleipnirLoader size={28} />
-                        <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-                          BUILDING…
-                        </span>
-                      </Frame>
+                    ) : selectedNode.status === 'approved' ? (
+                      generatingNodeId === selectedNode.id ? (
+                        <Frame flow="horizontal" align="center" gap={8}>
+                          <SleipnirLoader size={28} />
+                          <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+                            GENERATING…
+                          </span>
+                        </Frame>
+                      ) : (
+                        <button
+                          onClick={() => generateCode(selectedNode)}
+                          style={{
+                            background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                            border: '1px solid var(--border-2)',
+                            color: 'var(--text-1)',
+                            fontSize: 10,
+                            letterSpacing: '0.08em',
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            ...MONO,
+                          }}
+                        >
+                          GENERATE CODE
+                        </button>
+                      )
                     ) : (
-                      // Stale — e.g. a reload interrupted a build mid-flight.
+                      <span style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
+                        {selectedNode.status.toUpperCase()}
+                      </span>
+                    )}
+                    {generateError && generatingNodeId === null && (
+                      <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
+                    )}
+                  </>
+                )}
+
+                {/* AI build, gated on sprint stage rather than the AI plan-step
+                    `status` above — works for every node (custom notes, file-
+                    backed asset nodes), not just AI-created ones. Independent
+                    of the APPROVE/GENERATE CODE block above; a node can only
+                    realistically be in one flow at a time (status only ever
+                    exists on AI-created nodes, which never carry a stage until
+                    a human sets one). */}
+                {(stages[nodeStageKey(selectedNode)] ?? 'proposed') !== 'completed' && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--border-1)' }} />
+                    {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && generateError && generatingNodeId === null && (
+                      <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
+                    )}
+                    {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && (
                       <button
                         onClick={() => runSingleNodeBuild(selectedNode)}
                         disabled={runningPlan || generatingNodeId !== null}
@@ -2106,96 +1956,125 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                           fontSize: 10,
                           letterSpacing: '0.08em',
                           padding: '8px 12px',
-                          cursor: 'pointer',
+                          cursor: runningPlan || generatingNodeId !== null ? 'default' : 'pointer',
+                          opacity: runningPlan || generatingNodeId !== null ? 0.5 : 1,
                           ...MONO,
                         }}
                       >
-                        RETRY (interrupted)
+                        BUILD WITH AI
                       </button>
-                    )
-                  )}
-                  {stages[nodeStageKey(selectedNode)] === 'in-review' && (
-                    <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
-                      READY FOR REVIEW — check the opened tab, or Source Control for a batch run.
-                    </span>
-                  )}
-                </>
-              )}
+                    )}
+                    {stages[nodeStageKey(selectedNode)] === 'in-progress' && (
+                      generatingNodeId === selectedNode.id ? (
+                        <Frame flow="horizontal" align="center" gap={8}>
+                          <SleipnirLoader size={28} />
+                          <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+                            BUILDING…
+                          </span>
+                        </Frame>
+                      ) : (
+                        // Stale — e.g. a reload interrupted a build mid-flight.
+                        <button
+                          onClick={() => runSingleNodeBuild(selectedNode)}
+                          disabled={runningPlan || generatingNodeId !== null}
+                          style={{
+                            background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                            border: '1px solid var(--border-2)',
+                            color: 'var(--text-1)',
+                            fontSize: 10,
+                            letterSpacing: '0.08em',
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            ...MONO,
+                          }}
+                        >
+                          RETRY (interrupted)
+                        </button>
+                      )
+                    )}
+                    {stages[nodeStageKey(selectedNode)] === 'in-review' && (
+                      <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+                        READY FOR REVIEW — check the opened tab, or Source Control for a batch run.
+                      </span>
+                    )}
+                  </>
+                )}
 
-              <div style={{ height: 1, background: 'var(--border-1)' }} />
+                <div style={{ height: 1, background: 'var(--border-1)' }} />
 
-              {/* Link editor — the add-link control now lives in the LINKED
-                  header (see LinkedNodeList's headerAction / LinkAddDropdown),
-                  only for a scaffolded node (a real per-language file to
-                  round-trip); see addLink/removeLink (outgoing) and
-                  addImporter/removeImporter (incoming) for why adding either
-                  direction edits a *different* file depending on which one.
-                  Candidates search `notes` (every plan), not `live.nodes`
-                  (just the one open right now) — a link can point anywhere in
-                  the workspace's plans, not only within the currently active
-                  one. Both directions always record a graph edge for any
-                  node/document type; a real import statement is only spliced
-                  when both ends are same-language files (see canSpliceImport in
-                  addImporter/flipLink), so a note or a cross-language pair just
-                  flips the edge. */}
-              <LinkedNodeList
-                rows={[
-                  ...borrowsFrom.map((n) => ({ node: n, direction: 'out' as const })),
-                  ...borrowedBy.map((n) => ({ node: n, direction: 'in' as const })),
-                ]}
-                onRemove={(row) => (row.direction === 'out' ? removeLink(row.node) : removeImporter(row.node))}
-                // Any node can flip any link's direction — the arrow reverses
-                // the graph edge for every node/document type (see flipLink);
-                // the import splice is best-effort for same-language file pairs.
-                onToggleDirection={toggleLinkDirection}
-                currentMapId={selectedNode.map}
-                mapLabelFor={mapLabelFor}
-                onOpenFile={onOpenFile}
-                headerAction={
-                  <LinkAddDropdown
-                    // Any node can be linked to now — candidates span every node
-                    // in this graph plus every note across plans (deduped),
-                    // minus this node and anything it already links to. A pick
-                    // adds an outgoing link (this node → pick); a same-language
-                    // file pair also splices a real import (see addLink).
-                    candidates={(() => {
-                      const byId = new Map<string, GraphNode>()
-                      for (const cn of [...live.nodes, ...notes]) {
-                        if (cn.id !== selectedNode.id && !borrowsFrom.some((b) => b.id === cn.id)) byId.set(cn.id, cn)
-                      }
-                      return [...byId.values()]
-                    })()}
-                    onPick={(n) => addLink(n)}
-                    // selectedNode.map, not mapId — a plan *tab*'s id isn't a
-                    // real map (see isValidMapId in tools/sleipnir-backend.mjs),
-                    // and selectedNode's own home map is what "cross-plan"
-                    // should actually be relative to.
-                    currentMapId={selectedNode.map}
-                    mapLabelFor={mapLabelFor}
-                    openSignal={linkOpenSignal}
-                  />
-                }
-              />
-            </Frame>
-          )}
-          </>
+                {/* Link editor — the add-link control now lives in the LINKED
+                    header (see LinkedNodeList's headerAction / LinkAddDropdown),
+                    only for a scaffolded node (a real per-language file to
+                    round-trip); see addLink/removeLink (outgoing) and
+                    addImporter/removeImporter (incoming) for why adding either
+                    direction edits a *different* file depending on which one.
+                    Candidates search `notes` (every plan), not `live.nodes`
+                    (just the one open right now) — a link can point anywhere in
+                    the workspace's plans, not only within the currently active
+                    one. Both directions always record a graph edge for any
+                    node/document type; a real import statement is only spliced
+                    when both ends are same-language files (see canSpliceImport in
+                    addImporter/flipLink), so a note or a cross-language pair just
+                    flips the edge. */}
+                <LinkedNodeList
+                  rows={[
+                    ...borrowsFrom.map((n) => ({ node: n, direction: 'out' as const })),
+                    ...borrowedBy.map((n) => ({ node: n, direction: 'in' as const })),
+                  ]}
+                  onRemove={(row) => (row.direction === 'out' ? removeLink(row.node) : removeImporter(row.node))}
+                  // Any node can flip any link's direction — the arrow reverses
+                  // the graph edge for every node/document type (see flipLink);
+                  // the import splice is best-effort for same-language file pairs.
+                  onToggleDirection={toggleLinkDirection}
+                  currentMapId={selectedNode.map}
+                  mapLabelFor={mapLabelFor}
+                  onOpenFile={onOpenFile}
+                  headerAction={
+                    <LinkAddDropdown
+                      // Any node can be linked to now — candidates span every node
+                      // in this graph plus every note across plans (deduped),
+                      // minus this node and anything it already links to. A pick
+                      // adds an outgoing link (this node → pick); a same-language
+                      // file pair also splices a real import (see addLink).
+                      candidates={(() => {
+                        const byId = new Map<string, GraphNode>()
+                        for (const cn of [...live.nodes, ...notes]) {
+                          if (cn.id !== selectedNode.id && !borrowsFrom.some((b) => b.id === cn.id)) byId.set(cn.id, cn)
+                        }
+                        return [...byId.values()]
+                      })()}
+                      onPick={(n) => addLink(n)}
+                      // selectedNode.map, not mapId — a plan *tab*'s id isn't a
+                      // real map (see isValidMapId in tools/sleipnir-backend.mjs),
+                      // and selectedNode's own home map is what "cross-plan"
+                      // should actually be relative to.
+                      currentMapId={selectedNode.map}
+                      mapLabelFor={mapLabelFor}
+                      openSignal={linkOpenSignal}
+                    />
+                  }
+                />
+              </Frame>
+            )}
+            </>
+            )}
+          </Frame>
+          {planBuildStatus && <PlanBuildStatusBar status={planBuildStatus} onApproveAll={approveAllDrafts} />}
+          {approvingStep && (
+            <ApproveStepModal
+              step={approvingStep}
+              plannedNodes={live.nodes.filter((n) => n.type === 'planned-file' && n.planId === approvingStep.planId)}
+              edges={live.edges}
+              planId={removablePlanFor(mapId)?.id}
+              onClose={() => setApprovingStep(null)}
+              onApproved={() => {
+                setApprovingStep(null)
+                refreshAll().catch(() => {})
+                onWorkspaceChanged?.()
+              }}
+            />
           )}
         </Frame>
-        {planBuildStatus && <PlanBuildStatusBar status={planBuildStatus} onApproveAll={approveAllDrafts} />}
-        {approvingStep && (
-          <ApproveStepModal
-            step={approvingStep}
-            plannedNodes={live.nodes.filter((n) => n.type === 'planned-file' && n.planId === approvingStep.planId)}
-            edges={live.edges}
-            planId={removablePlanFor(mapId)?.id}
-            onClose={() => setApprovingStep(null)}
-            onApproved={() => {
-              setApprovingStep(null)
-              refreshAll().catch(() => {})
-              onWorkspaceChanged?.()
-            }}
-          />
-        )}
       </Frame>
     </Frame>
   )

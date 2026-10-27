@@ -3,7 +3,7 @@
 // relink.test.ts covers the pure remapping; this covers the half that touches
 // files: the board is rewritten, and the moved component's imports are repaired
 // so a component that instances another still compiles after only one of them
-// is promoted out of `.canvas`.
+// is promoted out of `.components`.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
@@ -34,7 +34,7 @@ vi.mock('../../00_planning/api/sleipnirApi', () => ({
 import { listDocs, reconcileMove } from './store'
 import type { CanvasComponent, CanvasDoc } from './types'
 
-const BOARD = '.canvas/.boards/canvas-1.json'
+const BOARD = '.components/.boards/canvas-1.json'
 
 function frameRoot(id: string, children: CanvasComponent['variants'][0]['root']['children'] = []) {
   return { id: `f-${id}`, name: id, kind: 'frame' as const, rect: { x: 0, y: 0, w: 10, h: 10 }, style: {}, children }
@@ -48,7 +48,7 @@ function component(id: string, name: string, filePath: string, children: never[]
     props: [],
     variantPropIds: [],
     target: 'react',
-    componentRoot: '.canvas',
+    componentRoot: '.components',
     filePath,
     sync: 'live',
     createdAt: 1,
@@ -81,23 +81,23 @@ describe('legacy board migration', () => {
   const legacyDoc = (id: string, name: string) =>
     JSON.stringify({ version: 1, id, name, nodes: [], components: [], createdAt: 1, updatedAt: 1 })
 
-  it('moves boards out of .planning/canvas into .canvas/.boards and leaves nothing canvas in .planning', async () => {
+  it('moves boards out of .planning/canvas into .components/.boards and leaves nothing canvas in .planning', async () => {
     files.set('.planning/canvas/canvas-old.json', legacyDoc('canvas-old', 'Old'))
 
     const docs = await listDocs()
 
     expect(docs.map((d) => d.id)).toEqual(['canvas-old'])
-    expect(files.has('.canvas/.boards/canvas-old.json')).toBe(true)
+    expect(files.has('.components/.boards/canvas-old.json')).toBe(true)
     expect([...files.keys()].some((p) => p.startsWith('.planning/canvas'))).toBe(false)
   })
 
   it('never overwrites a board already at the new location', async () => {
-    files.set('.canvas/.boards/canvas-1.json', legacyDoc('canvas-1', 'New'))
+    files.set('.components/.boards/canvas-1.json', legacyDoc('canvas-1', 'New'))
     files.set('.planning/canvas/canvas-1.json', legacyDoc('canvas-1', 'Stale'))
 
     await listDocs()
 
-    expect(JSON.parse(files.get('.canvas/.boards/canvas-1.json')!).name).toBe('New')
+    expect(JSON.parse(files.get('.components/.boards/canvas-1.json')!).name).toBe('New')
     expect(files.has('.planning/canvas/canvas-1.json')).toBe(false)
   })
 
@@ -113,17 +113,17 @@ describe('legacy board migration', () => {
 
 describe('reconcileMove', () => {
   it('repoints the board and widens the sandbox when a component is promoted out', async () => {
-    writeBoard([component('a', 'Card', '.canvas/card/card.tsx')])
+    writeBoard([component('a', 'Card', '.components/card/card.tsx')])
     files.set('src/components/card/card.tsx', 'export const Card = () => null\n')
 
-    await reconcileMove('.canvas/card', 'src/components/card')
+    await reconcileMove('.components/card', 'src/components/card')
 
     expect(board().components[0].filePath).toBe('src/components/card/card.tsx')
     expect(board().components[0].componentRoot).toBe('src/components')
   })
 
   it('leaves a board alone when the move touches nothing it owns', async () => {
-    writeBoard([component('a', 'Card', '.canvas/card/card.tsx')])
+    writeBoard([component('a', 'Card', '.components/card/card.tsx')])
     const before = files.get(BOARD)
 
     await reconcileMove('README.md', 'docs/README.md')
@@ -134,10 +134,10 @@ describe('reconcileMove', () => {
   it('rewrites the imports of a component promoted away from one still staged', async () => {
     // Card instances Badge. Promoting only Card breaks the relative specifier
     // it emitted — this is the fork the whole feature exists to prevent.
-    const card = component('a', 'Card', '.canvas/card/card.tsx', [
+    const card = component('a', 'Card', '.components/card/card.tsx', [
       { id: 'inst-1', name: 'Badge', kind: 'instance', rect: { x: 0, y: 0, w: 5, h: 5 }, style: {}, componentId: 'b' },
     ])
-    writeBoard([card, component('b', 'Badge', '.canvas/badge/badge.tsx')])
+    writeBoard([card, component('b', 'Badge', '.components/badge/badge.tsx')])
 
     files.set(
       'src/components/card/card.tsx',
@@ -156,11 +156,11 @@ describe('reconcileMove', () => {
       ].join('\n'),
     )
 
-    await reconcileMove('.canvas/card', 'src/components/card')
+    await reconcileMove('.components/card', 'src/components/card')
 
     const source = files.get('src/components/card/card.tsx')!
     // Recomputed from where each component lives NOW: Badge is still staged.
-    expect(source).toContain(`import { Badge } from '../../../.canvas/badge/badge'`)
+    expect(source).toContain(`import { Badge } from '../../../.components/badge/badge'`)
     expect(source).not.toContain(`from '../badge/badge'`)
     // And nothing else in the file moved.
     expect(source).toContain('const own = useThing()')
@@ -170,13 +170,13 @@ describe('reconcileMove', () => {
 
   it('relinks every component carried along when a whole folder moves', async () => {
     writeBoard([
-      component('a', 'One', '.canvas/pack/one.tsx'),
-      component('b', 'Two', '.canvas/pack/two.tsx'),
+      component('a', 'One', '.components/pack/one.tsx'),
+      component('b', 'Two', '.components/pack/two.tsx'),
     ])
     files.set('src/pack/one.tsx', 'export const One = () => null\n')
     files.set('src/pack/two.tsx', 'export const Two = () => null\n')
 
-    await reconcileMove('.canvas/pack', 'src/pack')
+    await reconcileMove('.components/pack', 'src/pack')
 
     expect(board().components.map((c) => c.filePath)).toEqual(['src/pack/one.tsx', 'src/pack/two.tsx'])
   })
@@ -184,20 +184,20 @@ describe('reconcileMove', () => {
   it('still saves the relink when the moved file cannot be read back', async () => {
     // The bytes have already moved by the time this runs. A board left pointing
     // at the old path is the unrecoverable outcome; a stale import is not.
-    writeBoard([component('a', 'Card', '.canvas/card/card.tsx')])
+    writeBoard([component('a', 'Card', '.components/card/card.tsx')])
     // Deliberately do NOT create the destination file.
 
-    await reconcileMove('.canvas/card', 'src/components/card')
+    await reconcileMove('.components/card', 'src/components/card')
 
     expect(board().components[0].filePath).toBe('src/components/card/card.tsx')
   })
 
   it('survives a corrupt board without abandoning the sweep', async () => {
-    files.set('.canvas/.boards/broken.json', '{ not json')
-    writeBoard([component('a', 'Card', '.canvas/card/card.tsx')])
+    files.set('.components/.boards/broken.json', '{ not json')
+    writeBoard([component('a', 'Card', '.components/card/card.tsx')])
     files.set('src/components/card/card.tsx', 'export const Card = () => null\n')
 
-    await expect(reconcileMove('.canvas/card', 'src/components/card')).resolves.toBeUndefined()
+    await expect(reconcileMove('.components/card', 'src/components/card')).resolves.toBeUndefined()
     expect(board().components[0].filePath).toBe('src/components/card/card.tsx')
   })
 })

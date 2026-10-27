@@ -36,7 +36,9 @@ import { toCamelCase } from '../../00_planning/graph/naming'
  * anything still staged is contained to `.canvas`, anything promoted is
  * contained to wherever you put it.
  */
-export const DEFAULT_COMPONENT_ROOT = '.canvas'
+export const DEFAULT_COMPONENT_ROOT = '.components'
+/** Where the staging tier lived before it was renamed — see store.ts's migrateCanvasFolder. */
+export const LEGACY_COMPONENT_ROOT = '.canvas'
 
 export class PathEscapeError extends Error {
   constructor(

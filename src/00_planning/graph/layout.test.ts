@@ -40,6 +40,38 @@ describe('buildForceLayout', () => {
     expect(Math.hypot(file.x! - 500, file.y! + 300)).toBeCloseTo(60, 5)
   })
 
+  it('resolves sequence links to their nodes up front, since forceLink never sees them', () => {
+    const { simLinks, simNodes } = buildForceLayout(plan)
+    const seq = simLinks.find((l) => l.kind === 'sequence')!
+    expect(seq.source).toBe(simNodes.find((n) => n.id === 'step-1'))
+    expect(seq.target).toBe(simNodes.find((n) => n.id === 'step-2'))
+  })
+
+  describe('a node added to a settled graph', () => {
+    const grown: GraphData = {
+      nodes: [node('a', { kind: 'built' }), node('b', { kind: 'built' }), node('new', { kind: 'built' })],
+      edges: [
+        { source: 'a', target: 'b', kind: 'borrows' },
+        { source: 'new', target: 'a', kind: 'borrows' },
+      ],
+    }
+    const prev = new Map([
+      ['a', { x: 1000, y: 1000, vx: 0, vy: 0 }],
+      ['b', { x: 1140, y: 1000, vx: 0, vy: 0 }],
+    ])
+
+    it('starts beside what it links to, not out on the rim', () => {
+      const { simNodes } = buildForceLayout(grown, prev)
+      const added = simNodes.find((n) => n.id === 'new')!
+      expect(Math.hypot(added.x! - 1000, added.y! - 1000)).toBeCloseTo(70, 5)
+    })
+
+    it('reports how much of the graph is new, so the canvas can reheat to match', () => {
+      expect(buildForceLayout(grown, prev)).toMatchObject({ carriedCount: 2, addedCount: 1 })
+      expect(buildForceLayout(grown)).toMatchObject({ carriedCount: 0, addedCount: 3 })
+    })
+  })
+
   it('leaves a planned file where it already was', () => {
     const prev = new Map([
       ['step-1', { x: 500, y: -300, vx: 0, vy: 0 }],

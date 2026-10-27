@@ -23,7 +23,550 @@
       "kind": "proposed",
       "map": "this-is-a-cool-library",
       "type": "note"
+    },
+    {
+      "id": "plan/lsp-typing-latency-1793049413729/instrument-lsp-round-trips-1793049428561",
+      "label": "Instrument LSP round-trips",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Wrap the WebSocket transport so every request is timed by method, with response size, and slow ones (over 50ms, or over 64KB) are logged in dev. Gives a before/after number for every later step instead of guessing. Measured outside the app already: identifier completions in this repo are ~1,000 items / 74 KB / 14-68 ms and complete (cached by the editor), import-path completions 15 items / 3 ms — so payload size is not the bottleneck and is not a step.",
+      "status": "draft",
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "order": 1,
+      "editsPaths": [
+        "src/app/DesignSystem/lspClient.ts"
+      ]
+    },
+    {
+      "id": "planned/lsp-typing-latency-1793049413729/src/app/DesignSystem/lspMetrics.ts",
+      "label": "lspMetrics.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "stepId": "plan/lsp-typing-latency-1793049413729/instrument-lsp-round-trips-1793049428561",
+      "filePath": "src/app/DesignSystem/lspMetrics.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/lsp-typing-latency-1793049413729/drop-the-duplicate-hover-source-1793049428640",
+      "label": "Drop the duplicate hover source",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Every LSP editor gets hoverTooltips() twice: once inside the client's languageServerExtensions() (LSPClient.plugin includes client extensions per editor) and again via lspHoverTooltips in CodeEditorView.ViewModel's lspExtension. Each hover sends two textDocument/hover requests and builds two tooltips. Keep the client's one, remove the extra.",
+      "status": "draft",
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "order": 2,
+      "editsPaths": [
+        "src/app/DesignSystem/lspClient.ts",
+        "src/app/DesignSystem/CodeEditorView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "plan/lsp-typing-latency-1793049413729/dedupe-ctrl-hover-definition-lookups-1793049428763",
+      "label": "Dedupe Ctrl-hover definition lookups",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "modHoverDefinitionLink sends sync() + textDocument/definition on every mousemove while Ctrl is held, even over the same word. Cache the last word range per view and only ask again when the word under the pointer changes; keep the existing token guard for out-of-order responses.",
+      "status": "draft",
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "order": 3,
+      "editsPaths": [
+        "src/app/DesignSystem/lspClient.ts"
+      ]
+    },
+    {
+      "id": "plan/lsp-typing-latency-1793049413729/trim-per-keystroke-editor-work-1793049428904",
+      "label": "Trim per-keystroke editor work",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The editor's updateListener runs diagnosticCount() and a setProblemCount on every update, including cursor moves and focus changes. Recount only when the doc changed or a diagnostics transaction landed, so typing and arrowing don't touch React state they don't change.",
+      "status": "draft",
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "order": 4,
+      "editsPaths": [
+        "src/app/DesignSystem/CodeEditorView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "label": "Route tsserver responses per connection",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The proxy binds every WebSocket connection's reader to the same tsserver stdout, so each connection receives every message: two windows' request ids collide, responses land in the wrong window, and the external server is killed when any one of its windows closes. Extract a router that rewrites request ids to be unique per server and maps responses back to their connection, broadcasts notifications, and ref-counts the external server. Also replace the per-chunk Buffer.concat deframer with a chunk list (minor at measured sizes, but quadratic on large messages).",
+      "status": "draft",
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "order": 5,
+      "editsPaths": [
+        "tools/lsp-proxy.mjs"
+      ]
+    },
+    {
+      "id": "planned/lsp-typing-latency-1793049413729/tools/lspRouter.mjs",
+      "label": "lspRouter.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "stepId": "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "filePath": "tools/lspRouter.mjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "planned/lsp-typing-latency-1793049413729/tools/lspRouter.test.ts",
+      "label": "lspRouter.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "stepId": "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "filePath": "tools/lspRouter.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/lsp-typing-latency-1793049413729/verify-typing-latency-before-after-1793049435760",
+      "label": "Verify typing latency before/after",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "With the lspMetrics logging from step 1 on, type an import and an identifier in a Workspace TSX file and hover/Ctrl-hover a few symbols, before and after the steps above: compare hover requests per hover, definition requests per Ctrl-hover, and slow-request counts. Open two windows on the same project and confirm each only receives its own responses, and closing one keeps the other's code intelligence alive.",
+      "status": "draft",
+      "planId": "plan/lsp-typing-latency-1793049413729",
+      "order": 6
+    },
+    {
+      "id": "plan/canvas-rotation-scaling-path-patterns-1793102384176/rotate-on-the-board-1793102411311",
+      "label": "Rotate on the board",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Make rotation a real gesture: selection outlines and resize handles drawn rotated, a rotate handle just outside each corner (Shift snaps to 15°), hit-testing and marquee against the rotated shape, and resizing in the node's own rotated space so a turned image still resizes from the handle you grab.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-scaling-path-patterns-1793102384176",
+      "order": 1,
+      "editsPaths": [
+        "src/01_canvas/model/doc.ts",
+        "src/01_canvas/board/CanvasBoard.tsx",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/model/align.ts"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-scaling-path-patterns-1793102384176/rotation-in-the-inspector-and-every-emitter-1793102411398",
+      "label": "Rotation in the inspector and every emitter",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A ROTATION field (degrees) beside X/Y/W/H for every layer, plus rotate 90° actions; emit/svg.ts writes the rotation as an SVG transform so SVG components match the board, and emitter tests lock down React and SVG output.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-scaling-path-patterns-1793102384176",
+      "order": 2,
+      "editsPaths": [
+        "src/01_canvas/panels/CanvasInspector.tsx",
+        "src/01_canvas/emit/svg.ts",
+        "src/01_canvas/emit/svg.test.ts",
+        "src/01_canvas/emit/react.test.ts"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-scaling-path-patterns-1793102384176/emit-patterns-compactly-1793102411854",
+      "label": "Emit patterns compactly",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Instead of N hand-placed copies in the generated file, the React and SVG emitters write the pattern once as an array of positions mapped over the template, so a 200-item pattern stays a few readable lines of code.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-scaling-path-patterns-1793102384176",
+      "order": 3,
+      "editsPaths": [
+        "src/01_canvas/emit/react.ts",
+        "src/01_canvas/emit/react.test.ts",
+        "src/01_canvas/emit/svg.ts",
+        "src/01_canvas/emit/svg.test.ts"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-scaling-path-patterns-1793102384176/optimize-along-path-layout-for-big-patterns-1793102412075",
+      "label": "Optimize along-path layout for big patterns",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Cache each guide's flattened polyline and arc-length table by guide identity, re-flow only the frames whose guide or children changed, keep re-flow cheap during drags, and memoize copy rendering — with a test that a several-hundred-item pattern re-flows within a frame budget.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-scaling-path-patterns-1793102384176",
+      "order": 4,
+      "editsPaths": [
+        "src/01_canvas/model/pathFlow.ts",
+        "src/01_canvas/model/pathFlow.test.ts",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/board/CanvasNodeView.tsx"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-scaling-path-patterns-1793102384176/path-flow-editing-on-the-board-1793102412451",
+      "label": "Path-flow editing on the board",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Show the guide's start point and direction when an along-path frame is selected, drag an item along the curve to set the offset or reorder it, and draw pattern copies with rotated outlines — so tuning a pattern happens on the board, not only in the inspector.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-scaling-path-patterns-1793102384176",
+      "order": 5,
+      "editsPaths": [
+        "src/01_canvas/board/CanvasBoard.tsx",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/model/layout.ts",
+        "src/01_canvas/model/pathFlow.ts"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "label": "Rotation geometry core",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Pure rotation math every later step leans on: a node's rotated corners, its axis-aligned bounds, point-in-rotated-box hit tests, and composing a node's rotation with its ancestors' so board-space geometry stays correct inside rotated frames. Promotes style.rotate (added for along-path) to a general, documented field for every layer kind.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 1,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/model/toCss.ts"
+      ]
+    },
+    {
+      "id": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/rotation.ts",
+      "label": "rotation.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "filePath": "src/01_canvas/model/rotation.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/rotation.test.ts",
+      "label": "rotation.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "filePath": "src/01_canvas/model/rotation.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/rotate-on-the-board-1793102466210",
+      "label": "Rotate on the board",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Make rotation a real gesture: selection outlines and resize handles drawn rotated, a rotate handle just outside each corner (Shift snaps to 15°), hit-testing and marquee against the rotated shape, and resizing in the node's own rotated space so a turned image still resizes from the handle you grab.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 2,
+      "editsPaths": [
+        "src/01_canvas/model/doc.ts",
+        "src/01_canvas/board/CanvasBoard.tsx",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/model/align.ts"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/rotation-in-the-inspector-and-every-emitter-1793102466403",
+      "label": "Rotation in the inspector and every emitter",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A ROTATION field (degrees) beside X/Y/W/H for every layer, plus rotate 90° actions; emit/svg.ts writes the rotation as an SVG transform so SVG components match the board, and emitter tests lock down React and SVG output.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 3,
+      "editsPaths": [
+        "src/01_canvas/panels/CanvasInspector.tsx",
+        "src/01_canvas/emit/svg.ts",
+        "src/01_canvas/emit/svg.test.ts",
+        "src/01_canvas/emit/react.test.ts"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "label": "Scaling for images and SVGs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Images and SVGs keep their aspect ratio when resized by default (Shift frees it), a Scale % field and Reset to natural size in the inspector, crisp SVG scaling via viewBox, and fit/fill quick toggles for image fills — so pasted PNGs, JPEGs and SVGs behave like Figma's.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 4,
+      "editsPaths": [
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/panels/CanvasInspector.tsx",
+        "src/01_canvas/panels/PaintSections.tsx"
+      ]
+    },
+    {
+      "id": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/imageSizing.ts",
+      "label": "imageSizing.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "filePath": "src/01_canvas/model/imageSizing.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/imageSizing.test.ts",
+      "label": "imageSizing.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "filePath": "src/01_canvas/model/imageSizing.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "label": "Repeat one item along a path",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "AlongPath gains a pattern: pick a template child and a repeat count (or fill-to-path by gap), and the layout keeps N linked copies spaced along the guide. Copies are real nodes tagged with their template, kept in sync on every change, shown grouped and read-only in the layers panel; editing the template updates every copy.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 5,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/model/pathFlow.ts",
+        "src/01_canvas/panels/CanvasInspector.tsx",
+        "src/01_canvas/panels/CanvasLayersPanel.tsx"
+      ]
+    },
+    {
+      "id": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/pathPattern.ts",
+      "label": "pathPattern.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "filePath": "src/01_canvas/model/pathPattern.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/pathPattern.test.ts",
+      "label": "pathPattern.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "filePath": "src/01_canvas/model/pathPattern.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/emit-patterns-compactly-1793102467236",
+      "label": "Emit patterns compactly",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Instead of N hand-placed copies in the generated file, the React and SVG emitters write the pattern once as an array of positions mapped over the template, so a 200-item pattern stays a few readable lines of code.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 6,
+      "editsPaths": [
+        "src/01_canvas/emit/react.ts",
+        "src/01_canvas/emit/react.test.ts",
+        "src/01_canvas/emit/svg.ts",
+        "src/01_canvas/emit/svg.test.ts"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/optimize-along-path-layout-for-big-patterns-1793102467555",
+      "label": "Optimize along-path layout for big patterns",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Cache each guide's flattened polyline and arc-length table by guide identity, re-flow only the frames whose guide or children changed, keep re-flow cheap during drags, and memoize copy rendering — with a test that a several-hundred-item pattern re-flows within a frame budget.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 7,
+      "editsPaths": [
+        "src/01_canvas/model/pathFlow.ts",
+        "src/01_canvas/model/pathFlow.test.ts",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/board/CanvasNodeView.tsx"
+      ]
+    },
+    {
+      "id": "plan/canvas-rotation-path-patterns-1793102450237/path-flow-editing-on-the-board-1793102467817",
+      "label": "Path-flow editing on the board",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Show the guide's start point and direction when an along-path frame is selected, drag an item along the curve to set the offset or reorder it, and draw pattern copies with rotated outlines — so tuning a pattern happens on the board, not only in the inspector.",
+      "status": "draft",
+      "planId": "plan/canvas-rotation-path-patterns-1793102450237",
+      "order": 8,
+      "editsPaths": [
+        "src/01_canvas/board/CanvasBoard.tsx",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/model/layout.ts",
+        "src/01_canvas/model/pathFlow.ts"
+      ]
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/instrument-lsp-round-trips-1793049428561",
+      "target": "planned/lsp-typing-latency-1793049413729/src/app/DesignSystem/lspMetrics.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/instrument-lsp-round-trips-1793049428561",
+      "target": "plan/lsp-typing-latency-1793049413729/drop-the-duplicate-hover-source-1793049428640",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/drop-the-duplicate-hover-source-1793049428640",
+      "target": "plan/lsp-typing-latency-1793049413729/dedupe-ctrl-hover-definition-lookups-1793049428763",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/dedupe-ctrl-hover-definition-lookups-1793049428763",
+      "target": "plan/lsp-typing-latency-1793049413729/trim-per-keystroke-editor-work-1793049428904",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/trim-per-keystroke-editor-work-1793049428904",
+      "target": "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "target": "planned/lsp-typing-latency-1793049413729/tools/lspRouter.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "target": "planned/lsp-typing-latency-1793049413729/tools/lspRouter.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/lsp-typing-latency-1793049413729/route-tsserver-responses-per-connection-1793049429036",
+      "target": "plan/lsp-typing-latency-1793049413729/verify-typing-latency-before-after-1793049435760",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-scaling-path-patterns-1793102384176/rotate-on-the-board-1793102411311",
+      "target": "plan/canvas-rotation-scaling-path-patterns-1793102384176/rotation-in-the-inspector-and-every-emitter-1793102411398",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-scaling-path-patterns-1793102384176/rotation-in-the-inspector-and-every-emitter-1793102411398",
+      "target": "plan/canvas-rotation-scaling-path-patterns-1793102384176/emit-patterns-compactly-1793102411854",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-scaling-path-patterns-1793102384176/emit-patterns-compactly-1793102411854",
+      "target": "plan/canvas-rotation-scaling-path-patterns-1793102384176/optimize-along-path-layout-for-big-patterns-1793102412075",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-scaling-path-patterns-1793102384176/optimize-along-path-layout-for-big-patterns-1793102412075",
+      "target": "plan/canvas-rotation-scaling-path-patterns-1793102384176/path-flow-editing-on-the-board-1793102412451",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "target": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/rotation.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "target": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/rotation.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "target": "plan/canvas-rotation-path-patterns-1793102450237/rotate-on-the-board-1793102466210",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/rotate-on-the-board-1793102466210",
+      "target": "plan/canvas-rotation-path-patterns-1793102450237/rotation-in-the-inspector-and-every-emitter-1793102466403",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/rotation-in-the-inspector-and-every-emitter-1793102466403",
+      "target": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "target": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/imageSizing.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "target": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/imageSizing.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "target": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "target": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/pathPattern.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "target": "planned/canvas-rotation-path-patterns-1793102450237/src/01_canvas/model/pathPattern.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "target": "plan/canvas-rotation-path-patterns-1793102450237/emit-patterns-compactly-1793102467236",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/emit-patterns-compactly-1793102467236",
+      "target": "plan/canvas-rotation-path-patterns-1793102450237/optimize-along-path-layout-for-big-patterns-1793102467555",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/canvas-rotation-path-patterns-1793102450237/optimize-along-path-layout-for-big-patterns-1793102467555",
+      "target": "plan/canvas-rotation-path-patterns-1793102450237/path-flow-editing-on-the-board-1793102467817",
+      "kind": "sequence"
+    }
+  ]
 }

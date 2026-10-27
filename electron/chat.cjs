@@ -7,31 +7,14 @@
 // is decided by agent/permissions.cjs for the session's permission mode. This
 // file is only the loop that ties them together and the IPC it speaks.
 const crypto = require('node:crypto')
-const anthropicProvider = require('./chatProviders/anthropic.cjs')
-const ollamaProvider = require('./chatProviders/ollama.cjs')
-const modelStore = require('./modelStore.cjs')
+const providers = require('./chatProviders/index.cjs')
 const registry = require('./agent/tools/registry.cjs')
 const permissions = require('./agent/permissions.cjs')
 const permissionStore = require('./agent/permissionStore.cjs')
 const agentSettings = require('./agent/agentSettingsStore.cjs')
 const systemPrompt = require('./agent/systemPrompt.cjs')
 const changeSets = require('./agent/changeSets.cjs')
-
-// SLEIPNIR_MODEL_PROVIDER=anthropic|ollama forces a provider, overriding
-// everything else (dev-only escape hatch). Otherwise: an explicit "Local
-// Ollama" pick in the model dropdown (modelStore.OLLAMA_MODEL_ID) always wins
-// — even with a key configured — since picking it is a deliberate choice to
-// run local. Left unset, this defaults to Anthropic when a key is present
-// (better tool-use quality — see chatProviders/anthropic.cjs), else falls
-// back to a local Ollama server so the chat/plan-node/approval pipeline works
-// out of the box with no account or key.
-function selectProvider() {
-  const explicit = process.env.SLEIPNIR_MODEL_PROVIDER
-  if (explicit === 'anthropic') return anthropicProvider
-  if (explicit === 'ollama') return ollamaProvider
-  if (modelStore.getModel() === modelStore.OLLAMA_MODEL_ID) return ollamaProvider
-  return anthropicProvider.isAvailable() ? anthropicProvider : ollamaProvider
-}
+const { buildNameMap } = require('./agent/schemaAdapters.cjs')
 
 // sessionId -> { controller, wcId, cancelHooks }. One entry per in-flight
 // message; removed once it settles or is cancelled. cancelHooks stop work a
@@ -81,7 +64,7 @@ function waitForDecision(callId, sessionId, wcId) {
 // chat shows one row per call that updates in place.
 async function runToolCall(call, byName, base) {
   const { sender, sessionId, workspaceRoot, mode, request } = base
-  const tool = byName.get(call.name)
+  const tool = byName.get(call.realName ?? call.name)
   if (!tool) {
     return { error: `Tool "${call.name}" is not available in ${mode} mode.` }
   }
@@ -145,7 +128,6 @@ async function runToolCall(call, byName, base) {
 async function sendMessage(sender, sessionId, history, userMessage, workspaceRoot, options = {}) {
   const settings = agentSettings.getSettings()
   const mode = permissions.normalizeMode(options?.mode ?? settings.defaultMode)
-  const provider = selectProvider()
   const controller = new AbortController()
   const request = { controller, wcId: sender.id, cancelHooks: new Set() }
   requests.set(sessionId, request)
@@ -155,13 +137,18 @@ async function sendMessage(sender, sessionId, history, userMessage, workspaceRoo
   let finalText = ''
 
   try {
+    const { provider, model } = await providers.resolveActive()
     const { tools, byName } = await registry.toolsFor({ mode, workspaceRoot, wcId: sender.id })
-    const toolDefs = registry.toDefs(tools)
+    // Tools go over the wire under provider-safe names (MCP tool names can be
+    // anything); calls come back under those names and are mapped home here.
+    const names = buildNameMap(tools.map((t) => t.name))
+    const toolDefs = registry.toDefs(tools).map((d) => ({ ...d, name: names.toSafe.get(d.name) }))
     const system = systemPrompt.build({ mode, workspaceRoot })
     let hitTurnLimit = true
 
     for (let turn = 0; turn < settings.maxToolTurns; turn++) {
       const { text, toolCalls, assistantTurn } = await provider.streamTurn({
+        model,
         system,
         messages,
         toolDefs,
@@ -180,7 +167,10 @@ async function sendMessage(sender, sessionId, history, userMessage, workspaceRoo
 
       const results = []
       for (const call of toolCalls) {
-        results.push({ id: call.id, name: call.name, result: await runToolCall(call, byName, base) })
+        const realName = names.fromSafe.get(call.name) ?? call.name
+        // `name` stays the wire name: providers echo it back (Gemini matches
+        // function responses by name).
+        results.push({ id: call.id, name: call.name, result: await runToolCall({ ...call, realName }, byName, base) })
         if (controller.signal.aborted) break
       }
       if (controller.signal.aborted) break

@@ -14,9 +14,18 @@ const files = new Map<string, string>()
 vi.mock('../00_planning/api/sleipnirApi', () => ({
   listWorkspaceDir: vi.fn(async (dir: string) => ({
     tree: [...files.keys()]
-      .filter((p) => p.startsWith(`${dir}/`))
-      .map((p) => ({ name: p.slice(dir.length + 1), path: p, type: 'file' as const, createdAt: 0 })),
+      .filter((p) => dir === '' || p.startsWith(`${dir}/`))
+      .map((p) => ({ name: dir === '' ? p : p.slice(dir.length + 1), path: p, type: 'file' as const, createdAt: 0 })),
   })),
+  // Binary files for image fills, stored as base64 in the same map.
+  readWorkspaceImageDataUrl: vi.fn(async (p: string) => {
+    if (!files.has(p)) throw new Error(`ENOENT ${p}`)
+    return { dataUrl: `data:image/png;base64,${files.get(p)}` }
+  }),
+  createWorkspaceBinaryFile: vi.fn(async (p: string, base64: string) => {
+    if (files.has(p)) throw new Error(`${p} already exists`)
+    files.set(p, base64)
+  }),
   readWorkspaceFile: vi.fn(async (p: string) => {
     if (!files.has(p)) throw new Error(`ENOENT ${p}`)
     return { content: files.get(p)! }
@@ -34,6 +43,16 @@ vi.mock('../00_planning/api/sleipnirApi', () => ({
     files.set(p, content ?? '')
   }),
   createWorkspaceDir: vi.fn(async () => {}),
+  // Case-insensitive line search, the backend's searchDir in miniature — what
+  // finds a component file moved outside Sleipnir by its sentinel.
+  searchWorkspace: vi.fn(async (query: string) => ({
+    matches: [...files.entries()].flatMap(([path, content]) =>
+      content.split('\n').flatMap((lineText, i) =>
+        lineText.toLowerCase().includes(query.toLowerCase()) ? [{ path, line: i + 1, column: 1, lineText }] : [],
+      ),
+    ),
+    truncated: false,
+  })),
   // Planning-side reads reached indirectly: CanvasView's layer delete cascade
   // (deleteNote / planNodesUnderPath) and the stage overlay useFileStages and
   // stagesStore pull in. Empty results — this suite is about canvas behavior,
@@ -46,6 +65,7 @@ vi.mock('../00_planning/api/sleipnirApi', () => ({
 }))
 
 import { CanvasView } from './CanvasView'
+import { reconcileDelete } from './model/store'
 
 const PROJECT = { path: 'C:/proj', name: 'proj' }
 const BOARD_W = 1000
@@ -118,7 +138,7 @@ function getBoard(): HTMLElement {
 
 /** Picks the Frame tool and drags a frame between two screen points. */
 function drawFrame(x1 = 100, y1 = 120, x2 = 340, y2 = 300) {
-  fireEvent.click(screen.getByTitle('Frame (F)'))
+  fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
   const board = getBoard()
   fireEvent.pointerDown(board, { clientX: x1, clientY: y1, button: 0, pointerId: 1 })
   fireEvent.pointerMove(board, { clientX: x2, clientY: y2, button: 0, pointerId: 1 })
@@ -130,6 +150,11 @@ function clickAt(x: number, y: number, init: Record<string, unknown> = {}) {
   const board = getBoard()
   fireEvent.pointerDown(board, { clientX: x, clientY: y, button: 0, pointerId: 1, ...init })
   fireEvent.pointerUp(board, { clientX: x, clientY: y, button: 0, pointerId: 1, ...init })
+}
+
+/** The inspector's number field under a label. */
+function numberInput(label: string) {
+  return screen.getByText(label).parentElement!.querySelector('input') as HTMLInputElement
 }
 
 /** Drags the current selection from one point to another. */
@@ -164,15 +189,18 @@ async function findModal(): Promise<HTMLElement> {
 
 /** Real component code — everything written outside the board store. */
 function componentFiles(): string[] {
-  // Everything except board JSON (which now lives in .canvas/.boards/).
-  return [...files.keys()].filter((p) => !p.startsWith('.canvas/.boards/') && !p.startsWith('.planning/'))
+  // Everything except board JSON (which now lives in .components/.boards/) and the
+  // staging tier's editor tsconfig, which is config, not a component.
+  return [...files.keys()].filter(
+    (p) => !p.startsWith('.components/.boards/') && !p.startsWith('.planning/') && p !== '.components/tsconfig.json',
+  )
 }
 
 /**
  * Promotes the selected frame.
  *
  * One click, no dialog: the component lands on the board AND its file lands in
- * `.canvas` at a derived path. Waits for the file, since that write is what the
+ * `.components` at a derived path. Waits for the file, since that write is what the
  * board mutation is committed behind.
  */
 async function promoteFrame(): Promise<void> {
@@ -183,7 +211,7 @@ async function promoteFrame(): Promise<void> {
 
 function savedDocs() {
   return [...files.entries()]
-    .filter(([p]) => p.startsWith('.canvas/.boards/'))
+    .filter(([p]) => p.startsWith('.components/.boards/'))
     .map(([, content]) => JSON.parse(content))
 }
 
@@ -204,13 +232,13 @@ describe('CanvasView', () => {
     expect(await screen.findByText('NO BOARDS YET')).toBeInTheDocument()
   })
 
-  it('creates a board and persists it under .canvas/.boards/', async () => {
+  it('creates a board and persists it under .components/.boards/', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
 
     await waitFor(() => expect(savedDocs()).toHaveLength(1))
     const [path] = [...files.keys()]
-    expect(path).toMatch(/^\.canvas\/\.boards\/canvas-.*\.json$/)
+    expect(path).toMatch(/^\.components\/\.boards\/canvas-.*\.json$/)
     expect([...files.keys()].some((p) => p.startsWith('.planning/'))).toBe(false)
     expect(savedDocs()[0].nodes).toEqual([])
     expect(savedDocs()[0].version).toBe(1)
@@ -222,7 +250,7 @@ describe('CanvasView', () => {
     await screen.findByText('EMPTY BOARD')
 
     // Pick the Frame tool the way a user does.
-    fireEvent.click(screen.getByTitle('Frame (F)'))
+    fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
 
     const board = getBoard()
     fireEvent.pointerDown(board, { clientX: 100, clientY: 120, button: 0, pointerId: 1 })
@@ -242,12 +270,27 @@ describe('CanvasView', () => {
     expect(node.rect).toEqual({ x: 100, y: 120, w: 240, h: 180 })
   })
 
+  // The camera is one person's view, and boards are committed: carrying it in
+  // the board put a pan into every diff. It is remembered per machine instead.
+  it('saves boards without the camera', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+
+    await waitFor(() => expect(savedDocs()[0]?.nodes).toHaveLength(1))
+    expect(savedDocs()[0]).not.toHaveProperty('camera')
+    await waitFor(() =>
+      expect(Object.keys(localStorage).some((k) => k.startsWith('sleipnir.canvas.camera:C:/proj:'))).toBe(true),
+    )
+  })
+
   it('selects the new frame and shows its geometry in the inspector', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
 
-    fireEvent.click(screen.getByTitle('Frame (F)'))
+    fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
     const board = getBoard()
     fireEvent.pointerDown(board, { clientX: 50, clientY: 60, button: 0, pointerId: 1 })
     fireEvent.pointerMove(board, { clientX: 250, clientY: 160, button: 0, pointerId: 1 })
@@ -270,7 +313,7 @@ describe('CanvasView', () => {
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
 
-    fireEvent.click(screen.getByTitle('Frame (F)'))
+    fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
     const board = getBoard()
     fireEvent.pointerDown(board, { clientX: 10, clientY: 10, button: 0, pointerId: 1 })
     fireEvent.pointerMove(board, { clientX: 110, clientY: 110, button: 0, pointerId: 1 })
@@ -294,7 +337,8 @@ describe('CanvasView', () => {
     expect(toolbar).not.toBeNull()
     // It lives inside the board container, so it floats over the canvas area.
     expect(getBoard().contains(toolbar)).toBe(true)
-    for (const hint of ['Select (V)', 'Frame (F)', 'Text (T)']) {
+    // Matched by prefix: tooltips go on to list the tool's modifier keys.
+    for (const hint of [/^Select \(V\)/, /^Frame \(F\)/, /^Text \(T\)/]) {
       expect(screen.getByTitle(hint)).toBeInTheDocument()
     }
   })
@@ -320,11 +364,11 @@ describe('CanvasView', () => {
     // Promotion is the write. The file lands in the staging tier at a derived
     // path with no dialog, and the component records it — the two-step
     // "promote, then approve somewhere" flow is gone.
-    expect(saved.components[0].componentRoot).toBe('.canvas')
-    expect(componentFiles()).toEqual(['.canvas/frame/frame.tsx'])
+    expect(saved.components[0].componentRoot).toBe('.components')
+    expect(componentFiles()).toEqual(['.components/frame/frame.tsx'])
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
-      expect(component.filePath).toBe('.canvas/frame/frame.tsx')
+      expect(component.filePath).toBe('.components/frame/frame.tsx')
       expect(component.sync).toBe('live')
       expect(component.lastWrittenHash).toBeTruthy()
     })
@@ -346,10 +390,10 @@ describe('CanvasView', () => {
     drawFrame(300, 320, 440, 420)
     await promoteFrame()
 
-    expect(componentFiles().sort()).toEqual(['.canvas/frame-2/frame.tsx', '.canvas/frame/frame.tsx'])
+    expect(componentFiles().sort()).toEqual(['.components/frame-2/frame.tsx', '.components/frame/frame.tsx'])
     await waitFor(() => {
       const paths = savedDocs()[0].components.map((c: { filePath?: string }) => c.filePath).sort()
-      expect(paths).toEqual(['.canvas/frame-2/frame.tsx', '.canvas/frame/frame.tsx'])
+      expect(paths).toEqual(['.components/frame-2/frame.tsx', '.components/frame/frame.tsx'])
     })
   })
 
@@ -423,11 +467,11 @@ describe('CanvasView', () => {
     drawFrame()
     await promoteFrame()
 
-    expect(componentFiles()).toEqual(['.canvas/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/frame/frame.tsx'])
 
-    const source = files.get('.canvas/frame/frame.tsx')!
-    expect(source).toContain('export interface FrameProps {}')
-    expect(source).toContain('export const Frame = ({}: FrameProps) => {')
+    const source = files.get('.components/frame/frame.tsx')!
+    expect(source).toContain('export type FrameProps = Record<string, never>')
+    expect(source).toContain('export const Frame = () => {')
     expect(source).toContain('// <sleipnir:layout component=')
     expect(source).toContain('// </sleipnir:layout>')
     // Dependency-free: nothing imported from Sleipnir's own UIKit.
@@ -465,7 +509,7 @@ describe('CanvasView', () => {
     expect(currentDoc().components).toHaveLength(0)
   })
 
-  it('keeps a component that carries variants when its file is removed', async () => {
+  it('flattens a staged component that carries variants when its file is removed, and undo brings both back', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
@@ -477,22 +521,187 @@ describe('CanvasView', () => {
     fireEvent.change(input, { target: { value: 'Hover' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(currentDoc().components[0].variants).toHaveLength(2))
+    const written = files.get('.components/frame/frame.tsx')
 
     fireEvent.click(await screen.findByText('REMOVE FROM WORKSPACE'))
-    await waitFor(() => expect(componentFiles()).toEqual([]))
 
-    // Variants and props are work a frame cannot hold, and this runs behind one
-    // click with no undo once the board autosaves — so it is kept and flagged
-    // rather than dissolved, and FLATTEN TO FRAME is where you say otherwise.
+    // In `.components` the file and the component are one thing, so a component
+    // with no file there is a state that must not exist: it goes back to
+    // being a frame, rather than lingering detached.
+    await waitFor(() => expect(componentFiles()).toEqual([]))
+    await waitFor(() => {
+      expect(currentDoc().components).toHaveLength(0)
+      expect(currentDoc().nodes[0].kind).toBe('frame')
+    })
+
+    // What made the old one-click detach necessary was that this lost the
+    // variants for good. Undo now restores the component AND its file, byte
+    // for byte.
+    fireEvent.click(screen.getByText('UNDO'))
+    await waitFor(() => expect(files.get('.components/frame/frame.tsx')).toBe(written))
+    await waitFor(() => expect(currentDoc().components[0]?.variants).toHaveLength(2))
+  })
+
+  it('deletes the staged file with the last instance, and undo restores it', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+    const written = files.get('.components/frame/frame.tsx')
+
+    // The instance is selected after promotion; Delete is the board's own key.
+    fireEvent.keyDown(window, { key: 'Delete' })
+
+    await waitFor(() => expect(componentFiles()).toEqual([]))
+    await waitFor(() => {
+      expect(currentDoc().nodes).toHaveLength(0)
+      expect(currentDoc().components).toHaveLength(0)
+    })
+
+    fireEvent.click(screen.getByText('UNDO'))
+    await waitFor(() => expect(files.get('.components/frame/frame.tsx')).toBe(written))
+    await waitFor(() => expect(currentDoc().components).toHaveLength(1))
+  })
+
+  it('takes the staged file away when the promotion is undone, and back on redo', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+
+    fireEvent.click(screen.getByText('UNDO'))
+    await waitFor(() => expect(componentFiles()).toEqual([]))
+    await waitFor(() => expect(currentDoc().nodes[0]?.kind).toBe('frame'))
+
+    fireEvent.click(screen.getByText('REDO'))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/frame/frame.tsx']))
+    await waitFor(() => expect(currentDoc().components).toHaveLength(1))
+  })
+
+  it("gives staged components an editor tsconfig that inherits the project's app config", async () => {
+    files.set('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.app.json" }] }')
+    files.set('tsconfig.node.json', '{ "compilerOptions": { "module": "ESNext" } }')
+    files.set('tsconfig.app.json', '{\n  // comments are fine\n  "compilerOptions": { "jsx": "react-jsx" }\n}')
+
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+
+    await waitFor(() => expect(files.get('.components/tsconfig.json')).toContain('"extends": "../tsconfig.app.json"'))
+  })
+
+  it('never overwrites an editor tsconfig that is already there', async () => {
+    files.set('.components/tsconfig.json', '{ "mine": true }')
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+    await waitFor(() => expect(currentDoc().components).toHaveLength(1))
+
+    expect(files.get('.components/tsconfig.json')).toBe('{ "mine": true }')
+  })
+
+  it('relinks a component whose folder was moved outside Sleipnir, by its sentinel', async () => {
+    const first = render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/frame/frame.tsx'))
+    first.unmount()
+
+    // Moved in VS Code: Sleipnir never saw it, so nothing reconciled the board.
+    files.set('src/ui/frame/frame.tsx', files.get('.components/frame/frame.tsx')!)
+    files.delete('.components/frame/frame.tsx')
+
+    render(<CanvasView activeProject={PROJECT} />)
+
     await waitFor(() => {
       const component = currentDoc().components[0]
-      expect(component.sync).toBe('detached')
-      expect(component.filePath).toBeUndefined()
+      expect(component.filePath).toBe('src/ui/frame/frame.tsx')
+      // Carried by its folder, so the sandbox is the folder's new parent.
+      expect(component.componentRoot).toBe('src/ui')
+      expect(component.sync).toBe('live')
     })
-    expect(currentDoc().components).toHaveLength(1)
-    expect(currentDoc().nodes[0].kind).toBe('instance')
-    expect(await screen.findByText(/Its file was deleted/)).toBeInTheDocument()
-    expect(screen.queryByText('Not in the workspace yet')).not.toBeInTheDocument()
+  })
+
+  it('leaves a moved component flagged when two files claim it', async () => {
+    const first = render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/frame/frame.tsx'))
+    first.unmount()
+
+    const source = files.get('.components/frame/frame.tsx')!
+    files.delete('.components/frame/frame.tsx')
+    files.set('src/a/frame.tsx', source)
+    files.set('src/b/frame.tsx', source)
+
+    render(<CanvasView activeProject={PROJECT} />)
+    await screen.findAllByText('Frame')
+    clickAt(200, 200)
+
+    // Picking one of two copies would be a guess; it says what happened instead.
+    expect(await screen.findByText(/is gone — it was moved or deleted outside Sleipnir/)).toBeInTheDocument()
+    expect(currentDoc().components[0].filePath).toBe('.components/frame/frame.tsx')
+  })
+
+  it('removes the staged file when a component is flattened to a frame', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+
+    fireEvent.click(await screen.findByText('FLATTEN TO FRAME'))
+
+    await waitFor(() => expect(componentFiles()).toEqual([]))
+    await waitFor(() => expect(currentDoc().components).toHaveLength(0))
+  })
+
+  it('deletes a board together with its staged files', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/frame/frame.tsx'))
+
+    fireEvent.click(screen.getByTitle('Delete this board'))
+
+    await waitFor(() => expect(savedDocs()).toHaveLength(0))
+    await waitFor(() => expect(componentFiles()).toEqual([]))
+  })
+
+  it('sweeps staged files no board owns when the project opens, and nothing else', async () => {
+    const sentinel = (id: string) =>
+      `export const X = () => {\n  // <sleipnir:layout component="${id}" hash="h">\n  return null\n  // </sleipnir:layout>\n}\n`
+    files.set('.components/.boards/canvas-1.json', JSON.stringify({ id: 'canvas-1', name: 'B', nodes: [], components: [], createdAt: 1, updatedAt: 1 }))
+    files.set('.components/ghost/ghost.tsx', sentinel('cmp_gone'))
+    // Hand-written: no sentinel, so never the canvas's to delete.
+    files.set('.components/notes/mine.tsx', 'export const Mine = 1\n')
+
+    render(<CanvasView activeProject={PROJECT} />)
+
+    await waitFor(() => expect(files.has('.components/ghost/ghost.tsx')).toBe(false))
+    expect(files.get('.components/notes/mine.tsx')).toBe('export const Mine = 1\n')
+  })
+
+  it('sweeps nothing when a board cannot be read, since it might own any of them', async () => {
+    files.set('.components/.boards/broken.json', '{ not json')
+    files.set('.components/ghost/ghost.tsx', '  // <sleipnir:layout component="cmp_gone" hash="h">\n  // </sleipnir:layout>\n')
+
+    render(<CanvasView activeProject={PROJECT} />)
+    await screen.findByText('NO BOARDS YET')
+
+    expect(files.has('.components/ghost/ghost.tsx')).toBe(true)
   })
 
   it('flattens a variant-carrying component to a frame on request', async () => {
@@ -532,19 +741,19 @@ describe('CanvasView', () => {
     fireEvent.click(within(modal).getByText('SAVE'))
 
     // The file moves, and the old one (plus its now-empty folder) goes.
-    await waitFor(() => expect(componentFiles()).toEqual(['.canvas/card/card.tsx']))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/card/card.tsx']))
 
     // The rename reaches INSIDE the file, not just the board — a file called
     // card.tsx still exporting `Frame` would be the worse half-outcome.
-    const source = files.get('.canvas/card/card.tsx')!
-    expect(source).toContain('export interface CardProps {}')
-    expect(source).toContain('export const Card = ({}: CardProps) => {')
+    const source = files.get('.components/card/card.tsx')!
+    expect(source).toContain('export type CardProps = Record<string, never>')
+    expect(source).toContain('export const Card = () => {')
     expect(source).not.toContain('export const Frame')
 
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
       expect(component.name).toBe('Card')
-      expect(component.filePath).toBe('.canvas/card/card.tsx')
+      expect(component.filePath).toBe('.components/card/card.tsx')
     })
   })
 
@@ -563,7 +772,7 @@ describe('CanvasView', () => {
     await waitFor(() => {
       expect(screen.queryByText('EDIT COMPONENT')).not.toBeInTheDocument()
     })
-    expect(componentFiles()).toEqual(['.canvas/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/frame/frame.tsx'])
   })
 
   it('keeps a deliberately filed component where it was put across a rename', async () => {
@@ -579,7 +788,7 @@ describe('CanvasView', () => {
     // The FOLDER field's placeholder is the auto-derived folder it would use.
     fireEvent.change(within(first).getByPlaceholderText('frame'), { target: { value: 'widgets' } })
     fireEvent.click(within(first).getByText('SAVE'))
-    await waitFor(() => expect(componentFiles()).toEqual(['.canvas/widgets/frame.tsx']))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/widgets/frame.tsx']))
 
     // Renaming must not drag it back to an auto-derived folder — that choice
     // was made on purpose and outranks the naming convention.
@@ -588,17 +797,17 @@ describe('CanvasView', () => {
     fireEvent.change(within(second).getByDisplayValue('Frame'), { target: { value: 'Card' } })
     fireEvent.click(within(second).getByText('SAVE'))
 
-    await waitFor(() => expect(componentFiles()).toEqual(['.canvas/widgets/card.tsx']))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/widgets/card.tsx']))
   })
 
   it('writes a detached component back into the workspace through the modal', async () => {
-    render(<CanvasView activeProject={PROJECT} />)
+    const first = render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
 
-    // A variant first, so removing the file leaves the component DETACHED
+    // A variant first, so deleting the file leaves the component DETACHED
     // rather than dissolving it — a bare component would be un-promoted back
     // to a frame and there would be nothing left to push.
     fireEvent.click(await screen.findByText('+ ADD VARIANT'))
@@ -607,11 +816,16 @@ describe('CanvasView', () => {
     fireEvent.keyDown(variantField, { key: 'Enter' })
     await waitFor(() => expect(currentDoc().components[0].variants).toHaveLength(2))
 
-    // PUSH TO WORKSPACE is for a component with NO file, which after automatic
-    // promotion means a detached one. That is the only state the modal still
-    // gates, and the only one where it can create rather than collide.
-    fireEvent.click(await screen.findByText('REMOVE FROM WORKSPACE'))
-    await waitFor(() => expect(componentFiles()).toEqual([]))
+    // Detached is now only reachable from OUTSIDE the canvas — the file deleted
+    // in the Workspace tree, where there is no undo to bring the variants back
+    // (inside the canvas, removing a staged file flattens instead). PUSH TO
+    // WORKSPACE is the way back from it.
+    first.unmount()
+    files.delete('.components/frame/frame.tsx')
+    await reconcileDelete('.components/frame/frame.tsx')
+    render(<CanvasView activeProject={PROJECT} />)
+    await screen.findAllByText('Frame')
+    clickAt(200, 200)
 
     fireEvent.click(await screen.findByText('PUSH TO WORKSPACE'))
     const modal = await findModal()
@@ -622,8 +836,8 @@ describe('CanvasView', () => {
 
     fireEvent.click(within(modal).getByText('APPROVE'))
 
-    await waitFor(() => expect(componentFiles()).toEqual(['.canvas/card/card.tsx']))
-    const source = files.get('.canvas/card/card.tsx')!
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/card/card.tsx']))
+    const source = files.get('.components/card/card.tsx')!
     // The variant added above is a real prop, so it reaches the interface and
     // the signature — the fresh emit carries the component's whole shape.
     expect(source).toContain("state?: 'default' | 'hover'")
@@ -631,7 +845,7 @@ describe('CanvasView', () => {
 
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
-      expect(component.filePath).toBe('.canvas/card/card.tsx')
+      expect(component.filePath).toBe('.components/card/card.tsx')
       expect(component.sync).toBe('live')
       expect(component.lastWrittenHash).toBeTruthy()
     })
@@ -930,16 +1144,16 @@ describe('CanvasView', () => {
     })
   })
 
-  it('hides the align controls until a selection can use them', async () => {
+  it('shows the arrange controls in the inspector only once a selection can use them', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
 
-    expect(document.querySelector('[data-canvas-align-toolbar]')).toBeNull()
+    expect(document.querySelector('[data-canvas-arrange]')).toBeNull()
 
     drawFrame()
     await waitFor(() =>
-      expect(document.querySelector('[data-canvas-align-toolbar]')).not.toBeNull(),
+      expect(document.querySelector('[data-canvas-arrange]')).not.toBeNull(),
     )
   })
 
@@ -972,8 +1186,7 @@ describe('CanvasView', () => {
 
     // Select the stack (a click over empty space inside it) and give it a flow.
     clickAt(460, 380)
-    const flow = await screen.findByDisplayValue('Freeform (absolute children)')
-    fireEvent.change(flow, { target: { value: 'vertical' } })
+    fireEvent.click(await screen.findByTitle('Vertical stack'))
     await waitFor(() => expect(currentDoc().nodes[0].style.flow).toBe('vertical'))
 
     return { stackId: currentDoc().nodes[0].id, aId: a.id, bId: b.id }
@@ -1093,7 +1306,7 @@ describe('CanvasView', () => {
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
 
-    fireEvent.click(screen.getByTitle('Frame (F)'))
+    fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
     const board = getBoard()
     fireEvent.pointerDown(board, { clientX: 20, clientY: 20, button: 0, pointerId: 1 })
     fireEvent.pointerMove(board, { clientX: 220, clientY: 220, button: 0, pointerId: 1 })
@@ -1106,5 +1319,599 @@ describe('CanvasView', () => {
     const rust = screen.getByText(/^Rust —/) as HTMLOptionElement
     expect(rust.disabled).toBe(true)
     expect(rust.textContent).toMatch(/UI framework/)
+  })
+})
+
+describe('CanvasView paint', () => {
+  /** A board with one selected frame, ready for the inspector. */
+  async function frameOnBoard() {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await waitFor(() => expect(savedDocs()[0]?.nodes).toHaveLength(1))
+  }
+
+  /** The FILL section — scoped so a field there is never confused with LAYER's. */
+  const fillSection = () => screen.getByText('FILL').parentElement!.parentElement as HTMLElement
+  /** The fills as saved; a new frame starts with a `bg-2` fill, so an added one is the last (top). */
+  const savedFills = () => savedDocs()[0].nodes[0].style.fills ?? []
+
+  /** Opens the topmost fill's editor from its swatch and picks `type` from its tabs. */
+  const setTopFillType = (type: 'Linear' | 'Radial' | 'Image') => {
+    fireEvent.click(screen.getAllByTitle('Edit fill')[0])
+    fireEvent.click(screen.getByRole('button', { name: type }))
+  }
+
+  it('adds a fill, and turns it into a linear gradient that the board saves', async () => {
+    await frameOnBoard()
+    fireEvent.click(screen.getByTitle('Add fill'))
+    await waitFor(() => expect(savedFills()).toEqual([{ color: 'bg-2' }, { type: 'solid', color: '#d9d9d9' }]))
+
+    setTopFillType('Linear')
+    await waitFor(() => {
+      const fill = savedFills()[1]
+      expect(fill.type).toBe('linear')
+      expect(fill.angle).toBe(180)
+      // A solid seeds the gradient: its color, opaque to clear.
+      expect(fill.stops).toEqual([
+        { position: 0, color: '#d9d9d9' },
+        { position: 1, color: '#d9d9d9', opacity: 0 },
+      ])
+    })
+    expect(screen.getByText('STOPS')).toBeInTheDocument()
+  })
+
+  it('writes the gradient into the component file', async () => {
+    await frameOnBoard()
+    fireEvent.click(screen.getByTitle('Add fill'))
+    setTopFillType('Radial')
+    await waitFor(() => expect(savedFills()[1]?.type).toBe('radial'))
+
+    await promoteFrame()
+    // Top layer first, over the frame's own bg-2 fill as a layer of its own.
+    expect(files.get('.components/frame/frame.tsx')).toContain(
+      "background: 'radial-gradient(ellipse 50% 50% at 50% 50%, #d9d9d9 0%, rgba(217, 217, 217, 0) 100%), linear-gradient(var(--bg-2), var(--bg-2))',",
+    )
+  })
+
+  it('imports an image into .components/assets and paints it as a fill', async () => {
+    await frameOnBoard()
+    fireEvent.click(screen.getByTitle('Add fill'))
+    setTopFillType('Image')
+    await screen.findByText('IMPORT FILE…')
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'My Hero.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => expect(savedFills()[1]).toMatchObject({ type: 'image', src: '.components/assets/My-Hero.png' }))
+    expect(files.get('.components/assets/My-Hero.png')).toBe('iVBORw==')
+
+    await promoteFrame()
+    const source = files.get('.components/frame/frame.tsx')!
+    expect(source).toContain("import myHeroImage from '../assets/My-Hero.png'")
+    expect(source).toContain('background: `url("${myHeroImage}") center / cover no-repeat, linear-gradient(var(--bg-2), var(--bg-2))`,')
+  })
+
+  it('adds a drop shadow with Figma\'s defaults', async () => {
+    await frameOnBoard()
+    fireEvent.click(screen.getByTitle('Add effect'))
+    await waitFor(() =>
+      expect(savedDocs()[0].nodes[0].style.effects).toEqual([
+        { type: 'drop-shadow', x: 0, y: 4, blur: 4, spread: 0, color: '#000000', opacity: 0.25 },
+      ]),
+    )
+  })
+
+  // After promotion the selection is an instance, whose own style never reaches
+  // its call site — so the paint panels edit the main component, and UPDATE
+  // COMPONENT carries the change into the file.
+  it('paints the main component from an instance, and pushes it to the file', async () => {
+    await frameOnBoard()
+    await promoteFrame()
+    expect(await screen.findByText(/Paint below edits the main component/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTitle('Add effect'))
+    await waitFor(() => {
+      const root = savedDocs()[0].components[0].variants[0].root
+      expect(root.style.effects).toHaveLength(1)
+    })
+    // The instance itself stays unpainted.
+    expect(savedDocs()[0].nodes[0].style.effects).toBeUndefined()
+
+    fireEvent.click(await screen.findByText('● UPDATE COMPONENT'))
+    await waitFor(() =>
+      expect(files.get('.components/frame/frame.tsx')).toContain("boxShadow: '0px 4px 4px 0px rgba(0, 0, 0, 0.25)',"),
+    )
+  })
+
+  // One control, one undo step — however many times it reported a change.
+  it('folds a run of edits from one control into one undo step', async () => {
+    await frameOnBoard()
+    fireEvent.click(screen.getByTitle('Add fill'))
+    await waitFor(() => expect(savedFills()).toHaveLength(2))
+
+    // The topmost row's opacity field, listed first.
+    const opacity = within(fillSection()).getAllByDisplayValue('100')[0] as HTMLInputElement
+    for (const value of ['90', '70', '50']) fireEvent.change(opacity, { target: { value } })
+    await waitFor(() => expect(savedFills()[1].opacity).toBe(0.5))
+
+    fireEvent.click(screen.getByText('UNDO'))
+    await waitFor(() => expect(savedFills()[1]?.opacity).toBeUndefined())
+    // Back to before the drag, not before the fill.
+    expect(savedFills()).toHaveLength(2)
+  })
+})
+
+describe('CanvasView shapes, pen and SVG components', () => {
+  async function emptyBoard() {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+  }
+
+  /** Drags a rect with whatever tool is active. */
+  function drag(x1: number, y1: number, x2: number, y2: number) {
+    const board = getBoard()
+    fireEvent.pointerDown(board, { clientX: x1, clientY: y1, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(board, { clientX: x2, clientY: y2, button: 0, pointerId: 1 })
+    fireEvent.pointerUp(board, { clientX: x2, clientY: y2, button: 0, pointerId: 1 })
+  }
+
+  /** Picks a shape from the toolbar's shape menu. */
+  function pickShape(name: 'Rectangle' | 'Ellipse' | 'Triangle') {
+    fireEvent.click(screen.getByTitle('Shapes'))
+    fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(name) }))
+  }
+
+  const savedNodes = () => savedDocs()[0]?.nodes ?? []
+
+  it('draws each shape from the toolbar menu as a vector, rendered as SVG', async () => {
+    await emptyBoard()
+    pickShape('Ellipse')
+    drag(100, 100, 200, 160)
+    pickShape('Triangle')
+    drag(300, 100, 380, 180)
+
+    await waitFor(() => expect(savedNodes()).toHaveLength(2))
+    expect(savedNodes().map((n: { kind: string; shape: string; sides?: number }) => [n.kind, n.shape, n.sides])).toEqual([
+      ['vector', 'ellipse', undefined],
+      ['vector', 'polygon', 3],
+    ])
+    expect(savedNodes()[0].rect).toEqual({ x: 100, y: 100, w: 100, h: 60 })
+    // On the board they are SVG, not boxes.
+    expect(document.querySelector('svg[data-canvas-node] ellipse')).not.toBeNull()
+    expect(document.querySelector('svg[data-canvas-node] polygon')?.getAttribute('points')).toBe('40,0 80,80 0,80')
+  })
+
+  it('keeps the last shape used on the toolbar button, and R picks a rectangle', async () => {
+    await emptyBoard()
+    pickShape('Ellipse')
+    expect(screen.getByTitle(/^Ellipse \(O\)/)).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'r' })
+    drag(50, 50, 150, 100)
+    await waitFor(() => expect(savedNodes()[0]?.shape).toBe('rectangle'))
+  })
+
+  it('draws a pen path: clicks for corners, a drag for a curve, Enter to finish open', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'p' })
+    const board = getBoard()
+    const click = (x: number, y: number) => {
+      fireEvent.pointerDown(board, { clientX: x, clientY: y, button: 0, pointerId: 1 })
+      fireEvent.pointerUp(board, { clientX: x, clientY: y, button: 0, pointerId: 1 })
+    }
+    click(100, 100)
+    // Click-and-drag pulls handles out of the second anchor.
+    fireEvent.pointerDown(board, { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(board, { clientX: 240, clientY: 140, button: 0, pointerId: 1 })
+    fireEvent.pointerUp(board, { clientX: 240, clientY: 140, button: 0, pointerId: 1 })
+    click(200, 200)
+    fireEvent.keyDown(window, { key: 'Enter' })
+
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+    const path = savedNodes()[0]
+    expect(path).toMatchObject({ kind: 'vector', shape: 'path', closed: false })
+    expect(path.points).toHaveLength(3)
+    expect(path.points[1]).toMatchObject({ out: expect.any(Object), in: expect.any(Object) })
+    // Sized to its own bounds, handles included (the incoming one reaches x=160).
+    expect(path.rect.x).toBe(100)
+    // Into the curved anchor and out of it: two cubic segments.
+    expect(document.querySelector('svg[data-canvas-node] path')?.getAttribute('d')).toMatch(/^M 0 40 C .+ C .+$/)
+  })
+
+  it('closes a pen path by clicking its first point', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'p' })
+    const board = getBoard()
+    for (const [x, y] of [[100, 100], [200, 100], [150, 180], [101, 101]]) {
+      fireEvent.pointerDown(board, { clientX: x, clientY: y, button: 0, pointerId: 1 })
+      fireEvent.pointerUp(board, { clientX: x, clientY: y, button: 0, pointerId: 1 })
+    }
+    await waitFor(() => expect(savedNodes()[0]).toMatchObject({ shape: 'path', closed: true }))
+    expect(savedNodes()[0].points).toHaveLength(3)
+  })
+
+  it('makes an SVG component whose file is one svg of shapes, not divs', async () => {
+    await emptyBoard()
+    pickShape('Ellipse')
+    drag(100, 100, 160, 160)
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+
+    fireEvent.click(await screen.findByText('MAKE SVG COMPONENT'))
+
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/ellipse/ellipse.tsx']))
+    const source = files.get('.components/ellipse/ellipse.tsx')!
+    expect(source).toContain('export const Ellipse = () => {')
+    expect(source).toContain('<svg width={60} height={60} viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">')
+    expect(source).toContain('<ellipse cx={30} cy={30} rx={30} ry={30} fill="#d9d9d9" />')
+    expect(source).not.toContain('<div')
+    await waitFor(() => expect(savedDocs()[0].components[0].format).toBe('svg'))
+  })
+
+  it('groups several selected vectors into one SVG component', async () => {
+    await emptyBoard()
+    pickShape('Rectangle')
+    drag(100, 100, 150, 150)
+    pickShape('Triangle')
+    drag(200, 100, 250, 150)
+    await waitFor(() => expect(savedNodes()).toHaveLength(2))
+    // Marquee both.
+    drag(80, 80, 270, 170)
+    expect(await screen.findByText('2 selected')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('MAKE SVG COMPONENT'))
+    await waitFor(() => expect(componentFiles()).toHaveLength(1))
+    const source = files.get(componentFiles()[0])!
+    expect(source).toContain('<svg width={150} height={50} viewBox="0 0 150 50"')
+    expect(source).toContain('<rect x={0} y={0} width={50} height={50} fill="#d9d9d9" />')
+    expect(source).toContain('<polygon points="125,0 150,50 100,50" fill="#d9d9d9" />')
+  })
+
+  it('gives an SVG component variants, each branch its own svg', async () => {
+    await emptyBoard()
+    pickShape('Ellipse')
+    drag(100, 100, 140, 140)
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+    fireEvent.click(await screen.findByText('MAKE SVG COMPONENT'))
+    await waitFor(() => expect(componentFiles()).toHaveLength(1))
+
+    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
+    const field = screen.getByPlaceholderText('variant name')
+    fireEvent.change(field, { target: { value: 'Active' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    fireEvent.click(await screen.findByText(/UPDATE COMPONENT/))
+
+    await waitFor(() => expect(files.get(componentFiles()[0])).toContain("if (state === 'active') {"))
+    expect(files.get(componentFiles()[0])!.match(/<svg /g)).toHaveLength(2)
+  })
+})
+
+describe('CanvasView fluid vector editing', () => {
+  async function emptyBoard() {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+  }
+  function drag(x1: number, y1: number, x2: number, y2: number, init: Record<string, unknown> = {}) {
+    const board = getBoard()
+    fireEvent.pointerDown(board, { clientX: x1, clientY: y1, button: 0, pointerId: 1, ...init })
+    fireEvent.pointerMove(board, { clientX: x2, clientY: y2, button: 0, pointerId: 1, ...init })
+    fireEvent.pointerUp(board, { clientX: x2, clientY: y2, button: 0, pointerId: 1, ...init })
+  }
+  const savedNodes = () => savedDocs()[0]?.nodes ?? []
+
+  it('draws a square with Shift held', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'r' })
+    drag(100, 100, 220, 160, { shiftKey: true })
+    await waitFor(() => expect(savedNodes()[0]?.rect).toEqual({ x: 100, y: 100, w: 120, h: 120 }))
+  })
+
+  // Selection follows the shape: a triangle's empty corner isn't the triangle.
+  it('selects a triangle inside its outline, but not from its empty box corner', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'v' })
+    fireEvent.click(screen.getByTitle('Shapes'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Triangle/ }))
+    drag(100, 100, 200, 200)
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+
+    clickAt(105, 105) // top-left corner of its box: outside the triangle
+    expect(await screen.findByText('Nothing selected')).toBeInTheDocument()
+    clickAt(150, 170)
+    expect(await screen.findByText('POLYGON')).toBeInTheDocument()
+  })
+
+  it('edits a shape point by point: double-click, drag an anchor, Enter', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'r' })
+    drag(100, 100, 200, 200)
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+
+    fireEvent.doubleClick(getBoard(), { clientX: 150, clientY: 150 })
+    // A rectangle becomes a 4-anchor path the moment it's edited.
+    await waitFor(() => expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(4))
+    await waitFor(() => expect(savedNodes()[0]).toMatchObject({ shape: 'path', closed: true }))
+    expect(screen.getByText('DONE (ENTER)')).toBeInTheDocument()
+
+    // Drag the bottom-right corner out; the box refits to the new shape.
+    const corner = document.querySelector('[data-point-anchor="2"]')!
+    fireEvent.pointerDown(corner, { clientX: 200, clientY: 200, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(getBoard(), { clientX: 260, clientY: 240, button: 0, pointerId: 1 })
+    fireEvent.pointerUp(getBoard(), { clientX: 260, clientY: 240, button: 0, pointerId: 1 })
+    await waitFor(() => expect(savedNodes()[0].rect).toEqual({ x: 100, y: 100, w: 160, h: 140 }))
+    expect(savedNodes()[0].points[2]).toEqual({ x: 160, y: 140 })
+
+    // The whole drag is one undo step.
+    fireEvent.click(screen.getByText('UNDO'))
+    await waitFor(() => expect(savedNodes()[0].rect).toEqual({ x: 100, y: 100, w: 100, h: 100 }))
+    expect(savedNodes()[0].shape).toBe('path')
+
+    fireEvent.keyDown(window, { key: 'Enter' })
+    await waitFor(() => expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(0))
+  })
+
+  it('adds an anchor where the outline is clicked, and Delete removes the selected one', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'r' })
+    drag(100, 100, 200, 200)
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+    fireEvent.click(await screen.findByText('EDIT POINTS'))
+    await waitFor(() => expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(4))
+
+    // A plain click on the outline is a box-select: no new point.
+    clickAt(150, 100)
+    expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(4)
+
+    // Ctrl+click on the top edge, between the first two corners.
+    clickAt(150, 100, { ctrlKey: true })
+    await waitFor(() => expect(savedNodes()[0].points).toHaveLength(5))
+    expect(savedNodes()[0].points[1]).toEqual({ x: 50, y: 0 })
+
+    // The new anchor is selected; Delete takes it out again (not the whole path).
+    fireEvent.keyDown(window, { key: 'Delete' })
+    await waitFor(() => expect(savedNodes()[0].points).toHaveLength(4))
+    expect(savedNodes()).toHaveLength(1)
+  })
+})
+
+describe('CanvasView modifier keys', () => {
+  async function emptyBoard() {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+  }
+  function drag(target: Element, x1: number, y1: number, x2: number, y2: number, init: Record<string, unknown> = {}) {
+    const board = getBoard()
+    fireEvent.pointerDown(target, { clientX: x1, clientY: y1, button: 0, pointerId: 1, ...init })
+    fireEvent.pointerMove(board, { clientX: (x1 + x2) / 2, clientY: (y1 + y2) / 2, button: 0, pointerId: 1, ...init })
+    fireEvent.pointerMove(board, { clientX: x2, clientY: y2, button: 0, pointerId: 1, ...init })
+    fireEvent.pointerUp(board, { clientX: x2, clientY: y2, button: 0, pointerId: 1, ...init })
+  }
+  const savedNodes = () => savedDocs()[0]?.nodes ?? []
+  async function rectangleAt(x1: number, y1: number, x2: number, y2: number) {
+    const before = savedNodes().length
+    fireEvent.keyDown(window, { key: 'r' })
+    drag(getBoard(), x1, y1, x2, y2)
+    await waitFor(() => expect(savedNodes()).toHaveLength(before + 1))
+  }
+
+  // Undoing a move used to undo the edit before it too: the drag's first
+  // frame was folded into the previous undo step.
+  it('undoes a move on its own, leaving the edit before it alone', async () => {
+    await emptyBoard()
+    await rectangleAt(100, 100, 200, 200)
+    await rectangleAt(300, 100, 400, 200)
+    drag(getBoard(), 350, 150, 450, 250)
+    await waitFor(() => expect(savedNodes()[1].rect).toMatchObject({ x: 400, y: 200 }))
+
+    fireEvent.click(screen.getByText('UNDO'))
+    await waitFor(() => expect(savedNodes()[1]?.rect).toMatchObject({ x: 300, y: 100 }))
+    expect(savedNodes()).toHaveLength(2)
+  })
+
+  it('locks a move to one axis with Shift', async () => {
+    await emptyBoard()
+    await rectangleAt(100, 100, 200, 200)
+    drag(getBoard(), 150, 150, 260, 170, { shiftKey: true })
+    await waitFor(() => expect(savedNodes()[0].rect).toMatchObject({ x: 210, y: 100 }))
+  })
+
+  it('duplicates with Alt-drag, leaving the original where it was', async () => {
+    await emptyBoard()
+    await rectangleAt(100, 100, 200, 200)
+    drag(getBoard(), 150, 150, 350, 150, { altKey: true })
+    await waitFor(() => expect(savedNodes()).toHaveLength(2))
+    expect(savedNodes().map((n: { rect: { x: number } }) => n.rect.x).sort((a: number, b: number) => a - b)).toEqual([100, 300])
+    // The copy and the move are one undo step.
+    fireEvent.click(screen.getByText('UNDO'))
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+    expect(savedNodes()[0].rect.x).toBe(100)
+  })
+
+  it('keeps proportions when resizing with Shift, and resizes from the center with Alt', async () => {
+    await emptyBoard()
+    await rectangleAt(100, 100, 300, 200)
+    clickAt(200, 150)
+    const corner = await waitFor(() => {
+      const el = document.querySelector('[data-canvas-handle="se"]')
+      expect(el).not.toBeNull()
+      return el!
+    })
+    drag(corner, 300, 200, 400, 210, { shiftKey: true })
+    await waitFor(() => expect(savedNodes()[0].rect).toEqual({ x: 100, y: 100, w: 300, h: 150 }))
+
+    const east = document.querySelector('[data-canvas-handle="e"]')!
+    drag(east, 400, 175, 420, 175, { altKey: true })
+    await waitFor(() => expect(savedNodes()[0].rect).toEqual({ x: 80, y: 100, w: 340, h: 150 }))
+  })
+
+  it('draws from the center with Alt', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'o' })
+    drag(getBoard(), 200, 200, 250, 230, { altKey: true })
+    await waitFor(() => expect(savedNodes()[0]?.rect).toEqual({ x: 150, y: 170, w: 100, h: 60 }))
+  })
+
+  it('takes back the last pen point with Backspace', async () => {
+    await emptyBoard()
+    fireEvent.keyDown(window, { key: 'p' })
+    for (const [x, y] of [[100, 100], [200, 100], [300, 200]]) clickAt(x, y)
+    fireEvent.keyDown(window, { key: 'Backspace' })
+    fireEvent.keyDown(window, { key: 'Enter' })
+    await waitFor(() => expect(savedNodes()[0]?.points).toHaveLength(2))
+  })
+
+  describe('while editing points', () => {
+    async function editRectangle() {
+      await emptyBoard()
+      await rectangleAt(100, 100, 200, 200)
+      fireEvent.doubleClick(getBoard(), { clientX: 150, clientY: 150 })
+      await waitFor(() => expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(4))
+    }
+    const anchor = (i: number) => document.querySelector(`[data-point-anchor="${i}"]`)!
+    // Filtered in JS: jsdom's selector engine trips on the parenthesis in `var(`.
+    const selectedAnchors = () =>
+      [...document.querySelectorAll('[data-point-anchor]')].filter((el) => el.getAttribute('fill')?.startsWith('var(--accent'))
+
+    it('Shift-clicks several anchors and drags them together', async () => {
+      await editRectangle()
+      fireEvent.pointerDown(anchor(0), { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+      fireEvent.pointerUp(getBoard(), { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+      // The top-right corner joins the selection; dragging it moves both.
+      drag(anchor(1), 200, 100, 200, 60, { shiftKey: true })
+      await waitFor(() => expect(savedNodes()[0].rect).toEqual({ x: 100, y: 60, w: 100, h: 140 }))
+      expect(savedNodes()[0].points.slice(0, 2)).toEqual([{ x: 0, y: 0 }, { x: 100, y: 0 }])
+      expect(savedNodes()[0].points[2]).toEqual({ x: 100, y: 140 })
+    })
+
+    it('box-selects anchors, then nudges them with the arrows', async () => {
+      await editRectangle()
+      // A box around the bottom two corners.
+      drag(getBoard(), 80, 180, 220, 220)
+      await waitFor(() => expect(selectedAnchors()).toHaveLength(2))
+      fireEvent.keyDown(window, { key: 'ArrowDown', shiftKey: true })
+      await waitFor(() => expect(savedNodes()[0].rect).toEqual({ x: 100, y: 100, w: 100, h: 110 }))
+    })
+
+    it('toggles an anchor sharp and smooth with Ctrl-click', async () => {
+      await editRectangle()
+      fireEvent.pointerDown(anchor(1), { clientX: 200, clientY: 100, button: 0, pointerId: 1, ctrlKey: true })
+      fireEvent.pointerUp(getBoard(), { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+      await waitFor(() => expect(savedNodes()[0].points[1].in).toBeDefined())
+      expect(savedNodes()[0].points[1].out).toBeDefined()
+
+      fireEvent.pointerDown(anchor(1), { clientX: 200, clientY: 100, button: 0, pointerId: 1, ctrlKey: true })
+      fireEvent.pointerUp(getBoard(), { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+      await waitFor(() => expect(savedNodes()[0].points[1].in).toBeUndefined())
+    })
+
+    it('shows a dot on the outline while Ctrl is held, and hides it when Ctrl is let go', async () => {
+      await editRectangle()
+      const dot = () => document.querySelector('[data-insert-preview]')
+      fireEvent.pointerMove(getBoard(), { clientX: 150, clientY: 102, button: 0, pointerId: 1 })
+      expect(dot()).toBeNull()
+      fireEvent.pointerMove(getBoard(), { clientX: 150, clientY: 102, button: 0, pointerId: 1, ctrlKey: true })
+      // Snapped onto the line, not the cursor.
+      await waitFor(() => expect(dot()?.getAttribute('cy')).toBe('100'))
+      expect(dot()?.getAttribute('cx')).toBe('150')
+      fireEvent.keyUp(window, { key: 'Control', ctrlKey: false })
+      await waitFor(() => expect(dot()).toBeNull())
+    })
+
+    it('makes selected anchors smooth or sharp from the Point section, and rounds a sharp one', async () => {
+      await editRectangle()
+      fireEvent.pointerDown(anchor(1), { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+      fireEvent.pointerUp(getBoard(), { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+      await screen.findByText('POINT')
+
+      fireEvent.click(screen.getByText('SMOOTH'))
+      await waitFor(() => expect(savedNodes()[0].points[1].out).toBeDefined())
+      expect(screen.getByText('SMOOTH').getAttribute('aria-pressed')).toBe('true')
+      expect(numberInput('CORNER RADIUS').disabled).toBe(true)
+
+      fireEvent.click(screen.getByText('SHARP'))
+      await waitFor(() => expect(savedNodes()[0].points[1].out).toBeUndefined())
+      fireEvent.change(numberInput('CORNER RADIUS'), { target: { value: '12' } })
+      await waitFor(() => expect(savedNodes()[0].points[1]).toEqual({ x: 100, y: 0, radius: 12 }))
+    })
+
+    it('deletes a selected handle, making that side of its anchor sharp', async () => {
+      await editRectangle()
+      fireEvent.pointerDown(anchor(1), { clientX: 200, clientY: 100, button: 0, pointerId: 1, ctrlKey: true })
+      fireEvent.pointerUp(getBoard(), { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+      await waitFor(() => expect(document.querySelector('[data-point-handle="1:out"]')).not.toBeNull())
+
+      fireEvent.pointerDown(document.querySelector('[data-point-handle="1:out"]')!, { button: 0, pointerId: 1 })
+      fireEvent.pointerUp(getBoard(), { button: 0, pointerId: 1 })
+      fireEvent.keyDown(window, { key: 'Delete' })
+      await waitFor(() => expect(savedNodes()[0].points[1].out).toBeUndefined())
+      // The anchor and its other handle stay.
+      expect(savedNodes()[0].points).toHaveLength(4)
+      expect(savedNodes()[0].points[1].in).toBeDefined()
+    })
+
+    it('selects every anchor with Ctrl+A, and Esc lets go of them before it finishes', async () => {
+      await editRectangle()
+      fireEvent.keyDown(window, { key: 'a', ctrlKey: true })
+      await waitFor(() => expect(selectedAnchors()).toHaveLength(4))
+      fireEvent.keyDown(window, { key: 'Escape' })
+      await waitFor(() => expect(selectedAnchors()).toHaveLength(0))
+      expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(4)
+      fireEvent.keyDown(window, { key: 'Escape' })
+      await waitFor(() => expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(0))
+    })
+  })
+
+  it('gives each corner of a frame its own radius', async () => {
+    await emptyBoard()
+    drawFrame(100, 100, 300, 250)
+    await waitFor(() => expect(savedNodes()).toHaveLength(1))
+    fireEvent.change(numberInput('RADIUS'), { target: { value: '8' } })
+    await waitFor(() => expect(savedNodes()[0].style.radius).toBe(8))
+
+    fireEvent.click(screen.getByTitle('A radius for each corner'))
+    await waitFor(() => expect(savedNodes()[0].style.radius).toEqual({ tl: 8, tr: 8, br: 8, bl: 8 }))
+    fireEvent.change(numberInput('↘'), { target: { value: '24' } })
+    await waitFor(() => expect(savedNodes()[0].style.radius).toEqual({ tl: 8, tr: 8, br: 24, bl: 8 }))
+    // Corners that differ have no one value to show.
+    expect(numberInput('RADIUS').value).toBe('')
+
+    // Joining keeps the largest, so nothing visibly shrinks.
+    fireEvent.click(screen.getByTitle('One radius for all corners'))
+    await waitFor(() => expect(savedNodes()[0].style.radius).toBe(24))
+  })
+
+  it('gives a rectangle differing corners, drawn as a path', async () => {
+    await emptyBoard()
+    await rectangleAt(100, 100, 200, 200)
+    fireEvent.click(screen.getByTitle('A radius for each corner'))
+    fireEvent.change(numberInput('↖'), { target: { value: '20' } })
+    await waitFor(() => expect(savedNodes()[0].style.radius).toMatchObject({ tl: 20 }))
+    const shape = getBoard().querySelector('svg path[d*=" A "]')
+    expect(shape).not.toBeNull()
+  })
+})
+
+describe('layout controls in the inspector', () => {
+  it('sets a frame’s flow, alignment and padding with buttons', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame(100, 100, 500, 400)
+    drawFrame(150, 150, 250, 200)
+    await waitFor(() => expect(currentDoc().nodes[0].children).toHaveLength(1))
+
+    clickAt(460, 380)
+    fireEvent.click(await screen.findByTitle('Horizontal stack'))
+    fireEvent.click(await screen.findByTitle('Align children: Center'))
+    fireEvent.click(await screen.findByTitle('Space between'))
+    await waitFor(() => expect(currentDoc().nodes[0].style).toMatchObject({ flow: 'horizontal', align: 'center', justify: 'between' }))
+
+    // Padding per side.
+    fireEvent.click(await screen.findByTitle('Padding per side'))
+    await waitFor(() => expect(currentDoc().nodes[0].style.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 0 }))
   })
 })

@@ -302,3 +302,19 @@ describe('ungroupNode', () => {
     expect(ungroupNode(doc, 'nope').doc).toBe(doc)
   })
 })
+
+describe('grouping keeps everything visible', () => {
+  it('puts the group where its TOPMOST member was, so nothing in between covers the members', async () => {
+    const { createDoc, createFrameNode, createVectorNode, groupNodes, insertNode } = await import('./doc')
+    let doc = createDoc('b')
+    const low = createVectorNode({ x: 0, y: 0, w: 10, h: 10 }, 'rectangle')
+    const cover = createFrameNode({ x: 0, y: 0, w: 100, h: 100 }, 'Cover')
+    const high = createVectorNode({ x: 20, y: 0, w: 10, h: 10 }, 'ellipse')
+    doc = insertNode(insertNode(insertNode(doc, low, null), cover, null), high, null)
+    const { doc: next, groupId } = groupNodes(doc, [high.id, low.id])
+    expect(next.nodes.map((n) => n.id)).toEqual([cover.id, groupId])
+    // Members keep their own stacking order inside the group.
+    const group = next.nodes[1] as { children: { id: string }[] }
+    expect(group.children.map((c) => c.id)).toEqual([low.id, high.id])
+  })
+})

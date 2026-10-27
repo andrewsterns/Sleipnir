@@ -10,6 +10,13 @@ breaking changes. Pre-`1.0.0` signals "early, expect change."
 ## [Unreleased]
 
 ### Added
+- Sleipnir Pro licensing — Settings ▸ License activates a Lemon Squeezy
+  license key (Founder lifetime license). Pro unlocks unlimited projects (the
+  free version opens up to 3), multiple windows, MCP servers for the agent, and
+  commercial use. A title bar badge shows the tier; a gated action opens an
+  upgrade prompt. License checks never fail closed when offline.
+- Website (`website/`, deployed to GitHub Pages) — downloads that link straight
+  to the latest release's installers, pricing, terms, refund and privacy pages.
 - AI agent: `read_file` and `run_command` tools — the agent can now inspect
   existing files and propose shell commands (tests, installs, build scripts),
   each gated behind an explicit confirmation dialog before anything executes,

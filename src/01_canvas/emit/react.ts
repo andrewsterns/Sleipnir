@@ -14,6 +14,10 @@
 // quoting, indentation) will break the round-trip property tests.
 
 import { toCamelCase, toPascalCase } from '../../00_planning/graph/naming'
+import { paintOverlays } from '../model/paint'
+import { EXPR_CLOSE, EXPR_OPEN, emitImageUrl, imageImportsOf, INDENT, quote, styleLiteral } from './shared'
+import { num } from '../model/vector'
+import { emitInlineVector, emitSvgVariantReturn } from './svg'
 import { mergeCss, positionCss, textCss, toCss, type CssProps } from '../model/toCss'
 import { resolveVariant } from '../model/variants'
 import {
@@ -22,6 +26,7 @@ import {
   isFrameNode,
   isInstanceNode,
   isTextNode,
+  isVectorNode,
   type CanvasComponent,
   type CanvasNode,
   type CanvasProp,
@@ -45,8 +50,6 @@ export interface EmitContext {
   filePathFor?: (componentId: string) => string | undefined
 }
 
-const INDENT = '  '
-
 // ── Identifiers ────────────────────────────────────────────────────────────
 
 /**
@@ -67,24 +70,8 @@ export function componentFileName(name: string): string {
   return `${toCamelCase(name)}.tsx`
 }
 
-// ── Value literals ─────────────────────────────────────────────────────────
-
-function quote(value: string): string {
-  // Single quotes to match the repo's own style; escape only what must be.
-  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
-}
-
-function cssValueLiteral(value: string | number): string {
-  return typeof value === 'number' ? String(value) : quote(value)
-}
-
-/** A style object literal, canonically formatted on one line per property. */
-function styleLiteral(css: CssProps, indent: string): string {
-  const keys = Object.keys(css).sort()
-  if (keys.length === 0) return '{}'
-  const inner = keys.map((key) => `${indent}${INDENT}${key}: ${cssValueLiteral(css[key])},`).join('\n')
-  return `{\n${inner}\n${indent}}`
-}
+// Re-exported: callers and tests reach image imports through the emitter.
+export { imageImportsOf }
 
 function propValueLiteral(value: CanvasPropValue): string {
   if (value === null) return 'null'
@@ -112,9 +99,16 @@ function propType(prop: CanvasProp): string {
   }
 }
 
+/**
+ * The props declaration. With no props it is a `Record<string, never>` alias
+ * rather than an empty interface: `interface X {}` trips
+ * @typescript-eslint/no-empty-object-type in the recommended config, and these
+ * files land in projects whose lint (and CI) Sleipnir doesn't control — ESLint's
+ * flat config lints dot-folders like `.canvas` too.
+ */
 export function emitPropsInterface(component: CanvasComponent): string {
   const name = propsInterfaceName(component.name)
-  if (component.props.length === 0) return `export interface ${name} {}`
+  if (component.props.length === 0) return `export type ${name} = Record<string, never>`
   const lines = component.props.map((prop) => {
     const optional = prop.required ? '' : '?'
     const doc = prop.description ? `${INDENT}/** ${prop.description} */\n` : ''
@@ -134,9 +128,15 @@ export function emitSignature(component: CanvasComponent): string {
   return `export const ${componentSymbol(component.name)} = (${emitParams(component)}) => {`
 }
 
-/** The destructured parameter list, with defaults for props that declare one. */
+/**
+ * The destructured parameter list, with defaults for props that declare one.
+ * Empty for a component with no props — `({}: XProps)` is an error under
+ * ESLint's recommended `no-empty-pattern`, and a named-but-unused parameter
+ * trips `no-unused-vars` instead. The signature splice fills it in once the
+ * first prop exists.
+ */
 function emitParams(component: CanvasComponent): string {
-  if (component.props.length === 0) return `{}: ${propsInterfaceName(component.name)}`
+  if (component.props.length === 0) return ''
   const parts = component.props.map((prop) =>
     prop.defaultValue !== undefined && prop.defaultValue !== null
       ? `${prop.name} = ${propValueLiteral(prop.defaultValue)}`
@@ -174,11 +174,15 @@ function emitNode(
    * anywhere except the coordinates it happened to be drawn at.
    */
   isRoot = false,
+  /** Replaces the node's own position — a pattern's per-item `left`/`top`/`transform` expressions. */
+  positionOverride?: CssProps,
 ): string {
   if (node.hidden) return ''
 
   let position: CssProps
-  if (isRoot) {
+  if (positionOverride) {
+    position = positionOverride
+  } else if (isRoot) {
     // Size only, and only where the style doesn't already declare one. Keys are
     // added conditionally rather than set to undefined, which would serialize
     // into the emitted style object as a literal `undefined`.
@@ -188,7 +192,16 @@ function emitNode(
   } else {
     position = positionCss(node.rect, parentFlow, node.style)
   }
-  const css = mergeCss(toCss(node.style), position)
+  const imageUrl = emitImageUrl(component)
+  // A vector is SVG, not a styled box: its own inline <svg>, positioned like
+  // any other child (see emit/svg.ts).
+  if (isVectorNode(node)) return emitInlineVector(node, position, imageUrl, indent)
+  const css = mergeCss(toCss(node.style, { imageUrl, text: isTextNode(node) }), position)
+  // Paint layers a single background can't express (a translucent image),
+  // emitted as the first children — the same layers the board draws.
+  const paintLayers = paintOverlays(node.style.fills, imageUrl).map(
+    (layer) => `${indent}${INDENT}<div aria-hidden style={${styleLiteral(layer, indent + INDENT)}} />`,
+  )
 
   // An instance emits a real call site, not a copy of the component's tree —
   // which is the whole point of instancing surviving into the code.
@@ -223,19 +236,57 @@ function emitNode(
 
   if (isTextNode(node)) {
     const style = styleLiteral(mergeCss(css, textCss(node.font)), indent)
-    return `${indent}<div style={${style}}>${textContent(node, component)}</div>`
+    if (paintLayers.length === 0) return `${indent}<div style={${style}}>${textContent(node, component)}</div>`
+    const text = `${indent}${INDENT}${textContent(node, component)}`
+    return `${indent}<div style={${style}}>\n${paintLayers.join('\n')}\n${text}\n${indent}</div>`
   }
 
   const style = styleLiteral(css, indent)
   const children = isFrameNode(node) ? childrenOf(node) : []
-  if (children.length === 0) return `${indent}<div style={${style}} />`
+  if (children.length === 0 && paintLayers.length === 0) return `${indent}<div style={${style}} />`
 
   const flow = node.style.flow ?? 'freeform'
-  const inner = children
-    .map((child) => emitNode(child, flow, component, ctx, indent + INDENT))
-    .filter(Boolean)
-    .join('\n')
+  const inner = [
+    ...paintLayers,
+    ...children
+      // A pattern's copies are written once, by their template's .map().
+      .filter((child) => !child.repeatOf)
+      .map((child) => {
+        const copies = children.filter((c) => c.repeatOf === child.id && !c.hidden)
+        return copies.length > 0
+          ? emitPattern(child, copies, flow, component, ctx, indent + INDENT)
+          : emitNode(child, flow, component, ctx, indent + INDENT)
+      })
+      .filter(Boolean),
+  ].join('\n')
   return `${indent}<div style={${style}}>\n${inner}\n${indent}</div>`
+}
+
+/**
+ * A repeated item (model/pathPattern.ts) as ONE element mapped over its
+ * positions — a 200-item pattern stays a few lines instead of 200 copies.
+ * Each entry is [left, top, rotate]; the item itself is written once, exactly
+ * as emitNode would write it, with those three as expressions.
+ */
+function emitPattern(
+  template: CanvasNode,
+  copies: CanvasNode[],
+  parentFlow: CanvasStyle['flow'],
+  component: CanvasComponent,
+  ctx: EmitContext,
+  indent: string,
+): string {
+  const items = [template, ...copies]
+  const rows = items.map((n) => `${indent}${INDENT}[${num(n.rect.x)}, ${num(n.rect.y)}, ${num(n.style.rotate ?? 0)}],`)
+  const expr = (name: string, unit: string) => `${EXPR_OPEN}${name}${EXPR_CLOSE}${unit}`
+  const position: CssProps = { ...positionCss(template.rect, parentFlow, { ...template.style, rotate: undefined }) }
+  position.left = expr('x', 'px')
+  position.top = expr('y', 'px')
+  if (items.some((n) => n.style.rotate)) position.transform = `rotate(${expr('r', 'deg')})`
+  const body = emitNode(template, parentFlow, component, ctx, `${indent}${INDENT}`, false, position)
+    // Every mapped element needs a key — on the item's opening tag.
+    .replace(/^(\s*<[\w.]+)/, '$1 key={i}')
+  return `${indent}{[\n${rows.join('\n')}\n${indent}].map(([x, y, r], i) => (\n${body}\n${indent}))}`
 }
 
 /** One variant's `return (…)` block. */
@@ -245,6 +296,8 @@ function emitVariantReturn(
   ctx: EmitContext,
   indent: string,
 ): string {
+  // An SVG component is one <svg>, not a tree of divs.
+  if (component.format === 'svg') return emitSvgVariantReturn(variant, emitImageUrl(component), indent)
   const body = emitNode(variant.root, 'freeform', component, ctx, `${indent}${INDENT}`, true)
   return `${indent}return (\n${body}\n${indent})`
 }
@@ -288,6 +341,8 @@ export function collectImports(component: CanvasComponent, ctx: EmitContext): st
   }
 
   const visit = (node: CanvasNode) => {
+    // An SVG component draws only vectors, so it calls no other component.
+    if (component.format === 'svg') return
     if (isInstanceNode(node)) {
       const target = ctx.components.find((c) => c.id === node.componentId)
       const targetPath = target && ctx.filePathFor?.(target.id)
@@ -304,6 +359,12 @@ export function collectImports(component: CanvasComponent, ctx: EmitContext): st
   const lines = [...imports.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([from, symbols]) => `import { ${[...symbols].sort().join(', ')} } from ${quote(from)}`)
+  // Image fills: default imports, after the components, ordered by path.
+  const images = [...imageImportsOf(component).entries()]
+    .map(([src, ident]) => ({ ident, from: relativeSpecifier(ctx.filePath, src) }))
+    .sort((a, b) => a.from.localeCompare(b.from))
+    .map(({ ident, from }) => `import ${ident} from ${quote(from)}`)
+  lines.push(...images)
   if (needsReactTypes) lines.unshift(`import type React from 'react'`)
   return lines
 }

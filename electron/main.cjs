@@ -4,7 +4,7 @@
 // filesystem logic is never duplicated here: it's dynamically imported from
 // tools/sleipnir-backend.mjs (ESM), the same module the Vite dev server's
 // HTTP middleware (vite.config.ts) calls for the web transport.
-const { app, BrowserWindow, ipcMain, nativeTheme, Menu, dialog, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, nativeTheme, Menu, dialog, shell, clipboard, session } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
@@ -12,14 +12,16 @@ const { randomUUID } = require('node:crypto')
 const terminal = require('./terminal.cjs')
 const chat = require('./chat.cjs')
 const preview = require('./preview.cjs')
+const runTargets = require('./runTargets.cjs')
 const commandRunner = require('./commandRunner.cjs')
 const validation = require('./validation.cjs')
-const apiKeyStore = require('./apiKeyStore.cjs')
 const modelStore = require('./modelStore.cjs')
+const chatProviders = require('./chatProviders/index.cjs')
 const agentSettingsStore = require('./agent/agentSettingsStore.cjs')
 const workspaceStore = require('./workspaceStore.cjs')
 const planningWatcher = require('./planningWatcher.cjs')
 const { initUpdater } = require('./updater.cjs')
+const license = require('./license.cjs')
 
 // Two Sleipnir processes sharing one userData dir (e.g. the app launched
 // twice, or a leftover dev instance still running when a packaged build
@@ -209,12 +211,53 @@ function scratchHasContent(root) {
   return false
 }
 
-// Copies a scratch project's entire contents into `dest` (force-overwriting
-// same-named entries if the chosen folder isn't empty). Shared by the File ▸
-// Save Project to Folder… handler and the save-on-close prompt.
-function copyScratchInto(scratch, dest) {
-  for (const entry of fs.readdirSync(scratch)) {
-    fs.cpSync(path.join(scratch, entry), path.join(dest, entry), { recursive: true, force: true })
+// "a", "a and b", "a, b and c".
+function joinList(parts) {
+  return parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+}
+
+// What an unsaved scratch project holds, in words, for the close prompt — so
+// "Save your unsaved project?" says what would actually be lost. Empty when
+// there's nothing worth asking about (see scratchHasContent).
+function describeScratchContent(root) {
+  if (!scratchHasContent(root)) return []
+  const parts = []
+  const boardsDir = path.join(root, '.components', '.boards')
+  const boards = fs.existsSync(boardsDir) ? fs.readdirSync(boardsDir).filter((f) => f.endsWith('.json')).length : 0
+  if (boards) parts.push(boards === 1 ? '1 canvas board' : `${boards} canvas boards`)
+  const planningDir = path.join(root, '.planning')
+  const hasPlanning =
+    fs.existsSync(planningDir) &&
+    fs.readdirSync(planningDir, { withFileTypes: true }).some((entry) => {
+      if (SEEDED_PLANNING_FILES.has(entry.name)) return false
+      const abs = path.join(planningDir, entry.name)
+      return entry.isDirectory() ? fs.readdirSync(abs).length > 0 : !isEmptyPlanningFile(abs)
+    })
+  if (hasPlanning) parts.push('planning notes and plans')
+  const files = fs.readdirSync(root).filter((e) => !SEEDED_ROOT_ENTRIES.has(e) && !SAVE_AS_SKIP.has(e) && e !== '.components' && e !== '.canvas' && e !== '.git').length
+  if (files) parts.push(files === 1 ? '1 file or folder' : `${files} files and folders`)
+  if (fs.existsSync(path.join(root, '.git'))) parts.push('a git repository')
+  return parts
+}
+
+// Never worth carrying into a saved copy: regenerable from package.json, and
+// often larger than the whole rest of the project.
+const SAVE_AS_SKIP = new Set(['node_modules'])
+
+// Copies a project's entire contents into `dest` (force-overwriting
+// same-named entries if the chosen folder isn't empty — pickSaveFolder has
+// already confirmed that with the human). Shared by File ▸ Save Project /
+// Save Project As… and the save-on-close prompt. `renameToFolder` drops any
+// stored display name, for a Save As of a real project: the copy is a new
+// project and should read back as the folder it was saved into.
+function copyProjectInto(source, dest, { renameToFolder = false } = {}) {
+  for (const entry of fs.readdirSync(source)) {
+    if (SAVE_AS_SKIP.has(entry)) continue
+    fs.cpSync(path.join(source, entry), path.join(dest, entry), {
+      recursive: true,
+      force: true,
+      filter: (src) => !SAVE_AS_SKIP.has(path.basename(src)),
+    })
   }
   // If the scratch name was never customized (still the default 'Untitled'),
   // drop the copied name so the saved project's name derives from the folder
@@ -224,13 +267,79 @@ function copyScratchInto(scratch, dest) {
   const destMeta = path.join(dest, '.planning', 'project.json')
   try {
     const meta = JSON.parse(fs.readFileSync(destMeta, 'utf8'))
-    if (meta && meta.name === 'Untitled') {
+    if (meta && (meta.name === 'Untitled' || (renameToFolder && 'name' in meta))) {
       const { name, ...rest } = meta
       if (Object.keys(rest).length) fs.writeFileSync(destMeta, JSON.stringify(rest, null, 2))
       else fs.rmSync(destMeta, { force: true })
     }
   } catch {
     // No/invalid project.json — nothing to normalize.
+  }
+}
+
+// Asks where to save a project, re-asking until the answer is usable. A
+// folder inside the project itself would copy the project into itself; a
+// non-empty folder gets an explicit "replace same-named files?" check rather
+// than a silent merge. Resolves null when the human backs out of the picker.
+async function pickSaveFolder(win, sourceRoot, title = 'Save project to folder') {
+  for (;;) {
+    const picked = await dialog.showOpenDialog(win, { title, properties: ['openDirectory', 'createDirectory'] })
+    if (picked.canceled || !picked.filePaths[0]) return null
+    const dest = fs.realpathSync(picked.filePaths[0])
+    const source = sourceRoot && fs.existsSync(sourceRoot) ? fs.realpathSync(sourceRoot) : null
+    const rel = source ? path.relative(source, dest) : '..'
+    if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+      await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: ['Choose Another Folder'],
+        message: rel ? "Can't save a project inside itself." : 'That folder already is this project.',
+        detail: 'Pick a folder outside the open project.',
+      })
+      continue
+    }
+    if (fs.readdirSync(dest).length > 0) {
+      const { response } = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: ['Choose Another Folder', 'Save Here'],
+        defaultId: 0,
+        cancelId: 0,
+        message: `“${path.basename(dest)}” isn't empty.`,
+        detail: 'Saving here replaces any files with the same names as files in this project.',
+      })
+      if (response === 0) continue
+    }
+    return dest
+  }
+}
+
+// Copies the calling window's project into `dest` and repoints the window at
+// the copy — Save Project (scratch), Save Project As… (scratch or real). A
+// scratch source is then discarded: the window has a real folder now, and the
+// next window with no project gets a fresh scratch dir of its own.
+async function saveWindowProjectTo(event, dest) {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const wasScratch = isScratchWindow(event.sender)
+  const source = rootForSender(event.sender)
+  // Claims a free slot if one is left, but never blocks: refusing to save
+  // the human's work would be worse than the limit is worth.
+  license.checkProject(dest)
+  const b = await getBackend()
+  try {
+    copyProjectInto(source, dest, { renameToFolder: !wasScratch })
+    if (wasScratch) discardScratch(event.sender.id)
+    const info = b.openWorkspace(dest)
+    setWindowRoot(event.sender, info.root)
+    workspaceStore.touchProject(info.root, info.name)
+    setWindowTitle(win, info.name)
+    return { ...info, isScratch: false }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    // Said here, not left to the renderer: a save that quietly did nothing
+    // reads as a save that worked. The source is untouched, so nothing is lost.
+    if (win && !win.isDestroyed()) {
+      await dialog.showMessageBox(win, { type: 'error', buttons: ['OK'], message: 'Could not save the project.', detail: message })
+    }
+    return { error: message }
   }
 }
 
@@ -255,6 +364,10 @@ function setWindowRoot(sender, root) {
 // whichever project a window just opened. setWindowRoot is the one chokepoint
 // every open path funnels through: the four IPC handlers below, and createWindow
 // for the boot restore.
+//
+// Only refreshes projects that have opted in (see the backend's
+// isAgentScaffoldingActive) — opening a folder is not, by itself, a reason to
+// write into it. A project's first Planning write is what opts it in.
 //
 // Deferred on purpose. createWindow runs before the first window paints, and the
 // scaffolder is a handful of synchronous file writes — worth nothing to the user
@@ -378,6 +491,13 @@ function registerIpcHandlers() {
   ws('sleipnir:readWorkspaceFile', (b, _e, filePath) => b.readWorkspaceFile(filePath))
   ws('sleipnir:writeWorkspaceFile', (b, _e, filePath, content) => { b.writeWorkspaceFile(filePath, content) })
   ws('sleipnir:createWorkspaceFile', (b, _e, filePath, content) => { b.createWorkspaceFile(filePath, content) })
+  ws('sleipnir:readWorkspaceImageDataUrl', (b, _e, filePath) => b.readWorkspaceImageDataUrl(filePath))
+  // The canvas's image-paste fallback (see src/01_canvas/model/clipboardImage.ts):
+  // a file copied in Explorer/Finder often never reaches the page's paste
+  // event, and a bitmap copied from some apps arrives with no file at all.
+  // Read the clipboard natively instead → { name, mime, base64 } | null.
+  ipcMain.handle('sleipnir:readClipboardImage', () => readClipboardImage())
+  ws('sleipnir:createWorkspaceBinaryFile', (b, _e, filePath, base64) => { b.createWorkspaceBinaryFile(filePath, base64) })
   ws('sleipnir:createWorkspaceDir', (b, _e, dirPath) => { b.createWorkspaceDir(dirPath) })
   // Moves to the OS Recycle Bin rather than the backend's own permanent
   // deleteWorkspacePath (fs.rmSync) — shell.trashItem is Electron-only.
@@ -515,30 +635,66 @@ function registerIpcHandlers() {
     pendingSaveBeforeClose.delete(event.sender.id)
   })
 
-  // Prototype live preview — same streaming/event-based shape as terminal
-  // above. `start` is fire-and-forget (like terminal:write, not
-  // terminal:spawn): the session id is the folder's own repo-relative path,
-  // already known to the caller, so there's no handshake needed to obtain
-  // one. Status (installing/starting/ready/error) flows back as
-  // 'preview:status' push events tagged with that same id.
-  ipcMain.on('preview:start', (event, folderPath, config) => preview.start(event.sender, folderPath, config))
-  ipcMain.on('preview:stop', (_e, folderPath) => preview.stop(folderPath))
-
-  // BYOK settings — request/response. Keys are stored encrypted-at-rest
-  // (see apiKeyStore.cjs) and never sent back to the renderer once saved.
-  ipcMain.handle('settings:getKeyStatus', (_e, provider) => apiKeyStore.getKeyStatus(provider))
-  ipcMain.handle('settings:setKey', (_e, provider, key) => {
-    apiKeyStore.setKey(provider, key)
-    return apiKeyStore.getKeyStatus(provider)
+  // Play button — same streaming/event-based shape as terminal above. One run
+  // per window (preview.cjs keys by webContents id), against that window's
+  // own project. `start` takes a detected target's id, never a command: the
+  // target is re-detected here, so the renderer can only run what the
+  // project itself declares — or a line the human typed (`custom`). Status
+  // and output flow back as 'run:status'/'run:output' push events.
+  ipcMain.handle('run:detect', (event) => runTargets.detectTargets(rootForSender(event.sender)))
+  ipcMain.on('run:start', (event, request) => {
+    const root = rootForSender(event.sender)
+    const target = typeof request?.custom === 'string' && request.custom.trim()
+      ? runTargets.customTarget(request.custom.trim())
+      : runTargets.detectTargets(root).targets.find((t) => t.id === request?.targetId)
+    if (!target) {
+      event.sender.send('run:status', { targetId: request?.targetId ?? null, phase: 'error', message: 'That run target no longer exists in this project.' })
+      return
+    }
+    preview.start(event.sender, root, target)
   })
-  ipcMain.handle('settings:clearKey', (_e, provider) => {
-    apiKeyStore.clearKey(provider)
-    return apiKeyStore.getKeyStatus(provider)
+  ipcMain.on('run:stop', (event) => preview.stop(event.sender.id))
+  ipcMain.handle('run:openExternal', (_e, url) => {
+    if (preview.isLocalUrl(url)) shell.openExternal(url)
   })
 
-  // Chat model preference — plain (unencrypted) local storage, see modelStore.cjs.
-  ipcMain.handle('settings:getModel', () => ({ model: modelStore.getModel(), options: modelStore.AVAILABLE_MODELS }))
-  ipcMain.handle('settings:setModel', (_e, model) => modelStore.setModel(model))
+  // Model providers — request/response. Keys are checked live, stored
+  // encrypted-at-rest (see apiKeyStore.cjs) and never sent back to the
+  // renderer once saved; only a last-4 hint is. Every change is broadcast so
+  // the dock header and the Settings page in every window stay in step.
+  const broadcastAiSettingsChanged = () => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('settings:aiChanged')
+    }
+  }
+  ipcMain.handle('settings:listProviders', () => chatProviders.listProviders())
+  ipcMain.handle('settings:detectProvider', (_e, key) => chatProviders.detectProvider(key))
+  ipcMain.handle('settings:connectProvider', async (_e, key, providerId) => {
+    const status = await chatProviders.connect(key, providerId)
+    broadcastAiSettingsChanged()
+    return status
+  })
+  ipcMain.handle('settings:disconnectProvider', async (_e, providerId) => {
+    const status = await chatProviders.disconnect(providerId)
+    broadcastAiSettingsChanged()
+    return status
+  })
+  // Only ever a provider's own hard-coded console URL — never a URL the
+  // renderer supplies.
+  ipcMain.handle('settings:openKeyPage', (_e, providerId) => {
+    const provider = chatProviders.get(providerId)
+    if (provider?.keyUrl) shell.openExternal(provider.keyUrl)
+  })
+  ipcMain.handle('settings:listModels', (_e, opts) => chatProviders.listAllModels(opts))
+  ipcMain.handle('settings:getActiveModel', async () => {
+    const { provider, model, ref, fallback } = await chatProviders.resolveActive()
+    return { provider: provider.id, providerLabel: provider.label, model, ref, fallback, saved: modelStore.getModel() }
+  })
+  ipcMain.handle('settings:setModel', (_e, ref) => {
+    const saved = modelStore.setModel(ref)
+    broadcastAiSettingsChanged()
+    return saved
+  })
 
   // Agent preferences — default permission mode and tool-step cap.
   ipcMain.handle('settings:getAgentSettings', () => agentSettingsStore.getSettings())
@@ -551,6 +707,7 @@ function registerIpcHandlers() {
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
     if (result.canceled || !result.filePaths[0]) return null
+    if (!license.checkProject(result.filePaths[0])) return license.proRequired(event.sender, 'unlimitedProjects')
     const b = await getBackend()
     try {
       const info = b.openWorkspace(result.filePaths[0])
@@ -564,30 +721,28 @@ function registerIpcHandlers() {
     }
   })
 
-  // Relocates the scratch project (everything under it — .planning plus any
-  // files created while unsaved) into a real folder the user picks, then
-  // repoints THIS window to that folder and resets scratch for the next unsaved
-  // session. This is the "save into some dir later" half of the scratch flow.
+  // File ▸ Save Project while unsaved: relocates the scratch project
+  // (everything under it — .planning, .canvas boards, a git repo, any files
+  // created while unsaved) into a real folder the user picks, then repoints
+  // THIS window to that folder. A no-op (null) for a window that already has a
+  // real project — that one is saved in place by the renderer flushing its
+  // pending autosaves.
   ipcMain.handle('sleipnir:saveScratchToFolder', async (event) => {
+    if (!isScratchWindow(event.sender)) return null
     const win = BrowserWindow.fromWebContents(event.sender)
-    const result = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })
-    if (result.canceled || !result.filePaths[0]) return null
-    const dest = result.filePaths[0]
-    const b = await getBackend()
-    try {
-      copyScratchInto(getScratchRoot(event.sender.id), dest)
-      // This window has a real project now, so its scratch dir has no further
-      // purpose — drop it rather than leave a stale copy behind. The next
-      // window with no project gets a fresh one of its own.
-      discardScratch(event.sender.id)
-      const info = b.openWorkspace(dest)
-      setWindowRoot(event.sender, info.root)
-      workspaceStore.touchProject(info.root, info.name)
-      setWindowTitle(win, info.name)
-      return { ...info, isScratch: false }
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : String(e) }
-    }
+    const dest = await pickSaveFolder(win, rootForSender(event.sender))
+    if (!dest) return null
+    return saveWindowProjectTo(event, dest)
+  })
+
+  // File ▸ Save Project As… — copies whatever this window has open (scratch or
+  // a real project) into a new folder and switches the window to the copy,
+  // leaving the original untouched on disk.
+  ipcMain.handle('sleipnir:saveProjectAs', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const dest = await pickSaveFolder(win, rootForSender(event.sender), 'Save project as')
+    if (!dest) return null
+    return saveWindowProjectTo(event, dest)
   })
 
   ipcMain.handle('sleipnir:getRecentProjects', () => ({ projects: workspaceStore.getRecentProjects() }))
@@ -608,6 +763,7 @@ function registerIpcHandlers() {
     if (!fs.existsSync(projectPath) || !fs.statSync(projectPath).isDirectory()) {
       return { error: `Folder no longer exists: ${projectPath}` }
     }
+    if (!license.checkProject(projectPath)) return license.proRequired(event.sender, 'unlimitedProjects')
     const b = await getBackend()
     try {
       const info = b.openWorkspace(projectPath)
@@ -638,10 +794,16 @@ function registerIpcHandlers() {
     const name = base.replace(/[^A-Za-z0-9._-]/g, '') || 'repo'
     let dest = path.join(parent, name)
     for (let i = 1; fs.existsSync(dest); i++) dest = path.join(parent, `${name}-${i}`)
+    // Checked before cloning, so a free user past the limit isn't left with
+    // a fresh clone they can't open; a failed clone hands the slot back.
+    if (!license.checkProject(dest)) return license.proRequired(event.sender, 'unlimitedProjects')
     const b = await getBackend()
     try {
       const cloned = await b.gitClone(url, dest)
-      if (!cloned.ok) return { error: cloned.message }
+      if (!cloned.ok) {
+        license.releaseProject(dest)
+        return { error: cloned.message }
+      }
       const info = b.openWorkspace(dest)
       setWindowRoot(event.sender, info.root)
       workspaceStore.touchProject(info.root, info.name)
@@ -655,7 +817,10 @@ function registerIpcHandlers() {
   // File > New Window — opens a brand-new, blank OS window (its own project,
   // starting empty). The window that triggered this keeps its project fully
   // intact; nothing here touches the caller or the persisted active project.
-  ipcMain.handle('sleipnir:newWindow', async () => {
+  ipcMain.handle('sleipnir:newWindow', async (event) => {
+    if (!license.isPro() && BrowserWindow.getAllWindows().length >= 1) {
+      return license.proRequired(event.sender, 'multiWindow')
+    }
     createWindow(null, null)
     return { ok: true }
   })
@@ -687,6 +852,44 @@ function registerIpcHandlers() {
       // Platform without overlay support, or the window was torn down mid-call.
     }
   })
+}
+
+const CLIPBOARD_IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.gif': 'image/gif', '.webp': 'image/webp' }
+const MAX_CLIPBOARD_IMAGE_BYTES = 50 * 1024 * 1024
+
+// A copied file's path: Windows puts it in CF_HDROP, read here as the
+// UTF-16 "FileNameW" format; macOS as a file:// URL in public.file-url.
+function clipboardFilePath() {
+  try {
+    if (process.platform === 'win32') {
+      const raw = clipboard.readBuffer('FileNameW').toString('utf16le').replace(/\0+$/, '').split('\0')[0]
+      return raw || null
+    }
+    if (process.platform === 'darwin') {
+      const url = clipboard.read('public.file-url')
+      return url ? decodeURI(url.replace(/^file:\/\//, '')) : null
+    }
+  } catch {
+    // Format not present.
+  }
+  return null
+}
+
+function readClipboardImage() {
+  const filePath = clipboardFilePath()
+  if (filePath) {
+    const mime = CLIPBOARD_IMAGE_TYPES[path.extname(filePath).toLowerCase()]
+    if (!mime) return null
+    try {
+      if (fs.statSync(filePath).size > MAX_CLIPBOARD_IMAGE_BYTES) return null
+      return { name: path.basename(filePath), mime, base64: fs.readFileSync(filePath).toString('base64') }
+    } catch {
+      return null
+    }
+  }
+  const image = clipboard.readImage()
+  if (image.isEmpty()) return null
+  return { name: 'image.png', mime: 'image/png', base64: image.toPNG().toString('base64') }
 }
 
 // True when a "#rrggbb" colour is dark enough to want light-on-dark chrome.
@@ -736,11 +939,11 @@ async function confirmPendingAiContent(win, wcId) {
 // The scratch half of the same question. A window with no chosen project has
 // been writing into a throwaway per-window dir that 'closed' is about to
 // delete, so this is the last chance to put that work somewhere real — the
-// close-time counterpart to File ▸ Save Project to Folder….
+// close-time counterpart to File ▸ Save Project.
 //
 // Gated on the scratch dir's *contents*, deliberately not on "is this window
 // still scratch". A window that started blank, had work done in it, and then
-// opened a real project (File ▸ Open Folder, not Save Project to Folder…)
+// opened a real project (File ▸ Open Project…, not Save Project)
 // still owns that earlier scratch dir — checking windowRoots here would skip
 // the prompt and let 'closed' delete it silently, which is the one way this
 // change could lose work that the old shared-dir behavior kept. A window that
@@ -748,7 +951,11 @@ async function confirmPendingAiContent(win, wcId) {
 // rootForSender), so it stays silent for free.
 async function confirmScratchOnClose(win, wcId) {
   const scratch = scratchRoots.get(wcId)
-  if (!scratchHasContent(scratch)) return true
+  // Runs after confirmPendingAiContent, whose 'app:beforeClose' round trip has
+  // the renderer flush its debounced Canvas/editor autosaves first — so a
+  // board drawn a moment before closing is already on disk to be counted.
+  const contents = describeScratchContent(scratch)
+  if (contents.length === 0) return true
 
   const { response } = await dialog.showMessageBox(win, {
     type: 'warning',
@@ -757,22 +964,19 @@ async function confirmScratchOnClose(win, wcId) {
     cancelId: 0,
     message: 'Save your unsaved project before closing?',
     detail:
-      "Plans and files created while no project was open aren't in a folder yet. Closing without saving discards them.",
+      `This project isn't in a folder yet. It has ${joinList(contents)}.\n\n` +
+      'Closing without saving discards all of it.',
   })
   if (response === 0) return false // Cancel
   if (response === 1) return true // Don't Save — 'closed' discards the dir
 
-  const picked = await dialog.showOpenDialog(win, {
-    title: 'Save project to folder',
-    properties: ['openDirectory', 'createDirectory'],
-  })
+  const dest = await pickSaveFolder(win, scratch)
   // Backing out of the folder picker means "I didn't answer yet", not "throw
   // my work away" — re-ask rather than closing on a canceled dialog.
-  if (picked.canceled || !picked.filePaths[0]) return confirmScratchOnClose(win, wcId)
+  if (!dest) return confirmScratchOnClose(win, wcId)
 
-  const dest = picked.filePaths[0]
   try {
-    copyScratchInto(scratch, dest)
+    copyProjectInto(scratch, dest)
   } catch (e) {
     await dialog.showMessageBox(win, {
       type: 'error',
@@ -790,7 +994,7 @@ async function confirmScratchOnClose(win, wcId) {
 }
 
 // The name a just-saved project will read back as: its own project.json when
-// the human renamed it (copyScratchInto keeps a customized name and drops an
+// the human renamed it (copyProjectInto keeps a customized name and drops an
 // untouched 'Untitled'), otherwise the folder they picked.
 function readSavedProjectName(dest) {
   try {
@@ -841,14 +1045,14 @@ function createWindow(initialRoot = null, initialName = null) {
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
-    backgroundColor: '#080808',
+    backgroundColor: '#1d1c1f',
     // Windows' native dark title bar is a mid-gray, not black — override it
     // with an overlay colored to match the app's --bg-1 so the frame doesn't
     // read lighter than the content.
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#080808',
-      symbolColor: '#e8e8e8',
+      color: '#1d1c1f',
+      symbolColor: '#e5e3ed',
       height: 32,
     },
     icon: path.join(__dirname, '..', 'build', 'icon.ico'),
@@ -856,6 +1060,10 @@ function createWindow(initialRoot = null, initialName = null) {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Cache the compiled bundle on its first run rather than after V8's
+      // "seen it a few times" heat check, so every later launch skips most of
+      // the parse/compile of the ~2 MB renderer script.
+      v8CacheOptions: 'bypassHeatCheck',
     },
   })
 
@@ -916,7 +1124,11 @@ app.whenReady().then(async () => {
   // The default File/Edit/View/Window menu is OS-drawn and can't be recolored
   // to match the app's black theme, so drop it rather than leave a gray bar.
   Menu.setApplicationMenu(null)
+  preview.allowEmbeddingLocalPreviews(session.defaultSession)
   registerIpcHandlers()
+  // Before the restore below, which checks the free tier's project limit.
+  license.initLicense({ isDev, logError: logMainError })
+  require('./agent/tools/registry.cjs').setSourceGate(license.isPro)
   // Before any window can claim one — see sweepOrphanScratchDirs.
   sweepOrphanScratchDirs()
 
@@ -956,7 +1168,14 @@ app.whenReady().then(async () => {
   // already sees it.
   let restored = null
   const activeProjectPath = workspaceStore.getActiveProjectPath()
-  if (activeProjectPath && fs.existsSync(activeProjectPath) && fs.statSync(activeProjectPath).isDirectory()) {
+  // A free install past its project limit (Pro lapsed, say) starts blank
+  // instead — File ▸ Open Recent then explains why via the usual gate.
+  if (
+    activeProjectPath &&
+    fs.existsSync(activeProjectPath) &&
+    fs.statSync(activeProjectPath).isDirectory() &&
+    license.checkProject(activeProjectPath)
+  ) {
     try {
       restored = b.openWorkspace(activeProjectPath)
     } catch {

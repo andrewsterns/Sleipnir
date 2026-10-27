@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
-import { Terminal } from '../Terminal/Terminal'
+import { Terminal } from '../lazyViews'
 import { isTerminalAvailable } from '../Terminal/iTerminal'
 import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from '../shellLayout'
 
@@ -194,7 +194,9 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
                   data-terminal-active={id === activeId ? '' : undefined}
                   style={{ position: 'absolute', inset: 0, display: id === activeId ? 'flex' : 'none' }}
                 >
-                  <Terminal onExit={() => closeTerminal(id)} />
+                  <Suspense fallback={null}>
+                    <Terminal onExit={() => closeTerminal(id)} />
+                  </Suspense>
                 </div>
               ))
             ) : (

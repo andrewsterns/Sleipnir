@@ -4,7 +4,7 @@
 // list) so hover/selection states, the hover-ellipsis menu, and status/delete
 // behavior all read identically no matter which panel you're in.
 
-import { useState } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { Frame } from '../../app/UIKit/Frame/Frame'
 import { ListRow } from '../../app/UIKit/ListRow/ListRow'
 import { Icon } from '../../app/UIKit/Icon/Icon'
@@ -63,6 +63,7 @@ const KIND_LABEL: Record<CanvasNode['kind'], string> = {
   text: 'T',
   instance: '◈',
   external: '⧉',
+  vector: '✎',
 }
 
 /**
@@ -75,6 +76,13 @@ function KindGlyph({ kind }: { kind: CanvasNode['kind'] }) {
     return (
       <span style={{ display: 'inline-flex', width: 10, color: 'var(--text-2)' }}>
         <Icon name="component" size={10} />
+      </span>
+    )
+  }
+  if (kind === 'vector') {
+    return (
+      <span style={{ display: 'inline-flex', width: 10, color: 'var(--text-3)' }}>
+        <Icon name="vector" size={10} />
       </span>
     )
   }
@@ -102,11 +110,57 @@ export interface CanvasLayersPanelProps {
   planNodeLinks: Map<string, PlanNodeLink>
   onShowInWorkspace?: (path: string) => void
   onShowInPlanning?: (mapId: GraphMapId, nodeId: string) => void
+  /** A layer-name search (see layerMatches). Non-empty shows the matches as one flat list, like Planning's RESULTS. */
+  query?: string
+  /** The search's keyboard highlight — outlined the same way Planning outlines its highlighted row. */
+  highlightId?: NodeId | null
+}
+
+/** Every layer whose name contains `query`, top-most first — the same order the tree reads in. */
+export function layerMatches(doc: CanvasDoc, query: string): CanvasNode[] {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return []
+  const out: CanvasNode[] = []
+  const visit = (nodes: CanvasNode[]) => {
+    for (const node of [...nodes].reverse()) {
+      // A pattern's copies share their template's name — list the template once.
+      if (node.repeatOf) continue
+      if (node.name.toLowerCase().includes(needle)) out.push(node)
+      visit(childrenOf(node))
+    }
+  }
+  visit(doc.nodes)
+  return out
 }
 
 type MenuState = { x: number; y: number; anchorEl: HTMLElement | null; node: CanvasNode }
 
-function LayerRow({
+// Memoized: while a node is dragged only it and its ancestors are new objects,
+// so every other row skips rendering — on a big board that was hundreds of
+// rows re-rendered per frame of every drag.
+type LayerRowProps = {
+  node: CanvasNode
+  depth: number
+  onOpenMenu: (e: React.MouseEvent, node: CanvasNode) => void
+} & Omit<
+  CanvasLayersPanelProps,
+  'doc' | 'onPush' | 'fileStages' | 'onSetStatus' | 'onDeleteLayer' | 'planNodeLinks' | 'onShowInWorkspace' | 'onShowInPlanning' | 'query' | 'highlightId'
+> & {
+  /** A search result: no children, no nesting indent. */
+  flat?: boolean
+  highlighted?: boolean
+}
+
+/** A child's role in an along-path frame, for its layer tag — see model/pathFlow.ts and pathPattern.ts. */
+function pathRoleOf(parent: CanvasNode, child: CanvasNode): 'path' | 'pattern' | undefined {
+  if (!isFrameNode(parent) || !parent.style.alongPath) return undefined
+  const guide = parent.children.find((c) => c.kind === 'vector')
+  if (child === guide) return 'path'
+  if (parent.style.alongPath.repeat !== undefined && !child.repeatOf && child === parent.children.find((c) => c !== guide && !c.repeatOf && !c.hidden)) return 'pattern'
+  return undefined
+}
+
+const LayerRow = memo(function LayerRow({
   node,
   depth,
   selectedIds,
@@ -115,14 +169,26 @@ function LayerRow({
   onToggleLocked,
   dirtyComponentIds,
   onOpenMenu,
+  flat,
+  highlighted,
+  repeatCount,
+  role,
 }: {
   node: CanvasNode
   depth: number
+  /** This layer's job in its along-path parent: the guide path, or the piece a pattern repeats. */
+  role?: 'path' | 'pattern'
+  /** A pattern template's run length (itself plus its copies) — its copies get no rows of their own. */
+  repeatCount?: number
   onOpenMenu: (e: React.MouseEvent, node: CanvasNode) => void
 } & Omit<
   CanvasLayersPanelProps,
-  'doc' | 'onPush' | 'fileStages' | 'onSetStatus' | 'onDeleteLayer' | 'planNodeLinks' | 'onShowInWorkspace' | 'onShowInPlanning'
->) {
+  'doc' | 'onPush' | 'fileStages' | 'onSetStatus' | 'onDeleteLayer' | 'planNodeLinks' | 'onShowInWorkspace' | 'onShowInPlanning' | 'query' | 'highlightId'
+> & {
+  /** A search result: no children, no nesting indent. */
+  flat?: boolean
+  highlighted?: boolean
+}) {
   const selected = selectedIds.has(node.id)
   const componentId = isInstanceNode(node) ? node.componentId : null
   const isDirty = !!componentId && dirtyComponentIds.has(componentId)
@@ -130,6 +196,7 @@ function LayerRow({
     <>
       <ListRow
         selected={selected}
+        connected={highlighted && !selected}
         indent={8 + depth * 12}
         onClick={(e) => onSelect(node.id, e.shiftKey)}
         onContextMenu={(e) => onOpenMenu(e, node)}
@@ -170,13 +237,38 @@ function LayerRow({
           </Frame>
         )}
       >
-        <span style={{ color: node.hidden ? 'var(--text-3)' : 'var(--text-1)' }}>{node.name}</span>
+        {/* A selected row takes ListRow's own text color — forcing text-1 here
+            put white text on the white selected fill. */}
+        <span style={{ color: selected ? 'inherit' : node.hidden ? 'var(--text-3)' : 'var(--text-1)' }}>{node.name}</span>
+        {repeatCount !== undefined && repeatCount > 1 && (
+          <span title="Repeated along the path — edit any piece to change every one" style={{ color: 'var(--text-3)', marginLeft: 6 }}>
+            ×{repeatCount}
+          </span>
+        )}
+        {role && (
+          <span
+            title={role === 'path' ? 'The path this frame lays its layers along' : 'Repeated along the path'}
+            style={{ color: 'var(--accent, #6fa8dc)', marginLeft: 6, fontSize: 9, letterSpacing: '0.06em' }}
+          >
+            {role === 'path' ? 'PATH' : 'PATTERN'}
+          </span>
+        )}
+        {node.repeatOf && (
+          <span title="A piece of a pattern — its order and rotation are its own; everything else follows the original" style={{ color: 'var(--text-3)', marginLeft: 6 }}>
+            ↻
+          </span>
+        )}
       </ListRow>
-      {isFrameNode(node) &&
+      {!flat &&
+        isFrameNode(node) &&
+        // Every piece of a pattern gets a row, in path order — the original
+        // carries the run's length, each copy a ↻.
         childrenOf(node).map((child) => (
           <LayerRow
             key={child.id}
             node={child}
+            repeatCount={child.repeatOf ? undefined : node.children.filter((c) => c.repeatOf === child.id).length + 1}
+            role={pathRoleOf(node, child)}
             depth={depth + 1}
             selectedIds={selectedIds}
             onSelect={onSelect}
@@ -188,6 +280,22 @@ function LayerRow({
         ))}
     </>
   )
+}, layerRowPropsEqual)
+
+/**
+ * A row re-renders when its own props change, or when the selection changes
+ * somewhere in ITS subtree — not on every selection change anywhere, which
+ * re-rendered every row on the board at the start of each drag.
+ */
+function layerRowPropsEqual(prev: LayerRowProps, next: LayerRowProps): boolean {
+  for (const key of Object.keys(next) as (keyof LayerRowProps)[]) {
+    if (key === 'selectedIds') continue
+    if (prev[key] !== next[key]) return false
+  }
+  if (prev.selectedIds === next.selectedIds) return true
+  const changed = (node: CanvasNode): boolean =>
+    prev.selectedIds.has(node.id) !== next.selectedIds.has(node.id) || childrenOf(node).some(changed)
+  return !changed(next.node)
 }
 
 export function CanvasLayersPanel({
@@ -204,14 +312,16 @@ export function CanvasLayersPanel({
   planNodeLinks,
   onShowInWorkspace,
   onShowInPlanning,
+  query,
+  highlightId,
 }: CanvasLayersPanelProps) {
   const [menu, setMenu] = useState<MenuState | null>(null)
 
-  const openMenu = (e: React.MouseEvent, node: CanvasNode) => {
+  const openMenu = useCallback((e: React.MouseEvent, node: CanvasNode) => {
     e.preventDefault()
     e.stopPropagation()
     setMenu({ x: e.clientX, y: e.clientY, anchorEl: e.currentTarget as HTMLElement, node })
-  }
+  }, [])
 
   const menuItems = ((): ContextMenuItem[] => {
     if (!menu) return []
@@ -252,6 +362,35 @@ export function CanvasLayersPanel({
     return (
       <Frame flow="vertical" align="center" justify="center" padding={16} grow>
         <span style={{ ...MONO, fontSize: 10, color: 'var(--text-3)' }}>No layers</span>
+      </Frame>
+    )
+  }
+  if (query?.trim()) {
+    const matches = layerMatches(doc, query)
+    return (
+      <Frame flow="vertical" w="fill" style={{ overflowY: 'auto' }} grow>
+        {matches.length === 0 ? (
+          <span style={{ ...MONO, fontSize: 10, color: 'var(--text-3)', padding: '10px 12px' }}>No layers match “{query.trim()}”.</span>
+        ) : (
+          matches.map((node) => (
+            <LayerRow
+              key={node.id}
+              node={node}
+              depth={0}
+              flat
+              highlighted={node.id === highlightId}
+              selectedIds={selectedIds}
+              onSelect={onSelect}
+              onToggleHidden={onToggleHidden}
+              onToggleLocked={onToggleLocked}
+              dirtyComponentIds={dirtyComponentIds}
+              onOpenMenu={openMenu}
+            />
+          ))
+        )}
+        {menu && (
+          <ContextMenu x={menu.x} y={menu.y} anchorEl={menu.anchorEl} items={menuItems} onClose={() => setMenu(null)} />
+        )}
       </Frame>
     )
   }

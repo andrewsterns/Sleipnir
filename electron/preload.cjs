@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readWorkspaceFile: (filePath) => ipcRenderer.invoke('sleipnir:readWorkspaceFile', filePath),
   writeWorkspaceFile: (filePath, content) => ipcRenderer.invoke('sleipnir:writeWorkspaceFile', filePath, content),
   createWorkspaceFile: (filePath, content) => ipcRenderer.invoke('sleipnir:createWorkspaceFile', filePath, content),
+  readWorkspaceImageDataUrl: (filePath) => ipcRenderer.invoke('sleipnir:readWorkspaceImageDataUrl', filePath),
+  readClipboardImage: () => ipcRenderer.invoke('sleipnir:readClipboardImage'),
+  createWorkspaceBinaryFile: (filePath, base64) => ipcRenderer.invoke('sleipnir:createWorkspaceBinaryFile', filePath, base64),
   createWorkspaceDir: (dirPath) => ipcRenderer.invoke('sleipnir:createWorkspaceDir', dirPath),
   deleteWorkspacePath: (filePath) => ipcRenderer.invoke('sleipnir:deleteWorkspacePath', filePath),
   renameWorkspacePath: (fromPath, toPath) => ipcRenderer.invoke('sleipnir:renameWorkspacePath', fromPath, toPath),
@@ -88,6 +91,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Native folder picker — Electron-only, no web transport equivalent.
   openWorkspace: () => ipcRenderer.invoke('sleipnir:openWorkspace'),
   saveScratchToFolder: () => ipcRenderer.invoke('sleipnir:saveScratchToFolder'),
+  saveProjectAs: () => ipcRenderer.invoke('sleipnir:saveProjectAs'),
   // Project switching — also Electron-only (see openWorkspace above).
   getRecentProjects: () => ipcRenderer.invoke('sleipnir:getRecentProjects'),
   openRecentProject: (projectPath) => ipcRenderer.invoke('sleipnir:openRecentProject', projectPath),
@@ -135,17 +139,23 @@ contextBridge.exposeInMainWorld('terminalAPI', {
   },
 })
 
-// Prototype live preview bridge — same shape as terminalAPI (fire-and-forget
-// start/stop, push-event status filtered by id). No web equivalent (see
-// electron/preview.cjs). The folder's own repo-relative path is the id, not
-// a server-generated one — start() needs no invoke/response round-trip.
-contextBridge.exposeInMainWorld('previewAPI', {
-  start: (folderPath, config) => ipcRenderer.send('preview:start', folderPath, config),
-  stop: (folderPath) => ipcRenderer.send('preview:stop', folderPath),
-  onStatus: (folderPath, callback) => {
-    const listener = (_e, id, status) => { if (id === folderPath) callback(status) }
-    ipcRenderer.on('preview:status', listener)
-    return () => ipcRenderer.removeListener('preview:status', listener)
+// Play button bridge — same shape as terminalAPI (fire-and-forget start/stop,
+// push events back). No web equivalent (see electron/preview.cjs). There's
+// one run per window, so events need no id to filter by.
+contextBridge.exposeInMainWorld('runAPI', {
+  detect: () => ipcRenderer.invoke('run:detect'),
+  start: (request) => ipcRenderer.send('run:start', request),
+  stop: () => ipcRenderer.send('run:stop'),
+  openExternal: (url) => ipcRenderer.invoke('run:openExternal', url),
+  onStatus: (callback) => {
+    const listener = (_e, status) => callback(status)
+    ipcRenderer.on('run:status', listener)
+    return () => ipcRenderer.removeListener('run:status', listener)
+  },
+  onOutput: (callback) => {
+    const listener = (_e, text) => callback(text)
+    ipcRenderer.on('run:output', listener)
+    return () => ipcRenderer.removeListener('run:output', listener)
   },
 })
 
@@ -244,14 +254,46 @@ contextBridge.exposeInMainWorld('updaterAPI', {
   },
 })
 
-// BYOK settings — request/response, like electronAPI. Never exposes the raw
-// key back to the renderer once saved (see electron/apiKeyStore.cjs).
+// Sleipnir Pro licensing (see electron/license.cjs) — request/response plus a
+// pushed 'license:status' on every change, and 'license:upgradeNeeded' when a
+// main-process gate stops this window's action. Never returns the full key,
+// only a last-4 hint. No web equivalent.
+contextBridge.exposeInMainWorld('licenseAPI', {
+  getStatus: () => ipcRenderer.invoke('license:getStatus'),
+  activate: (key) => ipcRenderer.invoke('license:activate', key),
+  deactivate: () => ipcRenderer.invoke('license:deactivate'),
+  revalidate: () => ipcRenderer.invoke('license:revalidate'),
+  releaseProject: (projectPath) => ipcRenderer.invoke('license:releaseProject', projectPath),
+  openCheckout: () => ipcRenderer.invoke('license:openCheckout'),
+  onStatus: (callback) => {
+    const listener = (_e, status) => callback(status)
+    ipcRenderer.on('license:status', listener)
+    return () => ipcRenderer.removeListener('license:status', listener)
+  },
+  onUpgradeNeeded: (callback) => {
+    const listener = (_e, info) => callback(info)
+    ipcRenderer.on('license:upgradeNeeded', listener)
+    return () => ipcRenderer.removeListener('license:upgradeNeeded', listener)
+  },
+})
+
+// Model providers and agent settings — request/response, like electronAPI.
+// Never exposes a raw key back to the renderer once saved (see
+// electron/apiKeyStore.cjs), only a last-4 hint.
 contextBridge.exposeInMainWorld('settingsAPI', {
-  getKeyStatus: (provider) => ipcRenderer.invoke('settings:getKeyStatus', provider),
-  setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),
-  clearKey: (provider) => ipcRenderer.invoke('settings:clearKey', provider),
-  getModel: () => ipcRenderer.invoke('settings:getModel'),
-  setModel: (model) => ipcRenderer.invoke('settings:setModel', model),
+  listProviders: () => ipcRenderer.invoke('settings:listProviders'),
+  detectProvider: (key) => ipcRenderer.invoke('settings:detectProvider', key),
+  connectProvider: (key, providerId) => ipcRenderer.invoke('settings:connectProvider', key, providerId),
+  disconnectProvider: (providerId) => ipcRenderer.invoke('settings:disconnectProvider', providerId),
+  openKeyPage: (providerId) => ipcRenderer.invoke('settings:openKeyPage', providerId),
+  listModels: (opts) => ipcRenderer.invoke('settings:listModels', opts),
+  getActiveModel: () => ipcRenderer.invoke('settings:getActiveModel'),
+  setModel: (ref) => ipcRenderer.invoke('settings:setModel', ref),
+  onAiSettingsChanged: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('settings:aiChanged', listener)
+    return () => ipcRenderer.removeListener('settings:aiChanged', listener)
+  },
   getAgentSettings: () => ipcRenderer.invoke('settings:getAgentSettings'),
   setAgentSettings: (patch) => ipcRenderer.invoke('settings:setAgentSettings', patch),
 })

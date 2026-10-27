@@ -152,6 +152,21 @@ let wss = null
 export function startLspProxy(port = 7071) {
   if (wss) return wss
   wss = new WebSocketServer({ port })
+  // Without a listener, a taken port is an unhandled 'error' that kills the
+  // whole host process (Vite, or Electron in the packaged app). Usually it's
+  // a leftover dev server from an earlier run still holding the port — say
+  // so, and keep running without code intelligence rather than crashing.
+  wss.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `[lsp-proxy] port ${port} is already in use — probably an earlier \`npm run dev\` that's still running. ` +
+          'Stop it (or close its terminal) and restart; until then, editor code intelligence is off.',
+      )
+    } else {
+      console.error('[lsp-proxy] server error', err)
+    }
+    wss = null
+  })
   wss.on('connection', (ws) => {
     // Routing is decided once, from the first message (guaranteed to be the
     // client's `initialize` request — @codemirror/lsp-client sends it
