@@ -1,4 +1,4 @@
-import { FrameProps } from '../Frame/Frame';
+import type { FrameProps } from '../Frame/iFrame';
 
 export interface ScrollWindowProps extends Omit<FrameProps, 'scroll' | 'clipContent'> {
   /** Scroll axis — defaults to 'y'. */

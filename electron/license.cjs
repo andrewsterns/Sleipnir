@@ -67,8 +67,13 @@ function writeStore({ record, freeProjects }) {
   fs.writeFileSync(storePath(), JSON.stringify({ record: stored, freeProjects }, null, 2))
 }
 
+// Until a release names its Lemon Squeezy store, nobody can buy Pro — so
+// nothing is held back either: every gate stays open, and they all switch on
+// in the first build whose licenseConfig.cjs has the store and product ids.
+const storeConfigured = () => config.STORE_ID != null && config.PRODUCT_ID != null
+
 function isPro() {
-  if (devPro) return true
+  if (devPro || !storeConfigured()) return true
   const { record } = readStore()
   return !!record && record.keyStatus !== 'invalid'
 }
@@ -76,11 +81,12 @@ function isPro() {
 function getStatus() {
   const { record, freeProjects } = readStore()
   const base = {
-    configured: config.STORE_ID != null && config.PRODUCT_ID != null,
+    configured: storeConfigured(),
     freeProjects,
     freeProjectLimit: config.FREE_PROJECT_LIMIT,
   }
   if (devPro) return { ...base, tier: 'pro', state: 'dev' }
+  if (!storeConfigured()) return { ...base, tier: 'pro', state: 'unlocked' }
   if (record && record.keyStatus === 'invalid') {
     return { ...base, tier: 'free', state: 'invalid', error: record.error ?? lastError ?? undefined }
   }

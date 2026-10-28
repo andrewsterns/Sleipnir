@@ -1,7 +1,10 @@
 // What a plan tab draws. In 'plan' mode, just the plan. In 'architecture' mode,
 // the project's real architecture (scoped — see architectureScope.ts) with the
 // plan laid over it, plus the set of node ids that belong to the plan so the
-// canvas can highlight them and dim the rest:
+// canvas can highlight them and dim the rest. 'health' is the same
+// architecture under the Health lens (healthLens.ts): the code as it is, so
+// no steps or placeholders and nothing dimmed — the lens has its own emphasis.
+// In the other modes:
 //   - steps, and planned files not yet on disk (placeholders)
 //   - planned or asset files that DO exist now: merged into their real
 //     architecture node, which inherits their links
@@ -10,7 +13,7 @@ import type { GraphData, GraphEdge, GraphNode } from './types'
 import { archId, folderId, folderKeyOf, scopeArchitecture, type ScopeOptions } from './architectureScope'
 import type { WorkspaceScan } from './workspaceScanCache'
 
-export type PlanViewMode = 'architecture' | 'plan'
+export type PlanViewMode = 'architecture' | 'health' | 'plan'
 
 export interface PlanView {
   data: GraphData
@@ -84,7 +87,7 @@ export function composePlanView(
       type: 'folder',
       discovered: true,
     })),
-    ...planGraph.nodes.filter((n) => !remap.has(n.id)),
+    ...(mode === 'health' ? [] : planGraph.nodes.filter((n) => !remap.has(n.id))),
   ]
   const ids = new Set(nodes.map((n) => n.id))
 
@@ -106,5 +109,5 @@ export function composePlanView(
     }
   }
 
-  return { data: { nodes, edges }, overlay }
+  return { data: { nodes, edges }, overlay: mode === 'health' ? new Set() : overlay }
 }

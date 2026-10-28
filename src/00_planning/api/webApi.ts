@@ -20,6 +20,7 @@ import type {
   WorkspaceInfo,
   SearchMatch,
   MissingPlanningRef,
+  ArchitectureHealth,
 } from './PlatformAPI'
 import type { GraphEdge, GraphNode, NodeStage, NodeStatus, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
 
@@ -173,6 +174,11 @@ export const webApi: PlatformAPI = {
   searchWorkspace(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }> {
     const params = new URLSearchParams({ query, ...(opts?.limit ? { limit: String(opts.limit) } : {}) })
     return fetch(`/api/sleipnir/search-workspace?${params}`).then((res) => asJson<{ matches: SearchMatch[]; truncated: boolean }>(res))
+  },
+
+  analyzeWorkspace(opts?: { scope?: string; feature?: string }): Promise<ArchitectureHealth> {
+    const params = new URLSearchParams({ scope: opts?.scope ?? '', feature: opts?.feature ?? '' })
+    return fetch(`/api/sleipnir/analyze-workspace?${params}`).then((res) => asJson<ArchitectureHealth>(res))
   },
 
   detectPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfig | null }> {

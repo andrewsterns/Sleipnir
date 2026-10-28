@@ -1,5 +1,5 @@
-import React, { createContext, useContext, ReactNode } from 'react';
-import { Theme } from './index';
+import React, { createContext, useContext, type ReactNode } from 'react';
+import type { Theme } from './index';
 
 interface ThemeContextType {
   theme: Theme;

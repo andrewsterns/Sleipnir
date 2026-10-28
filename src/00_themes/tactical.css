@@ -97,6 +97,10 @@
   --graph-node-new:      #5b9dff;              /* a node created since the project opened, until clicked */
   --graph-ring:          #ffffff;              /* selection ring */
   --graph-edge:          #ffffff;              /* solid edge line + arrowhead */
+  --graph-danger:        #e5484d;              /* Health lens: a file or link in an import loop */
+  --graph-warn:          #eda100;              /* Health lens: an import up the layers */
+  --graph-heat:          #3987e5;              /* Health lens: heat glow — one hue; how hot is its strength */
+  --graph-heat-blend:    screen;               /* glows add up into light on the dark ground */
 
   /* ── Selectable item states (list rows + graph node labels) ───────────────
      One hover/selection language everywhere. --item-ink is an "R, G, B" triple

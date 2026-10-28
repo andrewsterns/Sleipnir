@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Sleipnir Canvas CLI — standalone, vendored copy.
 //
 // COPIED into each project as `.sleipnir/canvas.mjs` by Sleipnir's scaffolder

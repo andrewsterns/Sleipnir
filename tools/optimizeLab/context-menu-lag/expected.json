@@ -1,0 +1,16 @@
+{
+  "cycles": [],
+  "feature": {
+    "query": "my right click menu",
+    "includes": [
+      "src/menu/ContextMenu.tsx",
+      "src/menu/useContextMenu.ts",
+      "src/menu/menuItems.ts",
+      "src/menu/MenuItem.tsx",
+      "src/App.tsx",
+      "src/board/Board.tsx"
+    ],
+    "excludes": ["src/settings/SettingsPanel.tsx", "src/search/SearchBar.tsx", "src/search/searchIndex.ts"]
+  },
+  "dead": []
+}

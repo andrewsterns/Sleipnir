@@ -1,0 +1,10 @@
+{
+  "cyclesContaining": [
+    ["orders/models/order.py", "orders/services/pricing.py"],
+    ["orders/handlers/http.py", "orders/utils/fmt.py"]
+  ],
+  "violations": [["orders/utils/fmt.py", "orders/handlers/http.py"]],
+  "dead": ["orders/legacy/export_csv.py"],
+  "notDead": ["main.py", "orders/handlers/http.py"],
+  "fanIn": { "orders/services/pricing.py": 2, "orders/models/order.py": 2 }
+}

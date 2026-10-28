@@ -1,3 +1,4 @@
+// sleipnir-keep: hidden from the nav for now, not removed (see NAV_ITEMS in App.tsx).
 import React from 'react'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { ScrollWindow } from '../app/UIKit/ScrollWindow/ScrollWindow'

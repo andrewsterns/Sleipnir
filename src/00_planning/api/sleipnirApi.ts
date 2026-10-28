@@ -27,6 +27,8 @@ export type {
   PreviewConfig,
   PreviewConfigEntry,
   RecentProject,
+  ArchitectureHealth,
+  FileHealth,
 } from './PlatformAPI'
 
 function getPlatformAPI(): PlatformAPI {
@@ -115,6 +117,10 @@ export function copyWorkspacePath(...args: Parameters<PlatformAPI['copyWorkspace
 
 export function searchWorkspace(...args: Parameters<PlatformAPI['searchWorkspace']>) {
   return getPlatformAPI().searchWorkspace(...args)
+}
+
+export function analyzeWorkspace(...args: Parameters<PlatformAPI['analyzeWorkspace']>) {
+  return getPlatformAPI().analyzeWorkspace(...args)
 }
 
 export function detectPreviewConfig(...args: Parameters<PlatformAPI['detectPreviewConfig']>) {

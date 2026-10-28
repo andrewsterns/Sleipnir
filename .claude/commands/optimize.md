@@ -1,0 +1,30 @@
+---
+description: "Measure the project's architecture or one feature, and plan the fixes."
+argument-hint: "[feature or goal]"
+---
+
+The user wants this optimized: $ARGUMENTS
+
+1. Measure first. If they named a feature ("my right click menu", "checkout"):
+
+       node .sleipnir/analyze.mjs report --root . --feature "<their words>" --goal "<what they want>"
+
+   otherwise the whole project:
+
+       node .sleipnir/analyze.mjs report --root .
+
+   Read the report, then only the files it points at.
+2. Find the cause. Structure problems (import loops, upward imports, a page used as a
+   library, a heavy package loaded eagerly) are in the report. Runtime cost (re-renders,
+   state held too high, work repeated per item, O(n²) loops, blocking I/O, missing
+   memoization or virtualization) is in the feature's own files — read them for it.
+3. Before moving, splitting or deleting a file, see what it touches:
+   `node .sleipnir/analyze.mjs file --root . <path>`.
+4. Propose the fix as a Sleipnir plan (the /plan flow above, `--edits` for existing
+   files, `--file` for new ones): one step per change, the ones that change behaviour
+   or load time first, each saying what it fixes and which number should move
+   (cycles 3 → 0, fan-in 4 → 1, three off the first load).
+5. Only if the user asked you to apply it: one step at a time — change, run the tests,
+   re-run the report, confirm the number moved. Stop and say so if a step makes
+   anything worse.
+6. Finish with the before and after numbers.

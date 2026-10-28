@@ -15,14 +15,13 @@ interface RunControlProps {
   run: Runner
   /** Opens the Run dock — Play does this itself, so you see the output as it starts. */
   onShowPanel: () => void
-  onTogglePanel: () => void
-  panelOpen: boolean
 }
 
-// The title bar's Play button: pick what to run, hit ▶, and the Run dock
+// The status bar's Play button: pick what to run, hit ▶, and the Run dock
 // opens with its output and (for a web target) a live preview. ▶ while
-// something runs restarts it; ■ stops it.
-export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel, onTogglePanel, panelOpen }) => {
+// something runs restarts it; ■ stops it. The dock's own open/close toggle is
+// the status bar's Run tab.
+export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel }) => {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -64,7 +63,7 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel, onTogg
   }
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginLeft: 14 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 0 }}>
       {editing ? (
         <input
           autoFocus
@@ -78,9 +77,9 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel, onTogg
           }}
           style={{
             width: 220,
-            height: 22,
-            padding: '0 8px',
-            fontSize: 11,
+            height: 18,
+            padding: '0 6px',
+            fontSize: 10,
             background: 'var(--bg-2)',
             color: 'var(--text-1)',
             border: '1px solid var(--border-2)',
@@ -103,8 +102,8 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel, onTogg
                 alignItems: 'center',
                 gap: 6,
                 padding: '0 6px',
-                height: 22,
-                fontSize: 11,
+                height: 20,
+                fontSize: 10,
                 color: 'var(--text-2)',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -123,23 +122,15 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel, onTogg
         onClick={play}
         disabled={!run.canPlay}
         title={run.active ? 'Restart' : 'Run'}
-        size={24}
-        iconSize={13}
+        size={20}
+        iconSize={11}
         textColor={run.canPlay ? '#7ec98f' : 'var(--text-3)'}
         hoverTextColor="#9fdcab"
         icon="player-play"
       />
       {run.active && (
-        <IconButton onClick={run.stop} title="Stop" icon="player-stop" size={24} iconSize={13} textColor="#e07a7a" hoverTextColor="#f09a9a" />
+        <IconButton onClick={run.stop} title="Stop" icon="player-stop" size={20} iconSize={11} textColor="#e07a7a" hoverTextColor="#f09a9a" />
       )}
-      <IconButton
-        onClick={onTogglePanel}
-        title={panelOpen ? 'Hide run panel' : 'Show run panel'}
-        size={24}
-        textColor={panelOpen ? 'var(--text-1)' : 'var(--text-3)'}
-        icon="layout-columns"
-        iconSize={13}
-      />
     </span>
   )
 }

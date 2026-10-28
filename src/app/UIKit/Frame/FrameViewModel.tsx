@@ -1,10 +1,11 @@
-import React, { useMemo, useEffect, useRef, useCallback } from 'react';
+import type React from 'react';
+import { useMemo, useEffect, useRef, useCallback } from 'react';
 import { cn } from '../../../utils/cn';
 import {
-  FrameProps, FillProps, SpacingProp,
-  AnimationType, RadiusProps, BorderProps,
-  DimensionProp, ShadowEffect, FillProp, ChamferProp,
-  TextureEffect,
+  type FrameProps, type FillProps, type SpacingProp,
+  type AnimationType, type RadiusProps, type BorderProps,
+  type DimensionProp, type ShadowEffect, type FillProp, type ChamferProp,
+  type TextureEffect,
 } from './iFrame';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

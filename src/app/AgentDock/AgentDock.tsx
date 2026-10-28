@@ -6,7 +6,7 @@ import { ApiKeySettings } from '../AgentChat/ApiKeySettings'
 import { ModelPicker } from '../AgentChat/ModelPicker'
 import { useAiSettings } from '../AgentChat/useAiSettings'
 import type { GraphNode } from '../../00_planning/graph/types'
-import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from '../shellLayout'
+import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -16,16 +16,14 @@ interface AgentDockProps {
   onOpenChange: (open: boolean) => void
   /** Forwarded to AgentChat — lets App.tsx jump to Planning's AI tab live as AI builds nodes. */
   onPlanNodeCreated?: (node: GraphNode) => void
-  /** True whenever any dock (this one or a sibling) is open — App.tsx reclaims DOCK_PANEL_HEIGHT from the layout above when that happens, so every dock's own toggle button shifts up in lockstep to stay clear of whichever panel is now occupying that space, rather than floating on top of it. */
-  shiftUp?: boolean
 }
 
-// Sits directly beside TerminalDock's toggle (40px button + 20px gap + 8px
-// spacing = 68px from the right edge). Same mount-once-hide-via-CSS pattern:
+// Toggled from the status bar. Same mount-once-hide-via-CSS pattern as TerminalDock:
 // <AgentChat/> mounts exactly once, the first time it's opened, and stays
 // mounted afterward so the conversation survives closing the panel.
-export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlanNodeCreated, shiftUp }) => {
+export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlanNodeCreated }) => {
   const [everOpened, setEverOpened] = useState(false)
+  if (open && !everOpened) setEverOpened(true)
   const ai = useAiSettings()
   // The gear here is the primary place to connect models — right where
   // you're chatting — not buried in the full Settings page (Settings still
@@ -35,37 +33,8 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
   const ollamaRunning = !!ai.providers?.find((p) => p.id === 'ollama')?.connected
   const needsSetup = ai.providers !== null && !ai.anyCloudConnected && !ollamaRunning
 
-  const toggle = () => {
-    onOpenChange(!open)
-    setEverOpened(true)
-  }
-
   return (
     <>
-      <button
-        onClick={toggle}
-        title="AI Chat"
-        style={{
-          position: 'fixed',
-          right: 68,
-          bottom: shiftUp ? DOCK_TOGGLE_RAISED : DOCK_TOGGLE_MARGIN,
-          zIndex: LAYER.dock,
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          background: open ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'rgba(var(--item-ink, 255,255,255), 0.08)',
-          border: '1px solid var(--border-2)',
-          color: 'var(--text-1)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'bottom 0.15s ease',
-        }}
-      >
-        <Icon name="sparkle" size={15} />
-      </button>
-
       {everOpened && (
         <Frame
           flow="vertical"
@@ -74,11 +43,10 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
             position: 'fixed',
             right: 0,
             left: 0,
-            bottom: 0,
+            bottom: STATUS_BAR_HEIGHT,
             height: DOCK_PANEL_HEIGHT,
-            // The sibling docks' floating toggles share LAYER.dock and come
-            // later in the DOM, so they'd paint over the Connect popover that
-            // hangs above this panel — lift the panel while it's open.
+            // The Connect popover hangs above this panel, over the content —
+            // lift the panel while it's open so nothing at LAYER.dock covers it.
             zIndex: settingsOpen ? LAYER.dock + 1 : LAYER.dock,
             display: open ? 'flex' : 'none',
           }}

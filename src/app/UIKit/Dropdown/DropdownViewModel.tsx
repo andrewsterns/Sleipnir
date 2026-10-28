@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { DropdownOption } from './iDropdown';
+import type { DropdownOption } from './iDropdown';
 
 export const useDropdownViewModel = (
   options: DropdownOption[],

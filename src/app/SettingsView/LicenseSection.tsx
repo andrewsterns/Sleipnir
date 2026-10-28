@@ -23,6 +23,8 @@ function summary(s: LicenseStatus): string {
   switch (s.state) {
     case 'dev':
       return 'Pro (SLEIPNIR_PRO=1 dev override).'
+    case 'unlocked':
+      return 'Every feature is unlocked in this version — Founder licenses open soon.'
     case 'checking':
       return 'Pro · checking your license…'
     case 'active':
@@ -65,7 +67,7 @@ export function LicenseSection() {
             <button onClick={deactivate} style={BUTTON}>REMOVE KEY FROM THIS COMPUTER</button>
           </Frame>
         </Frame>
-      ) : status.state !== 'dev' ? (
+      ) : status.state !== 'dev' && status.state !== 'unlocked' ? (
         <Frame flow="vertical" gap={10}>
           <span style={BODY}>
             Sleipnir is free for personal and noncommercial use. Sleipnir Pro adds:

@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { useDropdownViewModel } from './DropdownViewModel'
-import { DropdownProps } from './iDropdown'
+import type { DropdownProps } from './iDropdown'
 import { cn } from '../../../utils/cn'
 import { Frame } from '../Frame/Frame'
 import { Text } from '../Text/Text'

@@ -3,7 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { Terminal } from '../lazyViews'
 import { isTerminalAvailable } from '../Terminal/iTerminal'
-import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from '../shellLayout'
+import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -11,8 +11,6 @@ interface TerminalDockProps {
   /** Controlled from App.tsx so only one of Terminal/AgentDock's full-width bottom panels is ever open at once. */
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** True whenever any dock (this one or a sibling) is open — App.tsx reclaims DOCK_PANEL_HEIGHT from the layout above when that happens, so every dock's own toggle button shifts up in lockstep to stay clear of whichever panel is now occupying that space, rather than floating on top of it. */
-  shiftUp?: boolean
 }
 
 // Mounted once at the App shell level, not per-page. Each terminal tab's
@@ -21,8 +19,10 @@ interface TerminalDockProps {
 // closed), so every shell process survives tab-switching and panel-hiding.
 // Closing a tab explicitly is the only thing that unmounts a <Terminal /> and
 // kills its shell.
-export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, shiftUp }) => {
+export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }) => {
   const [everOpened, setEverOpened] = useState(false)
+  // Built the first time it opens (from the status bar), then kept.
+  if (open && !everOpened) setEverOpened(true)
   // Open terminal tabs, in order — each entry is a stable id (an ever-growing
   // counter, so a closed tab's id is never reused for a different shell).
   const [terminals, setTerminals] = useState<number[]>([])
@@ -50,11 +50,6 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
     })
   }
 
-  const toggle = () => {
-    onOpenChange(!open)
-    if (!open) setEverOpened(true)
-  }
-
   // First open (or reopening after every tab was closed) spawns one terminal.
   useEffect(() => {
     if (open && everOpened && available && terminals.length === 0) addTerminal()
@@ -80,30 +75,6 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
 
   return (
     <>
-      <button
-        onClick={toggle}
-        title="Terminal"
-        style={{
-          position: 'fixed',
-          right: 20,
-          bottom: shiftUp ? DOCK_TOGGLE_RAISED : DOCK_TOGGLE_MARGIN,
-          zIndex: LAYER.dock,
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          background: open ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'rgba(var(--item-ink, 255,255,255), 0.08)',
-          border: '1px solid var(--border-2)',
-          color: 'var(--text-1)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'bottom 0.15s ease',
-        }}
-      >
-        <Icon name="terminal" size={15} />
-      </button>
-
       {everOpened && (
         <Frame
           ref={panelRef}
@@ -113,7 +84,7 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange, 
             position: 'fixed',
             right: 0,
             left: 0,
-            bottom: 0,
+            bottom: STATUS_BAR_HEIGHT,
             height: DOCK_PANEL_HEIGHT,
             zIndex: LAYER.dock,
             display: open ? 'flex' : 'none',

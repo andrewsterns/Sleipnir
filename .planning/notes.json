@@ -440,6 +440,1593 @@
         "src/01_canvas/model/layout.ts",
         "src/01_canvas/model/pathFlow.ts"
       ]
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/graph-metrics-core-1793132850850",
+      "label": "Graph metrics core",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "One dependency-free module (node builtins only) that turns {files, import edges} into the numbers everything else uses: fan-in and fan-out per file, instability (fan-out / (fan-in + fan-out)), cycles via strongly connected components, dead files (no importers, not an entry point), hubs, clusters (label propagation) and reverse reachability for blast radius. Lives beside the other vendored CLIs so the app, the in-app agent and terminal agents all compute identical results — the AI never estimates a number.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 1
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/tools/agentSkills/vendor/analyze.mjs",
+      "label": "analyze.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/graph-metrics-core-1793132850850",
+      "filePath": "tools/agentSkills/vendor/analyze.mjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/tools/agentSkills/vendor/analyze.test.ts",
+      "label": "analyze.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/graph-metrics-core-1793132850850",
+      "filePath": "tools/agentSkills/vendor/analyze.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946",
+      "label": "Metrics on the Planning graph",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Feed the edges Sleipnir already detects (importAdapters/detectEdges) through the metrics core, memoized per graph so a re-scan only recomputes what changed. Adds fan-in/fan-out, cycle membership and dead-file flags to graph nodes without changing the layout data. Zero tokens: purely local.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 2,
+      "editsPaths": [
+        "src/00_planning/graph/types.ts",
+        "src/00_planning/PlanningView.ViewModel.tsx",
+        "src/00_planning/graph/workspaceScanCache.ts"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/graphMetrics.ts",
+      "label": "graphMetrics.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946",
+      "filePath": "src/00_planning/graph/graphMetrics.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/graphMetrics.test.ts",
+      "label": "graphMetrics.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946",
+      "filePath": "src/00_planning/graph/graphMetrics.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059",
+      "label": "Health lens on the graph",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "An optional 'Health' view toggle beside ARCHITECTURE / PLAN ONLY, so the default all-white graph is untouched. With it on: node size grows with fan-in, counts (imports and imported-by) on hover or selection, cycles drawn red, wrong-direction imports amber, dead files faded. Visual rules live in a pure module so they are testable and theme tokens carry the colors in light and dark.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 3,
+      "editsPaths": [
+        "src/00_planning/graph/GraphCanvas.tsx",
+        "src/00_planning/graph/layout.ts",
+        "src/00_planning/PlanningView.tsx",
+        "src/00_themes/tactical.css",
+        "src/00_themes/light.css"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/healthLens.ts",
+      "label": "healthLens.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059",
+      "filePath": "src/00_planning/graph/healthLens.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/healthLens.test.ts",
+      "label": "healthLens.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059",
+      "filePath": "src/00_planning/graph/healthLens.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209",
+      "label": "Readable large graphs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Big projects overlap today. Hide labels below a zoom level except for important nodes (high fan-in, selected, neighbours), collapse folders into single nodes with an aggregate count and expand on click, and keep the force layout stable when collapsing. Makes the health view legible at repo scale.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 4,
+      "editsPaths": [
+        "src/00_planning/graph/GraphCanvas.tsx",
+        "src/00_planning/graph/layout.ts",
+        "src/00_planning/graph/architectureScope.ts"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/labelCulling.ts",
+      "label": "labelCulling.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209",
+      "filePath": "src/00_planning/graph/labelCulling.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/labelCulling.test.ts",
+      "label": "labelCulling.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209",
+      "filePath": "src/00_planning/graph/labelCulling.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352",
+      "label": "Health panel and blast radius",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A panel next to the graph listing hubs, cycles, wrong-direction imports, dead files and (later) hotspots, each clickable to focus the graph. Selecting a file in the Health view lights up everything that depends on it, directly or not — its blast radius, for safer changes and faster debugging.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 5,
+      "editsPaths": [
+        "src/00_planning/PlanningView.tsx",
+        "src/00_planning/PlanningView.ViewModel.tsx",
+        "src/00_planning/graph/GraphCanvas.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/HealthPanel.tsx",
+      "label": "HealthPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352",
+      "filePath": "src/00_planning/HealthPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/HealthPanel.ViewModel.tsx",
+      "label": "HealthPanel.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352",
+      "filePath": "src/00_planning/HealthPanel.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/analyze-architecture-agent-tool-1793132851608",
+      "label": "analyze_architecture agent tool",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "An in-app agent tool that runs the metrics core on the open project and returns a compact, capped report (top 20 hubs, every cycle up to a limit, violations, hotspots, per-file counts on request) — a few thousand tokens instead of source code. The agent then reads only the files it decides to change. Scoping by folder and a goal keep it smaller still.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 6,
+      "editsPaths": [
+        "electron/agent/tools/registry.cjs",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/electron/agent/tools/architecture.cjs",
+      "label": "architecture.cjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/analyze-architecture-agent-tool-1793132851608",
+      "filePath": "electron/agent/tools/architecture.cjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/c-program-files-git-optimize-command-1793132851778",
+      "label": "C:/Program Files/Git/optimize command",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "/optimize [folder] [for <goal>] in the app and in Claude Code, Codex and Gemini: get the report (analyze_architecture, or node .sleipnir/analyze.mjs report for terminal agents), decide improvements, and draft them as a reviewable plan in the Planning graph via the existing plan tool — each step naming the files it moves, extracts or splits. Nothing changes until a step is approved. Scaffolded like /plan, /frame and /component, and listed in the chat's slash suggestions.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 7,
+      "editsPaths": [
+        "tools/agentSkills/registry.mjs",
+        "tools/agentSkills/scaffold.mjs",
+        "tools/agentSkills/emitters/index.mjs",
+        "tools/agentSkills/agentSkills.test.ts",
+        "src/app/AgentChat/AgentChat.tsx",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "plan/architecture-health-optimize-1793132850767/measure-every-approved-step-1793132851912",
+      "label": "Measure every approved step",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Snapshot the metrics when an /optimize plan is created and again after each step is approved and built, then show the change on the step and in the plan status bar (cycles 3 → 1, ExamplePage fan-in 3 → 0, largest hub 22 → 14). Turns 'did this help?' into a number, and flags a step that made things worse.",
+      "status": "draft",
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "order": 8,
+      "editsPaths": [
+        "src/00_planning/ApproveStepModal.ViewModel.tsx",
+        "src/00_planning/useStatusReconciler.ts",
+        "src/00_planning/PlanBuildStatusBar.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/metricsDelta.ts",
+      "label": "metricsDelta.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/measure-every-approved-step-1793132851912",
+      "filePath": "src/00_planning/graph/metricsDelta.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/metricsDelta.test.ts",
+      "label": "metricsDelta.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-optimize-1793132850767",
+      "stepId": "plan/architecture-health-optimize-1793132850767/measure-every-approved-step-1793132851912",
+      "filePath": "src/00_planning/graph/metricsDelta.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/graph-metrics-core-1793132878892",
+      "label": "Graph metrics core",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "One dependency-free module (node builtins only) that turns {files, import edges} into the numbers everything else uses: fan-in and fan-out per file, instability (fan-out / (fan-in + fan-out)), cycles via strongly connected components, dead files (no importers, not an entry point), hubs, clusters (label propagation), churn-weighted hotspots, and reverse reachability for blast radius. Also a lightweight scanner (TS/JS, Python, Go, Rust imports) so it can run without the app. Vendored beside the other CLIs so the app, the in-app agent and terminal agents all compute identical results; the AI never estimates a number.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 1
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/analyze.mjs",
+      "label": "analyze.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/graph-metrics-core-1793132878892",
+      "filePath": "tools/agentSkills/vendor/analyze.mjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/analyze.test.ts",
+      "label": "analyze.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/graph-metrics-core-1793132878892",
+      "filePath": "tools/agentSkills/vendor/analyze.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/metrics-on-the-planning-graph-1793132878985",
+      "label": "Metrics on the Planning graph",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Feed the edges Sleipnir already detects (importAdapters/detectEdges) through the metrics core, memoized per graph so a re-scan only recomputes what changed. Adds fan-in/fan-out, cycle membership and dead-file flags to graph nodes without changing the layout data. Zero tokens: purely local.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 2,
+      "editsPaths": [
+        "src/00_planning/graph/types.ts",
+        "src/00_planning/PlanningView.ViewModel.tsx",
+        "src/00_planning/graph/workspaceScanCache.ts"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/graphMetrics.ts",
+      "label": "graphMetrics.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/metrics-on-the-planning-graph-1793132878985",
+      "filePath": "src/00_planning/graph/graphMetrics.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/graphMetrics.test.ts",
+      "label": "graphMetrics.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/metrics-on-the-planning-graph-1793132878985",
+      "filePath": "src/00_planning/graph/graphMetrics.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/health-lens-on-the-graph-1793132879115",
+      "label": "Health lens on the graph",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "An optional Health view toggle beside ARCHITECTURE / PLAN ONLY, so the default all-white graph is untouched. With it on: node size grows with fan-in, counts (imports and imported-by) on hover or selection, cycles drawn red, wrong-direction imports amber, dead files faded. Visual rules live in a pure module so they are testable; theme tokens carry the colors in light and dark.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 3,
+      "editsPaths": [
+        "src/00_planning/graph/GraphCanvas.tsx",
+        "src/00_planning/graph/layout.ts",
+        "src/00_planning/PlanningView.tsx",
+        "src/00_themes/tactical.css",
+        "src/00_themes/light.css"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/healthLens.ts",
+      "label": "healthLens.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/health-lens-on-the-graph-1793132879115",
+      "filePath": "src/00_planning/graph/healthLens.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/healthLens.test.ts",
+      "label": "healthLens.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/health-lens-on-the-graph-1793132879115",
+      "filePath": "src/00_planning/graph/healthLens.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/readable-large-graphs-1793132879289",
+      "label": "Readable large graphs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Big projects overlap today. Hide labels below a zoom level except for important nodes (high fan-in, selected, neighbours), collapse folders into single nodes with an aggregate count and expand on click, and keep the force layout stable when collapsing. Makes the Health view legible at repo scale.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 4,
+      "editsPaths": [
+        "src/00_planning/graph/GraphCanvas.tsx",
+        "src/00_planning/graph/layout.ts",
+        "src/00_planning/graph/architectureScope.ts"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/labelCulling.ts",
+      "label": "labelCulling.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/readable-large-graphs-1793132879289",
+      "filePath": "src/00_planning/graph/labelCulling.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/labelCulling.test.ts",
+      "label": "labelCulling.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/readable-large-graphs-1793132879289",
+      "filePath": "src/00_planning/graph/labelCulling.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/health-panel-and-blast-radius-1793132879480",
+      "label": "Health panel and blast radius",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A panel next to the graph listing hubs, cycles, wrong-direction imports, dead files and hotspots, each clickable to focus the graph. Selecting a file in the Health view lights up everything that depends on it, directly or not: its blast radius, for safer changes and faster debugging.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 5,
+      "editsPaths": [
+        "src/00_planning/PlanningView.tsx",
+        "src/00_planning/PlanningView.ViewModel.tsx",
+        "src/00_planning/graph/GraphCanvas.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/HealthPanel.tsx",
+      "label": "HealthPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/health-panel-and-blast-radius-1793132879480",
+      "filePath": "src/00_planning/HealthPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/HealthPanel.ViewModel.tsx",
+      "label": "HealthPanel.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/health-panel-and-blast-radius-1793132879480",
+      "filePath": "src/00_planning/HealthPanel.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/git-churn-hotspots-1793132879644",
+      "label": "Git churn hotspots",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Count how often each file changed (git log over a window) and combine with fan-in: files that are central AND change often are where bugs cluster and the best refactor targets. Exposed through the same backend/IPC path as the other git calls, cached, and shown in the Health panel and lens.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 6,
+      "editsPaths": [
+        "tools/git-control.mjs",
+        "tools/sleipnir-backend.mjs",
+        "electron/main.cjs",
+        "electron/preload.cjs",
+        "src/00_planning/api/PlatformAPI.ts",
+        "src/00_planning/api/electronApi.ts",
+        "src/00_planning/api/webApi.ts",
+        "src/00_planning/api/sleipnirApi.ts",
+        "vite.config.ts"
+      ]
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/analyze-architecture-agent-tool-1793132879826",
+      "label": "analyze_architecture agent tool",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "An in-app agent tool that runs the metrics core on the open project and returns a compact, capped report (top 20 hubs, cycles up to a limit, violations, hotspots, per-file counts on request): a few thousand tokens instead of source code. The agent then reads only the files it decides to change. Scoping by folder and a goal keep it smaller still.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 7,
+      "editsPaths": [
+        "electron/agent/tools/registry.cjs",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/electron/agent/tools/architecture.cjs",
+      "label": "architecture.cjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/analyze-architecture-agent-tool-1793132879826",
+      "filePath": "electron/agent/tools/architecture.cjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/the-optimize-command-1793132879982",
+      "label": "The /optimize command",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "'/optimize [folder] [for <goal>]' in the app and in Claude Code, Codex and Gemini: get the report (analyze_architecture in the app, node .sleipnir/analyze.mjs report for terminal agents), decide improvements, and draft them as a reviewable plan in the Planning graph via the existing plan tool, each step naming the files it moves, extracts or splits. Nothing changes until a step is approved. Scaffolded like /plan, /frame and /component (analyze.mjs vendored into .sleipnir/), and listed in the chat's slash suggestions.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 8,
+      "editsPaths": [
+        "tools/agentSkills/registry.mjs",
+        "tools/agentSkills/scaffold.mjs",
+        "tools/agentSkills/emitters/index.mjs",
+        "tools/agentSkills/agentSkills.test.ts",
+        "src/app/AgentChat/AgentChat.tsx",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/measure-every-approved-step-1793132880232",
+      "label": "Measure every approved step",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Snapshot the metrics when an optimize plan is created and again after each step is approved and built, then show the change on the step and in the plan status bar (cycles 3 to 1, ExamplePage fan-in 3 to 0, largest hub 22 to 14). Turns 'did this help?' into a number, and flags a step that made things worse.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 13,
+      "editsPaths": [
+        "src/00_planning/ApproveStepModal.ViewModel.tsx",
+        "src/00_planning/useStatusReconciler.ts",
+        "src/00_planning/PlanBuildStatusBar.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/metricsDelta.ts",
+      "label": "metricsDelta.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/measure-every-approved-step-1793132880232",
+      "filePath": "src/00_planning/graph/metricsDelta.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/metricsDelta.test.ts",
+      "label": "metricsDelta.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/measure-every-approved-step-1793132880232",
+      "filePath": "src/00_planning/graph/metricsDelta.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/flow-beyond-imports-1793132880438",
+      "label": "Flow beyond imports",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Map logic flow that imports don't show: Electron IPC channels (ipcMain.handle with invoke), HTTP routes (frontend fetch of /api/x with the backend route, across languages), and event emit/on pairs. New edge kinds drawn with their own line styles (dashed IPC, dotted events), included in the metrics and the optimize report, so async and cross-language systems are analyzed as one graph.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 14,
+      "editsPaths": [
+        "src/00_planning/graph/types.ts",
+        "src/00_planning/graph/importAdapters/detectEdges.ts",
+        "src/00_planning/graph/GraphCanvas.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/importAdapters/flowRefs.ts",
+      "label": "flowRefs.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/flow-beyond-imports-1793132880438",
+      "filePath": "src/00_planning/graph/importAdapters/flowRefs.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/importAdapters/flowRefs.test.ts",
+      "label": "flowRefs.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/flow-beyond-imports-1793132880438",
+      "filePath": "src/00_planning/graph/importAdapters/flowRefs.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/feature-finder-1793133462101",
+      "label": "Feature finder",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Turn '/optimize my right click menu' into the feature's own sub-graph: seed files from a name and behaviour search (component names, handlers like onContextMenu, strings, routes), then grow along imports (what it uses) and importers (where it is mounted), ranked by graph distance and fan-in, capped to ~15 files. Narrows what the agent reads (fewer tokens, better focus) and is drawn on the graph as the scope of the run.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 9,
+      "editsPaths": [
+        "electron/agent/tools/registry.cjs"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/featureScope.mjs",
+      "label": "featureScope.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/feature-finder-1793133462101",
+      "filePath": "tools/agentSkills/vendor/featureScope.mjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/featureScope.test.ts",
+      "label": "featureScope.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/feature-finder-1793133462101",
+      "filePath": "tools/agentSkills/vendor/featureScope.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "label": "Measurement harness",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Measure before changing anything, the same way every time: interaction timing in the running app or a preview over the DevTools Protocol (time from input to paint, long tasks, React re-render counts) and per-language micro-benchmarks (Vitest bench, Rust criterion, Go testing.B, pytest-benchmark). Several runs, median and spread reported, so noise is never mistaken for a win. A measurement can be saved as a performance test with a budget that the Validation view enforces.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 10,
+      "editsPaths": [
+        "electron/validation.cjs",
+        "electron/preview.cjs",
+        "electron/main.cjs",
+        "electron/preload.cjs",
+        "src/04_validation/ValidationView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/electron/perfProbe.cjs",
+      "label": "perfProbe.cjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "filePath": "electron/perfProbe.cjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/electron/perfProbe.test.ts",
+      "label": "perfProbe.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "filePath": "electron/perfProbe.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/bench.mjs",
+      "label": "bench.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "filePath": "tools/agentSkills/vendor/bench.mjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/optimization-loop-1793133462337",
+      "label": "Optimization loop",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "'/optimize <feature> and try it': baseline, then rounds of one hypothesis, one small change, tests as the correctness gate, re-measure, keep only if it beats the baseline by more than the noise, otherwise undo. Each kept change is a reviewable change set. Capped rounds and token budget, stops early when nothing helps, never pushes. Hypotheses come from a pattern catalog (state lifted too high causing re-renders, sync work in handlers, missing memoization, heavy imports on the hot path, N+1 calls) plus the graph signals.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 11,
+      "editsPaths": [
+        "electron/agent/changeSets.cjs",
+        "electron/chat.cjs",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/electron/agent/optimizeLoop.cjs",
+      "label": "optimizeLoop.cjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/optimization-loop-1793133462337",
+      "filePath": "electron/agent/optimizeLoop.cjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/electron/agent/optimizeLoop.test.ts",
+      "label": "optimizeLoop.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/optimization-loop-1793133462337",
+      "filePath": "electron/agent/optimizeLoop.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/optimize-results-card-1793133462552",
+      "label": "Optimize results card",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A report in the chat and on the plan: baseline and final numbers (menu open 180ms to 45ms, re-renders 40 to 3), every attempt with its measurement and whether it was kept or undone, the files touched highlighted on the graph, and the saved performance budget. Makes the agent's work inspectable and repeatable.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 12,
+      "editsPaths": [
+        "src/app/AgentChat/AgentChat.tsx",
+        "src/00_planning/graph/GraphCanvas.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/app/AgentChat/OptimizeReport.tsx",
+      "label": "OptimizeReport.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/optimize-results-card-1793133462552",
+      "filePath": "src/app/AgentChat/OptimizeReport.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/src/app/AgentChat/OptimizeReport.ViewModel.tsx",
+      "label": "OptimizeReport.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/optimize-results-card-1793133462552",
+      "filePath": "src/app/AgentChat/OptimizeReport.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/architecture-health-and-optimize-1793132878819/test-and-pipeline-failures-on-the-graph-1793133462721",
+      "label": "Test and pipeline failures on the graph",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Map failing tests and CI runs (Vitest results, GitHub Actions job logs) onto the graph: a failure lights its test file and import path, and suspects are ranked by blast radius, recent churn, co-change history (files that change together without importing each other) and what changed since the last green run. Also predictive test selection: run only the tests whose import closure touches the change, for faster loops in /optimize and everyday work.",
+      "status": "draft",
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "order": 15,
+      "editsPaths": [
+        "electron/validation.cjs",
+        "tools/git-control.mjs",
+        "src/04_validation/ValidationView.tsx",
+        "src/00_planning/graph/GraphCanvas.tsx"
+      ]
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/failureMap.mjs",
+      "label": "failureMap.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/test-and-pipeline-failures-on-the-graph-1793133462721",
+      "filePath": "tools/agentSkills/vendor/failureMap.mjs",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/failureMap.test.ts",
+      "label": "failureMap.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/architecture-health-and-optimize-1793132878819",
+      "stepId": "plan/architecture-health-and-optimize-1793132878819/test-and-pipeline-failures-on-the-graph-1793133462721",
+      "filePath": "tools/agentSkills/vendor/failureMap.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/one-language-registry-1793219797380",
+      "label": "One language registry",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A language is defined in eight places today (architectures.ts LANGUAGES, planDoc EXT_LANGUAGE, the importAdapters and codeEditorLanguages ext maps, analyze.mjs SOURCE_EXT, runTargets, lsp-proxy, templates), so adding C means touching all of them and they drift. One pure-data registry with no imports (like graphCore.mjs), usable by the renderer, Electron and the vendored CLIs. Per language: id, label, extensions, comment syntax (line, block, hash, html), header/source split (C, C++), the manifests that detect it, file-naming convention (camel, snake, Pascal), editor grammar, language server (command, args, install hint), build/run/test commands, .gitignore entries, and the UI frameworks a canvas component can target in it. Seeds: TypeScript, React, JavaScript, Python, Rust, Go, C, C++, Java, Kotlin, Swift, C#, HTML, CSS; frameworks React, Vue, Svelte, HTML, Leptos, Dioxus, templ, LVGL, SwiftUI. Consumers wired in this step: architectures.ts derives LANGUAGES from it; syncPlanDoc inlines it into the vendored plan.mjs (which stays import-free); analyze.mjs reads its extensions; the scaffolder vendors it as .sleipnir/languages.mjs. Test: every consumer agrees with the registry.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 1,
+      "editsPaths": [
+        "src/00_planning/graph/architectures.ts",
+        "src/00_planning/graph/naming.ts",
+        "tools/planDoc.mjs",
+        "tools/syncPlanDoc.mjs",
+        "tools/agentSkills/vendor/plan.mjs",
+        "tools/agentSkills/vendor/analyze.mjs",
+        "tools/agentSkills/scaffold.mjs"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/tools/agentSkills/vendor/languages.mjs",
+      "label": "languages.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/one-language-registry-1793219797380",
+      "filePath": "tools/agentSkills/vendor/languages.mjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/tools/agentSkills/vendor/languages.d.mts",
+      "label": "languages.d.mts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/one-language-registry-1793219797380",
+      "filePath": "tools/agentSkills/vendor/languages.d.mts",
+      "role": "interface",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/detect-c-c-java-swift-and-c-projects-1793219797448",
+      "label": "Detect C, C++, Java, Swift and C# projects",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "detect-project reads manifests from the registry instead of its own list: CMakeLists.txt, Makefile or meson.build become c or cpp (by the sources present) and are supported rather than reported as unsupported; pom.xml and build.gradle(.kts) become java or kotlin; Package.swift becomes swift; .csproj/.sln become csharp. conventions reports each language source and include folders (src + include for C, src/main/java for Java), so agents running /plan put files where the project expects them. Mixed repos (a Rust core with a React UI) keep a language per folder. AGENTS.md lists every language extension for planned files.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 2,
+      "editsPaths": [
+        "tools/planDoc.mjs",
+        "tools/agentSkills/vendor/plan.mjs",
+        "tools/agentSkills/registry.mjs",
+        "src/00_planning/api/vendoredPlanCli.test.ts"
+      ]
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/scaffold-any-language-in-planning-1793219797519",
+      "label": "Scaffold any language in Planning",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Role templates for C, C++, Java, Kotlin, Swift and C# beside the existing TypeScript, Python, Rust and Go ones, chosen from the registry. C and C++ split by role: the Interface role is the header (.h/.hpp) and every other role is a source file that includes its own header, so a C view includes view_model.h the way a TSX view imports its ViewModel. File names follow each language convention (cart_view.c, CartView.java, cart_view.rs). The Add Node language picker lists every registered language; non-architectural ones (CSS) still scaffold single files. Test: every language x role renders with balanced braces and include guards, and siblings link.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 3,
+      "editsPaths": [
+        "src/00_planning/graph/templates/index.ts",
+        "src/00_planning/graph/scaffoldPlan.ts",
+        "src/00_planning/AddNodeModal.ViewModel.tsx",
+        "src/00_planning/graph/naming.ts"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/00_planning/graph/templates/nativeTemplates.ts",
+      "label": "nativeTemplates.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/scaffold-any-language-in-planning-1793219797519",
+      "filePath": "src/00_planning/graph/templates/nativeTemplates.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611",
+      "label": "Imports and Health for C, C++, Java, Kotlin, Swift, C#",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Real import resolution so the architecture graph and the Health view work for these languages instead of the basename-guessing fallback. C/C++: #include \"x.h\" relative to the file, then include dirs from compile_commands.json or CMake include_directories, with header and source paired as one unit. Java/Kotlin: package + import to a path under src/main/java or kotlin. Swift and C#: module and namespace, same-module types by folder. analyze.mjs gets the same parsers (vendored, pure), and graphCore roles learn them: headers are the interface layer, main.c, Main.java and Program.cs are entries, *_test.c and *Test.java are tests. Lab: add a CMake fixture with an include cycle and a Gradle fixture with a misplaced class to tools/optimizeLab.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 4,
+      "editsPaths": [
+        "src/00_planning/graph/importAdapters/index.ts",
+        "src/00_planning/graph/importAdapters/detectEdges.ts",
+        "tools/agentSkills/vendor/analyze.mjs",
+        "tools/agentSkills/vendor/graphCore.mjs"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/00_planning/graph/importAdapters/cAdapter.ts",
+      "label": "cAdapter.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611",
+      "filePath": "src/00_planning/graph/importAdapters/cAdapter.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/00_planning/graph/importAdapters/jvmAdapter.ts",
+      "label": "jvmAdapter.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611",
+      "filePath": "src/00_planning/graph/importAdapters/jvmAdapter.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-highlighting-for-every-language-1793219797697",
+      "label": "Workspace: highlighting for every language",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "codeEditorLanguages reads the registry. Adds @codemirror/lang-cpp (C, C++), @codemirror/lang-java, and @codemirror/legacy-modes StreamLanguage modes for Swift, Kotlin, C#, TOML, YAML, shell and CMake. Grammars load on demand with a dynamic import so none of them reaches the first load. The duplicate extension maps in codeEditorLanguages and importAdapters collapse into the registry. Unknown extensions still open as plain editable text.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 5,
+      "editsPaths": [
+        "src/app/DesignSystem/codeEditorLanguages.ts",
+        "src/00_planning/graph/importAdapters/index.ts",
+        "package.json"
+      ]
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-a-language-server-per-language-1793219797795",
+      "label": "Workspace: a language server per language",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "lsp-proxy only spawns typescript-language-server. Generalize it to the registry server per language: clangd (C, C++), rust-analyzer, gopls, pyright-langserver or pylsp, jdtls, kotlin-language-server, sourcekit-lsp, csharp-ls. Each is found on PATH (or a configured path), started lazily the first time a file of that language opens, one per project root and language, and stopped when the project closes. The editor client connects per language. A missing server is a quiet status line with the install command from the registry, never an error dialog. The self-host tsserver special case stays.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 6,
+      "editsPaths": [
+        "tools/lsp-proxy.mjs",
+        "src/app/DesignSystem/lspClient.ts",
+        "src/app/DesignSystem/CodeEditorView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/tools/languageServers.mjs",
+      "label": "languageServers.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-a-language-server-per-language-1793219797795",
+      "filePath": "tools/languageServers.mjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-build-run-and-test-any-project-1793219797903",
+      "label": "Workspace: build, run and test any project",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Play finds CMake (configure, build, run the target), Make, Meson, Gradle/Maven, SwiftPM and dotnet projects next to npm, cargo, go and python. Validation, Vitest-only today, runs each language test runner from the registry (cargo test, go test -json, pytest with junit output, ctest, gradle test, swift test, dotnet test) and parses all of them into one result shape: suite, test, status, duration, failure message with file:line. The Validation view, and later the Health view failure overlay, then read any language the same way.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 7,
+      "editsPaths": [
+        "electron/runTargets.cjs",
+        "electron/validation.cjs",
+        "electron/runTargets.test.ts",
+        "src/04_validation/ValidationView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/electron/testRunners.cjs",
+      "label": "testRunners.cjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-build-run-and-test-any-project-1793219797903",
+      "filePath": "electron/testRunners.cjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/git-language-aware-diffs-and-ignores-1793219797975",
+      "label": "Git: language-aware diffs and ignores",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Diffs are plain text today. Highlight hunks with the file grammar from the registry (static Lezer highlighting, no editor instance per hunk). Lockfiles and generated output (Cargo.lock, go.sum, package-lock.json, build folders) collapse by default. initRepo writes a .gitignore built from the detected languages (target/, build/, __pycache__/, .venv/, *.o, out/, bin/ and obj/), and Source Control offers to add a missing ignore when build output shows up as untracked. Note: src/06_source_control is being edited in parallel; start from that work.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 8,
+      "editsPaths": [
+        "src/06_source_control/DiffView.tsx",
+        "tools/git-control.mjs",
+        "src/06_source_control/SourceControlView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/06_source_control/diffHighlight.ts",
+      "label": "diffHighlight.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/git-language-aware-diffs-and-ignores-1793219797975",
+      "filePath": "src/06_source_control/diffHighlight.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "label": "Canvas: pick the language on the element",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "LANGUAGES.md stages 1 and 2. A component TARGET is dead data today: everything emits React. Stage 1: region sentinels take a closed comment-style id (line-slash, block-slash, html, plus hash for Python and TOML shaped targets), defaulting to today // so every file on disk keeps working; region.test.ts must pass unmodified. Stage 2: a CanvasEmitter interface (extension, comment style, indent, fileName, symbol, emitRegionBody, collectImports, emitComponentFile, and the property support table used next), an emitter registry with no fallback (React into a file meant to be HTML is worse than nothing), targets derived from the emitter registry crossed with the language registry, and the inspector TARGET dropdown wired on the element itself, locked once the component has a file. React moves behind the interface with byte-identical output.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 9,
+      "editsPaths": [
+        "src/01_canvas/emit/region.ts",
+        "src/01_canvas/emit/targets.ts",
+        "src/01_canvas/emit/react.ts",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/panels/CreateComponentModal.tsx",
+        "src/01_canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/CanvasEmitter.ts",
+      "label": "CanvasEmitter.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "filePath": "src/01_canvas/emit/CanvasEmitter.ts",
+      "role": "interface",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/registry.ts",
+      "label": "registry.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "filePath": "src/01_canvas/emit/registry.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/naming.ts",
+      "label": "naming.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "filePath": "src/01_canvas/emit/naming.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/the-frame-spec-canvas-properties-as-the-cross-language-contract-1793219798133",
+      "label": "The Frame spec: canvas properties as the cross-language contract",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Decision: the base Frame is a spec, not a runtime. CanvasStyle already is the one box model (layout, sizing, paint, effects, rotation, along-path). frameSpec lists every property once with its meaning, units and default, and each emitter declares per property: exact, approximate (with the reason) or unsupported. The inspector reads it for the selected element target, so an unsupported property is greyed with its reason (per-corner radius: approximate in SwiftUI) and the design never promises what the code cannot do. Every lowering stays a pure function of the same IR, so adding a language never touches the others. Record the decisions (spec over runtime, the CSS policy, the motion and 3D direction) in LANGUAGES.md.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 10,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/panels/CanvasInspector.tsx",
+        "src/01_canvas/panels/LayoutSection.tsx",
+        "src/01_canvas/panels/PaintSections.tsx",
+        "src/01_canvas/LANGUAGES.md"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/frameSpec.ts",
+      "label": "frameSpec.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/the-frame-spec-canvas-properties-as-the-cross-language-contract-1793219798133",
+      "filePath": "src/01_canvas/model/frameSpec.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210",
+      "label": "React Frame mode: canvas properties as code props (opt-in)",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "For code that reads like the inspector: emit <Frame flow=\"vertical\" gap={8} fill={...}> instead of divs with style objects. The Frame is copied into the project (src/components/Frame/, owned by the user like shadcn components, no Sleipnir dependency) from UIKit Frame on first use and kept current by a version stamp. toFrameProps (CanvasStyle to FrameProps; removed as unused, restore from 9f835de^) is the mapping, and reading code back onto the canvas becomes reading props. Off by default: plain divs stay the zero-dependency default, and other languages always use static lowering, because the Frame runs toCss at runtime and porting that derivation into every language would recreate the drift the spec avoids.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 11,
+      "editsPaths": [
+        "src/01_canvas/emit/react.ts",
+        "src/01_canvas/panels/CreateComponentModal.tsx",
+        "src/app/UIKit/Frame/Frame.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/reactFrame.ts",
+      "label": "reactFrame.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210",
+      "filePath": "src/01_canvas/emit/reactFrame.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/toFrameProps.ts",
+      "label": "toFrameProps.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210",
+      "filePath": "src/01_canvas/model/toFrameProps.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/stylesheets-multi-file-components-and-the-css-policy-1793219798289",
+      "label": "Stylesheets: multi-file components and the CSS policy",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Policy: inline until inline cannot. React keeps inline style objects (exact, one file) unless a component needs what inline cannot express (hover, press and focus states, breakpoints, keyframe animation); then it gets a co-located Card.module.css with one class per node. Markup-first targets (HTML, Vue, Svelte, templ, Leptos) always use a stylesheet. Theme tokens become CSS variables, so components follow the app theme. Needs LANGUAGES.md phase 2: CanvasComponent.outputs[] (target, files, sync, per-file hashes), schema v2 with an idempotent migration, and cssDeclarations() in toCss (kebab-case, px on unitless numbers except opacity, flex, fontWeight, lineHeight, zIndex). One derivation still feeds the board and the code.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 12,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/model/store.ts",
+        "src/01_canvas/model/toCss.ts",
+        "src/01_canvas/model/componentTree.ts",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/emit/react.ts"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/stylesheet.ts",
+      "label": "stylesheet.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/stylesheets-multi-file-components-and-the-css-policy-1793219798289",
+      "filePath": "src/01_canvas/emit/stylesheet.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "label": "Web targets: HTML, Vue, Svelte",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "LANGUAGES.md stages 3 and 4, plus Svelte. HTML: one document, region inside <body>, variants as hidden siblings, nested instances inlined with a cycle guard. Vue SFC: html-style sentinel inside <template> (never //), v-if variants, real component imports that keep their extension. Svelte: {#if} variants and a scoped <style>. All three use the step 12 stylesheet, so the board preview stays exact. Acceptance: one board with React, HTML and Vue components side by side, each pushed with its own sentinel style and tracked dirty independently.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 13,
+      "editsPaths": [
+        "src/01_canvas/emit/targets.ts",
+        "src/00_planning/graph/architectures.ts",
+        "src/app/DesignSystem/codeEditorLanguages.ts"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/html.ts",
+      "label": "html.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "filePath": "src/01_canvas/emit/html.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/vue.ts",
+      "label": "vue.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "filePath": "src/01_canvas/emit/vue.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/svelte.ts",
+      "label": "svelte.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "filePath": "src/01_canvas/emit/svelte.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439",
+      "label": "Rust and Go components: Leptos and templ",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Rust and Go reach the canvas through web UI frameworks that keep the CSS box model, so the preview stays exact. Rust: a Leptos component (a #[component] fn returning view! markup, classes from the component stylesheet, props as a struct), with Dioxus rsx! as a second Rust emitter on the same lowering. Go: a templ component with a props struct. Variants become a Rust enum with match and a Go switch. File naming and comment sentinels come from the registry (snake_case .rs, // regions); a Rust component lands in the crate components module and is registered in mod.rs.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 14,
+      "editsPaths": [
+        "src/01_canvas/emit/targets.ts",
+        "src/00_planning/graph/templates/index.ts"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/leptos.ts",
+      "label": "leptos.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439",
+      "filePath": "src/01_canvas/emit/leptos.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/templ.ts",
+      "label": "templ.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439",
+      "filePath": "src/01_canvas/emit/templ.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "label": "Native targets: C (LVGL) and SwiftUI",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Toolkits without CSS need a second lowering. toNative maps the IR to a layout tree (flex flow, gap, padding, alignment, fixed, hug and fill sizes, absolute children) and records every divergence. LVGL, the C UI toolkit with real flex layout for embedded and desktop, emits card.h (a props struct and a create function) and card.c (lv_obj calls, one lv_style_t per node, flex flow and align, radius, border, shadow). SwiftUI emits stacks and modifiers per LANGUAGES.md stage 5 (.offset, never .position). The board cannot render these natively, so a native-target component wears an approximate-preview badge and the inspector shows its frameSpec divergences. C without a UI toolkit still gets no frame, but can get its props struct.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 15,
+      "editsPaths": [
+        "src/01_canvas/board/CanvasNodeView.tsx",
+        "src/01_canvas/emit/targets.ts"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/toNative.ts",
+      "label": "toNative.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "filePath": "src/01_canvas/model/toNative.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/lvgl.ts",
+      "label": "lvgl.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "filePath": "src/01_canvas/emit/lvgl.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/swiftui.ts",
+      "label": "swiftui.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "filePath": "src/01_canvas/emit/swiftui.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/ai-commands-in-any-language-1793219798628",
+      "label": "AI commands in any language",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "For \"/component a pricing card in Vue\" or \"/plan a sensor driver in C\": canvas.mjs build and the canvas_build tool take a target, validated against the available emitters and answered with the unavailable reason instead of quietly falling back to React. The /plan and /optimize skills tell agents to read detect-project languages and plan each folder in its own language. The chat slash hints show the language argument.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 16,
+      "editsPaths": [
+        "tools/agentSkills/vendor/canvas.mjs",
+        "electron/agent/tools/canvas.cjs",
+        "tools/agentSkills/registry.mjs",
+        "electron/agent/systemPrompt.cjs",
+        "src/app/AgentChat/AgentChat.tsx"
+      ]
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "label": "Motion: states, transitions and keyframes",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The IR gets a time axis. Interaction states (hover, press, focus) are style overrides like variants; transitions say how each property moves between them (duration, easing, delay); keyframe timelines animate opacity, rotate, position, scale and fills, plus motion along a path that reuses pathFlow. The board previews with the Web Animations API on the same toCss values, and a timeline panel scrubs and plays. Lowering: web targets get CSS transitions and @keyframes in the component stylesheet (why stylesheets come first), React Frame mode a motion prop, SwiftUI .animation and withAnimation, LVGL lv_anim_t; each declared in frameSpec, unsupported shown with its reason. Emitted CSS honors prefers-reduced-motion.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 17,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/board/CanvasNodeView.tsx",
+        "src/01_canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/motion.ts",
+      "label": "motion.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "filePath": "src/01_canvas/model/motion.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/TimelinePanel.tsx",
+      "label": "TimelinePanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "filePath": "src/01_canvas/panels/TimelinePanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/TimelinePanel.ViewModel.tsx",
+      "label": "TimelinePanel.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "filePath": "src/01_canvas/panels/TimelinePanel.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/motionCss.ts",
+      "label": "motionCss.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "filePath": "src/01_canvas/emit/motionCss.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "label": "3D: scene nodes",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A new layer kind: a frame that holds a 3D scene with primitives (box, sphere, plane, torus), glTF models from .components/assets, a camera, lights, and materials taken from canvas fills. It is positioned and laid out like any frame, so a 3D hero sits inside a 2D page. The board renders it with three.js through @react-three/fiber, loaded on demand with a dynamic import so three.js never reaches the first load. Motion keyframes drive object transforms and the camera. Emit: React gets an R3F component, web markup targets a small vanilla three.js module, native targets unsupported with the reason (SceneKit or RealityKit later for Swift).",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 18,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/board/CanvasBoard.tsx",
+        "src/01_canvas/board/CanvasToolbar.tsx",
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/scene.ts",
+      "label": "scene.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "filePath": "src/01_canvas/model/scene.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/board/SceneNodeView.tsx",
+      "label": "SceneNodeView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "filePath": "src/01_canvas/board/SceneNodeView.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/ScenePanel.tsx",
+      "label": "ScenePanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "filePath": "src/01_canvas/panels/ScenePanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/scene3d.ts",
+      "label": "scene3d.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "filePath": "src/01_canvas/emit/scene3d.ts",
+      "role": "node",
+      "language": "typescript"
     }
   ],
   "edges": [
@@ -567,6 +2154,546 @@
       "source": "plan/canvas-rotation-path-patterns-1793102450237/optimize-along-path-layout-for-big-patterns-1793102467555",
       "target": "plan/canvas-rotation-path-patterns-1793102450237/path-flow-editing-on-the-board-1793102467817",
       "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/graph-metrics-core-1793132850850",
+      "target": "planned/architecture-health-optimize-1793132850767/tools/agentSkills/vendor/analyze.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/graph-metrics-core-1793132850850",
+      "target": "planned/architecture-health-optimize-1793132850767/tools/agentSkills/vendor/analyze.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/graph-metrics-core-1793132850850",
+      "target": "plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/graphMetrics.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/graphMetrics.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946",
+      "target": "plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/healthLens.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/healthLens.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059",
+      "target": "plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/labelCulling.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/labelCulling.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209",
+      "target": "plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/HealthPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/HealthPanel.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352",
+      "target": "plan/architecture-health-optimize-1793132850767/analyze-architecture-agent-tool-1793132851608",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/analyze-architecture-agent-tool-1793132851608",
+      "target": "planned/architecture-health-optimize-1793132850767/electron/agent/tools/architecture.cjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/analyze-architecture-agent-tool-1793132851608",
+      "target": "plan/architecture-health-optimize-1793132850767/c-program-files-git-optimize-command-1793132851778",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/c-program-files-git-optimize-command-1793132851778",
+      "target": "plan/architecture-health-optimize-1793132850767/measure-every-approved-step-1793132851912",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/measure-every-approved-step-1793132851912",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/metricsDelta.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-optimize-1793132850767/measure-every-approved-step-1793132851912",
+      "target": "planned/architecture-health-optimize-1793132850767/src/00_planning/graph/metricsDelta.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/graph-metrics-core-1793132878892",
+      "target": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/analyze.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/graph-metrics-core-1793132878892",
+      "target": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/analyze.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/graph-metrics-core-1793132878892",
+      "target": "plan/architecture-health-and-optimize-1793132878819/metrics-on-the-planning-graph-1793132878985",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/metrics-on-the-planning-graph-1793132878985",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/graphMetrics.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/metrics-on-the-planning-graph-1793132878985",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/graphMetrics.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/metrics-on-the-planning-graph-1793132878985",
+      "target": "plan/architecture-health-and-optimize-1793132878819/health-lens-on-the-graph-1793132879115",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/health-lens-on-the-graph-1793132879115",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/healthLens.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/health-lens-on-the-graph-1793132879115",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/healthLens.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/health-lens-on-the-graph-1793132879115",
+      "target": "plan/architecture-health-and-optimize-1793132878819/readable-large-graphs-1793132879289",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/readable-large-graphs-1793132879289",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/labelCulling.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/readable-large-graphs-1793132879289",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/labelCulling.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/readable-large-graphs-1793132879289",
+      "target": "plan/architecture-health-and-optimize-1793132878819/health-panel-and-blast-radius-1793132879480",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/health-panel-and-blast-radius-1793132879480",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/HealthPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/health-panel-and-blast-radius-1793132879480",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/HealthPanel.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/health-panel-and-blast-radius-1793132879480",
+      "target": "plan/architecture-health-and-optimize-1793132878819/git-churn-hotspots-1793132879644",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/git-churn-hotspots-1793132879644",
+      "target": "plan/architecture-health-and-optimize-1793132878819/analyze-architecture-agent-tool-1793132879826",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/analyze-architecture-agent-tool-1793132879826",
+      "target": "planned/architecture-health-and-optimize-1793132878819/electron/agent/tools/architecture.cjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/analyze-architecture-agent-tool-1793132879826",
+      "target": "plan/architecture-health-and-optimize-1793132878819/the-optimize-command-1793132879982",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/optimize-results-card-1793133462552",
+      "target": "plan/architecture-health-and-optimize-1793132878819/measure-every-approved-step-1793132880232",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/measure-every-approved-step-1793132880232",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/metricsDelta.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/measure-every-approved-step-1793132880232",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/metricsDelta.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/measure-every-approved-step-1793132880232",
+      "target": "plan/architecture-health-and-optimize-1793132878819/flow-beyond-imports-1793132880438",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/flow-beyond-imports-1793132880438",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/importAdapters/flowRefs.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/flow-beyond-imports-1793132880438",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/00_planning/graph/importAdapters/flowRefs.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/the-optimize-command-1793132879982",
+      "target": "plan/architecture-health-and-optimize-1793132878819/feature-finder-1793133462101",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/feature-finder-1793133462101",
+      "target": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/featureScope.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/feature-finder-1793133462101",
+      "target": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/featureScope.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/feature-finder-1793133462101",
+      "target": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "target": "planned/architecture-health-and-optimize-1793132878819/electron/perfProbe.cjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "target": "planned/architecture-health-and-optimize-1793132878819/electron/perfProbe.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "target": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/bench.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/measurement-harness-1793133462209",
+      "target": "plan/architecture-health-and-optimize-1793132878819/optimization-loop-1793133462337",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/optimization-loop-1793133462337",
+      "target": "planned/architecture-health-and-optimize-1793132878819/electron/agent/optimizeLoop.cjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/optimization-loop-1793133462337",
+      "target": "planned/architecture-health-and-optimize-1793132878819/electron/agent/optimizeLoop.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/optimization-loop-1793133462337",
+      "target": "plan/architecture-health-and-optimize-1793132878819/optimize-results-card-1793133462552",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/optimize-results-card-1793133462552",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/app/AgentChat/OptimizeReport.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/optimize-results-card-1793133462552",
+      "target": "planned/architecture-health-and-optimize-1793132878819/src/app/AgentChat/OptimizeReport.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/flow-beyond-imports-1793132880438",
+      "target": "plan/architecture-health-and-optimize-1793132878819/test-and-pipeline-failures-on-the-graph-1793133462721",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/test-and-pipeline-failures-on-the-graph-1793133462721",
+      "target": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/failureMap.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/architecture-health-and-optimize-1793132878819/test-and-pipeline-failures-on-the-graph-1793133462721",
+      "target": "planned/architecture-health-and-optimize-1793132878819/tools/agentSkills/vendor/failureMap.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/one-language-registry-1793219797380",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/tools/agentSkills/vendor/languages.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/one-language-registry-1793219797380",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/tools/agentSkills/vendor/languages.d.mts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/one-language-registry-1793219797380",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/detect-c-c-java-swift-and-c-projects-1793219797448",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/detect-c-c-java-swift-and-c-projects-1793219797448",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/scaffold-any-language-in-planning-1793219797519",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/scaffold-any-language-in-planning-1793219797519",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/00_planning/graph/templates/nativeTemplates.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/scaffold-any-language-in-planning-1793219797519",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/00_planning/graph/importAdapters/cAdapter.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/00_planning/graph/importAdapters/jvmAdapter.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-highlighting-for-every-language-1793219797697",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-highlighting-for-every-language-1793219797697",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-a-language-server-per-language-1793219797795",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-a-language-server-per-language-1793219797795",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/tools/languageServers.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-a-language-server-per-language-1793219797795",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-build-run-and-test-any-project-1793219797903",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-build-run-and-test-any-project-1793219797903",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/electron/testRunners.cjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-build-run-and-test-any-project-1793219797903",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/git-language-aware-diffs-and-ignores-1793219797975",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/git-language-aware-diffs-and-ignores-1793219797975",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/06_source_control/diffHighlight.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/git-language-aware-diffs-and-ignores-1793219797975",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/CanvasEmitter.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/registry.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/naming.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/the-frame-spec-canvas-properties-as-the-cross-language-contract-1793219798133",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/the-frame-spec-canvas-properties-as-the-cross-language-contract-1793219798133",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/frameSpec.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/the-frame-spec-canvas-properties-as-the-cross-language-contract-1793219798133",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/reactFrame.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/toFrameProps.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/stylesheets-multi-file-components-and-the-css-policy-1793219798289",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/stylesheets-multi-file-components-and-the-css-policy-1793219798289",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/stylesheet.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/stylesheets-multi-file-components-and-the-css-policy-1793219798289",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/html.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/vue.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/svelte.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/leptos.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/templ.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/toNative.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/lvgl.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/swiftui.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/ai-commands-in-any-language-1793219798628",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/ai-commands-in-any-language-1793219798628",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/motion.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/TimelinePanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/TimelinePanel.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/motionCss.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/scene.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/board/SceneNodeView.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/ScenePanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/scene3d.ts",
+      "kind": "plan-step"
     }
   ]
 }

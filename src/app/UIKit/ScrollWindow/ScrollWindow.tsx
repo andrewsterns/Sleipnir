@@ -1,6 +1,6 @@
 import React from 'react';
 import { Frame } from '../Frame/Frame';
-import { ScrollWindowProps } from './iScrollWindow';
+import type { ScrollWindowProps } from './iScrollWindow';
 import { useScrollWindowViewModel } from './ScrollWindowViewModel';
 
 export const ScrollWindow = React.forwardRef<HTMLElement, ScrollWindowProps>(({

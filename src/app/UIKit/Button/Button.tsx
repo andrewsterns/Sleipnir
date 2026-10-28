@@ -1,5 +1,5 @@
 import React from 'react'
-import { Frame, FrameProps } from '../Frame/Frame'
+import { Frame, type FrameProps } from '../Frame/Frame'
 import { Text } from '../Text/Text'
 import { cn } from '../../../utils/cn'
 

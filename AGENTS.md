@@ -1,4 +1,4 @@
-<!-- BEGIN SLEIPNIR v3 — generated, edits inside are overwritten -->
+<!-- BEGIN SLEIPNIR v4 — generated, edits inside are overwritten -->
 ## Planning with Sleipnir
 
 This project's plans live in `.planning/` and render as a live graph in Sleipnir.
@@ -174,4 +174,21 @@ Design like a product designer: size the root like the real thing (1440 wide for
 desktop page, 390 for mobile), prefer stacks with gap and padding over free x/y (they
 become real flex layouts in the code), use the theme tokens unless asked for specific
 colors, and write real copy.
+
+## Sleipnir: optimize
+
+`/optimize` improves the project's structure, or one feature's speed, from
+measurements rather than guesses. The bundled analyzer maps every import (TypeScript,
+JavaScript, Python, Go, Rust) with nothing but Node:
+
+    node .sleipnir/analyze.mjs report  --root . [--feature "<words>"] [--scope <dir>] [--goal "<text>"]
+    node .sleipnir/analyze.mjs file    --root . <path>       # importers, imports, blast radius
+    node .sleipnir/analyze.mjs feature --root . "<words>"    # the files that make up a feature
+
+The report stays a few thousand tokens on any project — read it instead of the source
+tree, then open only the files its findings name. It lists import loops, imports that
+point up the layers (a util importing a component), pages imported as libraries, heavy
+packages on the first load, hubs, files doing too much, barrels, misplaced and unused
+files, and hotspots (changed often, and big or widely imported). Sleipnir's Planning graph draws the
+same numbers in its HEALTH view.
 <!-- END SLEIPNIR -->

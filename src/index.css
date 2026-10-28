@@ -42,3 +42,8 @@ body {
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* Status bar dock tabs (app/StatusBar): brighten on hover; an open tab keeps its fill. */
+.status-tab:hover {
+  color: var(--text-1) !important;
+}

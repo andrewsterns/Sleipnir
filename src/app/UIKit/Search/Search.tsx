@@ -3,7 +3,7 @@ import { Frame } from '../Frame/Frame';
 import { Icon } from '../Icon/Icon';
 import { Dropdown } from '../Dropdown/Dropdown';
 import { cn } from '../../../utils/cn';
-import { SearchProps } from './iSearch';
+import type { SearchProps } from './iSearch';
 import { useSearchViewModel } from './SearchViewModel';
 
 export const Search = React.forwardRef<HTMLElement, SearchProps>((

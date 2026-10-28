@@ -267,6 +267,16 @@ function sleipnirApiPlugin() {
           return
         }
 
+        if (url.pathname === '/api/sleipnir/analyze-workspace' && req.method === 'GET') {
+          try {
+            const result = await backend.analyzeWorkspace({ scope: url.searchParams.get('scope') ?? '', feature: url.searchParams.get('feature') ?? '' })
+            sendJson(res, 200, { success: true, ...result })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
         if (url.pathname === '/api/sleipnir/detect-preview-config' && req.method === 'GET') {
           try {
             const relPath = url.searchParams.get('path') ?? ''

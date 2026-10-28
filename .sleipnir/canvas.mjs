@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Sleipnir Canvas CLI — standalone, vendored copy.
 //
 // COPIED into each project as `.sleipnir/canvas.mjs` by Sleipnir's scaffolder
@@ -153,12 +152,17 @@ export function specToNode(spec, parentFlow = 'freeform') {
     font.color = String(spec.color ?? 'text-1')
     if (spec.align) font.align = spec.align
     if (spec.lineHeight !== undefined) font.lineHeight = num(spec.lineHeight, 1.4)
+    // Unsized text hugs its words: the estimate below only seeds the board
+    // until the board measures it, so a wider font never clips the copy.
+    const style = styleOf(spec, { isText: true })
+    if (w === undefined) style.w = 'hug'
+    if (h === undefined) style.h = 'hug'
     return {
       id: nextId('text'),
       name: name ?? String(spec.text ?? 'Text').slice(0, 32),
       kind: 'text',
       rect: { ...at, w: typeof w === 'number' ? w : box.w, h: typeof h === 'number' ? h : box.h },
-      style: styleOf(spec, { isText: true }),
+      style,
       text: String(spec.text ?? ''),
       font,
     }

@@ -6,6 +6,8 @@
  * no CSS files, no design system. Placeholder boxes mark where real
  * screenshots go later. A few small inline SVGs stand in for icons where a
  * picture communicates the idea faster than a paragraph.
+ *
+ * sleipnir-keep: nothing here imports it on purpose — it's copied out whole.
  */
 
 function ImagePlaceholder({ label, height = 320 }: { label: string; height?: number }) {

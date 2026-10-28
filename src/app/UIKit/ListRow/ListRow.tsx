@@ -23,7 +23,7 @@ export interface ListRowProps {
   leading?: ReactNode
   /**
    * The row's type mark, sitting between `leading` and the label — a workspace
-   * folder/file icon, a plan glyph, a NodeGlyph for a node row, etc. Split out
+   * folder/file icon, a plan glyph, a node glyph for a node row, etc. Split out
    * from `leading` (which stays for chevrons/checkboxes) so every list reads
    * with the same [control][type-icon][label] rhythm. Dims with the label.
    */

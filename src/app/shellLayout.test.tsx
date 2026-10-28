@@ -7,7 +7,8 @@ import { useState } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { TerminalDock } from './TerminalDock/TerminalDock'
 import { ProblemsDock } from './ProblemsDock/ProblemsDock'
-import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from './shellLayout'
+import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from './shellLayout'
+import { StatusBar, type DockId } from './StatusBar/StatusBar'
 import { isTerminalToggle, TERMINAL_TOGGLE_DEFAULT_KEY, TERMINAL_TOGGLE_ID } from './shortcuts'
 import { DEFAULT_KEYBINDINGS } from '../00_keybindings'
 
@@ -31,60 +32,61 @@ describe('shell stacking order', () => {
 })
 
 describe('dock panel geometry', () => {
-  it('raises the toggle by exactly the height the panel occupies', () => {
-    // Otherwise the toggle either overlaps the open panel or floats in a gap
-    // above it.
-    expect(DOCK_TOGGLE_RAISED).toBe(DOCK_PANEL_HEIGHT + DOCK_TOGGLE_MARGIN)
-  })
+  /** The fixed, full-width panel an open dock renders. */
+  const panel = () => document.querySelector('[style*="position: fixed"]') as HTMLElement
 
-  /**
-   * The docks are controlled, and only build their panel once they have been
-   * opened at least once — so drive them the way App.tsx does rather than
-   * pinning `open` to a constant.
-   */
-  function Controlled({ render: renderDock }: { render: (p: DockProps) => React.ReactNode }) {
-    const [open, setOpen] = useState(false)
-    return <>{renderDock({ open, onOpenChange: setOpen })}</>
-  }
-  type DockProps = { open: boolean; onOpenChange: (open: boolean) => void }
-
-  /** Opens a dock the way a user does, and hands back its panel. */
-  function openPanel(title: string): HTMLElement {
-    fireEvent.click(screen.getByTitle(title))
-    // The panel is the fixed, full-width element the toggle reveals.
-    const panel = document.querySelector('[style*="position: fixed"][style*="bottom: 0"]')
-    expect(panel).not.toBeNull()
-    return panel as HTMLElement
-  }
-
-  it('sizes and tiers the terminal panel from the shared constants', () => {
-    render(<Controlled render={(p) => <TerminalDock {...p} />} />)
-    const panel = openPanel('Terminal')
-    expect(panel.style.height).toBe(`${DOCK_PANEL_HEIGHT}px`)
-    expect(panel.style.zIndex).toBe(String(LAYER.dock))
+  it('sizes the terminal panel from the shared constants and sits it on the status bar', () => {
+    render(<TerminalDock open onOpenChange={() => {}} />)
+    expect(panel().style.height).toBe(`${DOCK_PANEL_HEIGHT}px`)
+    expect(panel().style.bottom).toBe(`${STATUS_BAR_HEIGHT}px`)
+    expect(panel().style.zIndex).toBe(String(LAYER.dock))
   })
 
   it('tiers a sibling dock identically, so none of them outranks a dialog', () => {
+    render(<ProblemsDock open onOpenChange={() => {}} browserRefs={{ current: new Map() }} />)
+    expect(panel().style.height).toBe(`${DOCK_PANEL_HEIGHT}px`)
+    expect(panel().style.bottom).toBe(`${STATUS_BAR_HEIGHT}px`)
+    expect(panel().style.zIndex).toBe(String(LAYER.dock))
+  })
+
+  it('builds no panel until the dock is first opened', () => {
+    render(<TerminalDock open={false} onOpenChange={() => {}} />)
+    expect(panel()).toBeNull()
+  })
+})
+
+describe('status bar', () => {
+  const summary = { total: 0, text: null, color: null, rest: 0 }
+
+  function Shell() {
+    const [active, setActive] = useState<DockId | null>(null)
+    return <StatusBar activeDock={active} onToggleDock={(id) => setActive((cur) => (cur === id ? null : id))} problems={summary} />
+  }
+
+  it('toggles a dock from its tab and marks the open one', () => {
+    render(<Shell />)
+    const terminal = screen.getByRole('button', { name: /Terminal/ })
+    expect(terminal.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(terminal)
+    expect(terminal.getAttribute('aria-pressed')).toBe('true')
+    // Opening another switches the active tab — one panel at a time.
+    fireEvent.click(screen.getByRole('button', { name: /AI/ }))
+    expect(terminal.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: /AI/ }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: /AI/ }))
+    expect(screen.getByRole('button', { name: /AI/ }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('shows the problem count and the first problem', () => {
     render(
-      <Controlled
-        render={(p) => <ProblemsDock {...p} browserRefs={{ current: new Map() }} />}
+      <StatusBar
+        activeDock={null}
+        onToggleDock={() => {}}
+        problems={{ total: 3, text: 'src/a.ts: 2 problems', color: '#e0a040', rest: 1 }}
       />,
     )
-    const panel = openPanel('Problems')
-    expect(panel.style.height).toBe(`${DOCK_PANEL_HEIGHT}px`)
-    expect(panel.style.zIndex).toBe(String(LAYER.dock))
-  })
-
-  it('keeps the toggle below dialogs too, so it cannot float over one', () => {
-    render(<TerminalDock open={false} onOpenChange={() => {}} />)
-    const toggle = screen.getByTitle('Terminal')
-    expect(Number(toggle.style.zIndex)).toBeLessThan(LAYER.dialog)
-    expect(toggle.style.bottom).toBe(`${DOCK_TOGGLE_MARGIN}px`)
-  })
-
-  it('lifts the toggle clear of an open panel', () => {
-    render(<TerminalDock open onOpenChange={() => {}} shiftUp />)
-    expect(screen.getByTitle('Terminal').style.bottom).toBe(`${DOCK_TOGGLE_RAISED}px`)
+    expect(screen.getByText('src/a.ts: 2 problems')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Problems/ })).toHaveTextContent('3')
   })
 })
 

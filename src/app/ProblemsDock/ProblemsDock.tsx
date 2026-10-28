@@ -1,21 +1,28 @@
 import React, { useEffect, useState, type MutableRefObject } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
-import { Icon } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import type { FolderBrowserHandle } from '../DesignSystem/iFolderBrowserView'
-import { DOCK_PANEL_HEIGHT, DOCK_TOGGLE_MARGIN, DOCK_TOGGLE_RAISED, LAYER } from '../shellLayout'
+import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
 import type { MissingPlanningRef } from '../../00_planning/api/PlatformAPI'
 import { MissingPlanningFiles, type MissingPlanningActions } from '../../00_planning/MissingPlanningFiles'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 const POLL_MS = 2000
-const TOGGLE_RIGHT = 116
-const TOGGLE_SIZE = 40
 
 interface ProblemRow {
   categoryId: string
   path: string
   count: number
+}
+
+/** What the status bar shows on its Problems toggle. */
+export interface ProblemsSummary {
+  total: number
+  /** The first problem, read out — null when there are none. */
+  text: string | null
+  color: string | null
+  /** How many more beyond the first. */
+  rest: number
 }
 
 interface ProblemsDockProps {
@@ -28,20 +35,19 @@ interface ProblemsDockProps {
   categoryLabel?: (id: string) => string
   /** Switches to `categoryId` and focuses `path` within it. */
   onJump?: (categoryId: string, path: string) => void
-  /** True whenever any dock (this one or a sibling) is open — App.tsx reclaims DOCK_PANEL_HEIGHT from the layout above when that happens, so every dock's own toggle button shifts up in lockstep to stay clear of whichever panel is now occupying that space, rather than floating on top of it. */
-  shiftUp?: boolean
+  /** Reports the count and first problem whenever they change — the status bar shows them on its Problems toggle. */
+  onSummaryChange?: (summary: ProblemsSummary) => void
   /** `.planning/` paths that no longer exist (App.tsx's usePlanningHealth), listed above the editor diagnostics. */
   missingPlanning?: MissingPlanningRef[]
   planningActions?: MissingPlanningActions
 }
 
-// Sits beside TerminalDock/AgentDock's toggles (68px button spacing each —
-// 20, 68, 116). Diagnostics themselves are already pushed reactively by the
+// Toggled from the status bar. Diagnostics themselves are already pushed reactively by the
 // LSP client into each open CodeEditorView (see CodeEditorView.ViewModel's
 // updateListener), but there's no push channel from there up to this
 // App-shell-level dock — so this polls each open FolderBrowserView's own
-// getProblems(). It polls even while closed, so the one-line summary beside
-// the toggle can show the first problem without opening the panel; cheap,
+// getProblems(). It polls even while closed, so the status bar can show the
+// count and first problem without opening the panel; cheap,
 // since it only reads already-computed state off each handle.
 export const ProblemsDock: React.FC<ProblemsDockProps> = ({
   open,
@@ -49,11 +55,12 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({
   browserRefs,
   categoryLabel = (id) => id,
   onJump,
-  shiftUp,
+  onSummaryChange,
   missingPlanning = [],
   planningActions,
 }) => {
   const [everOpened, setEverOpened] = useState(false)
+  if (open && !everOpened) setEverOpened(true)
   const [rows, setRows] = useState<ProblemRow[]>([])
 
   useEffect(() => {
@@ -74,15 +81,10 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({
     return () => clearInterval(timer)
   }, [browserRefs])
 
-  const setOpen = (next: boolean) => {
-    onOpenChange(next)
-    if (next) setEverOpened(true)
-  }
-
   const codeTotal = rows.reduce((sum, r) => sum + r.count, 0)
   const total = codeTotal + missingPlanning.length
 
-  // The first problem, read out beside the toggle — a missing planned file
+  // The first problem, read out on the status bar — a missing planned file
   // first (it's a broken reference, not just a lint), then the first file with
   // diagnostics — with everything else collapsed into "(+n more…)".
   const summary = (() => {
@@ -97,67 +99,15 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({
     return null
   })()
 
-  const bottom = shiftUp ? DOCK_TOGGLE_RAISED : DOCK_TOGGLE_MARGIN
+  const summaryText = summary?.text ?? null
+  const summaryColor = summary?.color ?? null
+  const summaryRest = summary?.rest ?? 0
+  useEffect(() => {
+    onSummaryChange?.({ total, text: summaryText, color: summaryColor, rest: summaryRest })
+  }, [onSummaryChange, total, summaryText, summaryColor, summaryRest])
 
   return (
     <>
-      <button
-        onClick={() => setOpen(!open)}
-        title="Problems"
-        style={{
-          position: 'fixed',
-          right: TOGGLE_RIGHT,
-          bottom,
-          zIndex: LAYER.dock,
-          width: TOGGLE_SIZE,
-          height: TOGGLE_SIZE,
-          borderRadius: '50%',
-          background: open ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'rgba(var(--item-ink, 255,255,255), 0.08)',
-          border: '1px solid var(--border-2)',
-          color: missingPlanning.length > 0 ? '#e07a7a' : total > 0 ? '#e0a040' : 'var(--text-1)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'bottom 0.15s ease',
-        }}
-      >
-        <Icon name="alert-triangle" size={15} />
-      </button>
-
-      {summary && !open && (
-        <button
-          onClick={() => setOpen(true)}
-          title={summary.text}
-          style={{
-            position: 'fixed',
-            right: TOGGLE_RIGHT + TOGGLE_SIZE + 8,
-            bottom: bottom + 6,
-            height: TOGGLE_SIZE - 12,
-            maxWidth: 'min(520px, calc(100vw - 320px))',
-            zIndex: LAYER.dock,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '0 12px',
-            borderRadius: 14,
-            background: 'var(--bg-1)',
-            border: '1px solid var(--border-2)',
-            color: 'var(--text-1)',
-            fontSize: 11,
-            cursor: 'pointer',
-            transition: 'bottom 0.15s ease',
-            ...MONO,
-          }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: summary.color, flexShrink: 0 }} />
-          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary.text}</span>
-          {summary.rest > 0 && (
-            <span style={{ color: 'var(--text-3)', flexShrink: 0, whiteSpace: 'nowrap' }}>(+{summary.rest} more…)</span>
-          )}
-        </button>
-      )}
-
       {everOpened && (
         <Frame
           flow="vertical"
@@ -166,7 +116,7 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({
             position: 'fixed',
             right: 0,
             left: 0,
-            bottom: 0,
+            bottom: STATUS_BAR_HEIGHT,
             height: DOCK_PANEL_HEIGHT,
             zIndex: LAYER.dock,
             display: open ? 'flex' : 'none',

@@ -1,0 +1,49 @@
+{
+  "cycles": [
+    [
+      "src/api/cartApi.ts",
+      "src/store/cartStore.ts"
+    ],
+    [
+      "src/components/RecentlyViewed.tsx",
+      "src/pages/ProductPage.tsx"
+    ],
+    [
+      "src/components/PriceTag.tsx",
+      "src/utils/format.ts"
+    ]
+  ],
+  "reusedPages": [
+    "src/pages/ProductPage.tsx"
+  ],
+  "violations": [
+    [
+      "src/utils/format.ts",
+      "src/components/PriceTag.tsx"
+    ]
+  ],
+  "heavy": [
+    [
+      "src/pages/ProductPage.tsx",
+      "three"
+    ]
+  ],
+  "barrels": [
+    "src/components/index.ts"
+  ],
+  "dead": [
+    "src/components/OldBanner.tsx",
+    "src/utils/legacyMath.ts"
+  ],
+  "notDead": [
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/components/RecentlyViewed.tsx"
+  ],
+  "fanOut": {
+    "src/pages/ProductPage.tsx": 6
+  },
+  "fanIn": {
+    "src/pages/ProductPage.tsx": 4
+  }
+}

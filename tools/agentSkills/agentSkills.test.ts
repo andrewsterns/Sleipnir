@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ARGS_TOKEN } from './registry.mjs'
+import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, ARGS_TOKEN } from './registry.mjs'
 import { emitAll, emitAgentsMd, emitClaude, emitCodex, emitGemini } from './emitters/index.mjs'
 import { mergeBlock, wrapBlock, hasBlock } from './managedBlock.mjs'
 import { planScaffold, ensureAgentScaffolding, scaffoldPaths, ownedScaffoldPaths, readState } from './scaffold.mjs'
@@ -15,12 +15,15 @@ describe('emitters', () => {
     expect(emitAll(SKILLS).map((f) => f.path).sort()).toEqual([
       '.claude/commands/component.md',
       '.claude/commands/frame.md',
+      '.claude/commands/optimize.md',
       '.claude/commands/plan.md',
       '.codex/prompts/component.md',
       '.codex/prompts/frame.md',
+      '.codex/prompts/optimize.md',
       '.codex/prompts/plan.md',
       '.gemini/commands/component.toml',
       '.gemini/commands/frame.toml',
+      '.gemini/commands/optimize.toml',
       '.gemini/commands/plan.toml',
       'AGENTS.md',
       'CLAUDE.md',
@@ -194,7 +197,7 @@ describe('scaffolder', () => {
 
   it('records its version and skills in scaffold.json', () => {
     ensureAgentScaffolding(root)
-    expect(readState(root)).toMatchObject({ version: SCAFFOLD_VERSION, skills: ['plan', 'frame', 'component'] })
+    expect(readState(root)).toMatchObject({ version: SCAFFOLD_VERSION, skills: ['plan', 'frame', 'component', 'optimize'] })
   })
 
   it('preserves human content in the shared files', () => {
@@ -234,7 +237,7 @@ describe('scaffolder', () => {
   it('emits only unmanaged files it can recognize as its own', () => {
     for (const file of emitAll(SKILLS).filter((f) => !f.managed)) {
       // Every command Sleipnir writes drives one of its own vendored CLIs.
-      expect(file.content.includes(PLAN_CLI) || file.content.includes(CANVAS_CLI), file.path).toBe(true)
+      expect(file.content.includes(PLAN_CLI) || file.content.includes(CANVAS_CLI) || file.content.includes(ANALYZE_CLI), file.path).toBe(true)
     }
   })
 

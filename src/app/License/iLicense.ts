@@ -14,7 +14,8 @@ export const PRO_FEATURES: { id: ProFeature | 'commercial'; label: string }[] = 
 /** Shown on every Buy button; the real price lives on the checkout page. */
 export const FOUNDER_PRICE = '$39'
 
-export type LicenseState = 'none' | 'active' | 'checking' | 'invalid' | 'dev'
+/** 'unlocked': no license store in this build yet, so every Pro feature is open to everyone (see electron/license.cjs). */
+export type LicenseState = 'none' | 'active' | 'checking' | 'invalid' | 'dev' | 'unlocked'
 
 export interface LicenseStatus {
   tier: 'free' | 'pro'

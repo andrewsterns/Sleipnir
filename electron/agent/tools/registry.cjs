@@ -21,6 +21,7 @@ const BUILTIN = [
   ...require('./files.cjs'),
   ...require('./command.cjs'),
   ...require('./canvas.cjs'),
+  ...require('./architecture.cjs'),
 ]
 
 // name -> (ctx) => tool[]

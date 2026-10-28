@@ -2,7 +2,7 @@
 //
 // ── Why this file exists ───────────────────────────────────────────────────
 //
-// The bottom dock (Terminal, AI Chat, Problems) is a fixed-position panel, and
+// The bottom dock (Terminal, AI Chat, Problems, Run) is a fixed-position panel, and
 // two independent facts had to stay true for it to behave. Both were spelled out
 // in three separate files and one of them was simply wrong:
 //
@@ -28,11 +28,12 @@
  */
 export const DOCK_PANEL_HEIGHT = 320
 
-/** Breathing room between a floating dock toggle and the edge it sits against. */
-export const DOCK_TOGGLE_MARGIN = 20
-
-/** Where a dock toggle sits while a panel is open: just clear of its top edge. */
-export const DOCK_TOGGLE_RAISED = DOCK_PANEL_HEIGHT + DOCK_TOGGLE_MARGIN
+/**
+ * Height of the status bar along the bottom of the window — the docks'
+ * toggles live there (see app/StatusBar), and an open dock panel sits
+ * directly on top of it rather than covering it.
+ */
+export const STATUS_BAR_HEIGHT = 26
 
 /**
  * The shell's stacking order, lowest first.
@@ -45,7 +46,7 @@ export const LAYER = {
   /** Chrome floating inside a view: a split-view close button, a canvas toolbar. */
   viewChrome: 10,
   /**
-   * The bottom dock and its toggles.
+   * The bottom dock panels.
    *
    * Above a view's own chrome, below anything modal. It used to outrank both,
    * which is the bug this tier exists to prevent from coming back.

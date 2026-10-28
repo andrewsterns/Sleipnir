@@ -1,0 +1,6 @@
+{
+  "cyclesContaining": [["internal/handlers/routes.go", "internal/service/items.go", "internal/store/store.go"]],
+  "violations": [["internal/store/store.go", "internal/handlers/routes.go"]],
+  "dead": ["internal/legacy/sync.go"],
+  "notDead": ["cmd/server/main.go"]
+}

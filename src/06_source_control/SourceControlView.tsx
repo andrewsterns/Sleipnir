@@ -104,20 +104,33 @@ function CommitDot({ commit, accent }: { commit: GitCommitSummary; accent: strin
 
 const BRANCH_ACCENT = '#7aa8e0'
 
-// STAGED / CHANGES / UNTRACKED header: the label plus an optional bulk action
-// on the right (hidden when the section is empty — onAction undefined).
-function SectionHeader({ label, actionLabel, onAction }: { label: string; actionLabel: string; onAction?: () => void }) {
+// STAGED / CHANGES / UNTRACKED header: the label, then an optional bulk
+// action and a ⋯ menu of the rest (both hidden when the section is empty —
+// onAction/onMenu undefined).
+function SectionHeader({ label, actionLabel, onAction, onMenu }: {
+  label: string
+  actionLabel: string
+  onAction?: () => void
+  onMenu?: (e: React.MouseEvent) => void
+}) {
   return (
     <Frame flow="horizontal" align="center" justify="between" minH={18}>
       <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>{label}</span>
-      {onAction && (
-        <Button variant="ghost" size="sm" onClick={onAction}>
-          {actionLabel}
-        </Button>
-      )}
+      <Frame flow="horizontal" align="center" gap={2}>
+        {onAction && (
+          <Button variant="ghost" size="sm" onClick={onAction}>
+            {actionLabel}
+          </Button>
+        )}
+        {onMenu && (
+          <IconButton onClick={onMenu} title={`More ${label.split(' ')[0].toLowerCase()} actions`} glyph="⋯" iconSize={14} size={20} textColor="var(--text-3)" />
+        )}
+      </Frame>
     </Frame>
   )
 }
+
+type SectionId = 'staged' | 'changes' | 'untracked'
 const PRIMARY_ACCENT = '#7ec98f'
 
 function BranchRow({ branch, accent }: { branch: GitBranchTreeEntry; accent: string }) {
@@ -203,7 +216,10 @@ export default function SourceControlView({
   // Right-click / "⋯" menu for the branch list rows — same useContextMenu
   // pattern as fileMenu above and PlanningView's node/plan menus.
   const branchMenu = useContextMenu<GitBranch>()
-  const [discardingFile, setDiscardingFile] = useState<GitFileStatus | null>(null)
+  // What the discard confirm is about to throw away — one file from its row
+  // menu, or a whole section from that section's ⋯ menu.
+  const [discarding, setDiscarding] = useState<GitFileStatus[] | null>(null)
+  const sectionMenu = useContextMenu<SectionId>()
   const [fileSearchOpen, setFileSearchOpen] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
   // Changed-file search box's ↑/↓ keyboard highlight — outlined via ListRow's
@@ -245,6 +261,7 @@ export default function SourceControlView({
   }, [fileSearchOpen])
 
   const copyRelativePath = (f: GitFileStatus) => { void navigator.clipboard.writeText(f.path) }
+  const copyPaths = (files: GitFileStatus[]) => { void navigator.clipboard.writeText(files.map((f) => f.path).join('\n')) }
   const copyAbsolutePath = async (f: GitFileStatus) => {
     const info = await getWorkspaceInfo()
     void navigator.clipboard.writeText(info.root ? `${info.root}/${f.path}` : f.path)
@@ -624,6 +641,7 @@ export default function SourceControlView({
               label={`STAGED (${vm.staged.length})`}
               actionLabel="Unstage All"
               onAction={vm.staged.length > 0 ? () => vm.unstageMany(vm.staged) : undefined}
+              onMenu={vm.staged.length > 0 ? (e) => sectionMenu.openFromButton(e, 'staged') : undefined}
             />
             {filterFiles(vm.staged).map((f) => (
               <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
@@ -637,6 +655,7 @@ export default function SourceControlView({
               // Stages every change *and* untracked file — the usual "take
               // everything" intent; UNTRACKED has its own button to add only those.
               onAction={vm.unstaged.length + vm.untracked.length > 0 ? () => vm.stageMany([...vm.unstaged, ...vm.untracked]) : undefined}
+              onMenu={vm.unstaged.length > 0 ? (e) => sectionMenu.openFromButton(e, 'changes') : undefined}
             />
             {filterFiles(vm.unstaged).map((f) => (
               <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
@@ -648,6 +667,7 @@ export default function SourceControlView({
               label={`UNTRACKED (${vm.untracked.length})`}
               actionLabel="Stage All"
               onAction={vm.untracked.length > 0 ? () => vm.stageMany(vm.untracked) : undefined}
+              onMenu={vm.untracked.length > 0 ? (e) => sectionMenu.openFromButton(e, 'untracked') : undefined}
             />
             {filterFiles(vm.untracked).map((f) => (
               <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
@@ -736,10 +756,44 @@ export default function SourceControlView({
             items={[
               { label: 'Open diff', onSelect: () => vm.selectFile(f) },
               { label: f.staged ? 'Unstage' : 'Stage', onSelect: () => vm.toggleStage(f) },
-              { label: 'Discard changes', separator: true, destructive: true, onSelect: () => setDiscardingFile(f) },
+              { label: 'Discard changes', separator: true, destructive: true, onSelect: () => setDiscarding([f]) },
               { label: 'Copy path', separator: true, onSelect: () => copyAbsolutePath(f) },
               { label: 'Copy relative path', onSelect: () => copyRelativePath(f) },
             ]}
+          />
+        )
+      })()}
+
+      {sectionMenu.menu && (() => {
+        const section = sectionMenu.menu.data
+        // A conflicted file is mid-merge: "discard" would silently pick a
+        // side, so bulk discard leaves those to their own row menu.
+        const discardable = (files: GitFileStatus[]) => files.filter((f) => !f.conflicted)
+        const items = section === 'staged'
+          ? [
+              { label: 'Unstage all', onSelect: () => vm.unstageMany(vm.staged) },
+              { label: `Discard all staged (${discardable(vm.staged).length})`, separator: true, destructive: true, disabled: discardable(vm.staged).length === 0, onSelect: () => setDiscarding(discardable(vm.staged)) },
+              { label: 'Copy paths', separator: true, onSelect: () => copyPaths(vm.staged) },
+            ]
+          : section === 'changes'
+            ? [
+                { label: 'Stage all changes', onSelect: () => vm.stageMany(vm.unstaged) },
+                { label: 'Stage changes + untracked', onSelect: () => vm.stageMany([...vm.unstaged, ...vm.untracked]) },
+                { label: `Discard all changes (${discardable(vm.unstaged).length})`, separator: true, destructive: true, disabled: discardable(vm.unstaged).length === 0, onSelect: () => setDiscarding(discardable(vm.unstaged)) },
+                { label: 'Copy paths', separator: true, onSelect: () => copyPaths(vm.unstaged) },
+              ]
+            : [
+                { label: 'Stage all untracked', onSelect: () => vm.stageMany(vm.untracked) },
+                { label: `Delete all untracked (${vm.untracked.length})`, separator: true, destructive: true, onSelect: () => setDiscarding(vm.untracked) },
+                { label: 'Copy paths', separator: true, onSelect: () => copyPaths(vm.untracked) },
+              ]
+        return (
+          <ContextMenu
+            x={sectionMenu.menu.x}
+            y={sectionMenu.menu.y}
+            anchorEl={sectionMenu.menu.anchorEl}
+            onClose={sectionMenu.close}
+            items={items}
           />
         )
       })()}
@@ -754,13 +808,12 @@ export default function SourceControlView({
         />
       )}
 
-      {discardingFile && (
+      {discarding && (
         <DiscardFileModal
-          path={discardingFile.path}
-          isNew={discardingFile.untracked || (discardingFile.staged && discardingFile.indexStatus === 'A')}
-          discard={() => vm.discard(discardingFile)}
-          onClose={() => setDiscardingFile(null)}
-          onDiscarded={() => setDiscardingFile(null)}
+          files={discarding.map((f) => ({ path: f.path, isNew: f.untracked || (f.staged && f.indexStatus === 'A') }))}
+          discard={() => vm.discard(discarding)}
+          onClose={() => setDiscarding(null)}
+          onDiscarded={() => setDiscarding(null)}
         />
       )}
 

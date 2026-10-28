@@ -492,6 +492,9 @@ function registerIpcHandlers() {
   ws('sleipnir:writeWorkspaceFile', (b, _e, filePath, content) => { b.writeWorkspaceFile(filePath, content) })
   ws('sleipnir:createWorkspaceFile', (b, _e, filePath, content) => { b.createWorkspaceFile(filePath, content) })
   ws('sleipnir:readWorkspaceImageDataUrl', (b, _e, filePath) => b.readWorkspaceImageDataUrl(filePath))
+  // The Health view (and the in-app agent's analyze_architecture): runs in a
+  // worker thread, so a big project's scan never stalls other windows' IPC.
+  ws('sleipnir:analyzeWorkspace', (b, _e, opts) => b.analyzeWorkspace(opts))
   // The canvas's image-paste fallback (see src/01_canvas/model/clipboardImage.ts):
   // a file copied in Explorer/Finder often never reaches the page's paste
   // event, and a bitmap copied from some apps arrives with no file at all.

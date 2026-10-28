@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { IconButton } from '../UIKit/IconButton/IconButton'
-import { DOCK_PANEL_HEIGHT, LAYER } from '../shellLayout'
+import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
 import { TITLE_BAR_HEIGHT } from '../TitleBar/TitleBar'
 import { phaseColor, targetLabel } from '../Run/runLabels'
 import type { Runner } from '../Run/useRunner'
@@ -28,8 +28,8 @@ interface RunDockProps {
   onOpenChange: (open: boolean) => void
 }
 
-// The Play button's panel. No floating toggle of its own — the title bar's
-// Run control opens it (Play does so automatically). A web target that's
+// The Play button's panel, opened from the status bar's Run tab (Play opens
+// it automatically). A web target that's
 // serving gets a live, embedded preview; everything else shows its output.
 // Mounted once and hidden via CSS like its sibling docks, so the preview
 // frame keeps its page state while the panel is closed.
@@ -75,8 +75,8 @@ export const RunDock: React.FC<RunDockProps> = ({ run, open, onOpenChange }) => 
         position: 'fixed',
         right: 0,
         left: 0,
-        bottom: 0,
-        // Expanded fills the window under the title bar, over the content —
+        bottom: STATUS_BAR_HEIGHT,
+        // Expanded fills the window between the title bar and the status bar, over the content —
         // an explicit "look at my app" mode; collapsed lands in the strip
         // App.tsx reserves for the dock like every sibling.
         ...(expanded ? { top: TITLE_BAR_HEIGHT } : { height: DOCK_PANEL_HEIGHT }),

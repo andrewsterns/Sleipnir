@@ -29,6 +29,7 @@ import {
 import { getPreviewConfig as getPreviewConfigEntry, setPreviewConfig as setPreviewConfigEntry } from './preview-registry.mjs'
 import { getWorkspaceRoot, setWorkspaceRoot } from './workspace-root.mjs'
 import { getRenameMap } from './git-control.mjs'
+import { analyzeArchitecture } from './architecture-health.mjs'
 // Re-exported for electron/main.cjs's multi-window support: it holds a
 // per-window root and sets this shared one to the *calling* window's root
 // immediately before each (synchronous) backend call — see main.cjs's `ws`.
@@ -621,6 +622,14 @@ export function searchRepo(query, opts) {
 
 export function searchWorkspace(query, opts) {
   return searchDir(requireWorkspaceRoot(), query, opts)
+}
+
+// The Health view's numbers — fan-in/out, cycles, layer violations, dead
+// files, hotspots — for the open Workspace. The root is read synchronously,
+// before the worker starts, so main.cjs's `ws` per-window root-set still
+// lands on the right project.
+export function analyzeWorkspace(opts) {
+  return analyzeArchitecture(requireWorkspaceRoot(), opts)
 }
 
 // Quick-open's (ROADMAP.md's Phase 1) flat file list for Sleipnir's own

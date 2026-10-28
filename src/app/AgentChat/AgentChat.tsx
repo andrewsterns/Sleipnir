@@ -84,6 +84,7 @@ function SetupCard({ onConnectModels }: { onConnectModels?: () => void }) {
 const SLASH_COMMANDS = [
   { name: '/frame', hint: 'design it on the Canvas board as editable frames' },
   { name: '/component', hint: 'design it as a component — Sleipnir writes the code' },
+  { name: '/optimize', hint: 'measure the architecture or a feature, then plan the fixes' },
 ]
 
 export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSetup, onConnectModels }) => {

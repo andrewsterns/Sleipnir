@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SearchProps } from './iSearch';
+import type { SearchProps } from './iSearch';
 
 export function useSearchViewModel({
   onChange,

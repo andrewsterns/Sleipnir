@@ -18,6 +18,8 @@ import { createPlan, getWorkspaceInfo, listWorkspaceDir, readWorkspaceFile, writ
 import type { FileTreeNode } from './api/PlatformAPI'
 import { usePlanningViewModel, folderPathForNode, type PlanningNodeRow } from './PlanningView.ViewModel'
 import { PlanBuildStatusBar } from './PlanBuildStatusBar'
+import { HealthPanel } from './HealthPanel'
+import { archId } from './graph/architectureScope'
 import { Search } from '../app/UIKit/Search/Search'
 import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../app/UIKit/Search/iSearch'
 import { ListRow } from '../app/UIKit/ListRow/ListRow'
@@ -782,6 +784,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     planView,
     planViewMode,
     setPlanViewMode,
+    rescanWorkspace,
+    workspaceScan,
+    health,
+    healthLens,
+    healthError,
   } = usePlanningViewModel('welcome', focusTarget, onFocusTargetConsumed, plans, onUpdatePlan, welcomeDismissed)
 
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
@@ -1300,16 +1307,23 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
         actions={
           showCreateScreen ? undefined : (
           <>
-            {/* Plan tabs: the plan over the project architecture (blue), or the plan alone. */}
+            {/* Plan tabs: the plan over the project architecture (blue), that
+                architecture under the Health lens, or the plan alone. */}
             {isPlanTab && (
               <Frame flow="horizontal" align="center" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-2' }} clipContent>
-                {(['architecture', 'plan'] as const).map((mode) => (
+                {(['architecture', 'health', 'plan'] as const).map((mode) => (
                   <button
                     key={mode}
                     type="button"
                     aria-pressed={planViewMode === mode}
                     onClick={() => setPlanViewMode(mode)}
-                    title={mode === 'architecture' ? 'Show the plan over the project architecture' : 'Show only the plan'}
+                    title={
+                      mode === 'architecture'
+                        ? 'Show the plan over the project architecture'
+                        : mode === 'health'
+                          ? 'Show what leans on what: bigger dots are imported more, red links are import loops, amber ones point up the layers'
+                          : 'Show only the plan'
+                    }
                     style={{
                       fontSize: 9,
                       letterSpacing: '0.1em',
@@ -1321,7 +1335,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                       ...MONO,
                     }}
                   >
-                    {mode === 'architecture' ? 'ARCHITECTURE' : 'PLAN ONLY'}
+                    {mode === 'architecture' ? 'ARCHITECTURE' : mode === 'health' ? 'HEALTH' : 'PLAN ONLY'}
                   </button>
                 ))}
               </Frame>
@@ -1704,10 +1718,26 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 onSelectNode={(id) => setSelectedId(id || null)}
                 centerSignal={centerSignal}
                 missingPaths={missingPaths}
+                health={healthLens}
               />
             </Frame>
 
-            {selectedNode && (
+            {/* Under the Health lens the side panel is the lens's own — unless a
+                plan step (not a file) is selected, which keeps its usual card. */}
+            {planViewMode === 'health' && isPlanTab && (!selectedNode || selectedNode.type === 'workspace-file') ? (
+              <HealthPanel
+                health={health}
+                error={healthError}
+                scan={workspaceScan}
+                selectedPath={selectedNode?.filePath ?? null}
+                onSelectPath={(path) => {
+                  setSelectedId(archId(path))
+                  setCenterSignal((s) => s + 1)
+                }}
+                onOpenFile={onOpenFile}
+                onRescan={rescanWorkspace}
+              />
+            ) : selectedNode && (
               <Frame
                 flow="vertical"
                 minW={260}

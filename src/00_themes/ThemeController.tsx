@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Theme, applyTheme, getSavedTheme, DEFAULT_THEME } from './index';
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { type Theme, applyTheme, getSavedTheme, DEFAULT_THEME } from './index';
 
 interface AppThemeContextType {
   /** The user's currently selected app-wide theme. */

@@ -5,7 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', '.claude'] },
+  // tools/optimizeLab holds sample projects with deliberately bad code.
+  { ignores: ['dist', '.claude', 'tools/optimizeLab'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -30,6 +31,11 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      // An import that brings only types says so. The compiler drops it either
+      // way, but the architecture analyzer (Planning's Health view, /optimize)
+      // reads source, not types: an unmarked type import looks like a runtime
+      // dependency and shows up as a false import loop or an import up the layers.
+      '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports', disallowTypeAnnotations: false }],
       // Scaffolded prop interfaces start empty ("// Define props here") until
       // filled in — that's a valid, temporary state, not a real lint issue.
       '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'always' }],

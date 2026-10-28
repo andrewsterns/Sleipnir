@@ -18,22 +18,13 @@
 // resolve it ourselves.
 
 import { effectsCss, paintCss, type ImageUrlResolver } from './paint'
-import type { CanvasRect, CanvasStyle, CanvasTextStyle, ColorRef, Size } from './types'
+import { cssColor, type CssProps } from './cssValue'
+import type { CanvasRect, CanvasStyle, CanvasTextStyle, Size } from './types'
 
-/** A plain CSS property bag — the shape React's `style` prop takes. */
-export type CssProps = Record<string, string | number>
-
-/**
- * A token id ('bg-2') becomes var(--bg-2); anything that already looks like a
- * literal color or CSS function is passed through untouched.
- */
-export function cssColor(ref: ColorRef): string {
-  const value = ref.trim()
-  if (!value) return 'transparent'
-  if (value.startsWith('#') || value.includes('(') || value.startsWith('var(')) return value
-  if (value === 'transparent' || value === 'currentColor' || value === 'inherit') return value
-  return `var(--${value})`
-}
+// The leaf pieces live in cssValue.ts (paint.ts needs them, and this file
+// needs paint.ts — they used to import each other). Re-exported so every
+// existing `from './toCss'` keeps working.
+export { cssColor, type CssProps } from './cssValue'
 
 function cssSize(value: Size): string | number {
   if (value === 'fill') return '100%'

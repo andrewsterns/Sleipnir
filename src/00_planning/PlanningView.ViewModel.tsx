@@ -4,6 +4,8 @@ import { resolvePlanGraph } from './graph/resolvePlan'
 import { resolveAssetPlanGraph } from './graph/resolveAssetPlan'
 import { composePlanView, type PlanView, type PlanViewMode } from './graph/composePlanView'
 import { getWorkspaceScan, invalidateWorkspaceListing, invalidateWorkspaceScan, type WorkspaceScan } from './graph/workspaceScanCache'
+import { buildHealthLens } from './graph/healthLens'
+import { analyzeWorkspace, type ArchitectureHealth } from './api/sleipnirApi'
 import { getGraphMaps, type GraphData, type GraphEdge, type GraphMapId, type GraphNode, type NodeStage, type NodeStatus, type SavedPlan } from './graph/types'
 import {
   regenerateGraph,
@@ -48,6 +50,11 @@ const GLOBAL_SEARCH_LIMIT = 100
 // graph/proposed-nodes.ts's `welcome` entry — kept as a literal in both
 // places rather than a shared export, since it's a single string used twice.
 const WELCOME_EXAMPLE_NODE_ID = 'welcome/guide/workspace'
+
+// The Health lens re-analyzes on window refocus only once its last result is
+// this old, and draws up to this many files before collapsing folders.
+const HEALTH_REFRESH_MS = 20_000
+const HEALTH_MAX_FILES = 500
 
 // Best-effort node creation time (ms epoch) for the search's "Recently
 // modified" sort. GraphNode carries no timestamp, but note/plan/scaffold nodes
@@ -362,8 +369,9 @@ export function usePlanningViewModel(
   }, [liveGenerated, notes, notesEdges, mapId, plans])
 
   // A plan tab shows the plan over the project's real architecture by default
-  // ('architecture' — see graph/composePlanView.ts), or just the plan ('plan').
-  // Remembered per plan tab for the session.
+  // ('architecture' — see graph/composePlanView.ts), that architecture under the
+  // Health lens ('health'), or just the plan ('plan'). Remembered per plan tab
+  // for the session.
   const [planViewModes, setPlanViewModes] = useState<Record<string, PlanViewMode>>({})
   const activePlanId = planFor(mapId)?.id
   const planViewMode: PlanViewMode = planViewModes[mapId] ?? 'architecture'
@@ -374,7 +382,7 @@ export function usePlanningViewModel(
   // which only does work for whatever was invalidated.
   const [workspaceScan, setWorkspaceScan] = useState<WorkspaceScan | null>(null)
   const [scanVersion, setScanVersion] = useState(0)
-  const wantsArchitecture = !!activePlanId && planViewMode === 'architecture'
+  const wantsArchitecture = !!activePlanId && planViewMode !== 'plan'
   useEffect(() => {
     if (!wantsArchitecture) return
     let cancelled = false
@@ -397,13 +405,55 @@ export function usePlanningViewModel(
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
+  // The Health lens's numbers — tools/architecture-health.mjs, the same
+  // analysis /optimize agents read, run off the main thread. Re-asked whenever
+  // the scan is, but a window refocus only re-runs it once the last result is
+  // HEALTH_REFRESH_MS old: on a big project the analysis takes seconds.
+  const [health, setHealth] = useState<ArchitectureHealth | null>(null)
+  const [healthError, setHealthError] = useState<string | null>(null)
+  const forceHealthRef = useRef(false)
+  const wantsHealth = !!activePlanId && planViewMode === 'health'
+  useEffect(() => {
+    if (!wantsHealth) return
+    if (health && !forceHealthRef.current && Date.now() - health.analyzedAt < HEALTH_REFRESH_MS) return
+    forceHealthRef.current = false
+    let cancelled = false
+    analyzeWorkspace()
+      .then((h) => {
+        if (cancelled) return
+        setHealth(h)
+        setHealthError(null)
+      })
+      .catch((err) => {
+        if (!cancelled) setHealthError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+    // `health` is read only for its age — a fresh result must not re-trigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsHealth, scanVersion])
+  const healthLens = useMemo(() => (wantsHealth && health ? buildHealthLens(health) : null), [wantsHealth, health])
+  // Under the lens the graph is the analyzed source files only — no docs,
+  // images or config — and a bigger slice of the project before folders
+  // collapse, since the lens is about the whole shape.
+  const viewScan = useMemo(() => {
+    if (!wantsHealth || !health || !workspaceScan) return workspaceScan
+    const files = workspaceScan.files.filter((f) => health.perFile[f])
+    const kept = new Set(files)
+    return { files, edges: workspaceScan.edges.filter((e) => kept.has(e.source) && kept.has(e.target)) }
+  }, [wantsHealth, health, workspaceScan])
   const planView: PlanView = useMemo(
-    () => (activePlanId ? composePlanView(live, activePlanId, workspaceScan, planViewMode) : { data: live, overlay: new Set<string>() }),
-    [live, activePlanId, workspaceScan, planViewMode],
+    () =>
+      activePlanId
+        ? composePlanView(live, activePlanId, viewScan, planViewMode, planViewMode === 'health' ? { max: HEALTH_MAX_FILES } : undefined)
+        : { data: live, overlay: new Set<string>() },
+    [live, activePlanId, viewScan, planViewMode],
   )
   // Full re-read of every file (a manual refresh).
   const rescanWorkspace = () => {
     invalidateWorkspaceScan()
+    forceHealthRef.current = true
     setScanVersion((v) => v + 1)
   }
 
@@ -1002,5 +1052,9 @@ export function usePlanningViewModel(
     setPlanViewMode,
     workspaceScanReady: !!workspaceScan,
     rescanWorkspace,
+    workspaceScan,
+    health: wantsHealth ? health : null,
+    healthLens,
+    healthError: wantsHealth ? healthError : null,
   }
 }

@@ -25,7 +25,8 @@
 // on an older template" from "a human edited this" without diffing prose.
 // v2: detect-project, ordered steps (--after), planned files (--file/--edits), plan.md.
 // v3: /frame and /component, and the vendored canvas CLI.
-export const SCAFFOLD_VERSION = 3
+// v4: /optimize, and the vendored architecture analyzer.
+export const SCAFFOLD_VERSION = 4
 
 // Where the vendored CLI lands, relative to the project root. Relative on
 // purpose: the emitted files are committed and cloned by people who have never
@@ -36,6 +37,11 @@ export const PLAN_CLI = '.sleipnir/plan.mjs'
 
 // The design CLI, vendored beside it (tools/agentSkills/vendor/canvas.mjs).
 export const CANVAS_CLI = '.sleipnir/canvas.mjs'
+
+// The architecture analyzer (vendor/analyze.mjs) and the graph core it shares
+// with the app (vendor/graphCore.mjs), which it imports from beside it.
+export const ANALYZE_CLI = '.sleipnir/analyze.mjs'
+export const GRAPH_CORE = '.sleipnir/graphCore.mjs'
 
 // Emitters replace this with their own target's argument placeholder.
 export const ARGS_TOKEN = '{{ARGS}}'
@@ -293,6 +299,48 @@ const COMPONENT_COMMAND = `The user wants this built as a component: ${ARGS_TOKE
    \`.components/<name>/<name>.tsx\` as soon as the board is open — do not write that file
    yourself.`
 
+// /optimize — architecture and feature performance, measured rather than guessed.
+const OPTIMIZE_CONTEXT = `\`/optimize\` improves the project's structure, or one feature's speed, from
+measurements rather than guesses. The bundled analyzer maps every import (TypeScript,
+JavaScript, Python, Go, Rust) with nothing but Node:
+
+    node ${ANALYZE_CLI} report  --root . [--feature "<words>"] [--scope <dir>] [--goal "<text>"]
+    node ${ANALYZE_CLI} file    --root . <path>       # importers, imports, blast radius
+    node ${ANALYZE_CLI} feature --root . "<words>"    # the files that make up a feature
+
+The report stays a few thousand tokens on any project — read it instead of the source
+tree, then open only the files its findings name. It lists import loops, imports that
+point up the layers (a util importing a component), pages imported as libraries, heavy
+packages on the first load, hubs, files doing too much, barrels, misplaced and unused
+files, and hotspots (changed often, and big or widely imported). Sleipnir's Planning graph draws the
+same numbers in its HEALTH view.`
+
+const OPTIMIZE_COMMAND = `The user wants this optimized: ${ARGS_TOKEN}
+
+1. Measure first. If they named a feature ("my right click menu", "checkout"):
+
+       node ${ANALYZE_CLI} report --root . --feature "<their words>" --goal "<what they want>"
+
+   otherwise the whole project:
+
+       node ${ANALYZE_CLI} report --root .
+
+   Read the report, then only the files it points at.
+2. Find the cause. Structure problems (import loops, upward imports, a page used as a
+   library, a heavy package loaded eagerly) are in the report. Runtime cost (re-renders,
+   state held too high, work repeated per item, O(n²) loops, blocking I/O, missing
+   memoization or virtualization) is in the feature's own files — read them for it.
+3. Before moving, splitting or deleting a file, see what it touches:
+   \`node ${ANALYZE_CLI} file --root . <path>\`.
+4. Propose the fix as a Sleipnir plan (the /plan flow above, \`--edits\` for existing
+   files, \`--file\` for new ones): one step per change, the ones that change behaviour
+   or load time first, each saying what it fixes and which number should move
+   (cycles 3 → 0, fan-in 4 → 1, three off the first load).
+5. Only if the user asked you to apply it: one step at a time — change, run the tests,
+   re-run the report, confirm the number moved. Stop and say so if a step makes
+   anything worse.
+6. Finish with the before and after numbers.`
+
 export const SKILLS = [
   {
     id: 'plan',
@@ -315,6 +363,13 @@ export const SKILLS = [
     // Shares /frame's context — AGENTS.md carries it once.
     context: '',
     command: COMPONENT_COMMAND,
+  },
+  {
+    id: 'optimize',
+    description: "Measure the project's architecture or one feature, and plan the fixes.",
+    argumentHint: '[feature or goal]',
+    context: OPTIMIZE_CONTEXT,
+    command: OPTIMIZE_COMMAND,
   },
 ]
 

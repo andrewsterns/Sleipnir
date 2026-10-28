@@ -1,5 +1,5 @@
-import React from 'react';
-import { FrameProps } from '../Frame/Frame';
+import type React from 'react';
+import type { FrameProps } from '../Frame/iFrame';
 
 export interface DropdownOption {
   value: string;

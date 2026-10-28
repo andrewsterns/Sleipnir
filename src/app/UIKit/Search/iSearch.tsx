@@ -1,4 +1,4 @@
-import { FrameProps } from '../Frame/Frame';
+import type { FrameProps } from '../Frame/iFrame';
 
 export interface SearchFilterOption {
   id: string;

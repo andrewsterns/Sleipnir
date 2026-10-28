@@ -207,14 +207,13 @@ export function useSourceControlViewModel() {
   }
 
   // Destructive — the view confirms before calling this (see DiscardFileModal).
-  const discard = async (file: GitFileStatus) => {
-    try {
-      const next = await discardFiles([file.path])
-      setStatus(next)
-      setSelected((s) => (s?.path === file.path ? null : s))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
+  // One file or a whole section; errors throw so the modal can show them.
+  const discard = async (files: GitFileStatus[]) => {
+    if (files.length === 0) return
+    const paths = new Set(files.map((f) => f.path))
+    const next = await discardFiles([...paths])
+    setStatus(next)
+    setSelected((s) => (s && paths.has(s.path) ? null : s))
   }
 
   const commit = async () => {

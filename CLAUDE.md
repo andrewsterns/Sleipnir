@@ -1,4 +1,4 @@
-<!-- BEGIN SLEIPNIR v3 — generated, edits inside are overwritten -->
+<!-- BEGIN SLEIPNIR v4 — generated, edits inside are overwritten -->
 @AGENTS.md
 
 The import above carries this project's Sleipnir planning and design instructions.

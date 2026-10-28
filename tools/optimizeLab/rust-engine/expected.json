@@ -1,0 +1,6 @@
+{
+  "cyclesContaining": [["src/engine/mod.rs", "src/engine/render.rs", "src/util.rs"]],
+  "dead": ["src/old_ai.rs"],
+  "notDead": ["src/main.rs", "src/math.rs"],
+  "fanIn": { "src/math.rs": 5 }
+}

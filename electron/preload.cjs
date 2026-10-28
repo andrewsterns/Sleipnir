@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   renameWorkspacePath: (fromPath, toPath) => ipcRenderer.invoke('sleipnir:renameWorkspacePath', fromPath, toPath),
   copyWorkspacePath: (fromPath, toPath) => ipcRenderer.invoke('sleipnir:copyWorkspacePath', fromPath, toPath),
   searchWorkspace: (query, opts) => ipcRenderer.invoke('sleipnir:searchWorkspace', query, opts),
+  analyzeWorkspace: (opts) => ipcRenderer.invoke('sleipnir:analyzeWorkspace', opts),
   detectPreviewConfig: (folderPath) => ipcRenderer.invoke('sleipnir:detectPreviewConfig', folderPath),
   getPreviewConfig: (folderPath) => ipcRenderer.invoke('sleipnir:getPreviewConfig', folderPath),
   setPreviewConfig: (folderPath, config) => ipcRenderer.invoke('sleipnir:setPreviewConfig', folderPath, config),

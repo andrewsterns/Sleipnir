@@ -57,6 +57,60 @@ export interface SearchMatch {
   lineText: string
 }
 
+/** One file's numbers in an ArchitectureHealth — see tools/agentSkills/vendor/graphCore.mjs. */
+export interface FileHealth {
+  /** Architectural role read from the path (page, component, logic, data, util, types, entry, test, config, module). */
+  role: string
+  /** Files that import this one. */
+  fanIn: number
+  /** Project files this one imports. */
+  fanOut: number
+  /** Martin's instability, fanOut / (fanIn + fanOut): 0 = everything leans on it, 1 = free to change. */
+  instability: number
+  lines: number | null
+  /** Index into `cycles` when the file is in an import loop, else null. */
+  cycle: number | null
+  /** Loaded on first launch (statically reachable from an entry point); null when no entry point is known. */
+  eager: boolean | null
+  /** Commits touching it in the churn window; null outside a git repo. */
+  churn: number | null
+}
+
+/** The open Workspace's dependency-graph health — the Health view's data, and what /optimize agents read. Computed by tools/architecture-health.mjs. */
+export interface ArchitectureHealth {
+  analyzedAt: number
+  durationMs: number
+  summary: { files: number; edges: number; cycles: number; filesInCycles: number; dead: number; violations: number; hubs: number; entries: number }
+  perFile: Record<string, FileHealth>
+  entries: string[]
+  /** Import loops (runtime imports only): each strongly connected tangle, with up to 3 of the loops inside it. */
+  cycles: { files: string[]; loops: string[][] }[]
+  /** Every runtime import [source, target] that closes a loop. */
+  cycleEdges: [string, string][]
+  /** Files with unusually many importers (top 5% by fan-in, at least 5). */
+  hubs: string[]
+  /** Files that import unusually much. */
+  orchestrators: string[]
+  /** Hub and orchestrator at once, in a big file. */
+  godFiles: string[]
+  /** Nothing imports it and it is no entry point (files marked `sleipnir-keep` excepted). */
+  dead: string[]
+  /** For an unused file, the files only it uses — unused too once it's deleted. */
+  unusedWith: Record<string, string[]>
+  /** Pages imported by something other than routing. */
+  reusedPages: { path: string; importedBy: string[] }[]
+  /** Imports pointing up the layers (e.g. a util importing a component). */
+  violations: { source: string; target: string; fromRole: string; toRole: string }[]
+  barrels: { path: string; reexports: number; importedBy: number }[]
+  misplaced: { path: string; suggestedDir: string; share: number }[]
+  /** Heavy packages loaded on first launch. */
+  heavy: { path: string; package: string; eager: boolean | null }[]
+  /** Central and often changed — where bugs cluster. */
+  hotspots: { path: string; churn: number; fanIn: number; score: number }[]
+  /** The Markdown report an agent reads. */
+  report: string
+}
+
 export interface RunResult {
   stdout: string
   stderr: string
@@ -268,6 +322,8 @@ export interface PlatformAPI {
    * workspace-scoped methods above.
    */
   searchWorkspace(query: string, opts?: { limit?: number }): Promise<{ matches: SearchMatch[]; truncated: boolean }>
+  /** Fan-in/out, cycles, layer violations, dead files and hotspots for the open Workspace — off the main thread, about half a second per few hundred files. `scope` limits the report's listed files to a folder; `feature` adds a feature-scope section. Throws if no Workspace is open. */
+  analyzeWorkspace(opts?: { scope?: string; feature?: string }): Promise<ArchitectureHealth>
   /** Pure filesystem heuristic (package.json scripts, a lone .html file) — `config: null` when nothing's auto-detectable. No process spawning; see previewAPI (electronApi.ts) for actually running it. */
   detectPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfig | null }>
   getPreviewConfig(folderRepoRelativePath: string): Promise<{ config: PreviewConfigEntry | null }>

@@ -17,7 +17,7 @@
 // else about a copy belongs to the template — edits made with a copy selected
 // are redirected there, so changing any piece changes them all.
 
-import { guidePolyline, measurePolyline, pathGuideOf } from './pathFlow'
+import { guidePolyline, measurePolyline, pathGuideOf } from './pathGuide'
 import { findNode, findParent, groupNodes, replaceNodeById, type MeasuredRects } from './doc'
 import { isFrameNode, type CanvasDoc, type CanvasFrameNode, type CanvasNode, type NodeId } from './types'
 

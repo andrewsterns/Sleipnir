@@ -1,5 +1,5 @@
 // The Canvas tab — a Figma-style board whose frames are designed against the
-// same box model the emitted code uses (see model/toFrameProps.ts).
+// same box model the emitted code uses (see model/toCss.ts).
 //
 // Replaces the old Research tab, which was a thin FolderBrowserView wrapper
 // over `.research/`. Those docs aren't lost: the Docs pane below is that exact

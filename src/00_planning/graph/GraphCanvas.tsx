@@ -4,6 +4,7 @@ import type { GraphData, GraphNode, NodeStage } from './types'
 import { stageConfig, nodeStageKey, STAGE_PATH_LENGTH } from './stages'
 import { buildForceLayout, linkNode, linkId, nodeRadius, type NodePositions, type SimNode } from './layout'
 import { Icon, type IconName } from '../../app/UIKit/Icon/Icon'
+import { describeNodeHealth, edgeKey, healthRadius, type HealthLens, type NodeHealth } from './healthLens'
 
 const MIN_SCALE = 0.15
 const MAX_SCALE = 4
@@ -57,6 +58,33 @@ const SOURCE_GAP = 7
 // placeholders. Themes may define --graph-plan; the fallback reads on both.
 const PLAN_COLOR = 'var(--graph-plan, #5b9dff)'
 
+// The Health lens's two warnings (see graph/healthLens.ts): red for an import
+// loop, amber for an import pointing up the layers.
+const DANGER_COLOR = 'var(--graph-danger, #e5484d)'
+const WARN_COLOR = 'var(--graph-warn, #eda100)'
+
+// The heat map: a soft radial glow under each warm file, in one hue whose
+// strength (size and opacity) is the file's heat, blended so overlapping glows
+// add up — a cluster of risky files reads as one bright patch. A file in an
+// import loop glows in the danger color instead. Files under HEAT_MIN stay dark
+// so the map shows where the risk is, not a haze over everything.
+const HEAT_COLOR = 'var(--graph-heat, #3987e5)'
+const HEAT_BLEND = 'var(--graph-heat-blend, screen)' as React.CSSProperties['mixBlendMode']
+const HEAT_MIN = 0.3
+const HEAT_RADIUS = { min: 18, range: 52 }
+const HEAT_OPACITY = { min: 0.35, range: 0.55 }
+// Behind a selection, glows outside it fade with their nodes.
+const HEAT_DIMMED = 0.25
+
+// Under the Health lens the healthy links step back so the loops and upward
+// imports are what the eye lands on.
+const HEALTHY_EDGE_OPACITY_UNDER_LENS = 0.45
+// An unused file under the lens: still there to click, visibly not load-bearing.
+const UNUSED_NODE_OPACITY = 0.5
+// Under the lens a selected file's neighbours show their counts too — unless
+// there are more of them than this, when the labels would only pile up.
+const MAX_NEIGHBOR_COUNT_LABELS = 12
+
 // Every node and line is full-strength white at rest. Selecting a node keeps
 // it, its neighbours and the links between them at full (its own links
 // thicken a little) and pushes everything else back, so the selection is
@@ -83,6 +111,14 @@ function reheatAlpha(carriedCount: number, addedCount: number): number {
   if (carriedCount === 0) return 1
   const total = carriedCount + addedCount
   return Math.min(1, 0.2 + 1.6 * (addedCount / total))
+}
+
+// A node's on-screen radius: its layout size, grown by its importers under the
+// Health lens (see healthRadius). Link ends are pulled back by this, so they
+// still stop just short of a hub's bigger circle.
+function drawnRadius(node: SimNode, health: HealthLens | NodeHealth | null | undefined): number {
+  const h = health && 'nodes' in health ? health.nodes.get(node.id) : health
+  return h ? healthRadius(nodeRadius(node), h.fanIn) : nodeRadius(node)
 }
 
 // The file extension a node's path ends in (".tsx", ".rs", …), or "" for a
@@ -153,14 +189,20 @@ export interface GraphCanvasProps {
   missingPaths?: Set<string>
   /** Node ids that belong to the active plan (see graph/composePlanView.ts). When non-empty, those nodes and the links between them stay at full strength and everything else is dimmed. Passed separately from `data` for the same reason as `stages`: it never changes the layout. */
   overlay?: Set<string>
+  /** The Health lens (see graph/healthLens.ts): nodes sized by fan-in, import loops red, upward imports amber, unused files faded. Separate from `data` like `overlay` — toggling it never rebuilds the layout. Omit for the plain view. */
+  health?: HealthLens | null
 }
 
-export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages, missingPaths, overlay }) => {
+export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages, missingPaths, overlay, health }) => {
   const overlayActive = !!overlay && overlay.size > 0
+  // Read by the tick loop, which outlives any one render.
+  const healthRef = useRef(health)
+  healthRef.current = health
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const viewportRef = useRef<SVGGElement>(null)
   const nodeGroupRefs = useRef<Map<string, SVGGElement>>(new Map())
+  const heatRefs = useRef<Map<string, SVGCircleElement>>(new Map())
   const edgeRefs = useRef<Map<number, SVGLineElement>>(new Map())
 
   const view = useRef({ x: 0, y: 0, k: 1 })
@@ -290,6 +332,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
       for (const node of simNodes) {
         const g = nodeGroupRefs.current.get(node.id)
         if (g) g.setAttribute('transform', `translate(${node.x ?? 0}, ${node.y ?? 0})`)
+        const glow = heatRefs.current.get(node.id)
+        if (glow) {
+          glow.setAttribute('cx', String(node.x ?? 0))
+          glow.setAttribute('cy', String(node.y ?? 0))
+        }
         // Snapshot the live position so the next rebuild can seed from it —
         // updated in place, since this runs for every node every frame.
         const p = positions.get(node.id)
@@ -324,8 +371,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
           const uy = dy / dist
           // Both endpoints sit just outside their node's radius — the tail off
           // the source (SOURCE_GAP) and the head off the target (ARROW_GAP).
-          const startPull = nodeRadius(s) + SOURCE_GAP
-          const endPull = nodeRadius(t) + ARROW_GAP
+          const startPull = drawnRadius(s, healthRef.current) + SOURCE_GAP
+          const endPull = drawnRadius(t, healthRef.current) + ARROW_GAP
           const bx = sx + ux * startPull
           const by = sy + uy * startPull
           const ex = tx - ux * endPull
@@ -408,6 +455,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
     }
   }, [simNodes, simLinks, simulation, nodeById])
 
+  // The lens resizes nodes without moving them: redraw one frame so every
+  // link's ends sit back on the new circles.
+  useEffect(() => {
+    startLoopRef.current()
+  }, [health])
+
   const applyTransform = () => {
     const g = viewportRef.current
     if (g) g.setAttribute('transform', `translate(${view.current.x}, ${view.current.y}) scale(${view.current.k})`)
@@ -463,7 +516,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
     }
   }
 
-  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+  const handleWheel = (e: WheelEvent) => {
     e.preventDefault()
     const rect = svgRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -479,6 +532,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
     applyTransform()
     if (followNodeIdRef.current) wake()
   }
+
+  // Zooming the graph must not also scroll or zoom the page, and a React
+  // onWheel can't stop that: React listens to wheel passively, so its
+  // preventDefault() is ignored (and logged as an error on every tick). A
+  // native non-passive listener can. The ref keeps it on the latest handler.
+  const handleWheelRef = useRef(handleWheel)
+  handleWheelRef.current = handleWheel
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const listener = (e: WheelEvent) => handleWheelRef.current(e)
+    svg.addEventListener('wheel', listener, { passive: false })
+    return () => svg.removeEventListener('wheel', listener)
+  }, [])
 
   const handleBackgroundPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.target !== svgRef.current) return
@@ -582,7 +649,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
         ref={svgRef}
         width="100%"
         height="100%"
-        onWheel={handleWheel}
         onPointerDown={handleBackgroundPointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -612,11 +678,54 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
             <marker id="graph-seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto">
               <path d="M1,1 L9,5 L1,9 Z" style={{ fill: PLAN_COLOR }} />
             </marker>
+            {/* Heat glows: dense at the middle, gone by the rim. */}
+            {([['graph-heat', HEAT_COLOR], ['graph-heat-loop', DANGER_COLOR]] as const).map(([id, color]) => (
+              <radialGradient key={id} id={id}>
+                <stop offset="0%" style={{ stopColor: color, stopOpacity: 1 }} />
+                <stop offset="40%" style={{ stopColor: color, stopOpacity: 0.5 }} />
+                <stop offset="100%" style={{ stopColor: color, stopOpacity: 0 }} />
+              </radialGradient>
+            ))}
+            {/* The Health lens's colored links keep a matching arrowhead. */}
+            {([['cycle', DANGER_COLOR], ['upward', WARN_COLOR]] as const).map(([kind, color]) => (
+              <marker key={kind} id={`graph-edge-arrow-${kind}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M2,1 L9,5 L2,9" fill="none" style={{ stroke: color }} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+              </marker>
+            ))}
           </defs>
+          {/* The heat map, under everything else. Positioned by the tick loop
+              like the nodes (heatRefs); never takes the pointer. */}
+          {health && (
+            <g pointerEvents="none">
+              {simNodes.map((node) => {
+                const h = health.nodes.get(node.id)
+                if (!h || (!h.inCycle && h.heat < HEAT_MIN)) return null
+                const level = h.inCycle ? Math.max(h.heat, 0.8) : h.heat
+                const dimmed = hasSelection && !isHighlighted(node.id)
+                return (
+                  <circle
+                    key={node.id}
+                    ref={(el) => {
+                      if (el) heatRefs.current.set(node.id, el)
+                      else heatRefs.current.delete(node.id)
+                    }}
+                    cx={node.x ?? 0}
+                    cy={node.y ?? 0}
+                    r={HEAT_RADIUS.min + level * HEAT_RADIUS.range}
+                    fill={h.inCycle ? 'url(#graph-heat-loop)' : 'url(#graph-heat)'}
+                    opacity={(HEAT_OPACITY.min + level * HEAT_OPACITY.range) * (dimmed ? HEAT_DIMMED : 1)}
+                    style={{ mixBlendMode: HEAT_BLEND }}
+                  />
+                )
+              })}
+            </g>
+          )}
           {simLinks.map((edge, i) => {
             const sourceId = linkId(edge.source)
             const targetId = linkId(edge.target)
             const isSelectedEdge = hasSelection && isHighlighted(sourceId) && isHighlighted(targetId)
+            const key = edgeKey(sourceId, targetId)
+            const edgeHealth = !health ? undefined : health.cycleEdges.has(key) ? 'cycle' : health.upwardEdges.has(key) ? 'upward' : 'ok'
             return (
               <GraphEdgeView
                 key={`${sourceId}->${targetId}:${edge.kind}:${i}`}
@@ -626,6 +735,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 dimmed={hasSelection && !isSelectedEdge}
                 inPlan={overlayActive && overlay!.has(sourceId) && overlay!.has(targetId)}
                 overlayActive={overlayActive}
+                health={edgeHealth}
                 handlers={handlers}
               />
             )
@@ -633,6 +743,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
           {simNodes.map((node) => {
             const isSelected = node.id === selectedId
             const isNeighbor = hasSelection && !!neighbors.get(selectedId!)?.has(node.id)
+            const nodeHealth = health?.nodes.get(node.id)
+            // A file's counts: under the pointer, selected, or a neighbour of
+            // a selection small enough to label them all. (Hubs read by size.)
+            const showCounts =
+              !!nodeHealth &&
+              (isSelected || node.id === hoveredId || (isNeighbor && (neighbors.get(selectedId!)?.size ?? 0) <= MAX_NEIGHBOR_COUNT_LABELS))
             const stage = stages?.[nodeStageKey(node)]
             return (
               <GraphNodeView
@@ -647,6 +763,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 missing={!!node.filePath && !node.proposedFile && !node.planned && !!missingPaths?.has(node.filePath)}
                 inPlan={overlayActive && overlay!.has(node.id)}
                 overlayActive={overlayActive}
+                health={nodeHealth}
+                showCounts={showCounts}
                 handlers={handlers}
               />
             )
@@ -674,13 +792,15 @@ interface GraphEdgeViewProps {
   dimmed: boolean
   inPlan: boolean
   overlayActive: boolean
+  /** Under the Health lens: whether this link closes an import loop, points up the layers, or is fine. Undefined with the lens off. */
+  health?: 'cycle' | 'upward' | 'ok'
   handlers: GraphViewHandlers
 }
 
 // One link. Its endpoints are never props: the tick loop writes x1/y1/x2/y2
 // straight onto the element every frame, so this only re-renders when the
 // link's highlight state changes.
-const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, selected, dimmed, inPlan, overlayActive, handlers }: GraphEdgeViewProps) {
+const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, selected, dimmed, inPlan, overlayActive, health, handlers }: GraphEdgeViewProps) {
   const ref = (el: SVGLineElement | null) => handlers.registerEdge(index, el)
   // A plan's work order: dashed, plan-colored, arrow toward the next step.
   if (sequence) {
@@ -693,6 +813,21 @@ const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, selected, d
         vectorEffect="non-scaling-stroke"
         opacity={dimmed ? 0.2 : selected ? FOCUS_OPACITY : REST_OPACITY}
         markerEnd="url(#graph-seq-arrow)"
+      />
+    )
+  }
+  // Under the Health lens a problem link wears its color (red loop, dashed
+  // amber upward import) at full strength, and healthy ones step back.
+  if (health === 'cycle' || health === 'upward') {
+    return (
+      <line
+        ref={ref}
+        style={{ stroke: health === 'cycle' ? DANGER_COLOR : WARN_COLOR, filter: `drop-shadow(0 0 2px ${health === 'cycle' ? DANGER_COLOR : WARN_COLOR})` }}
+        strokeWidth={selected ? 2 : 1.5}
+        strokeDasharray={health === 'upward' ? '4 3' : undefined}
+        vectorEffect="non-scaling-stroke"
+        opacity={dimmed ? DIMMED_EDGE_OPACITY * 2 : FOCUS_OPACITY}
+        markerStart={`url(#graph-edge-arrow-${health})`}
       />
     )
   }
@@ -715,7 +850,17 @@ const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, selected, d
       // below a pixel and anti-aliased to grey — the "still dim" look. Now
       // it's always at least one real white pixel.
       vectorEffect="non-scaling-stroke"
-      opacity={dimmed ? DIMMED_EDGE_OPACITY : selected ? FOCUS_OPACITY : overlayActive && !inPlan ? 0.25 : REST_OPACITY}
+      opacity={
+        dimmed
+          ? DIMMED_EDGE_OPACITY
+          : selected
+            ? FOCUS_OPACITY
+            : overlayActive && !inPlan
+              ? 0.25
+              : health === 'ok'
+                ? HEALTHY_EDGE_OPACITY_UNDER_LENS
+                : REST_OPACITY
+      }
       // Edges run importer → imported, but the arrow shows the import flowing
       // *into* the importer, so the head sits at the source end
       // (auto-start-reverse points it back toward the source).
@@ -737,6 +882,10 @@ interface GraphNodeViewProps {
   missing: boolean
   inPlan: boolean
   overlayActive: boolean
+  /** This file's numbers under the Health lens; undefined with the lens off, or for a node that isn't a scanned file (a step, a folder). */
+  health?: NodeHealth
+  /** Draw the "in N · out M" line under the dot (lens only). */
+  showCounts: boolean
   handlers: GraphViewHandlers
 }
 
@@ -753,6 +902,8 @@ const GraphNodeView = memo(function GraphNodeView({
   missing: isMissing,
   inPlan,
   overlayActive,
+  health,
+  showCounts,
   handlers,
 }: GraphNodeViewProps) {
   // Every node is the theme's ink (pure white on the dark theme) at full
@@ -770,7 +921,7 @@ const GraphNodeView = memo(function GraphNodeView({
   const labelBg = isSelected ? 'rgb(var(--item-ink, 255,255,255))' : 'transparent'
   const labelStroke = isOutlined ? 'rgb(var(--item-ink, 255,255,255))' : 'none'
   const labelText = isSelected ? 'var(--item-ground, #000)' : 'rgb(var(--item-ink, 255,255,255))'
-  const radius = nodeRadius(node)
+  const radius = drawnRadius(node, health)
   const ext = fileExtLabel(node.filePath)
   const label = `${nodeDisplayLabel(node)}${ext}`
   const labelY = -(radius + 13)
@@ -799,15 +950,29 @@ const GraphNodeView = memo(function GraphNodeView({
   // Two exceptions to the plain white dot, both warnings rather than
   // decoration: a missing file's red ring and a planned file's plan-colored
   // dash.
+  // Under the Health lens an unused file is a hollow dashed ring — the lens
+  // says more than the stage does. (Loops and heat are the glow underneath —
+  // see the heat layer — so every other dot stays plain ink.)
+  const healthShape = isMissing || isPlannedPlaceholder || !health ? null : health.unused ? 'unused' : 'plain'
   const circleStyle = isMissing
     ? { fill: 'none', stroke: '#e07a7a' }
     : isPlannedPlaceholder
       ? { fill: 'none', stroke: PLAN_COLOR }
-      : stage
-        ? { fill: stage.fill === 'solid' ? color : 'none', stroke: color }
-        : { fill: color, stroke: color }
-  const circleStrokeWidth = isMissing ? 2 : isPlannedPlaceholder ? 1.5 : stage && stage.fill !== 'solid' ? stage.strokeWidth : 0
-  const circleDash = isMissing ? '2 2' : isPlannedPlaceholder ? '1.5 1' : stage?.dash
+      : healthShape === 'unused'
+        ? { fill: 'none', stroke: color }
+        : healthShape === 'plain' || !stage
+          ? { fill: color, stroke: color }
+          : { fill: stage.fill === 'solid' ? color : 'none', stroke: color }
+  const circleStrokeWidth = isMissing
+    ? 2
+    : isPlannedPlaceholder
+      ? 1.5
+      : healthShape === 'unused'
+        ? 1
+        : !healthShape && stage && stage.fill !== 'solid'
+          ? stage.strokeWidth
+          : 0
+  const circleDash = isMissing ? '2 2' : isPlannedPlaceholder ? '1.5 1' : healthShape === 'unused' ? '2 2' : healthShape ? undefined : stage?.dash
   const id = node.id
   return (
     <g
@@ -820,10 +985,19 @@ const GraphNodeView = memo(function GraphNodeView({
       onDoubleClick={() => handlers.nodeDoubleClick(id)}
       onPointerEnter={() => handlers.nodeEnter(id)}
       onPointerLeave={() => handlers.nodeLeave(id)}
-      opacity={dimmed ? DIMMED_NODE_OPACITY : overlayActive && !inPlan && !isSelected && !isNeighbor ? 0.35 : FOCUS_OPACITY}
+      opacity={
+        dimmed
+          ? DIMMED_NODE_OPACITY
+          : overlayActive && !inPlan && !isSelected && !isNeighbor
+            ? 0.35
+            : healthShape === 'unused' && !isSelected && !isHovered
+              ? UNUSED_NODE_OPACITY
+              : FOCUS_OPACITY
+      }
       style={{ cursor: 'pointer' }}
     >
       {isMissing && <title>File missing: {node.filePath} (moved or deleted outside Sleipnir)</title>}
+      {!isMissing && health && <title>{`${node.filePath}: ${describeNodeHealth(health)}`}</title>}
       {isPlannedPlaceholder && <title>Planned: {node.filePath} — created when its step is approved</title>}
       <circle r={radius + NODE_HIT_PADDING} fill="transparent" pointerEvents="all" />
       {/* Selection ring. Every node is the same ink now, so the dot itself no
@@ -836,7 +1010,19 @@ const GraphNodeView = memo(function GraphNodeView({
         strokeDasharray={circleDash}
         pathLength={!isMissing && circleDash ? STAGE_PATH_LENGTH : undefined}
       />
-      {!isMissing && !isPlannedPlaceholder && stage?.centerDot && <circle r={radius * 0.35} style={{ fill: color }} />}
+      {!isMissing && !isPlannedPlaceholder && !healthShape && stage?.centerDot && <circle r={radius * 0.35} style={{ fill: color }} />}
+      {showCounts && health && (
+        <text
+          y={radius + 10}
+          textAnchor="middle"
+          fontFamily="var(--font-mono)"
+          fontSize={8}
+          letterSpacing="0.04em"
+          style={{ fill: health.inCycle ? DANGER_COLOR : 'rgb(var(--item-ink, 255,255,255))', pointerEvents: 'none' }}
+        >
+          in {health.fanIn} · out {health.fanOut}
+        </text>
+      )}
       {/* A plan step's position in its plan. */}
       {node.type === 'plan-step' && node.order !== undefined && (
         <text

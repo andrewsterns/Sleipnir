@@ -104,6 +104,10 @@
   --graph-node-new:      #2f6fe0;              /* a node created since the project opened, until clicked */
   --graph-ring:          #14161a;              /* selection ring */
   --graph-edge:          #14161a;              /* solid edge line + arrowhead */
+  --graph-danger:        #c2255c;              /* Health lens: a file or link in an import loop */
+  --graph-warn:          #a36400;              /* Health lens: an import up the layers */
+  --graph-heat:          #256abf;              /* Health lens: heat glow — one hue; how hot is its strength */
+  --graph-heat-blend:    multiply;             /* glows deepen into ink on the light ground */
 
   /* ── Selectable item states — inverted from tactical ─────────────────────
      Dark ink on the light ground; ground text (light) on filled states. */

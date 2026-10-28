@@ -5,11 +5,18 @@ import { Button } from '../app/UIKit/Button/Button'
 import { Card } from '../app/UIKit/Card/Card'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+/** How many paths a bulk discard lists before summarising the rest. */
+const LISTED = 6
 
-export interface DiscardFileModalProps {
+export interface DiscardTarget {
   path: string
   /** True for untracked/newly-added files, which discard *deletes* rather than reverts — worth spelling out since there's no HEAD version to fall back to. */
   isNew: boolean
+}
+
+export interface DiscardFileModalProps {
+  /** One file (a row's menu) or a whole section (its header's ⋯ menu). */
+  files: DiscardTarget[]
   discard: () => Promise<void>
   onClose: () => void
   onDiscarded: () => void
@@ -18,7 +25,7 @@ export interface DiscardFileModalProps {
 // Discard is not undoable through git's reflog for working-tree changes, so it
 // gets an explicit confirm — same portal-to-theme-scope pattern as
 // DeletePathModal.
-export function DiscardFileModal({ path, isNew, discard, onClose, onDiscarded }: DiscardFileModalProps) {
+export function DiscardFileModal({ files, discard, onClose, onDiscarded }: DiscardFileModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -44,6 +51,18 @@ export function DiscardFileModal({ path, isNew, discard, onClose, onDiscarded }:
     }
   }
 
+  const single = files.length === 1 ? files[0] : null
+  const newCount = files.filter((f) => f.isNew).length
+  const consequence = single
+    ? single.isNew
+      ? ' This is a new/untracked file — discarding deletes it.'
+      : ' This reverts the file to the last commit.'
+    : newCount === files.length
+      ? ' They are all new/untracked — discarding deletes them.'
+      : newCount > 0
+        ? ` ${newCount} new/untracked ${newCount === 1 ? 'file is' : 'files are'} deleted; the rest revert to the last commit.`
+        : ' They revert to the last commit.'
+
   if (!portalTarget) return <div ref={anchorRef} style={{ display: 'contents' }} />
 
   return (
@@ -61,12 +80,20 @@ export function DiscardFileModal({ path, isNew, discard, onClose, onDiscarded }:
             </span>
 
             <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
-              Discard changes to <strong>{path}</strong>?
-              {isNew
-                ? ' This is a new/untracked file — discarding deletes it.'
-                : ' This reverts the file to the last commit.'}
-              {' '}This cannot be undone.
+              {single ? (
+                <>Discard changes to <strong>{single.path}</strong>?</>
+              ) : (
+                <>Discard changes to <strong>{files.length} files</strong>?</>
+              )}
+              {consequence} This cannot be undone.
             </span>
+
+            {!single && (
+              <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-all', ...MONO }}>
+                {files.slice(0, LISTED).map((f) => f.path).join('\n')}
+                {files.length > LISTED ? `\n…and ${files.length - LISTED} more` : ''}
+              </span>
+            )}
 
             {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
 
@@ -75,7 +102,7 @@ export function DiscardFileModal({ path, isNew, discard, onClose, onDiscarded }:
                 Cancel
               </Button>
               <Button variant="primary" size="sm" onClick={handleDiscard} disabled={submitting}>
-                {submitting ? 'Discarding…' : 'Discard'}
+                {submitting ? 'Discarding…' : single ? 'Discard' : `Discard ${files.length}`}
               </Button>
             </Frame>
           </Card>

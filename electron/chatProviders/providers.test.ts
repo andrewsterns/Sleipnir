@@ -46,11 +46,15 @@ class FakeGoogleGenAI {
   }
 }
 
+// The providers are untyped CommonJS modules; the tests reach into them freely.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CjsModule = Record<string, any>
+
 let modelRef: typeof import('./modelRef.cjs')
 let providers: { detectProvider: (key: string) => string | null }
-let openai: Record<string, any>
-let gemini: Record<string, any>
-let anthropic: Record<string, any>
+let openai: CjsModule
+let gemini: CjsModule
+let anthropic: CjsModule
 let errors: { describeError: (err: unknown, p: { label: string; host: string }) => string }
 
 beforeAll(() => {
@@ -208,7 +212,7 @@ describe('Gemini provider', () => {
 })
 
 describe('Ollama provider', () => {
-  let ollama: Record<string, any>
+  let ollama: CjsModule
   beforeAll(() => {
     ollama = require('./ollama.cjs')
   })

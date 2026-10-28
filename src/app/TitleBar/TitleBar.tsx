@@ -51,8 +51,6 @@ export interface TitleBarProps {
   onNewWindow?: () => void
   /** Opens Settings ▸ License — the target of the title bar's PRO / Upgrade badge. */
   onOpenLicense?: () => void
-  /** The Play button (app/Run/RunControl), placed after the project name. Passed in rather than built here because App.tsx owns the runner it shares with the Run dock. */
-  runControl?: React.ReactNode
 }
 
 /** What buildMenus needs from useAppUpdate — kept off TitleBarProps since the TitleBar owns its own update state. */
@@ -233,7 +231,8 @@ const UpdateIndicator: React.FC<{
 // "Upgrade" link — both open Settings ▸ License (see electron/license.cjs).
 const LicenseBadge: React.FC<{ onOpen?: () => void }> = ({ onOpen }) => {
   const { status, isPro } = useLicense()
-  if (!status || !isLicenseAvailable()) return null
+  // Nothing to sell or show off while every feature is unlocked for everyone.
+  if (!status || !isLicenseAvailable() || status.state === 'unlocked') return null
   return (
     <button
       onClick={onOpen}
@@ -410,7 +409,6 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
             {isScratch && <span style={{ color: '#e0a040' }}> ●</span>}
           </span>
         )}
-        {props.runControl}
       </div>
 
       {/* Pushed right, and clear of the OS-drawn minimize/maximize/close

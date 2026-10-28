@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollWindowProps } from './iScrollWindow';
+import type React from 'react';
+import type { ScrollWindowProps } from './iScrollWindow';
 
 export function useScrollWindowViewModel({
   axis = 'y',

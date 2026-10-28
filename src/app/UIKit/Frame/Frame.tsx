@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
-import { FrameProps } from './iFrame';
-import { useFrameViewModel, FrameOverlayData } from './FrameViewModel';
+import type { FrameProps } from './iFrame';
+import { useFrameViewModel, type FrameOverlayData } from './FrameViewModel';
 
 // ─── Overlay assets ──────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import './00_themes/default.css'
 import './00_themes/dark.css'
 import './00_themes/houseplant.css'
@@ -17,6 +17,8 @@ import { ProblemsDock } from './app/ProblemsDock/ProblemsDock'
 import { RunDock } from './app/RunDock/RunDock'
 import { RunControl } from './app/Run/RunControl'
 import { useRunner } from './app/Run/useRunner'
+import { StatusBar, type DockId } from './app/StatusBar/StatusBar'
+import type { ProblemsSummary } from './app/ProblemsDock/ProblemsDock'
 import { TitleBar } from './app/TitleBar/TitleBar'
 import { CommandPalette } from './app/CommandPalette/CommandPalette'
 import { PlanningView } from './00_planning/PlanningView'
@@ -149,11 +151,14 @@ function App() {
   const [isScratch, setIsScratch] = useState(false)
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
   // Terminal, AI Chat, Problems and Run share one full-width bottom dock slot —
-  // only one can be open at a time, or their panels would fully overlap.
-  // Settings is a full page (see 'settings' in renderCategory), not part of
-  // this family.
-  const [activeDock, setActiveDock] = useState<'terminal' | 'agent' | 'problems' | 'run' | null>(null)
-  // The Play button's runner — one instance, read by both the title bar's
+  // only one can be open at a time, or their panels would fully overlap. Their
+  // toggles are the status bar's tabs. Settings is a full page (see 'settings'
+  // in renderCategory), not part of this family.
+  const [activeDock, setActiveDock] = useState<DockId | null>(null)
+  const toggleDock = useCallback((id: DockId) => setActiveDock((cur) => (cur === id ? null : id)), [])
+  // ProblemsDock polls the open editors; the status bar shows what it found.
+  const [problemsSummary, setProblemsSummary] = useState<ProblemsSummary>({ total: 0, text: null, color: null, rest: 0 })
+  // The Play button's runner — one instance, read by both the status bar's
   // Run control and the Run dock.
   const run = useRunner(activeProject?.path)
 
@@ -713,14 +718,6 @@ function App() {
             setSettingsRequest({ id: 'license' })
             switchTo('settings')
           }}
-          runControl={
-            <RunControl
-              run={run}
-              panelOpen={activeDock === 'run'}
-              onShowPanel={() => setActiveDock('run')}
-              onTogglePanel={() => setActiveDock((cur) => (cur === 'run' ? null : 'run'))}
-            />
-          }
         />
 
         <Frame flow="horizontal" grow minH={0} clipContent>
@@ -793,19 +790,25 @@ function App() {
             strip instead of covering the app's real content (the NavRail's
             Settings gear included). */}
         {activeDock && <Frame h={DOCK_PANEL_HEIGHT} shrink={0} />}
+
+        <StatusBar
+          activeDock={activeDock}
+          onToggleDock={toggleDock}
+          problems={problemsSummary}
+          running={run.active}
+          runControl={<RunControl run={run} onShowPanel={() => setActiveDock('run')} />}
+        />
       </Frame>
       {/* Opens itself whenever a main-process Pro gate stops an action here. */}
       <UpgradePrompt />
       <TerminalDock
         open={activeDock === 'terminal'}
         onOpenChange={(o) => setActiveDock(o ? 'terminal' : null)}
-        shiftUp={activeDock !== null}
       />
       <AgentDock
         open={activeDock === 'agent'}
         onOpenChange={(o) => setActiveDock(o ? 'agent' : null)}
         onPlanNodeCreated={jumpToAiTab}
-        shiftUp={activeDock !== null}
       />
       <ProblemsDock
         open={activeDock === 'problems'}
@@ -813,7 +816,7 @@ function App() {
         browserRefs={browserRefs}
         categoryLabel={categoryLabel}
         onJump={onJumpToProblem}
-        shiftUp={activeDock !== null}
+        onSummaryChange={setProblemsSummary}
         missingPlanning={planningHealth.missing}
         planningActions={{
           onRelink: planningHealth.relink,

@@ -13,7 +13,7 @@
 // positioned layer per paint instead (see paintOverlays), each with its own
 // `opacity`, behind the node's children.
 
-import { cssColor, type CssProps } from './toCss'
+import { cssColor, type CssProps } from './cssValue'
 import type {
   ColorRef,
   CanvasStyle,
