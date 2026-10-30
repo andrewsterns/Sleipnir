@@ -1,0 +1,6 @@
+{
+  "cycles": [["src/main/java/com/shop/orders/Order.java", "src/main/java/com/shop/util/Money.java"]],
+  "dead": ["src/main/java/com/shop/legacy/CsvExport.java"],
+  "notDead": ["src/main/java/com/shop/App.java", "src/main/java/com/shop/orders/OrderService.java"],
+  "fanIn": { "src/main/java/com/shop/orders/Order.java": 2 }
+}

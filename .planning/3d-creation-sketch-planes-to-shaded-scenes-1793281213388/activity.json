@@ -1,0 +1,32 @@
+{
+  "events": [
+    {
+      "at": 1793377698522,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438",
+      "status": "completed",
+      "note": "Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377698744,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "status": "completed",
+      "note": "Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377698940,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "status": "completed",
+      "note": "Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377699187,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "status": "pending",
+      "note": "Partly done: extrude, revolve and sweep work; loft, bevel and taper are not built",
+      "agent": "claude"
+    }
+  ]
+}

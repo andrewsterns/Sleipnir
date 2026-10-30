@@ -32,4 +32,10 @@ export interface WorkspaceTabStripProps {
   onAddTabClick?: () => void
   /** The inline name input's placeholder. Default 'filename'. */
   addPlaceholder?: string
+  /**
+   * Double-clicking the ACTIVE tab's label edits it in place; Enter or
+   * leaving the field commits, Escape cancels. Omit for strips whose tabs
+   * can't be renamed.
+   */
+  onRename?: (id: string, name: string) => void
 }

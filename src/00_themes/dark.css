@@ -29,6 +29,9 @@
   --radius-4: 1rem;
   /* Shared radius for interactive controls — see tactical.css. */
   --radius-control: .7rem;
+  /* Text fields, number fields and dropdown triggers — a touch squarer than
+     buttons (radius-control). One knob for every field in the app. */
+  --radius-field: 0.5rem;
 
   --shadow-1: 0 14px 36px -18px rgba(0, 0, 0, 0.98);
 

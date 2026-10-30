@@ -20,13 +20,16 @@
 // ARCHITECTURE.md §8, and PlanningView.tsx's runtime prompt strings), and they
 // drift. New scaffolding should not add a seventh.
 
+import { LANGUAGES } from './vendor/languages.mjs'
+
 // Bumped whenever any emitted content changes. Stamped into the managed block
 // markers and .sleipnir/scaffold.json so scaffold.mjs can tell "this project is
 // on an older template" from "a human edited this" without diffing prose.
 // v2: detect-project, ordered steps (--after), planned files (--file/--edits), plan.md.
 // v3: /frame and /component, and the vendored canvas CLI.
 // v4: /optimize, and the vendored architecture analyzer.
-export const SCAFFOLD_VERSION = 4
+// v5: the language table, vendored beside the CLIs that read it.
+export const SCAFFOLD_VERSION = 5
 
 // Where the vendored CLI lands, relative to the project root. Relative on
 // purpose: the emitted files are committed and cloned by people who have never
@@ -42,9 +45,17 @@ export const CANVAS_CLI = '.sleipnir/canvas.mjs'
 // with the app (vendor/graphCore.mjs), which it imports from beside it.
 export const ANALYZE_CLI = '.sleipnir/analyze.mjs'
 export const GRAPH_CORE = '.sleipnir/graphCore.mjs'
+// The language table (vendor/languages.mjs) the analyzer imports from beside it.
+export const LANGUAGES_LIB = '.sleipnir/languages.mjs'
 
 // Emitters replace this with their own target's argument placeholder.
 export const ARGS_TOKEN = '{{ARGS}}'
+
+// The extensions planned files may use, from the language table: the one each
+// scaffoldable language writes, e.g. "\`.tsx\` react".
+const PLANNABLE_EXTENSIONS = LANGUAGES.filter((l) => l.planning && l.id !== 'jquery')
+  .map((l) => `\`.${l.extensions[0]}\` ${l.id}`)
+  .join(', ')
 
 // Shapes an agent needs when the vendored CLI isn't there to write them
 // correctly. Kept as prose rather than generated from the backend because it is
@@ -135,8 +146,9 @@ Use the bundled CLI instead. It needs Node and nothing else — no install step,
         [--file <path>:<role>[:<language>]]... [--edits <path1,path2>] [--after <stepId|none>]
 
 \`detect-project\` prints the project's languages (\`primary\`, \`languages\`), any it can
-see but can't scaffold (\`unsupported\`), and layout hints (\`conventions.srcDir\`). Plan
-in that language and that layout.
+see but can't scaffold yet (\`unsupported\`), and layout hints (\`conventions.srcDir\`,
+\`includeDir\`, and \`sourceDirs\` per language, e.g. \`src/main/java\`). Plan in that
+language and that layout — in a mixed repo, each folder in its own language.
 
 \`create-plan\` prints the new plan's id. Pass it as \`--plan-id\` to every \`create-node\`
 so the steps land on that plan's own tab. Steps also always land in Sleipnir's shared
@@ -164,9 +176,12 @@ a path that already exists (those go in \`--edits\`).
   Name sibling files of one feature \`<name><Role>\` (\`cartView.tsx\`, \`cartViewModel.tsx\`)
   and Sleipnir links them the way the architecture implies: a View imports its
   ViewModel/Controller/Presenter, a ViewModel imports its Interface.
-- Language comes from the extension (\`.tsx\` react, \`.ts\` typescript, \`.rs\` rust,
-  \`.py\` python, \`.go\` go, \`.js\` javascript, \`.html\`, \`.css\`), else the detected
+- Language comes from the extension (${PLANNABLE_EXTENSIONS}), else the detected
   primary language.
+- In C and C++ a role is a header plus a source: plan both (\`sensor_view.h\` and
+  \`sensor_view.c\`, same role); the source includes its header. An Interface is the
+  header alone. File names follow the language: snake_case for C, C++, Rust, Python
+  and Go, PascalCase for Java, Kotlin, Swift and C#, camelCase for the JS family.
 
 A planned file is a **placeholder**: nothing is written to disk. When a human approves
 the step in Sleipnir, Sleipnir generates the files and wires their imports.
@@ -174,11 +189,34 @@ the step in Sleipnir, Sleipnir generates the files and wires their imports.
 \`--edits a,b\` lists EXISTING files the step will change, so they are highlighted in
 the architecture view.
 
+### Reporting progress
+
+When you carry out a plan — yours or one already in \`.planning/\` — keep it as your
+working todo list, so the plan shows what you are actually doing. Sleipnir's graph
+shows each step's status live, and the human watches it to follow your work:
+
+    node ${PLAN_CLI} list-steps --root . [--plan-id <id>]
+    node ${PLAN_CLI} set-status --root . --step <stepId> --status in_progress
+    node ${PLAN_CLI} set-status --root . --step <stepId> --status testing
+    node ${PLAN_CLI} set-status --root . --step <stepId> --status completed --note "What you did, in one line"
+
+A step is \`pending\`, \`in_progress\`, \`testing\` or \`completed\` — your own todo list's
+states, plus testing; Sleipnir shows them as Proposed, In progress, Testing and Done.
+Set one step \`in_progress\` when you start it, only one at a time, \`testing\` while you
+run its tests, and \`completed\` the moment it is done, not in a batch at the end. \`--note\` is one line of what you did; it shows
+on the step's card and in plan.md. \`list-steps\` prints every step's id and status,
+to pick up where a plan left off.
+
+Sleipnir records every file created, changed or deleted between a step going
+\`in_progress\` and \`completed\`, and shows them on the step with their diffs. So mark
+a step \`in_progress\` **before** you touch its files, and complete it before you start
+the next — otherwise its changes land on the wrong step.
+
 ### plan.md
 
-Every plan gets \`.planning/<plan>/plan.md\`, one section per step, regenerated as steps
-are written. Anything written under the title, or between a step's \`/step-meta\` and
-\`/step\` markers, is kept.
+Every plan gets \`.planning/<plan>/plan.md\`, one section per step with its status,
+regenerated as steps are written and reported on. Anything written under the title,
+or between a step's \`/step-meta\` and \`/step\` markers, is kept.
 
 ### Proposing a file with its full content (legacy)
 
@@ -198,9 +236,10 @@ ${FALLBACK_SHAPES}
 | --- | --- |
 | \`plans.json\` | Named plan tabs. \`nodeIds\` only ever *references* ids in \`notes.json\`. |
 | \`notes.json\` | The real node content — drafts, scaffolds, plan steps, planned files. |
-| \`stages.json\` | Per-node sprint stage tags (\`proposed\`, \`in-progress\`, …). |
+| \`stages.json\` | Per-node status: \`pending\`, \`in_progress\`, \`testing\` or \`completed\`. |
 | \`archive.json\` | Archived/hidden node ids. |
-| \`<plan>/plan.md\` | A plan's readable document, generated from \`notes.json\`. |`
+| \`<plan>/plan.md\` | A plan's readable document, generated from \`notes.json\`. |
+| \`<plan>/activity.json\` | What agents reported on the plan's steps: notes, and the files each step changed. |`
 
 // The imperative form, rendered into each agent's slash-command file. Separate
 // from PLAN_CONTEXT because the jobs differ: context is ambient and describes
@@ -302,7 +341,7 @@ const COMPONENT_COMMAND = `The user wants this built as a component: ${ARGS_TOKE
 // /optimize — architecture and feature performance, measured rather than guessed.
 const OPTIMIZE_CONTEXT = `\`/optimize\` improves the project's structure, or one feature's speed, from
 measurements rather than guesses. The bundled analyzer maps every import (TypeScript,
-JavaScript, Python, Go, Rust) with nothing but Node:
+JavaScript, Python, Go, Rust, C, C++, Java, Kotlin, Swift, C#) with nothing but Node:
 
     node ${ANALYZE_CLI} report  --root . [--feature "<words>"] [--scope <dir>] [--goal "<text>"]
     node ${ANALYZE_CLI} file    --root . <path>       # importers, imports, blast radius
@@ -336,9 +375,10 @@ const OPTIMIZE_COMMAND = `The user wants this optimized: ${ARGS_TOKEN}
    files, \`--file\` for new ones): one step per change, the ones that change behaviour
    or load time first, each saying what it fixes and which number should move
    (cycles 3 → 0, fan-in 4 → 1, three off the first load).
-5. Only if the user asked you to apply it: one step at a time — change, run the tests,
-   re-run the report, confirm the number moved. Stop and say so if a step makes
-   anything worse.
+5. Only if the user asked you to apply it: one step at a time — mark it in progress
+   (\`node ${PLAN_CLI} set-status --root . --step <stepId> --status in_progress\`), change,
+   run the tests, re-run the report, confirm the number moved, then mark it completed
+   with a note naming the number. Stop and say so if a step makes anything worse.
 6. Finish with the before and after numbers.`
 
 export const SKILLS = [

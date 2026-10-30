@@ -1,0 +1,6 @@
+{
+  "cycles": [["include/filter.h", "include/sensor.h"]],
+  "dead": ["src/legacy_calib.c"],
+  "notDead": ["src/main.c", "src/sensor.c", "src/filter.c", "src/log.c"],
+  "fanIn": { "include/sensor.h": 4, "include/log.h": 3 }
+}

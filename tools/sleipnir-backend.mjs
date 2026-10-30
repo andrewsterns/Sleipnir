@@ -4,6 +4,7 @@
 // Vite dev middleware (vite.config.ts, web transport) and the Electron main
 // process (electron/main.cjs, IPC transport) can import and call it
 // directly, instead of duplicating this logic per transport.
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -12,14 +13,22 @@ import { isSourceFile } from './source-extensions.mjs'
 import { PLAN_CLI, SCAFFOLD_VERSION } from './agentSkills/registry.mjs'
 import {
   addPlanStep,
+  applyStepStatus,
+  attachChanges,
   detectProject as detectProjectFrom,
   isPlanningPath,
+  latestStepNotes,
   parseFileSpec,
+  planActivityPath,
   planDocPath,
   planSegmentOf,
   planSteps,
   renderPlanDoc,
   slugify,
+  snapshotActionFor,
+  snapshotTree,
+  STEP_STATUSES,
+  toStepStatus,
 } from './planDoc.mjs'
 import {
   ensureAgentScaffolding as writeAgentScaffolding,
@@ -688,7 +697,7 @@ exact data shapes.
 Files:
   plans.json    Named plan tabs. nodeIds only ever *reference* ids in notes.json.
   notes.json    Real graph node content (drafts, scaffolds, AI plan steps).
-  stages.json   Per-node sprint-stage tags ({ [nodeId]: 'proposed'|'in-progress'|'in-review'|'completed' }).
+  stages.json   Per-node status ({ [nodeId]: 'pending'|'in_progress'|'testing'|'completed' }).
   archive.json  Archived/hidden node ids.
 `
 }
@@ -836,19 +845,28 @@ function writeArchive(entries) {
   fs.writeFileSync(p, JSON.stringify(entries, null, 2))
 }
 
-// Per-node sprint "stage" overlay — a plain { [nodeId]: stage } map, kept in
-// its own file rather than on the node records so it can tag *any* node
-// (including build-generated ones that don't live in notes.json). Missing file
-// = no tags yet. See graph/stages.ts for the valid values / how each renders.
+// Per-node status overlay — a plain { [nodeId]: status } map, kept in its own
+// file rather than on the node records so it can tag *any* node (including
+// build-generated ones that don't live in notes.json). Missing file = no tags
+// yet. See graph/stages.ts for how each value renders. Older values migrate
+// here, on read, so every reader sees the three statuses and the next write
+// persists them; a value nothing recognizes is dropped.
 function readStages() {
   const p = planningFilePath('stages.json')
   if (!p || !fs.existsSync(p)) return {}
+  let parsed
   try {
-    const parsed = JSON.parse(fs.readFileSync(p, 'utf8'))
-    return parsed && typeof parsed === 'object' ? parsed : {}
+    parsed = JSON.parse(fs.readFileSync(p, 'utf8'))
   } catch {
     return {}
   }
+  if (!parsed || typeof parsed !== 'object') return {}
+  const stages = {}
+  for (const [id, value] of Object.entries(parsed)) {
+    const status = toStepStatus(value)
+    if (status) stages[id] = status
+  }
+  return stages
 }
 
 function writeStages(stages) {
@@ -1361,14 +1379,21 @@ function syncPlanAfterStep(root, planId, data, newIds) {
   plan.nodeIds = [...ids]
   plan.docPath = planDocPath(planId)
   writePlansFile(plans)
+  writePlanDoc(root, plan, data, readStages())
+}
 
+// Regenerates one plan's plan.md from its steps, their statuses and the latest
+// note each step's agent reported.
+function writePlanDoc(root, plan, data, stages) {
   const docAbs = resolveSafe(root, plan.docPath)
   const existing = fs.existsSync(docAbs) ? fs.readFileSync(docAbs, 'utf8') : null
   const text = renderPlanDoc({
     plan,
-    steps: planSteps(data.nodes, planId),
-    plannedFiles: data.nodes.filter((n) => n.type === 'planned-file' && n.planId === planId),
+    steps: planSteps(data.nodes, plan.id),
+    plannedFiles: data.nodes.filter((n) => n.type === 'planned-file' && n.planId === plan.id),
     existing,
+    statuses: stages,
+    notes: latestStepNotes(readActivity(plan.id).events),
   })
   if (text !== existing) writeFileAtomic(docAbs, text)
 }
@@ -1541,7 +1566,23 @@ export function setNodeStatus(id, status) {
   if (!node.status) throw new Error(`Node "${id}" is not a plan node (no status field)`)
   node.status = status
   writeNotesFile(data)
+  syncStatusWithApproval([id], status)
   return { node }
+}
+
+// Approval is an action, and the step's one status follows it: approving starts
+// a pending step (in_progress), saving its staged file completes it. A status an
+// agent already moved further along is left alone, so approving a step the
+// agent finished doesn't reopen it.
+function syncStatusWithApproval(ids, approval) {
+  if (approval === 'draft' || ids.length === 0) return
+  const stages = readStages()
+  const next = toStepStatus(approval)
+  const moved = ids.filter((id) => {
+    const current = stages[id] ?? 'pending'
+    return next === 'completed' ? current !== 'completed' : current === 'pending'
+  })
+  if (moved.length) recordStepReports(moved.map((stepId) => ({ stepId, status: next, agent: 'you' })))
 }
 
 // Bulk counterpart to setNodeStatus, same "one read/write regardless of how
@@ -1568,10 +1609,13 @@ export function approvePlanNodes(planId) {
   const plan = plans.find((p) => p.id === planId)
   const nodeIds = new Set(plan?.nodeIds ?? [])
   const data = readNotesFile()
+  const stages = readStages()
   const approved = []
   const needsReview = []
   for (const node of data.nodes) {
     if (node.status !== 'draft') continue
+    // Finished by an agent that went ahead without approval: nothing to approve.
+    if (stages[node.id] === 'completed') continue
     if (node.planId !== planId && !nodeIds.has(node.id)) continue
     // A step with planned files is approved through its review modal, which
     // writes those files — never blindly in bulk.
@@ -1582,7 +1626,10 @@ export function approvePlanNodes(planId) {
     node.status = 'approved'
     approved.push(node.id)
   }
-  if (approved.length) writeNotesFile(data)
+  if (approved.length) {
+    writeNotesFile(data)
+    syncStatusWithApproval(approved, 'approved')
+  }
   return { approvedIds: approved, needsReviewIds: needsReview }
 }
 
@@ -1869,17 +1916,17 @@ export function removePlanningRef(relPath) {
   return { removed }
 }
 
-const NODE_STAGES = new Set(['proposed', 'in-progress', 'in-review', 'completed'])
-// Stages retired when the lifecycle was simplified to four — read back as their
-// nearest survivor so older stages.json files still render sensibly.
-const LEGACY_STAGES = { todo: 'proposed', blocked: 'in-progress' }
+// The one status every node carries — pending, in_progress, completed, the
+// states AI agents track their own work in. The values and the migration of
+// older ones live in planDoc.mjs (toStepStatus), shared with the vendored CLI.
+function requireNodeStage(stage) {
+  const status = toStepStatus(stage)
+  if (!status) throw new Error(`Unknown status "${stage}" — expected one of ${STEP_STATUSES.join(', ')}`)
+  return status
+}
 
 export function getNodeStages() {
-  const stages = readStages()
-  for (const [id, stage] of Object.entries(stages)) {
-    if (LEGACY_STAGES[stage]) stages[id] = LEGACY_STAGES[stage]
-  }
-  return { stages }
+  return { stages: readStages() }
 }
 
 // Tags one node (any node, by id) with a sprint stage, or clears it when
@@ -1887,17 +1934,233 @@ export function getNodeStages() {
 // keyed by bare node id so build-generated nodes can be tagged too.
 export function setNodeStage(id, stage) {
   if (!id) throw new Error('id is required')
+  // A plan step's status is a report like any agent's: logged, and its changes
+  // tracked from the moment it starts (see recordStepReports).
+  if (stage && readNotesFile().nodes.some((n) => n.id === id && n.type === 'plan-step')) {
+    recordStepReports([{ stepId: id, status: stage, agent: 'you' }])
+    return { stages: readStages() }
+  }
   const stages = readStages()
   if (!stage) {
     delete stages[id]
   } else {
-    if (!NODE_STAGES.has(stage)) {
-      throw new Error(`Unknown stage "${stage}" — expected one of ${[...NODE_STAGES].join(', ')}`)
-    }
-    stages[id] = stage
+    stages[id] = requireNodeStage(stage)
   }
   writeStages(stages)
+  refreshPlanDocsFor([id], stages)
   return { stages }
+}
+
+// --- agents reporting progress ---------------------------------------------
+// A plan's activity log (.planning/<plan>/activity.json): every status an agent
+// reported on one of its steps, with its note. Step 3 of "Planning as agent
+// diagnostics" grows it into a full record of what each step changed.
+function readActivity(planId) {
+  const root = getWorkspaceRoot()
+  if (!root) return { events: [] }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolveSafe(root, planActivityPath(planId)), 'utf8'))
+    return { events: Array.isArray(parsed?.events) ? parsed.events : [] }
+  } catch {
+    return { events: [] }
+  }
+}
+
+function writeActivity(planId, activity) {
+  const root = requireWorkspaceRoot()
+  writeFileAtomic(resolveSafe(root, planActivityPath(planId)), `${JSON.stringify(activity, null, 2)}\n`)
+}
+
+export function getPlanActivity(planId) {
+  if (!planId) throw new Error('planId is required')
+  return readActivity(planId)
+}
+
+// An agent's progress report on one step: its status, and optionally one line
+// of what it did and who it is. The in-app agent's update_plan_step tool and
+// the vendored CLI's set-status both land here (or in the CLI's copy of it).
+export function setStepStatus(stepId, status, { note, agent } = {}) {
+  if (!stepId) throw new Error('stepId is required')
+  const [result] = recordStepReports([{ stepId, status, note, agent }])
+  return { step: result.step, status: result.status, event: result.event }
+}
+
+// Applies status reports — from an agent, the card toggle or an approval — and
+// tracks what each step changes: a step that starts gets a snapshot of the
+// workspace, a step that completes is compared against it and its report lists
+// the files that changed in between (see planDoc.mjs's snapshotTree). One
+// snapshot serves every report in the call.
+function recordStepReports(reports) {
+  const root = requireWorkspaceRoot()
+  const data = readNotesFile()
+  const stages = readStages()
+  const activities = new Map()
+  let current
+  const now = () => (current === undefined ? (current = snapshotWorkspace(root)) : current)
+  const results = []
+  for (const { stepId, status, note, agent } of reports) {
+    if (!stepId) throw new Error('stepId is required')
+    const previous = stages[stepId]
+    const planId = data.nodes.find((n) => n.id === stepId)?.planId
+    if (planId && !activities.has(planId)) activities.set(planId, readActivity(planId))
+    const events = planId ? activities.get(planId).events : []
+    const result = applyStepStatus({ nodes: data.nodes, stages, events, stepId, status, note, agent, at: Date.now() })
+    const action = snapshotActionFor(previous, result.status)
+    if (action === 'take') writeBaseline(root, stepId, { at: result.event.at, files: now() })
+    if (action === 'compare') {
+      attachChanges(result.event, readBaseline(root, stepId), now())
+      // The files the step changed are done with it.
+      for (const change of result.event.changes ?? []) {
+        if (change.change === 'deleted') continue
+        for (const key of stageKeysForPath(data.nodes, change.path)) stages[key] = 'completed'
+      }
+    }
+    if (action === 'compare' || action === 'drop') dropBaseline(root, stepId)
+    results.push(result)
+  }
+  writeStages(stages)
+  for (const [planId, activity] of activities) writeActivity(planId, activity)
+  refreshPlanDocsFor(reports.map((r) => r.stepId), stages, data)
+  return results
+}
+
+// Every key a file's status can be stored under: its own `file:<path>` entry,
+// and any graph node backed by it (a scaffolded or planned file) — the views
+// each read one or the other (see graph/stages.ts's nodeStageKey).
+function stageKeysForPath(nodes, filePath) {
+  const keys = [`file:${filePath}`]
+  for (const n of nodes) if (n.filePath === filePath && n.type !== 'plan-step') keys.push(n.id)
+  return keys
+}
+
+// Whether git sees a path as changed or new; git lists a new folder once, so a
+// file under a listed folder counts too (as graph/nodeTone.ts's isUncommitted).
+function isUncommitted(dirty, filePath) {
+  if (dirty.has(filePath)) return true
+  for (let i = filePath.lastIndexOf('/'); i > 0; i = filePath.lastIndexOf('/', i - 1)) {
+    if (dirty.has(filePath.slice(0, i))) return true
+  }
+  return false
+}
+
+// A file that's in progress or done but that git no longer sees as changed has
+// been committed (or reverted): its status is cleared, so the next change to it
+// starts in progress again instead of reading as done. Proposed stays — a plan
+// can propose changing a committed file. Plan steps and planned files that
+// aren't on disk yet are never touched. `dirtyPaths`: what git sees as changed
+// or new, workspace-relative.
+export function settleCommittedStages(dirtyPaths) {
+  const root = requireWorkspaceRoot()
+  const dirty = new Set(dirtyPaths ?? [])
+  const stages = readStages()
+  const nodesById = new Map(readNotesFile().nodes.map((n) => [n.id, n]))
+  let cleared = 0
+  for (const [key, status] of Object.entries(stages)) {
+    if (status === 'pending') continue
+    const node = nodesById.get(key)
+    if (node?.type === 'plan-step') continue
+    const filePath = key.startsWith('file:') ? key.slice('file:'.length) : node?.filePath
+    if (!filePath || isUncommitted(dirty, filePath)) continue
+    if (!fs.existsSync(path.join(root, filePath))) continue
+    delete stages[key]
+    cleared++
+  }
+  if (cleared) writeStages(stages)
+  return { cleared }
+}
+
+// Every workspace file's size and modification time, skipping what git ignores.
+function snapshotWorkspace(root) {
+  return snapshotTree(
+    (rel) => {
+      try {
+        return fs.readdirSync(path.join(root, rel), { withFileTypes: true }).map((e) => ({ name: e.name, dir: e.isDirectory() }))
+      } catch {
+        return []
+      }
+    },
+    (rel) => {
+      try {
+        const stat = fs.statSync(path.join(root, rel))
+        return [stat.size, Math.round(stat.mtimeMs)]
+      } catch {
+        return null
+      }
+    },
+    gitIgnoredPaths(root),
+  )
+}
+
+// Everything git ignores and doesn't track — folders (collapsed) and files —
+// as root-relative paths. Empty outside a repo or without git.
+function gitIgnoredPaths(root) {
+  try {
+    const out = execFileSync('git', ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'], {
+      cwd: root,
+      timeout: 5_000,
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    }).toString('utf8')
+    return new Set(out.split('\0').filter(Boolean).map((p) => p.replace(/\/$/, '')))
+  } catch {
+    return new Set()
+  }
+}
+
+// A step's snapshot lives outside the project — in the OS temp folder, keyed by
+// project and step — so it never shows up in git or the planning watcher. The
+// vendored CLI keeps them in the same place, so a step started by one (the
+// in-app agent) can be completed by the other (a terminal agent).
+function baselineFile(root, stepId) {
+  let real = root
+  try {
+    real = fs.realpathSync.native(root)
+  } catch {
+    // keep the path as given
+  }
+  if (process.platform === 'win32') real = real.toLowerCase()
+  const hash = (text) => crypto.createHash('sha1').update(text).digest('hex').slice(0, 16)
+  return path.join(os.tmpdir(), 'sleipnir-baselines', hash(real), `${hash(stepId)}.json`)
+}
+
+function readBaseline(root, stepId) {
+  try {
+    return JSON.parse(fs.readFileSync(baselineFile(root, stepId), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writeBaseline(root, stepId, baseline) {
+  try {
+    writeFileAtomic(baselineFile(root, stepId), JSON.stringify(baseline))
+  } catch {
+    // No snapshot only means the step's changes go unlisted.
+  }
+}
+
+function dropBaseline(root, stepId) {
+  fs.rmSync(baselineFile(root, stepId), { force: true })
+}
+
+// plan.md shows each step's status, so a status written by anything — the card
+// toggle, an approval, an agent — regenerates the docs of the plans it touched.
+function refreshPlanDocsFor(ids, stages, data = null) {
+  const root = getWorkspaceRoot()
+  if (!root || ids.length === 0) return
+  const notes = data ?? readNotesFile()
+  const planIds = new Set()
+  for (const id of ids) {
+    const node = notes.nodes.find((n) => n.id === id)
+    if (node?.type === 'plan-step' && node.planId) planIds.add(node.planId)
+  }
+  if (planIds.size === 0) return
+  const plans = readPlansFile()
+  for (const planId of planIds) {
+    const plan = plans.find((p) => p.id === planId)
+    if (plan?.docPath) writePlanDoc(root, plan, notes, stages)
+  }
 }
 
 // Bulk-fills `stage` for any of `ids` that have no stage yet — used when a
@@ -1909,9 +2172,7 @@ export function setNodeStage(id, stage) {
 // ids are passed, unlike calling setNodeStage per id (a plan can easily have
 // hundreds of files).
 export function setDefaultNodeStages(ids, stage) {
-  if (!NODE_STAGES.has(stage)) {
-    throw new Error(`Unknown stage "${stage}" — expected one of ${[...NODE_STAGES].join(', ')}`)
-  }
+  stage = requireNodeStage(stage)
   const stages = readStages()
   let changed = false
   for (const id of ids) {

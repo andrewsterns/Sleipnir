@@ -120,7 +120,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
         justify="between"
         padding={trigger ? { x: 0, y: 0 } : { x: 10, y: 6 }}
         variant={variant}
-        radius="var(--radius-control)"
+        radius="var(--radius-field)"
         w={trigger ? 'hug' : 'fill'}
         effects={{ 'drop-shadow': { x: 0, y: 4, blur: 12, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
         activeScale={0.98}
@@ -149,7 +149,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
             w={menuRect.width}
             z={200}
             variant="surface"
-            radius="var(--radius-control)"
+            radius="var(--radius-field)"
             clipContent
             maxH={hasGroups ? 320 : undefined}
             scroll={hasGroups ? 'y' : undefined}

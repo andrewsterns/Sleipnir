@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
 import { Card } from '../UIKit/Card/Card'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -75,7 +76,7 @@ export function RenamePathModal({ name, isDir, rename, title, onClose, onRenamed
               {title ?? `RENAME ${isDir ? 'FOLDER' : 'FILE'}`}
             </span>
 
-            <input
+            <TextField size="lg"
               ref={inputRef}
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -84,17 +85,6 @@ export function RenamePathModal({ name, isDir, rename, title, onClose, onRenamed
                 if (e.key === 'Escape') onClose()
               }}
               disabled={submitting}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                background: 'var(--bg-2)',
-                border: '1px solid var(--border-2)',
-                borderRadius: 'var(--radius-2)',
-                color: 'var(--text-1)',
-                fontSize: 12,
-                padding: '7px 9px',
-                ...MONO,
-              }}
             />
 
             {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}

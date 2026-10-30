@@ -8,7 +8,9 @@
 //   - steps, and planned files not yet on disk (placeholders)
 //   - planned or asset files that DO exist now: merged into their real
 //     architecture node, which inherits their links
-//   - files a step edits: linked from the step, highlighted in place
+//   - files a step edits, or changed when it ran (its activity log — see
+//     activityLog.ts's changedPathsByStep): linked from the step, highlighted
+//     in place
 import type { GraphData, GraphEdge, GraphNode } from './types'
 import { archId, folderId, folderKeyOf, scopeArchitecture, type ScopeOptions } from './architectureScope'
 import type { WorkspaceScan } from './workspaceScanCache'
@@ -27,6 +29,8 @@ export function composePlanView(
   scan: WorkspaceScan | null,
   mode: PlanViewMode,
   options?: ScopeOptions,
+  /** Step id -> files it changed that still exist. */
+  stepChanges?: ReadonlyMap<string, readonly string[]>,
 ): PlanView {
   if (mode === 'plan' || !scan) return { data: planGraph, overlay: new Set() }
 
@@ -49,9 +53,10 @@ export function composePlanView(
       const slash = n.filePath.lastIndexOf('/')
       if (slash > 0) focusDirs.add(n.filePath.slice(0, slash))
     }
-    if (n.editsPaths?.length) {
-      edits.set(n.id, n.editsPaths)
-      for (const p of n.editsPaths) focusPaths.add(p)
+    const touched = [...new Set([...(n.editsPaths ?? []), ...(stepChanges?.get(n.id) ?? [])])]
+    if (touched.length) {
+      edits.set(n.id, touched)
+      for (const p of touched) focusPaths.add(p)
     }
     if (!n.discovered) overlay.add(n.id)
   }

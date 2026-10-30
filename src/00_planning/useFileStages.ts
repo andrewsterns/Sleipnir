@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getNotes } from './api/sleipnirApi'
 import { useStages, setStage, getStage } from './stagesStore'
 import { fileStageKey } from './graph/stages'
+import { refreshGitChanges } from './gitChangesStore'
 import type { NodeStage } from './graph/types'
 
 // A workspace-relative filePath → sprint-stage lookup, built from the planning
@@ -60,12 +61,12 @@ export function useFileStages(reloadToken?: unknown) {
   return { stages, setStatus }
 }
 
-// The one automatic transition: code saved into a Proposed (or untagged) file
-// moves it to In Progress. In Review and Done are only ever set deliberately,
-// so they're never touched here. Resolves the same node-id-or-`file:<path>` key
+// The one automatic transition: code saved into a Pending (or untagged) file
+// moves it to In progress. Completed is only ever set deliberately — by a human
+// or by the agent reporting it — so it's never touched here. Resolves the same node-id-or-`file:<path>` key
 // as setStatus above, so the change shows in Planning, Canvas and Source Control.
 export function shouldPromote(current: NodeStage | undefined): boolean {
-  return (current ?? 'proposed') === 'proposed'
+  return (current ?? 'pending') === 'pending'
 }
 
 // Batch form — one getNotes() for the filePath→id join however many paths, so
@@ -82,13 +83,16 @@ export async function promoteFileStages(paths: string[], { plannedOnly = false }
       const nodeId = idByPath.get(path)
       if (plannedOnly && !nodeId) continue
       const id = nodeId ?? fileStageKey(path)
-      if (shouldPromote(await getStage(id))) await setStage(id, 'in-progress')
+      if (shouldPromote(await getStage(id))) await setStage(id, 'in_progress')
     }
   } catch {
     /* status is best-effort — never block saving a file */
   }
 }
 
+// After the editor saves a file: promote it, and re-read git so the graph
+// stops drawing it as committed.
 export function promoteFileStage(path: string) {
+  void refreshGitChanges()
   return promoteFileStages([path])
 }

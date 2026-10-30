@@ -25,9 +25,9 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
     align   = 'center',
     gap     = 8,
     padding = { x: 10, y: 6 },
-    // The shared interactive-control radius — rounded in every theme,
-    // including tactical (whose panel radii stay square). See --radius-control.
-    radius  = 'var(--radius-control)',
+    // A search box is a field: the shared field radius (--radius-field),
+    // the same corner as every text input and dropdown.
+    radius  = 'var(--radius-field)',
     variant = 'surface',
 
     className,

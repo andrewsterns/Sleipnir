@@ -6,6 +6,8 @@
 
 ## 1. One language registry
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/one-language-registry-1793219797380 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 A language is defined in eight places today (architectures.ts LANGUAGES, planDoc EXT_LANGUAGE, the importAdapters and codeEditorLanguages ext maps, analyze.mjs SOURCE_EXT, runTargets, lsp-proxy, templates), so adding C means touching all of them and they drift. One pure-data registry with no imports (like graphCore.mjs), usable by the renderer, Electron and the vendored CLIs. Per language: id, label, extensions, comment syntax (line, block, hash, html), header/source split (C, C++), the manifests that detect it, file-naming convention (camel, snake, Pascal), editor grammar, language server (command, args, install hint), build/run/test commands, .gitignore entries, and the UI frameworks a canvas component can target in it. Seeds: TypeScript, React, JavaScript, Python, Rust, Go, C, C++, Java, Kotlin, Swift, C#, HTML, CSS; frameworks React, Vue, Svelte, HTML, Leptos, Dioxus, templ, LVGL, SwiftUI. Consumers wired in this step: architectures.ts derives LANGUAGES from it; syncPlanDoc inlines it into the vendored plan.mjs (which stays import-free); analyze.mjs reads its extensions; the scaffolder vendors it as .sleipnir/languages.mjs. Test: every consumer agrees with the registry.
 
 **Files**
@@ -26,6 +28,8 @@ A language is defined in eight places today (architectures.ts LANGUAGES, planDoc
 
 ## 2. Detect C, C++, Java, Swift and C# projects
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/detect-c-c-java-swift-and-c-projects-1793219797448 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 detect-project reads manifests from the registry instead of its own list: CMakeLists.txt, Makefile or meson.build become c or cpp (by the sources present) and are supported rather than reported as unsupported; pom.xml and build.gradle(.kts) become java or kotlin; Package.swift becomes swift; .csproj/.sln become csharp. conventions reports each language source and include folders (src + include for C, src/main/java for Java), so agents running /plan put files where the project expects them. Mixed repos (a Rust core with a React UI) keep a language per folder. AGENTS.md lists every language extension for planned files.
 
 **Edits**
@@ -39,6 +43,8 @@ detect-project reads manifests from the registry instead of its own list: CMakeL
 
 ## 3. Scaffold any language in Planning
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/scaffold-any-language-in-planning-1793219797519 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 Role templates for C, C++, Java, Kotlin, Swift and C# beside the existing TypeScript, Python, Rust and Go ones, chosen from the registry. C and C++ split by role: the Interface role is the header (.h/.hpp) and every other role is a source file that includes its own header, so a C view includes view_model.h the way a TSX view imports its ViewModel. File names follow each language convention (cart_view.c, CartView.java, cart_view.rs). The Add Node language picker lists every registered language; non-architectural ones (CSS) still scaffold single files. Test: every language x role renders with balanced braces and include guards, and siblings link.
 
 **Files**
@@ -55,6 +61,8 @@ Role templates for C, C++, Java, Kotlin, Swift and C# beside the existing TypeSc
 
 ## 4. Imports and Health for C, C++, Java, Kotlin, Swift, C#
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/imports-and-health-for-c-c-java-kotlin-swift-c-1793219797611 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 Real import resolution so the architecture graph and the Health view work for these languages instead of the basename-guessing fallback. C/C++: #include "x.h" relative to the file, then include dirs from compile_commands.json or CMake include_directories, with header and source paired as one unit. Java/Kotlin: package + import to a path under src/main/java or kotlin. Swift and C#: module and namespace, same-module types by folder. analyze.mjs gets the same parsers (vendored, pure), and graphCore roles learn them: headers are the interface layer, main.c, Main.java and Program.cs are entries, *_test.c and *Test.java are tests. Lab: add a CMake fixture with an include cycle and a Gradle fixture with a misplaced class to tools/optimizeLab.
 
 **Files**
@@ -72,6 +80,8 @@ Real import resolution so the architecture graph and the Health view work for th
 
 ## 5. Workspace: highlighting for every language
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-highlighting-for-every-language-1793219797697 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 codeEditorLanguages reads the registry. Adds @codemirror/lang-cpp (C, C++), @codemirror/lang-java, and @codemirror/legacy-modes StreamLanguage modes for Swift, Kotlin, C#, TOML, YAML, shell and CMake. Grammars load on demand with a dynamic import so none of them reaches the first load. The duplicate extension maps in codeEditorLanguages and importAdapters collapse into the registry. Unknown extensions still open as plain editable text.
 
 **Edits**
@@ -84,6 +94,8 @@ codeEditorLanguages reads the registry. Adds @codemirror/lang-cpp (C, C++), @cod
 
 ## 6. Workspace: a language server per language
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-a-language-server-per-language-1793219797795 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 lsp-proxy only spawns typescript-language-server. Generalize it to the registry server per language: clangd (C, C++), rust-analyzer, gopls, pyright-langserver or pylsp, jdtls, kotlin-language-server, sourcekit-lsp, csharp-ls. Each is found on PATH (or a configured path), started lazily the first time a file of that language opens, one per project root and language, and stopped when the project closes. The editor client connects per language. A missing server is a quiet status line with the install command from the registry, never an error dialog. The self-host tsserver special case stays.
 
 **Files**
@@ -99,6 +111,8 @@ lsp-proxy only spawns typescript-language-server. Generalize it to the registry 
 
 ## 7. Workspace: build, run and test any project
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/workspace-build-run-and-test-any-project-1793219797903 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 Play finds CMake (configure, build, run the target), Make, Meson, Gradle/Maven, SwiftPM and dotnet projects next to npm, cargo, go and python. Validation, Vitest-only today, runs each language test runner from the registry (cargo test, go test -json, pytest with junit output, ctest, gradle test, swift test, dotnet test) and parses all of them into one result shape: suite, test, status, duration, failure message with file:line. The Validation view, and later the Health view failure overlay, then read any language the same way.
 
 **Files**
@@ -115,6 +129,8 @@ Play finds CMake (configure, build, run the target), Make, Meson, Gradle/Maven, 
 
 ## 8. Git: language-aware diffs and ignores
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/git-language-aware-diffs-and-ignores-1793219797975 -->
+**Status:** Done — Backfilled: checked in the code (languages.mjs, C/JVM adapters, native templates, editor grammars, language servers, test runners, diff highlighting, gitignores)
+
 Diffs are plain text today. Highlight hunks with the file grammar from the registry (static Lezer highlighting, no editor instance per hunk). Lockfiles and generated output (Cargo.lock, go.sum, package-lock.json, build folders) collapse by default. initRepo writes a .gitignore built from the detected languages (target/, build/, __pycache__/, .venv/, *.o, out/, bin/ and obj/), and Source Control offers to add a missing ignore when build output shows up as untracked. Note: src/06_source_control is being edited in parallel; start from that work.
 
 **Files**
@@ -130,6 +146,8 @@ Diffs are plain text today. Highlight hunks with the file grammar from the regis
 
 ## 9. Canvas: pick the language on the element
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/canvas-pick-the-language-on-the-element-1793219798050 -->
+**Status:** Proposed
+
 LANGUAGES.md stages 1 and 2. A component TARGET is dead data today: everything emits React. Stage 1: region sentinels take a closed comment-style id (line-slash, block-slash, html, plus hash for Python and TOML shaped targets), defaulting to today // so every file on disk keeps working; region.test.ts must pass unmodified. Stage 2: a CanvasEmitter interface (extension, comment style, indent, fileName, symbol, emitRegionBody, collectImports, emitComponentFile, and the property support table used next), an emitter registry with no fallback (React into a file meant to be HTML is worse than nothing), targets derived from the emitter registry crossed with the language registry, and the inspector TARGET dropdown wired on the element itself, locked once the component has a file. React moves behind the interface with byte-identical output.
 
 **Files**
@@ -150,6 +168,8 @@ LANGUAGES.md stages 1 and 2. A component TARGET is dead data today: everything e
 
 ## 10. The Frame spec: canvas properties as the cross-language contract
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/the-frame-spec-canvas-properties-as-the-cross-language-contract-1793219798133 -->
+**Status:** Proposed
+
 Decision: the base Frame is a spec, not a runtime. CanvasStyle already is the one box model (layout, sizing, paint, effects, rotation, along-path). frameSpec lists every property once with its meaning, units and default, and each emitter declares per property: exact, approximate (with the reason) or unsupported. The inspector reads it for the selected element target, so an unsupported property is greyed with its reason (per-corner radius: approximate in SwiftUI) and the design never promises what the code cannot do. Every lowering stays a pure function of the same IR, so adding a language never touches the others. Record the decisions (spec over runtime, the CSS policy, the motion and 3D direction) in LANGUAGES.md.
 
 **Files**
@@ -167,6 +187,8 @@ Decision: the base Frame is a spec, not a runtime. CanvasStyle already is the on
 
 ## 11. React Frame mode: canvas properties as code props (opt-in)
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/react-frame-mode-canvas-properties-as-code-props-opt-in-1793219798210 -->
+**Status:** Proposed
+
 For code that reads like the inspector: emit <Frame flow="vertical" gap={8} fill={...}> instead of divs with style objects. The Frame is copied into the project (src/components/Frame/, owned by the user like shadcn components, no Sleipnir dependency) from UIKit Frame on first use and kept current by a version stamp. toFrameProps (CanvasStyle to FrameProps; removed as unused, restore from 9f835de^) is the mapping, and reading code back onto the canvas becomes reading props. Off by default: plain divs stay the zero-dependency default, and other languages always use static lowering, because the Frame runs toCss at runtime and porting that derivation into every language would recreate the drift the spec avoids.
 
 **Files**
@@ -183,6 +205,8 @@ For code that reads like the inspector: emit <Frame flow="vertical" gap={8} fill
 
 ## 12. Stylesheets: multi-file components and the CSS policy
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/stylesheets-multi-file-components-and-the-css-policy-1793219798289 -->
+**Status:** Proposed
+
 Policy: inline until inline cannot. React keeps inline style objects (exact, one file) unless a component needs what inline cannot express (hover, press and focus states, breakpoints, keyframe animation); then it gets a co-located Card.module.css with one class per node. Markup-first targets (HTML, Vue, Svelte, templ, Leptos) always use a stylesheet. Theme tokens become CSS variables, so components follow the app theme. Needs LANGUAGES.md phase 2: CanvasComponent.outputs[] (target, files, sync, per-file hashes), schema v2 with an idempotent migration, and cssDeclarations() in toCss (kebab-case, px on unitless numbers except opacity, flex, fontWeight, lineHeight, zIndex). One derivation still feeds the board and the code.
 
 **Files**
@@ -201,6 +225,8 @@ Policy: inline until inline cannot. React keeps inline style objects (exact, one
 
 ## 13. Web targets: HTML, Vue, Svelte
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/web-targets-html-vue-svelte-1793219798365 -->
+**Status:** Proposed
+
 LANGUAGES.md stages 3 and 4, plus Svelte. HTML: one document, region inside <body>, variants as hidden siblings, nested instances inlined with a cycle guard. Vue SFC: html-style sentinel inside <template> (never //), v-if variants, real component imports that keep their extension. Svelte: {#if} variants and a scoped <style>. All three use the step 12 stylesheet, so the board preview stays exact. Acceptance: one board with React, HTML and Vue components side by side, each pushed with its own sentinel style and tracked dirty independently.
 
 **Files**
@@ -218,6 +244,8 @@ LANGUAGES.md stages 3 and 4, plus Svelte. HTML: one document, region inside <bod
 
 ## 14. Rust and Go components: Leptos and templ
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/rust-and-go-components-leptos-and-templ-1793219798439 -->
+**Status:** Proposed
+
 Rust and Go reach the canvas through web UI frameworks that keep the CSS box model, so the preview stays exact. Rust: a Leptos component (a #[component] fn returning view! markup, classes from the component stylesheet, props as a struct), with Dioxus rsx! as a second Rust emitter on the same lowering. Go: a templ component with a props struct. Variants become a Rust enum with match and a Go switch. File naming and comment sentinels come from the registry (snake_case .rs, // regions); a Rust component lands in the crate components module and is registered in mod.rs.
 
 **Files**
@@ -233,6 +261,8 @@ Rust and Go reach the canvas through web UI frameworks that keep the CSS box mod
 
 ## 15. Native targets: C (LVGL) and SwiftUI
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/native-targets-c-lvgl-and-swiftui-1793219798530 -->
+**Status:** Proposed
+
 Toolkits without CSS need a second lowering. toNative maps the IR to a layout tree (flex flow, gap, padding, alignment, fixed, hug and fill sizes, absolute children) and records every divergence. LVGL, the C UI toolkit with real flex layout for embedded and desktop, emits card.h (a props struct and a create function) and card.c (lv_obj calls, one lv_style_t per node, flex flow and align, radius, border, shadow). SwiftUI emits stacks and modifiers per LANGUAGES.md stage 5 (.offset, never .position). The board cannot render these natively, so a native-target component wears an approximate-preview badge and the inspector shows its frameSpec divergences. C without a UI toolkit still gets no frame, but can get its props struct.
 
 **Files**
@@ -249,6 +279,8 @@ Toolkits without CSS need a second lowering. toNative maps the IR to a layout tr
 
 ## 16. AI commands in any language
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/ai-commands-in-any-language-1793219798628 -->
+**Status:** Proposed
+
 For "/component a pricing card in Vue" or "/plan a sensor driver in C": canvas.mjs build and the canvas_build tool take a target, validated against the available emitters and answered with the unavailable reason instead of quietly falling back to React. The /plan and /optimize skills tell agents to read detect-project languages and plan each folder in its own language. The chat slash hints show the language argument.
 
 **Edits**
@@ -263,6 +295,8 @@ For "/component a pricing card in Vue" or "/plan a sensor driver in C": canvas.m
 
 ## 17. Motion: states, transitions and keyframes
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723 -->
+**Status:** Proposed
+
 The IR gets a time axis. Interaction states (hover, press, focus) are style overrides like variants; transitions say how each property moves between them (duration, easing, delay); keyframe timelines animate opacity, rotate, position, scale and fills, plus motion along a path that reuses pathFlow. The board previews with the Web Animations API on the same toCss values, and a timeline panel scrubs and plays. Lowering: web targets get CSS transitions and @keyframes in the component stylesheet (why stylesheets come first), React Frame mode a motion prop, SwiftUI .animation and withAnimation, LVGL lv_anim_t; each declared in frameSpec, unsupported shown with its reason. Emitted CSS honors prefers-reduced-motion.
 
 **Files**
@@ -279,8 +313,28 @@ The IR gets a time axis. Interaction states (hover, press, focus) are style over
 
 <!-- /step:plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723 -->
 
-## 18. 3D: scene nodes
+## 18. Geometry kernel: every layer is a shape
+<!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314 -->
+**Status:** Done — Backfilled: checked in the code; built under the 3D plan (geometry/shape.ts, scene3d placements, extrude/revolve/sweep)
+
+The bridge between 2D and 3D. Every layer already has an outline: a frame is a (per-corner) rounded rectangle, an ellipse is an ellipse, a polygon or star is a polygon, a vector is Bezier paths, an image is its box. One Shape type holds that outline as closed contours; flattening turns curves into polygons at a chosen tolerance, and triangulation (earcut, holes included) turns polygons into a flat mesh. Pure and tested, with no renderer: the 2D board can use it for exact hit-testing and boolean ops, and every 3D step builds on it. A 2D design is then literally a 3D scene seen from the front with every layer at depth 0.
+
+**Files**
+- `src/01_canvas/geometry/shape.ts` — node (typescript)
+- `src/01_canvas/geometry/mesh.ts` — node (typescript)
+
+**Edits**
+- `src/01_canvas/model/types.ts`
+- `src/01_canvas/model/vector.ts`
+- `package.json`
+<!-- /step-meta:plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314 -->
+
+<!-- /step:plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314 -->
+
+## 19. 3D: scene nodes
 <!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826 -->
+**Status:** Done — Backfilled: checked in the code; built under the 3D plan (geometry/shape.ts, scene3d placements, extrude/revolve/sweep)
+
 A new layer kind: a frame that holds a 3D scene with primitives (box, sphere, plane, torus), glTF models from .components/assets, a camera, lights, and materials taken from canvas fills. It is positioned and laid out like any frame, so a 3D hero sits inside a 2D page. The board renders it with three.js through @react-three/fiber, loaded on demand with a dynamic import so three.js never reaches the first load. Motion keyframes drive object transforms and the camera. Emit: React gets an R3F component, web markup targets a small vanilla three.js module, native targets unsupported with the reason (SceneKit or RealityKit later for Swift).
 
 **Files**
@@ -297,3 +351,77 @@ A new layer kind: a frame that holds a 3D scene with primitives (box, sphere, pl
 <!-- /step-meta:plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826 -->
 
 <!-- /step:plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826 -->
+
+## 20. Depth on every layer: extrude, revolve, sweep
+<!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383 -->
+**Status:** Done — Backfilled: checked in the code; built under the 3D plan (geometry/shape.ts, scene3d placements, extrude/revolve/sweep)
+
+Any frame or vector can leave the plane: a 3D transform (z, tilt on x and y, depth scale) and a shape modifier. Extrude gives a 2D outline thickness and bevels; revolve spins it around an axis into a lathe (vase, wheel, bottle); sweep runs it along a guide path, reusing pathGuide, into tubes and ribbons. A logo becomes a 3D object in two clicks and stays editable as 2D: the outline is still the source. The board gets a 2D/3D toggle: 2D is the orthographic front view of the same scene, 3D orbits it, so nothing is converted and nothing is lost going back.
+
+**Files**
+- `src/01_canvas/geometry/modifiers.ts` — node (typescript)
+- `src/01_canvas/board/Board3DView.tsx` — view (react)
+- `src/01_canvas/board/Board3DView.ViewModel.tsx` — view-model (react)
+
+**Edits**
+- `src/01_canvas/model/types.ts`
+- `src/01_canvas/board/CanvasBoard.tsx`
+- `src/01_canvas/panels/CanvasInspector.tsx`
+<!-- /step-meta:plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383 -->
+
+<!-- /step:plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383 -->
+
+## 21. Materials and shading
+<!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453 -->
+**Status:** Proposed
+
+Physically based materials per layer that start from what the layer already has: a solid fill becomes base color, an image fill a texture map, a gradient a generated texture, opacity becomes transmission. Add metalness, roughness, emissive, clearcoat and normal maps, plus lights and an environment (HDRI) for the scene. Then a node-based shader editor drawn with the same graph engine as Planning: texture, math, noise and mix nodes compiled to three.js node materials (TSL, which targets both WebGL and WebGPU). Materials are assets in .components/, reusable across layers and boards.
+
+**Files**
+- `src/01_canvas/model/material.ts` — node (typescript)
+- `src/01_canvas/panels/MaterialPanel.tsx` — view (react)
+- `src/01_canvas/panels/MaterialPanel.ViewModel.tsx` — view-model (react)
+- `src/01_canvas/shading/shaderGraph.ts` — node (typescript)
+
+**Edits**
+- `src/01_canvas/model/types.ts`
+- `src/00_planning/graph/GraphCanvas.tsx`
+<!-- /step-meta:plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453 -->
+
+<!-- /step:plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453 -->
+
+## 22. Polygon modelling
+<!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538 -->
+**Status:** Proposed
+
+An edit mode for meshes: select vertices, edges and faces; move, rotate and scale them; extrude and inset faces, bevel edges, loop cut, merge, mirror, and subdivision surfaces for smooth forms. Booleans (union, subtract, intersect) between any two solids with a CSG library (three-bvh-csg). A modelled mesh keeps its history as an ordered modifier stack on top of the 2D outline it came from, so an edit can be revisited, and it shares the canvas undo. Mesh data lives in the board document (positions, faces, UVs), saved compactly.
+
+**Files**
+- `src/01_canvas/geometry/editMesh.ts` — node (typescript)
+- `src/01_canvas/geometry/csg.ts` — node (typescript)
+- `src/01_canvas/panels/MeshEditPanel.tsx` — view (react)
+
+**Edits**
+- `src/01_canvas/model/types.ts`
+- `src/01_canvas/model/undo.ts`
+- `src/01_canvas/board/CanvasToolbar.tsx`
+<!-- /step-meta:plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538 -->
+
+<!-- /step:plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538 -->
+
+## 23. 3D export and code
+<!-- step:plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637 -->
+**Status:** Proposed
+
+Get models out: glTF/GLB (with materials), OBJ, and STL for 3D printing, from a layer, a selection or a scene; import glTF and OBJ back as editable meshes. Code: a React Three Fiber component per 3D component and a plain three.js module for web targets, through the same emitter registry as 2D. And the other direction: render a 3D view out as an SVG or PNG layer, so a modelled object can drop back into a flat design.
+
+**Files**
+- `src/01_canvas/geometry/exportModel.ts` — node (typescript)
+- `src/01_canvas/emit/r3f.ts` — node (typescript)
+
+**Edits**
+- `src/01_canvas/CanvasView.ViewModel.tsx`
+- `src/01_canvas/emit/targets.ts`
+<!-- /step-meta:plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637 -->
+
+<!-- /step:plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637 -->

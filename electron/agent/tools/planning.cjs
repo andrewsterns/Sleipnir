@@ -1,6 +1,7 @@
-// Planning-graph tools — create_plan_node and detect_project. Both only ever
-// write plan METADATA (.planning/*.json), never source files; that's why
-// create_plan_node stays usable in Plan mode (allowInPlan).
+// Planning-graph tools — create_plan_node, update_plan_step and detect_project.
+// They only ever write plan METADATA (.planning/), never source files; that's
+// why create_plan_node stays usable in Plan mode (allowInPlan), and why a
+// progress report (update_plan_step) never needs approving.
 const { withRoot } = require('../backend.cjs')
 
 const createPlanNode = {
@@ -62,6 +63,29 @@ const createPlanNode = {
   },
 }
 
+const updatePlanStep = {
+  name: 'update_plan_step',
+  kind: 'report',
+  description:
+    "Report your progress on a plan step, so the plan shows what you are actually doing. Keep the plan as your working todo list: set a step in_progress when you start it (one at a time), testing while you run its tests, and completed the moment it is done, with a one-line note of what you did. Sleipnir's graph shows it live.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      step_id: { type: 'string', description: 'The step id create_plan_node returned (node_id), or one listed in the plan.' },
+      status: { type: 'string', enum: ['pending', 'in_progress', 'testing', 'completed'] },
+      note: { type: 'string', description: 'Optional: one line of what you did, e.g. "Added the cart view and its tests".' },
+    },
+    required: ['step_id', 'status'],
+  },
+  summarize: (input) => `${input?.status ?? ''}${input?.note ? ` — ${input.note}` : ''}`,
+  async execute(input, ctx) {
+    const { step, status } = await withRoot(ctx.workspaceRoot, (b) =>
+      b.setStepStatus(input.step_id, input.status, { note: input.note, agent: ctx.agent }),
+    )
+    return { updated: true, step_id: step.id, label: step.label, status }
+  },
+}
+
 const detectProject = {
   name: 'detect_project',
   kind: 'read',
@@ -72,4 +96,4 @@ const detectProject = {
   execute: (_input, ctx) => withRoot(ctx.workspaceRoot, (b) => b.detectProject()),
 }
 
-module.exports = [createPlanNode, detectProject]
+module.exports = [createPlanNode, updatePlanStep, detectProject]

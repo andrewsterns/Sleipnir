@@ -4,6 +4,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
 import { Card } from '../UIKit/Card/Card'
 import { FOUNDER_PRICE, PRO_FEATURES, useLicense, type UpgradeNeeded } from './iLicense'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -33,22 +34,13 @@ export function LicenseKeyForm({ onActivated }: { onActivated?: () => void }) {
   return (
     <Frame flow="vertical" gap={6}>
       <Frame flow="horizontal" gap={8} align="center">
-        <input
+        <TextField size="md"
           value={key}
           onChange={(e) => setKey(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && key.trim() && !busy) submit() }}
           placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
           spellCheck={false}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border-2)',
-            color: 'var(--text-1)',
-            fontSize: 10,
-            padding: '6px 8px',
-            ...MONO,
-          }}
+          style={{ flex: 1, minWidth: 0 }}
         />
         <Button variant="secondary" size="sm" onClick={submit} disabled={busy || !key.trim()}>
           {busy ? 'Activating…' : 'Activate'}

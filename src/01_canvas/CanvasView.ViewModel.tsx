@@ -57,6 +57,7 @@ import {
   deleteComponent,
   findComponent,
   flattenComponent,
+  detachInstance,
   instancesOf,
   isLosslessDowngrade,
   removeVariant,
@@ -110,7 +111,7 @@ import {
   type PointPart,
   type PointType,
 } from './model/vectorEdit'
-import { DEFAULT_COMPONENT_ROOT, deconflictComponentPath, normalizeRelPath, parentDir, relativeToRoot, resolveComponentPath } from './model/paths'
+import { DEFAULT_COMPONENT_ROOT, boardFolderName, componentPathIn, deconflictComponentPath, folderFieldSeed, normalizeRelPath, parentDir, relativeToRoot, resolveComponentPath } from './model/paths'
 import { relinkRelocated } from './model/relink'
 import { diffStagedFiles, isStagedPath, pruneUnreferencedComponents, stagedFilesOf } from './model/stagedFiles'
 import { ensureStagingTsconfig } from './model/stagingTsconfig'
@@ -464,6 +465,8 @@ export function useCanvasViewModel(
    * `drillScope` below cannot infer one from the selection.
    */
   const [scopeId, setScopeId] = useState<NodeId | null>(null)
+  // The text layer being typed into on the board (double-click a text layer).
+  const [editingTextId, setEditingTextId] = useState<NodeId | null>(null)
   /** Alignment guides to draw for the current drag. */
   const [guides, setGuides] = useState<Guide[]>([])
   /**
@@ -720,7 +723,65 @@ export function useCanvasViewModel(
 
   const renameBoard = useCallback((name: string) => {
     setHistory((h) => (h ? commit(h, { ...h.present, name, updatedAt: Date.now() }) : h))
+    // Through setHistory rather than apply, so the autosave has to be told.
+    dirty.current = true
   }, [])
+
+  /**
+   * A board's folder follows its name: once a rename settles, every component
+   * file still in the old board folder moves to the new one (content as-is —
+   * only the folder changes). Files filed elsewhere by hand stay put. A file
+   * whose destination is already taken stays where it is rather than
+   * overwrite anything.
+   */
+  // The folder this board's files are actually in — updated only once a move
+  // starts, so an edit landing mid-wait can't make a rename look already done.
+  const settledFolderRef = useRef<{ id: string; folder: string } | null>(null)
+  useEffect(() => {
+    if (!doc) return
+    const folder = boardFolderName(doc.name)
+    const settled = settledFolderRef.current
+    if (!settled || settled.id !== doc.id) {
+      settledFolderRef.current = { id: doc.id, folder }
+      return
+    }
+    if (settled.folder === folder) return
+    // Wait for the name to settle — typing a new name shouldn't move files per keystroke.
+    const timer = setTimeout(async () => {
+      const from = settled.folder
+      settledFolderRef.current = { id: doc.id, folder }
+      const moves: { id: string; from: string; to: string }[] = []
+      for (const component of doc.components) {
+        if (!component.filePath) continue
+        const root = normalizeRelPath(component.componentRoot)
+        const oldPrefix = `${root}/${from}/`
+        if (!component.filePath.startsWith(oldPrefix)) continue
+        moves.push({ id: component.id, from: component.filePath, to: `${root}/${folder}/${component.filePath.slice(oldPrefix.length)}` })
+      }
+      const moved: typeof moves = []
+      for (const move of moves) {
+        try {
+          const { content } = await readWorkspaceFile(move.from)
+          await createWorkspaceFile(move.to, content)
+          await deleteWorkspacePath(move.from)
+          await pruneEmptyFolder(parentDir(move.from))
+          moved.push(move)
+        } catch {
+          // Destination taken or the file is gone — leave this one where it is.
+        }
+      }
+      if (moved.length === 0) return
+      setHistory((h) => {
+        if (!h || h.present.id !== doc.id) return h
+        let next = h.present
+        for (const move of moved) next = updateComponent(next, move.id, { filePath: move.to })
+        return commit(h, next, true)
+      })
+      dirty.current = true
+      onFilesChangedRef.current?.()
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [doc])
 
   // Initial load. Opens the most recently touched board so returning to the tab
   // resumes where you left off rather than showing an empty picker.
@@ -1479,6 +1540,12 @@ export function useCanvasViewModel(
         enterVectorEdit(deepest.id)
         return
       }
+      // A double-click on text types into it, right there on the board.
+      if (deepest && isTextNode(deepest)) {
+        setSelectedIds(new Set([deepest.id]))
+        setEditingTextId(deepest.id)
+        return
+      }
       const board = panZoom.toBoard(e.clientX, e.clientY)
       const path = hitPath(doc, board.x, board.y, { measured, tolerance: OUTLINE_TOLERANCE_PX / panZoom.getCamera().k })
       if (path.length === 0) return
@@ -2053,6 +2120,8 @@ export function useCanvasViewModel(
             : createFrameNode(localRect)
       apply(insertNode(doc, node, parentId))
       setSelectedIds(new Set([node.id]))
+      // A new text layer is for typing into — start there, as Figma does.
+      if (node.kind === 'text') setEditingTextId(node.id)
       setTool('select')
     }
 
@@ -2737,7 +2806,9 @@ export function useCanvasViewModel(
       // Every rejected path accumulates, or the next derivation would hand back
       // one already refused. Bounded so a pathological directory can't spin.
       const rejected: string[] = []
-      let safePath = deconflictComponentPath(promoted.component.componentRoot, promoted.component.name, taken)
+      // Components land in their board's folder: .components/<board>/<name>/.
+      const board = boardFolderName(base.name)
+      let safePath = deconflictComponentPath(promoted.component.componentRoot, promoted.component.name, taken, board)
       let hash = ''
       for (let attempt = 0; ; attempt += 1) {
         const ctx = {
@@ -2755,10 +2826,12 @@ export function useCanvasViewModel(
           const message = e instanceof Error ? e.message : String(e)
           if (attempt >= 20 || !/already exists/i.test(message)) throw e
           rejected.push(safePath)
-          safePath = deconflictComponentPath(promoted.component.componentRoot, promoted.component.name, [
-            ...taken,
-            ...rejected,
-          ])
+          safePath = deconflictComponentPath(
+            promoted.component.componentRoot,
+            promoted.component.name,
+            [...taken, ...rejected],
+            board,
+          )
         }
       }
 
@@ -3024,18 +3097,44 @@ export function useCanvasViewModel(
         }
       }
 
-      apply(
-        updateComponent(doc, componentId, {
-          name: input.name,
-          target: input.target,
-          filePath: safePath,
-          sync: 'live',
-          lastWrittenHash: hash,
-          ejectReason: undefined,
-        }),
-      )
+      let next = updateComponent(doc, componentId, {
+        name: input.name,
+        target: input.target,
+        filePath: safePath,
+        sync: 'live',
+        lastWrittenHash: hash,
+        ejectReason: undefined,
+      })
+      // Instances still called what the component was called follow the
+      // rename, so the layers list reads the component's new name; ones
+      // somebody named themselves keep their own.
+      for (const instance of instancesOf(doc, componentId)) {
+        if (instance.name === component.name) next = updateNode(next, instance.id, { name: input.name })
+      }
+      apply(next)
     },
     [doc, apply],
+  )
+
+  /**
+   * Renames a component from the properties panel's name field: the file, its
+   * exported symbol and its instances follow (approveComponent). A component
+   * still in the folder its old name derived moves to the new name's folder; one
+   * filed somewhere deliberately stays there, under the new file name.
+   */
+  const renameComponent = useCallback(
+    async (componentId: string, name: string) => {
+      if (!doc) return
+      const component = findComponent(doc, componentId)
+      const trimmed = name.trim()
+      if (!component || !trimmed || trimmed === component.name) return
+      const board = boardFolderName(doc.name)
+      const folder = folderFieldSeed(component.componentRoot, component.name, component.filePath, board)
+      const { path, error } = componentPathIn(component.componentRoot, trimmed, folder, board)
+      if (!path) throw new Error(error ?? 'That name gives no valid file path.')
+      await approveComponent(componentId, { name: trimmed, target: component.target, filePath: path })
+    },
+    [doc, approveComponent],
   )
 
   /**
@@ -3150,10 +3249,38 @@ export function useCanvasViewModel(
    * something with several instances, since there'd be no single place to
    * dissolve into.
    */
+  // Text editing ends when its layer stops being the one selected thing —
+  // clicking away, Escape, a delete, an undo that removes it.
+  useEffect(() => {
+    if (editingTextId && singleSelected?.id !== editingTextId) setEditingTextId(null)
+  }, [editingTextId, singleSelected])
+  const setTextContent = useCallback(
+    (id: NodeId, text: string) => {
+      if (!doc) return
+      apply(updateNode(doc, editTargetOf(doc, id), { text } as Partial<CanvasNode>), coalesceGesture(`text:${id}`))
+    },
+    [doc, apply, coalesceGesture],
+  )
+  const endTextEdit = useCallback(() => setEditingTextId(null), [])
+
   const canFlattenSelectedComponent = useMemo(() => {
     if (!doc || !selectedComponent) return false
     return instancesOf(doc, selectedComponent.id).length === 1
   }, [doc, selectedComponent])
+
+  /**
+   * The properties panel's "make this a plain frame again" button. The only
+   * instance of a component dissolves the component too (flattenComponent);
+   * one of several detaches just itself, so the others keep tracking it.
+   */
+  const unmakeSelectedComponent = useCallback(() => {
+    if (!doc || !singleSelected || !isInstanceNode(singleSelected)) return
+    apply(
+      canFlattenSelectedComponent
+        ? flattenComponent(doc, singleSelected.componentId)
+        : detachInstance(doc, singleSelected.id),
+    )
+  }, [doc, singleSelected, canFlattenSelectedComponent, apply])
 
   // ── History ──
   const doUndo = useCallback(() => {
@@ -3484,6 +3611,10 @@ export function useCanvasViewModel(
     parentOf: (id: NodeId) => (doc ? findParent(doc, id) : null),
     selectedComponent,
     canFlattenSelectedComponent,
+    unmakeSelectedComponent,
+    editingTextId,
+    setTextContent,
+    endTextEdit,
     selectedVariant,
     /** True when the selection is a plain frame, i.e. promotable. */
     canPromote: !!singleSelected && isFrameNode(singleSelected),
@@ -3609,6 +3740,8 @@ export function useCanvasViewModel(
     patchComponent,
     replaceVariantRoot,
     approveComponent,
+    renameComponent,
+    boardFolder: doc ? boardFolderName(doc.name) : null,
     pushComponent,
     removeComponentFile,
     flattenComponentToFrame,

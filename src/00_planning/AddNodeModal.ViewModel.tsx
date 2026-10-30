@@ -79,13 +79,17 @@ function roleFileName(language: LanguageId, role: NodeRole, name: string, copy: 
 export function draftFileNames(d: DraftNode): { role: NodeRole | null; copy: number; fileName: string }[] {
   const { base, language, architectural } = resolveDraft(d)
   const name = base || 'name'
-  const files: { role: NodeRole | null; copy: number; fileName: string }[] = [
-    { role: null, copy: 0, fileName: renderTemplate(language, 'node', name).fileName },
+  // C and C++ files come with their header, listed right after them.
+  const withHeader = (role: NodeRole | null, file: { fileName: string; companion?: { fileName: string } }) => [
+    { role, copy: 0, fileName: file.fileName },
+    ...(file.companion ? [{ role, copy: 0, fileName: file.companion.fileName }] : []),
   ]
+  const files: { role: NodeRole | null; copy: number; fileName: string }[] = withHeader(null, renderTemplate(language, 'node', name))
   if (!architectural) return files
   for (const r of ROLE_OPTIONS) {
     for (let copy = 0; copy < roleCount(d, r.id); copy++) {
-      files.push({ role: r.id, copy, fileName: roleFileName(language, r.id, name, copy) })
+      if (copy === 0 && r.id !== 'node') files.push(...withHeader(r.id, renderTemplate(language, r.id, name)))
+      else files.push({ role: r.id, copy, fileName: roleFileName(language, r.id, name, copy) })
     }
   }
   return files
@@ -170,13 +174,11 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
     const codeRoles = checked.filter((r) => r.id !== 'node')
 
     // [0] the row's own file, then each code role, then the optional .md doc.
-    const main = renderTemplate(language, 'node', base)
+    const main = renderTemplate(language, 'node', base, { folder })
+    const rendered = codeRoles.map((r) => ({ role: r.id, file: renderTemplate(language, r.id, base, { folder }) }))
     const entries: ScaffoldEntry[] = [
       { label: base, role: 'node', language, description: body || undefined, filePath: `${folder}/${main.fileName}`, content: main.content },
-      ...codeRoles.map((r) => {
-        const { fileName, content } = renderTemplate(language, r.id, base)
-        return { label: base, role: r.id, language, description: body || undefined, filePath: `${folder}/${fileName}`, content }
-      }),
+      ...rendered.map(({ role, file }) => ({ label: base, role, language, description: body || undefined, filePath: `${folder}/${file.fileName}`, content: file.content })),
     ]
     if (checked.some((r) => r.id === 'node')) {
       // The Markdown doc carries no `language`, so it's never linked or spliced into.
@@ -207,6 +209,14 @@ export function useAddNodeViewModel({ mapId, onClose, onCreated }: AddNodeModalP
     // import spliced into the source file before it's written.
     const roleIndex = new Map(codeRoles.map((r, i) => [r.id, i + 1]))
     const links: ScaffoldLink[] = []
+    // C and C++: each source brings its header, written beside it and linked
+    // from it — the source already #includes it (see templates/nativeTemplates).
+    ;[main, ...rendered.map((r) => r.file)].forEach((file, i) => {
+      if (!file.companion) return
+      const source = entries[i]
+      entries.push({ label: base, role: source.role, language, description: body || undefined, filePath: `${folder}/${file.companion.fileName}`, content: file.companion.content })
+      links.push({ from: i, to: entries.length - 1 })
+    })
     const adapter = adapterForLanguage(language)
     for (const r of codeRoles) {
       const fromIndex = roleIndex.get(r.id)!

@@ -6,6 +6,7 @@ import type { FolderBrowserHandle } from '../app/DesignSystem/iFolderBrowserView
 import { createWorkspaceDir, createWorkspaceFile } from '../00_planning/api/sleipnirApi'
 import { NewWorkspacePlanModal } from '../app/Workspace/NewWorkspacePlanModal'
 import type { ResearchViewProps } from './iResearchView'
+import { TextField } from '../app/UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -38,7 +39,7 @@ function AddResearchFileButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <Frame flow="horizontal" align="center" gap={4}>
-      <input
+      <TextField size="md"
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -48,17 +49,7 @@ function AddResearchFileButton({ onCreated }: { onCreated: () => void }) {
         }}
         onBlur={() => { if (!name) reset() }}
         placeholder="file name"
-        style={{
-          background: 'var(--bg-2)',
-          border: '1px solid var(--border-1)',
-          borderRadius: 'var(--radius-control)',
-          color: 'var(--text-1)',
-          fontSize: 10,
-          padding: '6px 10px',
-          outline: 'none',
-          fontFamily: 'var(--font-mono)',
-          width: 120,
-        }}
+        style={{ width: 120 }}
       />
       {error && <span style={{ fontSize: 10, color: '#e07a7a', fontFamily: 'var(--font-mono)' }}>{error}</span>}
     </Frame>
@@ -94,7 +85,7 @@ function AddResearchFolderButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <Frame flow="horizontal" align="center" gap={4}>
-      <input
+      <TextField size="md"
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -104,17 +95,7 @@ function AddResearchFolderButton({ onCreated }: { onCreated: () => void }) {
         }}
         onBlur={() => { if (!name) reset() }}
         placeholder="folder name"
-        style={{
-          background: 'var(--bg-2)',
-          border: '1px solid var(--border-1)',
-          borderRadius: 'var(--radius-control)',
-          color: 'var(--text-1)',
-          fontSize: 10,
-          padding: '6px 10px',
-          outline: 'none',
-          fontFamily: 'var(--font-mono)',
-          width: 120,
-        }}
+        style={{ width: 120 }}
       />
       {error && <span style={{ fontSize: 10, color: '#e07a7a', fontFamily: 'var(--font-mono)' }}>{error}</span>}
     </Frame>

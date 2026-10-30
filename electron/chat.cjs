@@ -138,6 +138,8 @@ async function sendMessage(sender, sessionId, history, userMessage, workspaceRoo
 
   try {
     const { provider, model } = await providers.resolveActive()
+    // Who's working, for the progress an agent reports on a plan (update_plan_step).
+    base.agent = `Sleipnir · ${model}`
     const { tools, byName } = await registry.toolsFor({ mode, workspaceRoot, wcId: sender.id })
     // Tools go over the wire under provider-safe names (MCP tool names can be
     // anything); calls come back under those names and are mapped home here.

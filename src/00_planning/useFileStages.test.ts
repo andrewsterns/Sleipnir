@@ -18,17 +18,17 @@ vi.mock('./api/sleipnirApi', () => ({
 }))
 
 import { shouldPromote, promoteFileStages } from './useFileStages'
-import { changedWorkspacePaths } from './useStatusReconciler'
+import { changedWorkspacePaths } from './gitChangesStore'
 import { refreshStages, getStage } from './stagesStore'
 
 describe('shouldPromote', () => {
-  it('promotes proposed and untagged files', () => {
+  it('promotes pending and untagged files', () => {
     expect(shouldPromote(undefined)).toBe(true)
-    expect(shouldPromote('proposed')).toBe(true)
+    expect(shouldPromote('pending')).toBe(true)
   })
 
-  it('never touches in-progress, in-review or done', () => {
-    for (const s of ['in-progress', 'in-review', 'completed'] as const) expect(shouldPromote(s)).toBe(false)
+  it('never touches in progress or completed', () => {
+    for (const s of ['in_progress', 'completed'] as const) expect(shouldPromote(s)).toBe(false)
   })
 })
 
@@ -42,22 +42,22 @@ describe('promoteFileStages', () => {
   it('keys by the backing node id when a plan node owns the file, else file:<path>', async () => {
     api.notes = [{ id: 'note/a', filePath: 'src/a.ts' }]
     await promoteFileStages(['src/a.ts', 'src/b.ts'])
-    expect(api.stages).toEqual({ 'note/a': 'in-progress', 'file:src/b.ts': 'in-progress' })
+    expect(api.stages).toEqual({ 'note/a': 'in_progress', 'file:src/b.ts': 'in_progress' })
   })
 
-  it('leaves review and done files alone', async () => {
-    api.stages = { 'file:done.ts': 'completed', 'file:rev.ts': 'in-review' }
+  it('leaves files in progress and completed alone', async () => {
+    api.stages = { 'file:done.ts': 'completed', 'file:rev.ts': 'in_progress' }
     await refreshStages()
     await promoteFileStages(['done.ts', 'rev.ts', 'new.ts'])
     expect(await getStage('file:done.ts')).toBe('completed')
-    expect(await getStage('file:rev.ts')).toBe('in-review')
-    expect(await getStage('file:new.ts')).toBe('in-progress')
+    expect(await getStage('file:rev.ts')).toBe('in_progress')
+    expect(await getStage('file:new.ts')).toBe('in_progress')
   })
 
   it('plannedOnly skips files no plan node backs', async () => {
     api.notes = [{ id: 'note/p', filePath: 'planned.ts' }]
     await promoteFileStages(['planned.ts', 'stray.ts'], { plannedOnly: true })
-    expect(api.stages).toEqual({ 'note/p': 'in-progress' })
+    expect(api.stages).toEqual({ 'note/p': 'in_progress' })
   })
 })
 

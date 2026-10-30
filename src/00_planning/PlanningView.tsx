@@ -11,6 +11,7 @@ import { GraphCanvas, fileExtLabel, nodeDisplayLabel, nodeIconName } from './gra
 import { getGraphMaps, type GraphMapId, type GraphNode, type NodeStage, type SavedPlan } from './graph/types'
 import { NODE_STAGES, nodeStageKey } from './graph/stages'
 import { StatusGlyph } from './graph/StatusGlyph'
+import { TONE_STYLE, TONES, type Tone } from './graph/nodeTone'
 import { SleipnirLoader } from '../app/UIKit/SleipnirLoader/SleipnirLoader'
 import { Logo } from '../app/UIKit/Logo/Logo'
 import type { GeneratedFile } from '../app/AgentChat/iAgentChat'
@@ -32,9 +33,12 @@ import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
 import { RenamePathModal } from '../app/DesignSystem/RenamePathModal'
 import { AddNodeModal } from './AddNodeModal'
 import { ApproveStepModal } from './ApproveStepModal'
+import { usePlanActivity } from './usePlanActivity'
+import { ActivityPanel } from './ActivityPanel'
 import { NewWorkspacePlanModal } from '../app/Workspace/NewWorkspacePlanModal'
 import { fuzzyScore } from '../utils/fuzzyMatch'
 import { useAppTheme } from '../00_themes/ThemeController'
+import { TextField } from '../app/UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -566,23 +570,14 @@ function PlanningEmptyState({
         </span>
       </Frame>
       <Frame flow="horizontal" align="center" gap={8}>
-        <input
+        <TextField size="lg"
           autoFocus
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
           placeholder="Plan name"
           disabled={creating}
-          style={{
-            width: 220,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border-2)',
-            borderRadius: 'var(--radius-2)',
-            color: 'var(--text-1)',
-            fontSize: 12,
-            padding: '8px 10px',
-            ...MONO,
-          }}
+          style={{ width: 220 }}
         />
         <Button variant="primary" size="sm" onClick={submit} disabled={creating || !label.trim()}>
           Create Plan
@@ -621,52 +616,98 @@ function PlanningEmptyState({
   )
 }
 
-// The detail card's sprint-stage picker — one chip per stage (see
-// graph/stages.ts), the active one lit in its own color. Clicking the active
-// chip again clears the stage (back to untagged / kind-based rendering). Set
+// The detail card's status picker: one segmented control, Proposed / In
+// progress / Testing / Done, each segment its glyph in its tone (see
+// graph/nodeTone.ts), with the status set named beside the label — four
+// worded segments don't fit the card. Clicking the active segment again clears the status. Set
 // on any node; the write goes to the overlay store via setStage, so it works
-// for build-generated nodes too. `value` undefined reads as 'proposed' — the
-// universal default (same fallback StatusGlyph already applies for the
-// NODES-list/file dot) — so a node briefly shows the same active chip while
-// its write-through is still in flight, instead of every chip reading as
-// unselected until the overlay catches up.
-function StageToggle({ value, onChange }: { value?: NodeStage; onChange: (stage: NodeStage | null) => void }) {
+// for build-generated nodes too. `committed` (a file git sees no changes in)
+// is shown beside the label rather than as a fourth choice: it's git's to say,
+// not something to pick.
+function StageToggle({
+  value,
+  committed,
+  onChange,
+}: {
+  value?: NodeStage
+  committed?: boolean
+  onChange: (stage: NodeStage | null) => void
+}) {
   return (
     <Frame flow="vertical" gap={6}>
-      <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>STATUS</span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {NODE_STAGES.map((s) => {
-          const active = (value ?? 'proposed') === s.id
+      <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
+        STATUS
+        {value && <span style={{ color: 'var(--text-1)' }}> · {NODE_STAGES.find((s) => s.id === value)?.label.toUpperCase()}</span>}
+        {committed ? ' · COMMITTED' : ''}
+      </span>
+      <div
+        role="radiogroup"
+        aria-label="Status"
+        style={{ display: 'flex', border: '1px solid var(--border-2)', borderRadius: 'var(--radius-2)', overflow: 'hidden' }}
+      >
+        {NODE_STAGES.map((s, i) => {
+          const active = value === s.id
+          const color = TONE_STYLE[s.tone].color
           return (
             <button
               key={s.id}
+              role="radio"
+              aria-checked={active}
               onClick={() => onChange(active ? null : s.id)}
               title={active ? `${s.label} — click to clear` : s.label}
               style={{
+                // Sized to its label, so all three fit the card's width.
+                flex: '1 1 auto',
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 4,
-                // Faint wash of the stage's own color when active — color-mix so
-                // it works for CSS-var colours (e.g. proposed's var(--text-1)),
-                // not just hex; plain outline otherwise.
-                background: active ? `color-mix(in srgb, ${s.color} 13%, transparent)` : 'transparent',
-                border: `1px solid ${active ? s.color : 'var(--border-2)'}`,
-                borderRadius: 'var(--radius-2)',
-                color: active ? s.color : 'var(--text-3)',
-                fontSize: 10,
-                letterSpacing: '0.02em',
-                padding: '4px 7px',
+                // A faint wash of the status's own tone when it's the one set.
+                background: active ? `color-mix(in srgb, ${color} 16%, transparent)` : 'transparent',
+                border: 'none',
+                borderLeft: i > 0 ? '1px solid var(--border-2)' : 'none',
+                color: active ? 'var(--text-1)' : 'var(--text-3)',
+                fontSize: 9,
+                padding: '6px 4px',
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
                 ...MONO,
               }}
             >
               <StatusGlyph stage={s.id} size={11} title={s.label} />
-              {s.label}
             </button>
           )
         })}
       </div>
     </Frame>
+  )
+}
+
+// What the graph's colors mean, in the corner of the canvas: the four tones,
+// in the order work moves through them.
+function ToneLegend() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 12,
+        bottom: 12,
+        display: 'flex',
+        gap: 12,
+        padding: '5px 9px',
+        background: 'color-mix(in srgb, var(--bg-1) 85%, transparent)',
+        border: '1px solid var(--border-1)',
+        borderRadius: 'var(--radius-2)',
+        pointerEvents: 'none',
+      }}
+    >
+      {TONES.map((tone: Tone) => (
+        <span key={tone} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
+          <StatusGlyph tone={tone} size={9} />
+          {TONE_STYLE[tone].label.toUpperCase()}
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -782,6 +823,8 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     todoNodes,
     isPlanTab,
     planView,
+    tones,
+    toneFor,
     planViewMode,
     setPlanViewMode,
     rescanWorkspace,
@@ -790,6 +833,8 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     healthLens,
     healthError,
   } = usePlanningViewModel('welcome', focusTarget, onFocusTargetConsumed, plans, onUpdatePlan, welcomeDismissed)
+  // What the selected step's agents reported, and what it changed (ActivityPanel).
+  const planActivity = usePlanActivity(selectedNode?.type === 'plan-step' ? selectedNode.planId : undefined)
 
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
   // A plan step with planned files whose review/approve modal is open.
@@ -1131,28 +1176,29 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
     )
   }
 
-  // Single-node build for a node whose sprint stage is 'todo' — the new,
+  // Single-node build for a node whose status is pending — the new,
   // generalized trigger: unlike generateCode/APPROVE, this fires off `stages`
   // and works for ANY node (custom notes, file-backed asset nodes), not just
   // AI-created plan-step nodes that happen to carry a `status` field.
   const runSingleNodeBuild = async (node: GraphNode) => {
     setGenerateError(null)
     setGeneratingNodeId(node.id)
-    await setStage(node, 'in-progress')
+    await setStage(node, 'in_progress')
     const activePlanId = removablePlanFor(mapId)?.id
     const result = await buildNodeWithAI(node)
     setGeneratingNodeId(null)
     if (result.ok) {
+      // The agent's part is done; its files wait for review in the opened tab.
       onCodeGenerated?.(node.id, result.files, activePlanId)
-      await setStage(node, 'in-review')
+      await setStage(node, 'completed')
     } else {
       setGenerateError(result.error)
-      // Back to Proposed — the error shows under the BUILD WITH AI button.
-      await setStage(node, 'proposed')
+      // Back to pending — the error shows under the BUILD WITH AI button.
+      await setStage(node, 'pending')
     }
   }
 
-  // Batch-builds every 'proposed' node in sequence — snapshots the queue at click
+  // Batch-builds every pending node in sequence — snapshots the queue at click
   // time (stages change as the run proceeds, so re-reading todoNodes live
   // mid-loop would shrink/reorder it under its own feet) and awaits each
   // node fully before starting the next, both to avoid overlapping headless
@@ -1173,7 +1219,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
       const node = queue[i]
       setRunProgress({ index: i + 1, total: queue.length, label: node.label })
       setGeneratingNodeId(node.id)
-      await setStage(node, 'in-progress')
+      await setStage(node, 'in_progress')
       const result = await buildNodeWithAI(node)
       if (result.ok) {
         for (const file of result.files) {
@@ -1187,11 +1233,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             plan = updated.plan
           }
         }
-        await setStage(node, 'in-review')
+        await setStage(node, 'completed')
       } else {
-        // One bad node doesn't abort the run — it goes back to Proposed and
+        // One bad node doesn't abort the run — it goes back to pending and
         // the rest still get a shot.
-        await setStage(node, 'proposed')
+        await setStage(node, 'pending')
       }
       setGeneratingNodeId(null)
     }
@@ -1493,7 +1539,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                           />
                         ) : (
                           // Status at rest, right-aligned — ONE status mark per row,
-                          // the stage ring, identical to the dot on the graph canvas
+                          // the status ring, identical to the dot on the graph canvas
                           // and the glyph in the card's STATUS toggle. Deliberately
                           // not paired with the AI plan-step `status` (draft/approved/
                           // done): a row showing two different status symbols reads as
@@ -1501,9 +1547,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                           // depend on whether an AI or a human made it. The AI approval
                           // step still lives in the detail card, where it belongs — as
                           // the APPROVE / GENERATE CODE action, not a second glyph.
-                          // Defaults to 'proposed' for any untagged node (the universal
+                          // Defaults to 'pending' for any untagged node (the universal
                           // default), via StatusGlyph. Swapped out for ⋯ on hover.
-                          <StatusGlyph stage={stages[nodeStageKey(n)]} />
+                          <StatusGlyph tone={toneFor(n)} />
                         )}
                       </>
                     )
@@ -1715,11 +1761,13 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                 overlay={planView.overlay}
                 selectedId={selectedId}
                 stages={stages}
+                tones={tones}
                 onSelectNode={(id) => setSelectedId(id || null)}
                 centerSignal={centerSignal}
                 missingPaths={missingPaths}
                 health={healthLens}
               />
+              {planViewMode !== 'health' && <ToneLegend />}
             </Frame>
 
             {/* Under the Health lens the side panel is the lens's own — unless a
@@ -1753,11 +1801,15 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   style={{
                     fontSize: 9,
                     letterSpacing: '0.14em',
-                    color: selectedNode.kind === 'proposed' ? '#e0a040' : 'var(--text-3)',
+                    color: selectedNode.kind === 'proposed' && selectedNode.type !== 'plan-step' ? '#e0a040' : 'var(--text-3)',
                     ...MONO,
                   }}
                 >
-                  {selectedNode.kind === 'proposed' ? 'PROPOSED' : 'BUILT'} · {(selectedNode.type ?? '').toUpperCase()}
+                  {/* A plan step's state is its STATUS below; "proposed" here
+                      would read as a second, contradicting one. */}
+                  {selectedNode.type === 'plan-step'
+                    ? 'PLAN STEP'
+                    : `${selectedNode.kind === 'proposed' ? 'PROPOSED' : 'BUILT'} · ${(selectedNode.type ?? '').toUpperCase()}`}
                 </span>
 
                 {(() => {
@@ -1874,16 +1926,26 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   )
                 })()}
 
-                {/* Sprint stage — settable on every node (see StageToggle),
-                    drives the node's color + stroke in the graph. Independent of
-                    the AI plan-step approve/generate flow below. */}
+                {/* Status — settable on every node (see StageToggle), drives
+                    the node's shape in the graph, and reported by the agent
+                    working a plan step. Independent of the approve/generate
+                    action below. */}
                 <div style={{ height: 1, background: 'var(--border-1)' }} />
                 <StageToggle
                   value={stages[nodeStageKey(selectedNode)]}
+                  committed={!!selectedNode.filePath && toneFor(selectedNode) === 'committed'}
                   onChange={(stage) => setStage(selectedNode, stage)}
                 />
+                {selectedNode.type === 'plan-step' && (
+                  <ActivityPanel events={planActivity} stepId={selectedNode.id} onOpenFile={onOpenFile} />
+                )}
 
-                {selectedNode.status && (
+                {/* Approval is an action, not a status: the step's one status is
+                    the toggle above, and approving moves it to in progress. Once
+                    there's nothing left to approve or generate — or an agent
+                    already completed the step — nothing shows. */}
+                {(selectedNode.status === 'draft' || selectedNode.status === 'approved') &&
+                  stages[nodeStageKey(selectedNode)] !== 'completed' && (
                   <>
                     <div style={{ height: 1, background: 'var(--border-1)' }} />
                     {selectedNode.status === 'draft' ? (
@@ -1926,35 +1988,29 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                       >
                         {selectedNode.proposedFile || live.nodes.some((n) => n.stepId === selectedNode.id) ? 'REVIEW & APPROVE' : 'APPROVE'}
                       </button>
-                    ) : selectedNode.status === 'approved' ? (
-                      generatingNodeId === selectedNode.id ? (
-                        <Frame flow="horizontal" align="center" gap={8}>
-                          <SleipnirLoader size={28} />
-                          <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-                            GENERATING…
-                          </span>
-                        </Frame>
-                      ) : (
-                        <button
-                          onClick={() => generateCode(selectedNode)}
-                          style={{
-                            background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
-                            border: '1px solid var(--border-2)',
-                            color: 'var(--text-1)',
-                            fontSize: 10,
-                            letterSpacing: '0.08em',
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            ...MONO,
-                          }}
-                        >
-                          GENERATE CODE
-                        </button>
-                      )
+                    ) : generatingNodeId === selectedNode.id ? (
+                      <Frame flow="horizontal" align="center" gap={8}>
+                        <SleipnirLoader size={28} />
+                        <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+                          GENERATING…
+                        </span>
+                      </Frame>
                     ) : (
-                      <span style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }}>
-                        {selectedNode.status.toUpperCase()}
-                      </span>
+                      <button
+                        onClick={() => generateCode(selectedNode)}
+                        style={{
+                          background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
+                          border: '1px solid var(--border-2)',
+                          color: 'var(--text-1)',
+                          fontSize: 10,
+                          letterSpacing: '0.08em',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          ...MONO,
+                        }}
+                      >
+                        GENERATE CODE
+                      </button>
                     )}
                     {generateError && generatingNodeId === null && (
                       <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
@@ -1962,20 +2018,28 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   </>
                 )}
 
-                {/* AI build, gated on sprint stage rather than the AI plan-step
-                    `status` above — works for every node (custom notes, file-
-                    backed asset nodes), not just AI-created ones. Independent
-                    of the APPROVE/GENERATE CODE block above; a node can only
-                    realistically be in one flow at a time (status only ever
-                    exists on AI-created nodes, which never carry a stage until
-                    a human sets one). */}
-                {(stages[nodeStageKey(selectedNode)] ?? 'proposed') !== 'completed' && (
+                {/* AI build, gated on the node's status rather than the plan
+                    step's approval record above — works for every node (custom
+                    notes, file-backed asset nodes), not just AI-created ones.
+                    Offered until the node is completed; while this window is
+                    building it, the loader shows instead. (A node left in
+                    progress by an interrupted build, or by an agent working
+                    elsewhere, can be built again from here.) */}
+                {(stages[nodeStageKey(selectedNode)] ?? 'pending') !== 'completed' && (
                   <>
                     <div style={{ height: 1, background: 'var(--border-1)' }} />
-                    {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && generateError && generatingNodeId === null && (
+                    {/* The approval block above shows the same error when it's there. */}
+                    {generateError && generatingNodeId === null && selectedNode.status !== 'draft' && selectedNode.status !== 'approved' && (
                       <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{generateError}</span>
                     )}
-                    {(stages[nodeStageKey(selectedNode)] ?? 'proposed') === 'proposed' && (
+                    {generatingNodeId === selectedNode.id ? (
+                      <Frame flow="horizontal" align="center" gap={8}>
+                        <SleipnirLoader size={28} />
+                        <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+                          BUILDING…
+                        </span>
+                      </Frame>
+                    ) : (
                       <button
                         onClick={() => runSingleNodeBuild(selectedNode)}
                         disabled={runningPlan || generatingNodeId !== null}
@@ -1993,39 +2057,6 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                       >
                         BUILD WITH AI
                       </button>
-                    )}
-                    {stages[nodeStageKey(selectedNode)] === 'in-progress' && (
-                      generatingNodeId === selectedNode.id ? (
-                        <Frame flow="horizontal" align="center" gap={8}>
-                          <SleipnirLoader size={28} />
-                          <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
-                            BUILDING…
-                          </span>
-                        </Frame>
-                      ) : (
-                        // Stale — e.g. a reload interrupted a build mid-flight.
-                        <button
-                          onClick={() => runSingleNodeBuild(selectedNode)}
-                          disabled={runningPlan || generatingNodeId !== null}
-                          style={{
-                            background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
-                            border: '1px solid var(--border-2)',
-                            color: 'var(--text-1)',
-                            fontSize: 10,
-                            letterSpacing: '0.08em',
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            ...MONO,
-                          }}
-                        >
-                          RETRY (interrupted)
-                        </button>
-                      )
-                    )}
-                    {stages[nodeStageKey(selectedNode)] === 'in-review' && (
-                      <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
-                        READY FOR REVIEW — check the opened tab, or Source Control for a batch run.
-                      </span>
                     )}
                   </>
                 )}

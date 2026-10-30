@@ -22,7 +22,7 @@ import type {
   MissingPlanningRef,
   ArchitectureHealth,
 } from './PlatformAPI'
-import type { GraphEdge, GraphNode, NodeStage, NodeStatus, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
+import type { GraphEdge, GraphNode, NodeStage, NodeStatus, PlanActivity, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
 
 async function asJson<T>(res: Response): Promise<T> {
   const data = await res.json()
@@ -300,6 +300,18 @@ export const webApi: PlatformAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     }).then((res) => asJson<void>(res))
+  },
+
+  settleCommittedStages(dirtyPaths: string[]): Promise<{ cleared: number }> {
+    return fetch('/api/sleipnir/settle-committed-stages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dirtyPaths }),
+    }).then((res) => asJson<{ cleared: number }>(res))
+  },
+
+  getPlanActivity(planId: string): Promise<PlanActivity> {
+    return fetch(`/api/sleipnir/plan-activity?planId=${encodeURIComponent(planId)}`).then((res) => asJson<PlanActivity>(res))
   },
 
   getNodeStages(): Promise<{ stages: Record<string, NodeStage> }> {

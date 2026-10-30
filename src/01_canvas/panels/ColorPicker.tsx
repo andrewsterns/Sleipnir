@@ -9,7 +9,8 @@ import { hsvToRgb, parseCssRgb, rgbToHsv, toHex, type Hsv, type Rgba } from '../
 import { cssColor } from '../model/toCss'
 import { parseHex, colorWithAlpha } from '../model/paint'
 import type { ColorRef } from '../model/types'
-import { FIELD, ICON_BUTTON, MONO, NumberField } from './inspectorKit'
+import { ICON_BUTTON, MONO, NumberField } from './inspectorKit'
+import { TextField } from '../../app/UIKit/Field/TextField'
 
 export const CHECKERBOARD = 'repeating-conic-gradient(#8a8a8a 0% 25%, #c8c8c8 0% 50%) 50% / 8px 8px'
 
@@ -379,12 +380,12 @@ export function ColorPicker({
             <EyedropperIcon />
           </button>
         )}
-        <input
+        <TextField size="sm"
           value={color}
           spellCheck={false}
           placeholder="#ffffff or bg-2"
           onChange={(e) => onColor(e.target.value, `${gesture}:color`)}
-          style={{ ...FIELD, flex: 1 }}
+          style={{ flex: 1 }}
         />
         <div style={{ width: 52, flexShrink: 0 }}>
           <NumberField value={Math.round(alpha * 100)} min={0} max={100} suffix="%" onChange={(n) => writeAlpha(n / 100)} />
@@ -436,12 +437,12 @@ export function ColorField({
         title="Pick a color"
         onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}
       />
-      <input
+      <TextField size="sm"
         value={color}
         spellCheck={false}
         placeholder="#ffffff or bg-2"
         onChange={(e) => onColor(e.target.value, `${gesture}:color`)}
-        style={{ ...FIELD, flex: 1 }}
+        style={{ flex: 1 }}
       />
       {onOpacity && (
         <div style={{ width: 52, flexShrink: 0 }}>

@@ -44,7 +44,9 @@ function decide({ mode, tool, input, rules }) {
   const m = normalizeMode(mode)
   const kind = tool.kind
 
-  if (kind === 'read') return 'allow'
+  // A report (an agent saying how its plan is going) changes nothing in the
+  // project and is asked for in every mode, so it never waits on a human.
+  if (kind === 'read' || kind === 'report') return 'allow'
 
   if (m === 'plan') {
     // Plan mode explores and writes the plan itself — nothing else.
@@ -76,7 +78,7 @@ function isOffered(mode, tool) {
 
 // Whether an approval card for this call may offer "Always allow".
 function canRemember(tool, input) {
-  return !tool.alwaysAsk && tool.kind !== 'read' && ruleKeyFor(tool, input) !== null
+  return !tool.alwaysAsk && tool.kind !== 'read' && tool.kind !== 'report' && ruleKeyFor(tool, input) !== null
 }
 
 module.exports = { MODES, USER_MODES, DEFAULT_MODE, normalizeMode, ruleKeyFor, decide, isOffered, canRemember }

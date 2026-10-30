@@ -52,6 +52,17 @@ function isCanvasFile(relPath) {
   return relPath.startsWith(BOARDS_PREFIX) || relPath.startsWith(LEGACY_BOARDS_PREFIX)
 }
 
+// Files that say how a plan is going without changing what's in the graph: the
+// status overlay, each plan's plan.md and its activity log (an agent reporting
+// progress writes all three), plus the temp files their atomic writes leave for
+// a moment (`<file>.<pid>.tmp`). A batch of only these still counts as
+// `stagesOnly`, so an agent's progress never refetches the graph.
+const PLAN_STATUS_FILE = /^\.planning\/[^/]+\/(plan\.md|activity\.json)$/
+function isStatusFile(relPath) {
+  const file = relPath.replace(/\.\d+\.tmp$/, '')
+  return file === STAGES_FILE || PLAN_STATUS_FILE.test(file)
+}
+
 function scheduleNotify(entry, relPath) {
   if (relPath) entry.changedFiles.add(relPath)
   if (entry.timer) clearTimeout(entry.timer)
@@ -59,7 +70,7 @@ function scheduleNotify(entry, relPath) {
     entry.timer = null
     const files = [...entry.changedFiles]
     entry.changedFiles = new Set()
-    const stagesOnly = files.length > 0 && files.every((f) => f === STAGES_FILE)
+    const stagesOnly = files.length > 0 && files.every(isStatusFile)
     const canvasOnly = files.length > 0 && files.every(isCanvasFile)
     if (!entry.sender.isDestroyed()) entry.sender.send('planning:changed', { stagesOnly, canvasOnly })
   }, DEBOUNCE_MS)
@@ -164,4 +175,4 @@ function killAll() {
   for (const wcId of [...entries.keys()]) killForWindow(wcId)
 }
 
-module.exports = { watch, killForWindow, killAll, isCanvasFile, toRelPath }
+module.exports = { watch, killForWindow, killAll, isCanvasFile, isStatusFile, toRelPath }

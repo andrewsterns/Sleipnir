@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Copies the PLANDOC region of tools/planDoc.mjs into the vendored project CLI
-// (tools/agentSkills/vendor/plan.mjs), byte for byte. The vendored CLI may only
-// use node: builtins, so it can't import planDoc.mjs — it carries this copy
-// instead, and src/00_planning/api/vendoredPlanCli.test.ts fails when they
-// differ. Run after editing planDoc.mjs:
+// Copies the PLANDOC region of tools/planDoc.mjs, and the LANGUAGES region of the
+// language table (tools/agentSkills/vendor/languages.mjs) it reads, into the
+// vendored project CLI (tools/agentSkills/vendor/plan.mjs), byte for byte. The
+// vendored CLI may only use node: builtins, so it can't import either — it
+// carries these copies instead, and src/00_planning/api/vendoredPlanCli.test.ts
+// fails when they differ. Run after editing either source:
 //
 //   node tools/syncPlanDoc.mjs
 import fs from 'node:fs'
@@ -12,24 +13,30 @@ import { fileURLToPath } from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 export const SOURCE_PATH = path.join(here, 'planDoc.mjs')
+export const LANGUAGES_PATH = path.join(here, 'agentSkills', 'vendor', 'languages.mjs')
 export const VENDOR_PATH = path.join(here, 'agentSkills', 'vendor', 'plan.mjs')
 
-const BEGIN = '// --- BEGIN PLANDOC ---'
-const END = '// --- END PLANDOC ---'
-
-/** The marked region (markers included), with line endings normalized to \n. */
-export function extractPlanDocRegion(text) {
+/** A marked region (markers included), with line endings normalized to \n. */
+export function extractRegion(text, name) {
+  const begin = `// --- BEGIN ${name} ---`
+  const end = `// --- END ${name} ---`
   const normalized = text.replace(/\r\n/g, '\n')
-  const start = normalized.indexOf(BEGIN)
-  const end = normalized.indexOf(END)
-  if (start < 0 || end < start) throw new Error('PLANDOC markers not found')
-  return normalized.slice(start, end + END.length)
+  const start = normalized.indexOf(begin)
+  const stop = normalized.indexOf(end)
+  if (start < 0 || stop < start) throw new Error(`${name} markers not found`)
+  return normalized.slice(start, stop + end.length)
 }
 
+export const extractPlanDocRegion = (text) => extractRegion(text, 'PLANDOC')
+export const extractLanguagesRegion = (text) => extractRegion(text, 'LANGUAGES')
+
 export function syncVendoredPlanDoc() {
-  const region = extractPlanDocRegion(fs.readFileSync(SOURCE_PATH, 'utf8'))
   const vendor = fs.readFileSync(VENDOR_PATH, 'utf8').replace(/\r\n/g, '\n')
-  const next = vendor.replace(extractPlanDocRegion(vendor), () => region)
+  let next = vendor
+  for (const [name, source] of [['PLANDOC', SOURCE_PATH], ['LANGUAGES', LANGUAGES_PATH]]) {
+    const region = extractRegion(fs.readFileSync(source, 'utf8'), name)
+    next = next.replace(extractRegion(next, name), () => region)
+  }
   if (next !== vendor) fs.writeFileSync(VENDOR_PATH, next)
   return { changed: next !== vendor }
 }

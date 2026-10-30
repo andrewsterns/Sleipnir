@@ -24,6 +24,7 @@ import type {
 } from '../model/types'
 import { ACTION, FIELD, ICON_BUTTON, Label, MONO, NumberField, Section } from './inspectorKit'
 import { CHECKERBOARD, ColorField, ColorPicker, FloatingPanel, PanelTab, Swatch } from './ColorPicker'
+import { SelectField, TextField } from '../../app/UIKit/Field/TextField'
 
 /** Sends a new value plus the gesture that produced it (see the header). */
 type Emit<T> = (next: T, gesture?: string) => void
@@ -121,7 +122,6 @@ function AddButton({ onClick, title }: { onClick: () => void; title: string }) {
   )
 }
 
-const SELECT: React.CSSProperties = { ...FIELD, flex: 1, padding: '3px 4px' }
 
 // ── Fills ──────────────────────────────────────────────────────────────────
 
@@ -177,12 +177,12 @@ export const FillsSection = memo(function FillsSection({
           <Frame key={index} flow="horizontal" gap={4} align="center" w="fill" style={{ opacity: visible ? 1 : 0.5 }}>
             <Swatch background={fillPreview(fill, imageUrl)} active={open?.index === index} title="Edit fill" onClick={toggle} />
             {fill.type === undefined || fill.type === 'solid' ? (
-              <input
+              <TextField size="sm"
                 value={fill.color}
                 spellCheck={false}
                 placeholder="#ffffff or bg-2"
                 onChange={(e) => replace(index, { ...fill, color: e.target.value }, `fill:${index}:color`)}
-                style={{ ...FIELD, flex: 1 }}
+                style={{ flex: 1 }}
               />
             ) : (
               // A gradient or image has no one value to type — its name opens
@@ -496,12 +496,12 @@ function GradientStops({
               title="Edit this stop"
               onClick={() => setSelected(index)}
             />
-            <input
+            <TextField size="sm"
               value={s.color}
               spellCheck={false}
               onFocus={() => setSelected(index)}
               onChange={(e) => replace(index, { ...s, color: e.target.value }, `${gesture}:stop:${index}:color`)}
-              style={{ ...FIELD, flex: 1 }}
+              style={{ flex: 1 }}
             />
             <div style={{ width: 46, flexShrink: 0 }}>
               <NumberField
@@ -567,12 +567,12 @@ function ImageFields({
   return (
     <Frame flow="vertical" gap={4} w="fill">
       <Label>SOURCE</Label>
-      <input
+      <TextField size="sm"
         value={src}
         spellCheck={false}
         placeholder=".components/assets/… or https://…"
         onChange={(e) => onSrc(e.target.value)}
-        style={FIELD}
+       
       />
       <Frame flow="horizontal" gap={4} w="fill">
         <button type="button" onClick={toggleChoices} style={ACTION}>
@@ -602,7 +602,7 @@ function ImageFields({
       </Frame>
       {choices && (
         <Frame flow="vertical" gap={2} w="fill">
-          <input value={filter} placeholder="filter images" onChange={(e) => setFilter(e.target.value)} style={FIELD} />
+          <TextField size="sm" value={filter} placeholder="filter images" onChange={(e) => setFilter(e.target.value)} />
           <Frame flow="vertical" w="fill" style={{ maxHeight: 160, overflowY: 'auto' }}>
             {shown.length === 0 && <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)', padding: 4 }}>No images found</span>}
             {shown.map((path) => (
@@ -638,13 +638,13 @@ function ImageFields({
       {error && <span style={{ ...MONO, fontSize: 9, color: '#e07a7a' }}>{error}</span>}
       <Frame flow="vertical" gap={2} w="fill">
         <Label>SCALE</Label>
-        <select value={scaleMode} onChange={(e) => onScaleMode(e.target.value as ImageScaleMode)} style={SELECT}>
+        <SelectField size="sm" style={{ flex: 1 }} value={scaleMode} onChange={(e) => onScaleMode(e.target.value as ImageScaleMode)}>
           {SCALE_MODES.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
             </option>
           ))}
-        </select>
+        </SelectField>
       </Frame>
     </Frame>
   )
@@ -702,13 +702,13 @@ export const EffectsSection = memo(function EffectsSection({
         return (
           <Frame key={index} flow="vertical" gap={6} w="fill" style={{ opacity: visible ? 1 : 0.5 }}>
             <Frame flow="horizontal" gap={4} align="center" w="fill">
-              <select value={effect.type} onChange={(e) => replace(index, newEffect(e.target.value as EffectType, effect))} style={SELECT}>
+              <SelectField size="sm" style={{ flex: 1 }} value={effect.type} onChange={(e) => replace(index, newEffect(e.target.value as EffectType, effect))}>
                 {EFFECT_TYPES.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </SelectField>
               <EyeButton visible={visible} onToggle={() => replace(index, { ...effect, visible: !visible })} />
               <RemoveButton title="Remove effect" onClick={() => onChange(effects.filter((_, i) => i !== index))} />
             </Frame>

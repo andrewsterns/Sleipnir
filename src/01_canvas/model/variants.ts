@@ -351,6 +351,38 @@ export function flattenComponent(doc: CanvasDoc, componentId: string): CanvasDoc
 }
 
 /**
+ * Figma's "Detach instance": turns ONE instance into a plain frame holding a
+ * fresh copy of the variant it shows, in its place and at its size. The
+ * component and every other instance are untouched — this is the
+ * several-instances answer to flattenComponent, which only makes sense for one.
+ */
+export function detachInstance(doc: CanvasDoc, instanceId: NodeId): CanvasDoc {
+  let detached = false
+  const replace = (nodes: CanvasNode[]): CanvasNode[] =>
+    nodes.map((node) => {
+      if (isInstanceNode(node) && node.id === instanceId) {
+        const component = doc.components.find((c) => c.id === node.componentId)
+        if (!component) return node
+        const root = resolveVariant(component, node.variantValues).root
+        detached = true
+        const frame: CanvasFrameNode = {
+          ...cloneTree(root),
+          id: node.id,
+          name: node.name,
+          kind: 'frame',
+          rect: { ...node.rect },
+          ...(node.hidden ? { hidden: true } : {}),
+          ...(node.locked ? { locked: true } : {}),
+        }
+        return frame
+      }
+      return isFrameNode(node) ? { ...node, children: replace(node.children) } : node
+    })
+  const nodes = replace(doc.nodes)
+  return detached ? { ...doc, nodes, updatedAt: Date.now() } : doc
+}
+
+/**
  * Deletes a component and every instance of it.
  *
  * Instances are removed rather than converted back into frames: an instance

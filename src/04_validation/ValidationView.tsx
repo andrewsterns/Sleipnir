@@ -39,10 +39,12 @@ function TestFileRow({ file }: { file: ValidationTestFileResult }) {
 
 // Restores the "Validation" pipeline stage's UI (see App.tsx's NAV_ITEMS
 // comment) — runs the open Workspace's own `npm test` via electron/validation.cjs
-// (vitest --reporter=json) and surfaces pass/fail results in-app, row-list
-// styled after ProblemsDock. Electron-only, like the terminal/chat/preview docks.
+// with whichever runner it uses (Vitest, Jest, cargo test, go test, pytest,
+// ctest, Gradle, Maven, SwiftPM, dotnet — see electron/testRunners.cjs) and
+// surfaces pass/fail results in-app, row-list styled after ProblemsDock.
+// Electron-only, like the terminal/chat/preview docks.
 export default function ValidationView() {
-  const { running, output, results, rawOnFailure, exitCode, timedOut, hasRun, runTests, stop, available } =
+  const { running, output, results, rawOnFailure, exitCode, timedOut, hasRun, runTests, stop, available, runners, runnerId, setRunnerId } =
     useValidationViewModel()
 
   if (!available) {
@@ -69,9 +71,42 @@ export default function ValidationView() {
           VALIDATION
           {results && ` — ${results.numPassedTests}/${results.numTotalTests} PASSED`}
         </span>
-        <Button variant={running ? 'ghost' : 'primary'} size="sm" onClick={running ? stop : runTests}>
-          {running ? 'Stop' : 'Run Tests'}
-        </Button>
+        <Frame flow="horizontal" align="center" gap={8}>
+          {/* The project's test runners — a choice only when there's more than one. */}
+          {runners.length > 1 ? (
+            <Frame flow="horizontal" align="center" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-2' }} clipContent>
+              {runners.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  aria-pressed={r.id === runnerId}
+                  disabled={running}
+                  onClick={() => setRunnerId(r.id)}
+                  title={r.command}
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: '0.1em',
+                    padding: '4px 8px',
+                    border: 'none',
+                    cursor: running ? 'default' : 'pointer',
+                    background: r.id === runnerId ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
+                    color: r.id === runnerId ? 'var(--text-1)' : 'var(--text-3)',
+                    ...MONO,
+                  }}
+                >
+                  {r.label.toUpperCase()}
+                </button>
+              ))}
+            </Frame>
+          ) : runners.length === 1 ? (
+            <span title={runners[0].command} style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>
+              {runners[0].label.toUpperCase()}
+            </span>
+          ) : null}
+          <Button variant={running ? 'ghost' : 'primary'} size="sm" onClick={running ? stop : runTests}>
+            {running ? 'Stop' : 'Run Tests'}
+          </Button>
+        </Frame>
       </Frame>
 
       <Frame grow minH={0} scroll="y" flow="vertical">

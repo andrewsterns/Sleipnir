@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import type { ProviderId, ProviderStatus } from './iApiKeySettings'
 import type { useAiSettings } from './useAiSettings'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -19,17 +20,6 @@ const smallButton = (enabled = true): React.CSSProperties => ({
   whiteSpace: 'nowrap',
   ...MONO,
 })
-
-const keyInput: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  background: 'var(--bg-2)',
-  border: '1px solid var(--border-2)',
-  color: 'var(--text-1)',
-  fontSize: 11,
-  padding: '6px 8px',
-  ...MONO,
-}
 
 function statusText(p: ProviderStatus): string {
   if (!p.needsKey) return p.connected ? 'Running on this computer' : 'Not running — free, runs locally'
@@ -110,7 +100,7 @@ function ProviderRow({ provider: p, onConnect, onDisconnect }: ProviderRowProps)
       </Frame>
       {pasting && (
         <Frame flow="horizontal" gap={6}>
-          <input
+          <TextField size="md" style={{ flex: 1 }}
             type="password"
             autoFocus
             value={key}
@@ -120,7 +110,7 @@ function ProviderRow({ provider: p, onConnect, onDisconnect }: ProviderRowProps)
               if (e.key === 'Escape') setPasting(false)
             }}
             placeholder={p.keyHint ?? ''}
-            style={keyInput}
+           
           />
           <button onClick={connect} disabled={busy || !key.trim()} style={smallButton(!busy && !!key.trim())}>
             {busy ? 'CHECKING…' : 'CONNECT'}
@@ -186,7 +176,7 @@ export function ConnectModels({ ai }: ConnectModelsProps) {
       <span style={SECTION_LABEL}>CONNECT MODELS</span>
       <Frame flow="vertical" gap={6}>
         <Frame flow="horizontal" gap={6}>
-          <input
+          <TextField size="md" style={{ flex: 1 }}
             type="password"
             value={key}
             onChange={(e) => {
@@ -198,7 +188,7 @@ export function ConnectModels({ ai }: ConnectModelsProps) {
               if (e.key === 'Enter') connect()
             }}
             placeholder="Paste a Claude, ChatGPT or Gemini API key"
-            style={keyInput}
+           
           />
           <button onClick={connect} disabled={busy || !key.trim()} style={smallButton(!busy && !!key.trim())}>
             {busy ? 'CHECKING…' : 'CONNECT'}

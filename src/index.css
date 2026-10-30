@@ -47,3 +47,20 @@ body {
 .status-tab:hover {
   color: var(--text-1) !important;
 }
+
+/* Every typed field (UIKit/Field: TextField, TextArea, SelectField, NumberField,
+   and the Dropdown trigger) — one focus, disabled and placeholder treatment. */
+.ui-field {
+  transition: border-color 90ms ease;
+}
+.ui-field:focus,
+.ui-field:focus-visible {
+  border-color: var(--border-2) !important;
+}
+.ui-field:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ui-field::placeholder {
+  color: var(--text-3);
+}

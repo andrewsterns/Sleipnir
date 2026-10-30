@@ -10,6 +10,7 @@ import { Icon } from '../UIKit/Icon/Icon'
 import type { FileTreeNode } from '../../00_planning/api/PlatformAPI'
 import { AddNodesSection } from '../../00_planning/AddNodesSection'
 import { useNewWorkspacePlanViewModel, type NewWorkspacePlanModalProps } from './NewWorkspacePlanModal.ViewModel'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -115,19 +116,11 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
 
             <Frame flow="vertical" gap={6}>
               <span style={{ fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>NAME</span>
-              <input
+              <TextField size="lg"
                 autoFocus
                 value={vm.label}
                 onChange={(e) => vm.setLabel(e.target.value)}
                 placeholder="Plan name"
-                style={{
-                  background: 'var(--bg-2)',
-                  border: '1px solid var(--border-2)',
-                  color: 'var(--text-1)',
-                  fontSize: 11,
-                  padding: '6px 8px',
-                  ...MONO,
-                }}
               />
             </Frame>
 

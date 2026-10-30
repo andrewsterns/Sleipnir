@@ -20,6 +20,7 @@ import { useKeybindings } from '../../00_keybindings/KeybindingsController'
 import { DEFAULT_KEYBINDINGS } from '../../00_keybindings'
 import { UpdatesSection } from './UpdatesSection'
 import { LicenseSection } from './LicenseSection'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -222,7 +223,7 @@ function AgentPermissionsSection() {
         <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
           How many rounds of tool calls one message may take before the AI stops and hands back control.
         </span>
-        <input
+        <TextField size="lg"
           type="number"
           min={1}
           max={200}
@@ -233,15 +234,7 @@ function AgentPermissionsSection() {
             if (Number.isInteger(n) && n !== settings?.maxToolTurns) save({ maxToolTurns: n })
             else setTurnsInput(String(settings?.maxToolTurns ?? ''))
           }}
-          style={{
-            width: 100,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border-2)',
-            color: 'var(--text-1)',
-            fontSize: 11,
-            padding: '6px 8px',
-            ...MONO,
-          }}
+          style={{ width: 100 }}
         />
       </Frame>
 
@@ -294,31 +287,15 @@ function GitIdentitySection() {
         Used for commits made from Source Control — writes to this repo's local git config only.
       </span>
       <Frame flow="vertical" gap={6}>
-        <input
+        <TextField size="lg"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Name"
-          style={{
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border-2)',
-            color: 'var(--text-1)',
-            fontSize: 11,
-            padding: '6px 8px',
-            ...MONO,
-          }}
         />
-        <input
+        <TextField size="lg"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
-          style={{
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border-2)',
-            color: 'var(--text-1)',
-            fontSize: 11,
-            padding: '6px 8px',
-            ...MONO,
-          }}
         />
       </Frame>
       <Frame flow="horizontal" align="center" gap={10}>
@@ -502,16 +479,13 @@ function KeybindingsSection() {
             <Frame key={b.id} flow="horizontal" align="center" justify="between" gap={10} padding={{ y: 4 }}>
               <span style={{ fontSize: 11, color: 'var(--text-1)', ...MONO }}>{b.label}</span>
               {listening ? (
-                <input
+                <TextField size="md"
                   autoFocus
                   readOnly
                   value="Press a key…"
                   onKeyDown={onCaptureKeyDown(b.id)}
                   onBlur={() => setListeningId(null)}
-                  style={{
-                    width: 140, textAlign: 'center', background: 'var(--bg-2)', border: '1px solid var(--border-2)',
-                    color: 'var(--text-2)', fontSize: 10, padding: '5px 8px', outline: 'none', ...MONO,
-                  }}
+                  style={{ width: 140, textAlign: 'center' }}
                 />
               ) : (
                 <button

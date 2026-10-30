@@ -78,6 +78,9 @@
      value so every control matches instead of some being square (radius-2/3)
      and Search being a one-off 0.7rem. */
   --radius-control: 0.7rem;
+  /* Text fields, number fields and dropdown triggers — a touch squarer than
+     buttons (radius-control). One knob for every field in the app. */
+  --radius-field: 0.5rem;
 
   /* ── Shadows ─────────────────────────────────────────────────────────── */
   --shadow-1:             0 4px 24px rgba(0, 0, 0, 0.7);
@@ -101,6 +104,12 @@
   --graph-warn:          #eda100;              /* Health lens: an import up the layers */
   --graph-heat:          #3987e5;              /* Health lens: heat glow — one hue; how hot is its strength */
   --graph-heat-blend:    screen;               /* glows add up into light on the dark ground */
+  /* Status tones (see graph/nodeTone.ts): committed work steps back, work in flight stands out. */
+  --graph-proposed:      rgba(91, 157, 255, 0.9);   /* a plan step or planned file, not started */
+  --graph-in-progress:   rgba(91, 157, 255, 0.7);   /* being worked; uncommitted changes */
+  --graph-testing:       rgba(255, 122, 26, 0.95);  /* written, its tests running */
+  --graph-done:          rgba(255, 255, 255, 0.75); /* finished, not yet committed */
+  --graph-committed:     rgba(255, 255, 255, 0.5);  /* nothing uncommitted */
 
   /* ── Selectable item states (list rows + graph node labels) ───────────────
      One hover/selection language everywhere. --item-ink is an "R, G, B" triple

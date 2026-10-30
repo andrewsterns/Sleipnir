@@ -1,0 +1,60 @@
+{
+  "events": [
+    {
+      "at": 1793377690793,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/rotation-geometry-core-1793102466102",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377690943,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/rotate-on-the-board-1793102466210",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377691095,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/rotation-in-the-inspector-and-every-emitter-1793102466403",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377691260,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/scaling-for-images-and-svgs-1793102466651",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377691437,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/repeat-one-item-along-a-path-1793102466953",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377691583,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/emit-patterns-compactly-1793102467236",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377691744,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/optimize-along-path-layout-for-big-patterns-1793102467555",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793377691878,
+      "stepId": "plan/canvas-rotation-path-patterns-1793102450237/path-flow-editing-on-the-board-1793102467817",
+      "status": "completed",
+      "note": "Backfilled: checked in the code; shipped in 9f835de (rotation, imageSizing, pathPattern, pathFlow, compact pattern emit)",
+      "agent": "claude"
+    }
+  ]
+}

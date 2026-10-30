@@ -1968,7 +1968,7 @@
       "description": "A new layer kind: a frame that holds a 3D scene with primitives (box, sphere, plane, torus), glTF models from .components/assets, a camera, lights, and materials taken from canvas fills. It is positioned and laid out like any frame, so a 3D hero sits inside a 2D page. The board renders it with three.js through @react-three/fiber, loaded on demand with a dynamic import so three.js never reaches the first load. Motion keyframes drive object transforms and the camera. Emit: React gets an R3F component, web markup targets a small vanilla three.js module, native targets unsupported with the reason (SceneKit or RealityKit later for Swift).",
       "status": "draft",
       "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
-      "order": 18,
+      "order": 19,
       "editsPaths": [
         "src/01_canvas/model/types.ts",
         "src/01_canvas/board/CanvasBoard.tsx",
@@ -2027,6 +2027,1712 @@
       "filePath": "src/01_canvas/emit/scene3d.ts",
       "role": "node",
       "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314",
+      "label": "Geometry kernel: every layer is a shape",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The bridge between 2D and 3D. Every layer already has an outline: a frame is a (per-corner) rounded rectangle, an ellipse is an ellipse, a polygon or star is a polygon, a vector is Bezier paths, an image is its box. One Shape type holds that outline as closed contours; flattening turns curves into polygons at a chosen tolerance, and triangulation (earcut, holes included) turns polygons into a flat mesh. Pure and tested, with no renderer: the 2D board can use it for exact hit-testing and boolean ops, and every 3D step builds on it. A 2D design is then literally a 3D scene seen from the front with every layer at depth 0.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 18,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/model/vector.ts",
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/shape.ts",
+      "label": "shape.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314",
+      "filePath": "src/01_canvas/geometry/shape.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/mesh.ts",
+      "label": "mesh.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314",
+      "filePath": "src/01_canvas/geometry/mesh.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "label": "Depth on every layer: extrude, revolve, sweep",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Any frame or vector can leave the plane: a 3D transform (z, tilt on x and y, depth scale) and a shape modifier. Extrude gives a 2D outline thickness and bevels; revolve spins it around an axis into a lathe (vase, wheel, bottle); sweep runs it along a guide path, reusing pathGuide, into tubes and ribbons. A logo becomes a 3D object in two clicks and stays editable as 2D: the outline is still the source. The board gets a 2D/3D toggle: 2D is the orthographic front view of the same scene, 3D orbits it, so nothing is converted and nothing is lost going back.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 20,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/board/CanvasBoard.tsx",
+        "src/01_canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/modifiers.ts",
+      "label": "modifiers.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "filePath": "src/01_canvas/geometry/modifiers.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/board/Board3DView.tsx",
+      "label": "Board3DView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "filePath": "src/01_canvas/board/Board3DView.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/board/Board3DView.ViewModel.tsx",
+      "label": "Board3DView.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "filePath": "src/01_canvas/board/Board3DView.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "label": "Materials and shading",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Physically based materials per layer that start from what the layer already has: a solid fill becomes base color, an image fill a texture map, a gradient a generated texture, opacity becomes transmission. Add metalness, roughness, emissive, clearcoat and normal maps, plus lights and an environment (HDRI) for the scene. Then a node-based shader editor drawn with the same graph engine as Planning: texture, math, noise and mix nodes compiled to three.js node materials (TSL, which targets both WebGL and WebGPU). Materials are assets in .components/, reusable across layers and boards.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 21,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/00_planning/graph/GraphCanvas.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/material.ts",
+      "label": "material.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "filePath": "src/01_canvas/model/material.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/MaterialPanel.tsx",
+      "label": "MaterialPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "filePath": "src/01_canvas/panels/MaterialPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/MaterialPanel.ViewModel.tsx",
+      "label": "MaterialPanel.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "filePath": "src/01_canvas/panels/MaterialPanel.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/shading/shaderGraph.ts",
+      "label": "shaderGraph.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "filePath": "src/01_canvas/shading/shaderGraph.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "label": "Polygon modelling",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "An edit mode for meshes: select vertices, edges and faces; move, rotate and scale them; extrude and inset faces, bevel edges, loop cut, merge, mirror, and subdivision surfaces for smooth forms. Booleans (union, subtract, intersect) between any two solids with a CSG library (three-bvh-csg). A modelled mesh keeps its history as an ordered modifier stack on top of the 2D outline it came from, so an edit can be revisited, and it shares the canvas undo. Mesh data lives in the board document (positions, faces, UVs), saved compactly.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 22,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/model/undo.ts",
+        "src/01_canvas/board/CanvasToolbar.tsx"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/editMesh.ts",
+      "label": "editMesh.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "filePath": "src/01_canvas/geometry/editMesh.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/csg.ts",
+      "label": "csg.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "filePath": "src/01_canvas/geometry/csg.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/MeshEditPanel.tsx",
+      "label": "MeshEditPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "filePath": "src/01_canvas/panels/MeshEditPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637",
+      "label": "3D export and code",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Get models out: glTF/GLB (with materials), OBJ, and STL for 3D printing, from a layer, a selection or a scene; import glTF and OBJ back as editable meshes. Code: a React Three Fiber component per 3D component and a plain three.js module for web targets, through the same emitter registry as 2D. And the other direction: render a 3D view out as an SVG or PNG layer, so a modelled object can drop back into a flat design.",
+      "status": "draft",
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "order": 23,
+      "editsPaths": [
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/emit/targets.ts"
+      ]
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/exportModel.ts",
+      "label": "exportModel.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637",
+      "filePath": "src/01_canvas/geometry/exportModel.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/r3f.ts",
+      "label": "r3f.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/any-language-planning-canvas-workspace-git-1793219797333",
+      "stepId": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637",
+      "filePath": "src/01_canvas/emit/r3f.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438",
+      "label": "3D scene model: placements, solids and storage",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The data underneath everything else. Every layer can carry a 3D placement (position, rotation as a quaternion, scale), and a frame can be a sketch plane: XY (front), XZ (top), YZ (side), or any of those rotated about any axis, its 2D contents living on that plane. New layer kinds: a 3D component (a group of solids, lights and cameras placed in space, built on the board like any frame) and a solid (an outline plus its modifier stack, or an edited mesh). Units are meters with Y up, the glTF convention, so export needs no guessing. Heavy mesh data lives in binary assets (.components/assets/*.glb) referenced from the board, so board JSON stays small and diffable. Schema bump with an idempotent migration; undo covers every 3D edit.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 1,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/model/store.ts",
+        "src/01_canvas/model/undo.ts",
+        "src/01_canvas/model/rotation.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/placement.ts",
+      "label": "placement.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438",
+      "filePath": "src/01_canvas/scene3d/placement.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/sceneTypes.ts",
+      "label": "sceneTypes.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438",
+      "filePath": "src/01_canvas/scene3d/sceneTypes.ts",
+      "role": "interface",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "label": "The 3D viewport and the 2D/3D toggle",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A three.js viewport on the board (React Three Fiber, already a dependency, loaded on demand so it never touches the first load), WebGPU where available and WebGL otherwise. One toggle swaps the board between 2D and 3D: 2D is the orthographic straight-on view of the plane being edited, 3D orbits the same scene, so nothing is converted going back and forth. Front, Top, Side and Perspective views, a grid and axis gizmo, move/rotate/scale handles, frame-selection shared with the layers panel, and every 2D layer drawn as a flat mesh through the geometry kernel (shape.ts, mesh.ts) so a flat design looks identical in both views.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 2,
+      "editsPaths": [
+        "src/01_canvas/board/CanvasBoard.tsx",
+        "src/01_canvas/board/CanvasToolbar.tsx",
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "src/01_canvas/geometry/mesh.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/Viewport3D.tsx",
+      "label": "Viewport3D.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "filePath": "src/01_canvas/viewport/Viewport3D.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/Viewport3D.ViewModel.tsx",
+      "label": "Viewport3D.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "filePath": "src/01_canvas/viewport/Viewport3D.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/cameraViews.ts",
+      "label": "cameraViews.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "filePath": "src/01_canvas/viewport/cameraViews.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/TransformGizmo.tsx",
+      "label": "TransformGizmo.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "filePath": "src/01_canvas/viewport/TransformGizmo.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "label": "Sketch planes: frames on XY, XZ, YZ or any angle",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Put any frame on a plane from the inspector (Front, Top, Side, or a custom rotation and offset) and it stands in the 3D scene at that orientation. Editing a plane opens it straight-on in 2D, with the board tools unchanged: the SVG and frame tools become the sketch tools. Cross-plane guides make orthographic sketching work: points drawn on Front project as guide lines onto Top and Side (shared X, Y or Z), so the three views of one object line up like blueprint views. Reference images can be pinned to a plane at real size.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 3,
+      "editsPaths": [
+        "src/01_canvas/panels/CanvasInspector.tsx",
+        "src/01_canvas/board/CanvasNodeView.tsx",
+        "src/01_canvas/model/doc.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/sketchPlane.ts",
+      "label": "sketchPlane.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "filePath": "src/01_canvas/scene3d/sketchPlane.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/PlaneSection.tsx",
+      "label": "PlaneSection.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "filePath": "src/01_canvas/panels/PlaneSection.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/board/PlaneGuides.tsx",
+      "label": "PlaneGuides.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "filePath": "src/01_canvas/board/PlaneGuides.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "label": "Solids from one sketch: extrude, revolve, sweep, loft",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "An outline on a plane becomes a solid through a modifier: extrude (depth, bevel size and segments, taper), revolve (axis, angle, steps: vases, wheels, bottles), sweep (along a guide path, reusing pathGuide: pipes, rails, ribbons) and loft (through two or more profiles on parallel planes: fuselages, bottles with varying section). How points map to polygons is explicit and shown: each sketch anchor is a vertex of the profile, curves are split at the flattening tolerance, and the polygon count is profile vertices x the segments the modifier adds (extrude depth segments, revolve steps, sweep samples). Loft needs matching point counts, so profiles are resampled to the same count with their anchors kept. A live polygon and triangle count sits in the inspector. The sketch stays the source: edit it and the solid rebuilds.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 5,
+      "editsPaths": [
+        "src/01_canvas/geometry/shape.ts",
+        "src/01_canvas/geometry/mesh.ts",
+        "src/01_canvas/model/pathGuide.ts",
+        "src/01_canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/modifiers.ts",
+      "label": "modifiers.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "filePath": "src/01_canvas/geometry/modifiers.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/loft.ts",
+      "label": "loft.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "filePath": "src/01_canvas/geometry/loft.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/SolidSection.tsx",
+      "label": "SolidSection.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "filePath": "src/01_canvas/panels/SolidSection.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "label": "Solids from Top, Front and Side sketches, and booleans",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Three orthographic silhouettes become one solid by carving: extrude the Front sketch through the depth, the Side across the width, the Top down the height, and intersect the three (the visual hull). Booleans (union, subtract, intersect) between any solids use three-bvh-csg. What views alone cannot tell is stated in the UI, not hidden: a hollow no silhouette shows (a bowl, a cup interior), and curvature between views (three circles carve a Steinmetz solid, not a sphere). The fixes are built in: add section sketches on more planes and loft through them, subtract a carved cavity, or refine in edit mode and sculpting.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 6,
+      "editsPaths": [
+        "src/01_canvas/geometry/shape.ts",
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/carve.ts",
+      "label": "carve.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "filePath": "src/01_canvas/geometry/carve.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/csg.ts",
+      "label": "csg.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "filePath": "src/01_canvas/geometry/csg.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/editable-meshes-1793281213939",
+      "label": "Editable meshes",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Apply a modifier stack to get a mesh you can edit by hand: a half-edge mesh with n-gon faces (quads stay quads, which subdivision and engines prefer), hard and smooth edges, vertex normals, UV layers and vertex colors. Kept in a .glb asset with its history recorded, so an applied solid can still be traced to the sketch it came from. Validation keeps meshes engine-ready: manifold checks, no degenerate faces, consistent winding.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 7,
+      "editsPaths": [
+        "src/01_canvas/geometry/mesh.ts",
+        "src/01_canvas/model/store.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/editMesh.ts",
+      "label": "editMesh.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/editable-meshes-1793281213939",
+      "filePath": "src/01_canvas/geometry/editMesh.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/meshStore.ts",
+      "label": "meshStore.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/editable-meshes-1793281213939",
+      "filePath": "src/01_canvas/geometry/meshStore.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "label": "Edit mode: vertices, edges, faces",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Polygon modelling on the editable mesh: select vertices, edges or faces (click, box, loop and ring selection), move, rotate and scale them with the gizmo, extrude and inset faces, bevel edges and vertices, loop cut, knife, merge, bridge edge loops, fill holes, and mirror with symmetry across an axis. Every operation is one undo step through the canvas undo stack, and works in the orthographic views as well as perspective.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 8,
+      "editsPaths": [
+        "src/01_canvas/model/undo.ts",
+        "src/01_canvas/board/CanvasToolbar.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/meshOps.ts",
+      "label": "meshOps.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "filePath": "src/01_canvas/geometry/meshOps.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/MeshEditMode.tsx",
+      "label": "MeshEditMode.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "filePath": "src/01_canvas/viewport/MeshEditMode.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/MeshEditMode.ViewModel.tsx",
+      "label": "MeshEditMode.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "filePath": "src/01_canvas/viewport/MeshEditMode.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "label": "Subdivision, decimation and polygon budgets",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Catmull-Clark subdivision as a modifier with per-edge crease weights, so a low-poly cage reads as a smooth form (the standard way to model cars, characters, product shots). Decimate and quad-remesh to bring a dense mesh to a game budget, with a budget readout per object and per scene (triangles, vertices, draw calls) against targets for web, mobile and desktop engines.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 9,
+      "editsPaths": [
+        "src/01_canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/subdivide.ts",
+      "label": "subdivide.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "filePath": "src/01_canvas/geometry/subdivide.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/decimate.ts",
+      "label": "decimate.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "filePath": "src/01_canvas/geometry/decimate.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/BudgetSection.tsx",
+      "label": "BudgetSection.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "filePath": "src/01_canvas/panels/BudgetSection.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "label": "Sculpting",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "For organic detail sketches and polygon edits can not reach: brushes on a dense mesh (draw, clay, grab, smooth, inflate, crease, flatten, pinch), with radius, strength, falloff, pen pressure and mirror symmetry. Dense meshes come from a voxel remesh of any solid or from multiresolution subdivision, so a sculpt can start from a sketched base. Detail bakes down to a normal map on the low-poly mesh for engines. Brushes run on the GPU where available and a BVH keeps strokes interactive on hundreds of thousands of faces.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 10,
+      "editsPaths": [
+        "src/01_canvas/board/CanvasToolbar.tsx",
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/sculpt/brushes.ts",
+      "label": "brushes.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "filePath": "src/01_canvas/sculpt/brushes.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/sculpt/remesh.ts",
+      "label": "remesh.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "filePath": "src/01_canvas/sculpt/remesh.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/SculptMode.tsx",
+      "label": "SculptMode.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "filePath": "src/01_canvas/viewport/SculptMode.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/SculptMode.ViewModel.tsx",
+      "label": "SculptMode.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "filePath": "src/01_canvas/viewport/SculptMode.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/uvs-and-textures-1793281214498",
+      "label": "UVs and textures",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Every solid gets usable UVs: a sketch-plane projection by default (the plane it was drawn on is the natural mapping, so an image fill lands where it showed in 2D), plus automatic unwrapping with seams (xatlas compiled to WebAssembly) and a UV editor drawn on the 2D board. Image fills become textures; normal, roughness, metalness and ambient-occlusion maps attach to material slots; baking lights and sculpt detail into textures follows.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 12,
+      "editsPaths": [
+        "src/01_canvas/geometry/mesh.ts",
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/uvs.ts",
+      "label": "uvs.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/uvs-and-textures-1793281214498",
+      "filePath": "src/01_canvas/geometry/uvs.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/UvEditor.tsx",
+      "label": "UvEditor.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/uvs-and-textures-1793281214498",
+      "filePath": "src/01_canvas/viewport/UvEditor.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "label": "Materials and node shading",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Physically based materials that start from what a layer already has (solid fill to base color, image fill to texture, gradient to a generated texture, opacity to transmission) plus metalness, roughness, emissive, clearcoat, sheen and normal maps. A node shader editor drawn with the same graph engine as Planning: texture, noise, math, mix, fresnel and time nodes compiled to three.js node materials (TSL), which target WebGPU and WebGL from one graph. Materials are reusable assets in .components/materials and export as glTF materials (with the nodes baked where glTF has no equivalent).",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 13,
+      "editsPaths": [
+        "src/00_planning/graph/GraphCanvas.tsx",
+        "src/01_canvas/panels/PaintSections.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/material.ts",
+      "label": "material.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "filePath": "src/01_canvas/shading/material.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/shaderGraph.ts",
+      "label": "shaderGraph.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "filePath": "src/01_canvas/shading/shaderGraph.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/compileTsl.ts",
+      "label": "compileTsl.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "filePath": "src/01_canvas/shading/compileTsl.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/MaterialPanel.tsx",
+      "label": "MaterialPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "filePath": "src/01_canvas/panels/MaterialPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/MaterialPanel.ViewModel.tsx",
+      "label": "MaterialPanel.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "filePath": "src/01_canvas/panels/MaterialPanel.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "label": "Environments: lights, cameras, world",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "What turns objects into a place: point, spot, directional and area lights with soft shadows, an HDRI environment and sky, fog, a ground plane, and cameras with focal length and depth of field that can be looked through and animated. Scatter and instancing reuse the 2D pattern tools (pathPattern) in 3D: trees along a path, rocks across a surface, as GPU instances. Levels of detail per object keep large scenes fast.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 15,
+      "editsPaths": [
+        "src/01_canvas/model/pathPattern.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/lights.ts",
+      "label": "lights.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "filePath": "src/01_canvas/scene3d/lights.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/environment.ts",
+      "label": "environment.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "filePath": "src/01_canvas/scene3d/environment.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/scatter.ts",
+      "label": "scatter.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "filePath": "src/01_canvas/scene3d/scatter.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/ScenePanel.tsx",
+      "label": "ScenePanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "filePath": "src/01_canvas/panels/ScenePanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "label": "Armatures and skinning",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Bones for characters and mechanisms: an armature drawn bone by bone on sketch planes (so a side-view sketch can carry a spine and a front view the arms), with parenting, roll and constraints (IK chains, look-at, copy rotation). Skinning binds a mesh to bones with automatic weights from bone distance and heat diffusion, then a weight-paint brush refines them; pose mode tests deformation. Exports as glTF skins.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 16,
+      "editsPaths": [
+        "src/01_canvas/model/types.ts",
+        "src/01_canvas/board/CanvasToolbar.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/rig/armature.ts",
+      "label": "armature.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "filePath": "src/01_canvas/rig/armature.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/rig/skinWeights.ts",
+      "label": "skinWeights.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "filePath": "src/01_canvas/rig/skinWeights.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/rig/ik.ts",
+      "label": "ik.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "filePath": "src/01_canvas/rig/ik.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/PoseMode.tsx",
+      "label": "PoseMode.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "filePath": "src/01_canvas/viewport/PoseMode.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "label": "Animation",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "One timeline for 2D and 3D: keyframes on transforms, bone poses, material parameters, light and camera properties, and shape keys (morph targets) for facial and squash-and-stretch animation. Curve editor with easing and tangents, named clips (walk, idle, open-door) that play, loop and blend, and onion skinning in 2D views. Motion along a path reuses pathFlow. Clips export as glTF animations so engines play them by name.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 17,
+      "editsPaths": [
+        "src/01_canvas/model/pathFlow.ts",
+        "src/01_canvas/model/types.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/animation/clip.ts",
+      "label": "clip.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "filePath": "src/01_canvas/animation/clip.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/animation/curves.ts",
+      "label": "curves.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "filePath": "src/01_canvas/animation/curves.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/TimelinePanel.tsx",
+      "label": "TimelinePanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "filePath": "src/01_canvas/panels/TimelinePanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/TimelinePanel.ViewModel.tsx",
+      "label": "TimelinePanel.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "filePath": "src/01_canvas/panels/TimelinePanel.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "label": "Functional environments: physics and interaction",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Scenes that can be played, not only looked at: rigid bodies and colliders (box, sphere, capsule, convex hull, mesh) with Rapier compiled to WebAssembly, triggers, joints, and a play mode in the viewport. Interaction states shared with 2D UI (hover, press, focus) drive 3D objects, so a door opens on click and a panel lights up on hover. 3D UI: any 2D frame can sit in the scene as a panel, HUD or screen that stays crisp (rendered from the same box model), for in-world interfaces.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 18,
+      "editsPaths": [
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/physics.ts",
+      "label": "physics.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "filePath": "src/01_canvas/scene3d/physics.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/interaction.ts",
+      "label": "interaction.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "filePath": "src/01_canvas/scene3d/interaction.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/PlayMode.tsx",
+      "label": "PlayMode.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "filePath": "src/01_canvas/viewport/PlayMode.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/uiPanels.ts",
+      "label": "uiPanels.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "filePath": "src/01_canvas/scene3d/uiPanels.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "label": "Export and import: glTF, USD, OBJ, STL",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Get work into every engine with standard files rather than generated engine code: glTF/GLB with meshes, PBR materials, skins, morph targets, animations, lights and cameras; USD/USDZ for Apple and film pipelines; OBJ and STL for printing. Export presets set the axis and unit conventions each engine wants (Unreal Z-up centimeters, Unity and Godot Y-up meters). Import glTF, OBJ and FBX back as editable meshes. Round-trip tests check that what leaves Sleipnir comes back the same.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 19,
+      "editsPaths": [
+        "src/01_canvas/CanvasView.ViewModel.tsx",
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/exportGltf.ts",
+      "label": "exportGltf.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "filePath": "src/01_canvas/io/exportGltf.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/exportUsd.ts",
+      "label": "exportUsd.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "filePath": "src/01_canvas/io/exportUsd.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/importModel.ts",
+      "label": "importModel.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "filePath": "src/01_canvas/io/importModel.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/enginePresets.ts",
+      "label": "enginePresets.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "filePath": "src/01_canvas/io/enginePresets.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-components-as-code-1793281215322",
+      "label": "3D components as code",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A 3D component becomes code like a 2D one does, through the emitter registry: a React Three Fiber component that loads its .glb and wires its interaction states and animation clips, or a plain three.js module for non-React web pages. 2D UI and 3D scenes mix in one component tree, so a product page with a live 3D model is one design.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 20,
+      "editsPaths": [
+        "src/01_canvas/emit/targets.ts",
+        "src/01_canvas/emit/react.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/emit/r3f.ts",
+      "label": "r3f.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-components-as-code-1793281215322",
+      "filePath": "src/01_canvas/emit/r3f.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/emit/threeModule.ts",
+      "label": "threeModule.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-components-as-code-1793281215322",
+      "filePath": "src/01_canvas/emit/threeModule.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/ai-can-model-too-1793281215484",
+      "label": "AI can model too",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Teach the /frame, /component and canvas_build tools 3D: a spec can place frames on planes, sketch profiles, apply extrude, revolve, loft and carve, assign materials, add lights, and build an armature. The agent can then rough out a blockout from a description (\"a low-poly lighthouse on a rock\"), and the result is ordinary editable sketches and modifiers, not a frozen mesh. A /model command routes to it.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 21,
+      "editsPaths": [
+        "tools/agentSkills/vendor/canvas.mjs",
+        "electron/agent/tools/canvas.cjs",
+        "tools/agentSkills/registry.mjs",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "label": "Point selection: transform just the points you pick",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Select only some points of any shape and move, rotate or scale them on their own, about a pivot you can place (their center by default, or any point, anchor or layer). Works on every vector, and on frames and components through their outline: a frame or component edited by points becomes a path that keeps its fills, strokes and children. Box, lasso, shift and loop selection of points; rotation and scale handles around the selection; numeric rotate in the inspector. For components, an instance can be rotated or have points moved as its own override, without touching the main component or its other instances. The same selection model (points, then edges and faces) carries straight into 3D edit mode and the sculpt brushes.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 4,
+      "editsPaths": [
+        "src/01_canvas/model/vectorEdit.ts",
+        "src/01_canvas/model/variants.ts",
+        "src/01_canvas/board/CanvasNodeView.tsx",
+        "src/01_canvas/CanvasView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/model/pointSelection.ts",
+      "label": "pointSelection.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "filePath": "src/01_canvas/model/pointSelection.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/board/PointTransformHandles.tsx",
+      "label": "PointTransformHandles.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "filePath": "src/01_canvas/board/PointTransformHandles.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/quick-sculpt-brushes-in-the-pen-toolbox-1793281722304",
+      "label": "Quick sculpt brushes in the pen toolbox",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A few simple brushes beside the pen tool in the bottom toolbox, for shaping without leaving the board: push, pull, smooth, inflate and pinch, with one radius and strength (pen pressure when there is one). On a 2D vector they move the points under the brush with a soft falloff, adding points where the curve needs them, so a hand-drawn shape can be nudged organically. On a 3D solid they are the light versions of the full sculpt brushes, working on the surface directly. Same selection model as point editing, so a brush can be limited to selected points.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 11,
+      "editsPaths": [
+        "src/01_canvas/board/CanvasToolbar.tsx",
+        "src/01_canvas/model/vectorEdit.ts"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/sculpt/pathBrushes.ts",
+      "label": "pathBrushes.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/quick-sculpt-brushes-in-the-pen-toolbox-1793281722304",
+      "filePath": "src/01_canvas/sculpt/pathBrushes.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/board/BrushCursor.tsx",
+      "label": "BrushCursor.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/quick-sculpt-brushes-in-the-pen-toolbox-1793281722304",
+      "filePath": "src/01_canvas/board/BrushCursor.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "label": "The inspector in 3D: alignment, fill, stroke",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The same inspector sections work on 3D objects, meaning the same thing in space. Alignment: align and distribute along X, Y or Z, to the selection, a parent component or the ground, and snap to faces, edges and other objects. Fill is the surface: the fill list becomes the material stack (a solid fill to base color, an image to a texture, opacity to transmission), shaded by the scene lights. Stroke is the outline: a stroke draws the object edges or silhouette in 3D with its color and weight in pixels or world units, for stylized, toon and technical-drawing looks, and inside/center/outside keeps its meaning against the silhouette. Effects map too: drop shadow to cast shadows, blur to depth of field. One inspector, so moving between 2D and 3D asks nothing new.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 14,
+      "editsPaths": [
+        "src/01_canvas/model/align.ts",
+        "src/01_canvas/panels/LayoutSection.tsx",
+        "src/01_canvas/panels/PaintSections.tsx",
+        "src/01_canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/align3d.ts",
+      "label": "align3d.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "filePath": "src/01_canvas/scene3d/align3d.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/strokeOutline.ts",
+      "label": "strokeOutline.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "filePath": "src/01_canvas/shading/strokeOutline.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/fillToMaterial.ts",
+      "label": "fillToMaterial.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "filePath": "src/01_canvas/shading/fillToMaterial.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "label": "Studio: the Analytics slot becomes lighting, materials and animation",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Long term: the hidden Analytics section (src/05_analytics) is replaced by Studio, a workspace for finishing a 3D scene rather than building it. A large viewport with lighting tools (key, fill and rim presets, HDRI picker, light linking, exposure and tone mapping), a material library and the node shader editor side by side, and the animation timeline with clips, curves and camera shots, plus a render panel for stills and turntable or shot videos. It works on the same boards and components as the Canvas, so a model goes from sketch to lit, animated shot without export.",
+      "status": "draft",
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "order": 22,
+      "editsPaths": [
+        "src/App.tsx",
+        "src/05_analytics/AnalyticsView.tsx"
+      ]
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/05_studio/StudioView.tsx",
+      "label": "StudioView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "filePath": "src/05_studio/StudioView.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/05_studio/StudioView.ViewModel.tsx",
+      "label": "StudioView.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "filePath": "src/05_studio/StudioView.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/05_studio/renderShot.ts",
+      "label": "renderShot.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388",
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "filePath": "src/05_studio/renderShot.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/planning-as-agent-diagnostics-1793301952427/one-status-the-agent-s-pending-in-progress-completed-1793301952515",
+      "label": "One status, the agent’s: pending, in progress, completed",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Planning carries two status systems today: a step’s approval (draft, approved, done) and a separate stage (proposed, in progress, in review, done), kept in step by useStatusReconciler. Replace both with the three states AI agents already track their own work in (Claude Code’s todo list, Codex and Gemini plans): pending, in progress, completed. Approval stays, but as an action (a human saying go, which marks the step in progress and lets Sleipnir write its planned files), not a fourth status. Glyphs: dashed ring, ring with a soft pulse, solid dot. Old boards migrate on read and idempotently: proposed and draft to pending, in progress, in review and approved to in progress, done to completed.",
+      "status": "draft",
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "order": 1,
+      "editsPaths": [
+        "src/00_planning/graph/types.ts",
+        "src/00_planning/graph/stages.ts",
+        "src/00_planning/stagesStore.ts",
+        "src/00_planning/useStatusReconciler.ts",
+        "src/00_planning/PlanningView.tsx",
+        "src/00_planning/graph/GraphCanvas.tsx",
+        "tools/planDoc.mjs",
+        "tools/sleipnir-backend.mjs"
+      ]
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/graph/stepStatus.ts",
+      "label": "stepStatus.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/one-status-the-agent-s-pending-in-progress-completed-1793301952515",
+      "filePath": "src/00_planning/graph/stepStatus.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/planning-as-agent-diagnostics-1793301952427/agents-report-their-progress-on-the-plan-1793301952585",
+      "label": "Agents report their progress on the plan",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The plan reflects what the agent is actually doing, from the agent itself. The plan CLI gets set-status (a step id, pending, in progress or completed, and an optional one-line note of what it did), and the in-app agent an update_plan_step tool. The /plan and /optimize skills tell agents to keep the plan as their working todo list: one step in progress at a time, completed the moment it is done, with the note. The graph updates live through the planning watcher, so watching a plan is watching the agent work.",
+      "status": "draft",
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "order": 2,
+      "editsPaths": [
+        "tools/agentSkills/vendor/plan.mjs",
+        "tools/planDoc.mjs",
+        "tools/agentSkills/registry.mjs",
+        "electron/agent/tools/planning.cjs",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "label": "Every AI change, recorded against its step",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A per-plan activity log in .planning/<plan>/activity.json: for each step, when it started and finished, which agent worked it, and every file it created, changed or deleted. The in-app agent writes its change sets there (changeSets.cjs already records them, with undo). For terminal agents Sleipnir attributes changes itself: a workspace snapshot when a step goes in progress, compared when it completes, so even an agent that never reports files is accounted for. A step’s card lists its changes with diffs, and the files light up on the architecture graph.",
+      "status": "draft",
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "order": 3,
+      "editsPaths": [
+        "electron/agent/changeSets.cjs",
+        "tools/sleipnir-backend.mjs",
+        "electron/planningWatcher.cjs"
+      ]
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/graph/activityLog.ts",
+      "label": "activityLog.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "filePath": "src/00_planning/graph/activityLog.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/ActivityPanel.tsx",
+      "label": "ActivityPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "filePath": "src/00_planning/ActivityPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/ActivityPanel.ViewModel.tsx",
+      "label": "ActivityPanel.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "filePath": "src/00_planning/ActivityPanel.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "label": "Live agent activity on the graph",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Diagnostics in real time: while an agent works, its current step pulses, and the files it reads and writes flash on the architecture graph as it touches them, so you see where its attention is and whether it is wandering outside the plan. In-app agent tool calls (read_file, generate_code, run_command) stream as events; terminal agents are followed through file-system changes attributed to the step in progress. A slim strip under the graph names the agent, the step, the time on it, and the last few actions, with a link into the full log.",
+      "status": "draft",
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "order": 4,
+      "editsPaths": [
+        "src/00_planning/PlanningView.ViewModel.tsx",
+        "src/00_planning/graph/GraphCanvas.tsx",
+        "electron/agent/backend.cjs"
+      ]
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/graph/agentPulse.ts",
+      "label": "agentPulse.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "filePath": "src/00_planning/graph/agentPulse.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/AgentActivityStrip.tsx",
+      "label": "AgentActivityStrip.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "filePath": "src/00_planning/AgentActivityStrip.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "label": "Skills: the skill tree",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A SKILLS view in Planning, drawn with the same graph: every skill an agent in this project can run, built in (/plan, /optimize, /frame, /component) or the user’s own, found where each agent keeps them (Claude Code’s .claude/commands and .claude/skills, Codex’s .codex/prompts, Gemini’s .gemini/commands). Each skill links to the tools and CLIs it drives (plan.mjs, canvas.mjs, analyze.mjs) and to what it writes (.planning, boards, code), so you can see what a skill can touch before an agent runs it. Filter by agent to see what Claude, Codex or Gemini each have.",
+      "status": "draft",
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "order": 5,
+      "editsPaths": [
+        "src/00_planning/graph/types.ts",
+        "src/00_planning/PlanningView.tsx",
+        "tools/sleipnir-backend.mjs"
+      ]
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/skillScan.ts",
+      "label": "skillScan.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "filePath": "src/00_planning/skills/skillScan.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/SkillsView.tsx",
+      "label": "SkillsView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "filePath": "src/00_planning/skills/SkillsView.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/SkillsView.ViewModel.tsx",
+      "label": "SkillsView.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "filePath": "src/00_planning/skills/SkillsView.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "label": "Edit and add skills, per agent",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Open any skill’s file in the editor. New skill: a name, a description, the instructions, and which agents get it; Sleipnir writes each agent’s own format (Markdown with frontmatter for Claude and Codex, TOML for Gemini) through the same emitters that write the built-in ones. A built-in skill is changed through a project override in .sleipnir/skills/<id>.md that the scaffolder merges, so the change survives updates instead of being overwritten.",
+      "status": "draft",
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "order": 6,
+      "editsPaths": [
+        "tools/agentSkills/scaffold.mjs",
+        "tools/agentSkills/emitters/index.mjs",
+        "tools/agentSkills/registry.mjs"
+      ]
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/NewSkillModal.tsx",
+      "label": "NewSkillModal.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "filePath": "src/00_planning/skills/NewSkillModal.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/NewSkillModal.ViewModel.tsx",
+      "label": "NewSkillModal.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "filePath": "src/00_planning/skills/NewSkillModal.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/planning-as-agent-diagnostics-1793301952427/planning-organized-around-the-agent-1793301953116",
+      "label": "Planning organized around the agent",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Planning becomes the place to watch and steer agents: PLANS (ongoing plans over the architecture, with live status and activity), SKILLS (the skill tree) and HEALTH (the architecture lens), one tab strip. The header shows any agent run in progress: which plan and step, how long, how many files touched. Manual node creation stays available but steps back: the human role here is reviewing, approving and redirecting, not filling in nodes by hand.",
+      "status": "draft",
+      "planId": "plan/planning-as-agent-diagnostics-1793301952427",
+      "order": 7,
+      "editsPaths": [
+        "src/00_planning/PlanningView.tsx",
+        "src/00_planning/PlanningView.ViewModel.tsx"
+      ]
     }
   ],
   "edges": [
@@ -2671,7 +4377,7 @@
       "kind": "plan-step"
     },
     {
-      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314",
       "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
       "kind": "sequence"
     },
@@ -2694,6 +4400,616 @@
       "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
       "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/scene3d.ts",
       "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/motion-states-transitions-and-keyframes-1793219798723",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/shape.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/geometry-kernel-every-layer-is-a-shape-1793220185314",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/mesh.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-scene-nodes-1793219798826",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/modifiers.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/board/Board3DView.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/board/Board3DView.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/depth-on-every-layer-extrude-revolve-sweep-1793220185383",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/model/material.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/MaterialPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/MaterialPanel.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/shading/shaderGraph.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/materials-and-shading-1793220185453",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/editMesh.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/csg.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/panels/MeshEditPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/polygon-modelling-1793220185538",
+      "target": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/geometry/exportModel.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/any-language-planning-canvas-workspace-git-1793219797333/3d-export-and-code-1793220185637",
+      "target": "planned/any-language-planning-canvas-workspace-git-1793219797333/src/01_canvas/emit/r3f.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/placement.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/sceneTypes.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/Viewport3D.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/Viewport3D.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/cameraViews.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/TransformGizmo.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/sketchPlane.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/PlaneSection.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/board/PlaneGuides.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/modifiers.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/loft.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/SolidSection.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/carve.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/csg.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/editable-meshes-1793281213939",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/editable-meshes-1793281213939",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/editMesh.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/editable-meshes-1793281213939",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/meshStore.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/editable-meshes-1793281213939",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/meshOps.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/MeshEditMode.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/MeshEditMode.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/subdivide.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/decimate.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/BudgetSection.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/subdivision-decimation-and-polygon-budgets-1793281214193",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/sculpt/brushes.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/sculpt/remesh.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/SculptMode.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/SculptMode.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/quick-sculpt-brushes-in-the-pen-toolbox-1793281722304",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/uvs-and-textures-1793281214498",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/uvs-and-textures-1793281214498",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/geometry/uvs.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/uvs-and-textures-1793281214498",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/UvEditor.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/uvs-and-textures-1793281214498",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/material.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/shaderGraph.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/compileTsl.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/MaterialPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/MaterialPanel.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/lights.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/environment.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/scatter.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/ScenePanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/environments-lights-cameras-world-1793281214712",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/rig/armature.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/rig/skinWeights.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/rig/ik.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/PoseMode.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/armatures-and-skinning-1793281214852",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/animation/clip.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/animation/curves.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/TimelinePanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/panels/TimelinePanel.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/animation-1793281214972",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/physics.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/interaction.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/viewport/PlayMode.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/uiPanels.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/functional-environments-physics-and-interaction-1793281215081",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/exportGltf.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/exportUsd.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/importModel.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/io/enginePresets.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/export-and-import-gltf-usd-obj-stl-1793281215205",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-components-as-code-1793281215322",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-components-as-code-1793281215322",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/emit/r3f.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-components-as-code-1793281215322",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/emit/threeModule.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-components-as-code-1793281215322",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/ai-can-model-too-1793281215484",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/model/pointSelection.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/board/PointTransformHandles.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sculpting-1793281214384",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/quick-sculpt-brushes-in-the-pen-toolbox-1793281722304",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/quick-sculpt-brushes-in-the-pen-toolbox-1793281722304",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/sculpt/pathBrushes.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/quick-sculpt-brushes-in-the-pen-toolbox-1793281722304",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/board/BrushCursor.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/materials-and-node-shading-1793281214593",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/scene3d/align3d.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/strokeOutline.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-inspector-in-3d-alignment-fill-stroke-1793281722422",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/01_canvas/shading/fillToMaterial.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/ai-can-model-too-1793281215484",
+      "target": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/05_studio/StudioView.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/05_studio/StudioView.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "target": "planned/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/src/05_studio/renderShot.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/one-status-the-agent-s-pending-in-progress-completed-1793301952515",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/graph/stepStatus.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/one-status-the-agent-s-pending-in-progress-completed-1793301952515",
+      "target": "plan/planning-as-agent-diagnostics-1793301952427/agents-report-their-progress-on-the-plan-1793301952585",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/agents-report-their-progress-on-the-plan-1793301952585",
+      "target": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/graph/activityLog.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/ActivityPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/ActivityPanel.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/every-ai-change-recorded-against-its-step-1793301952662",
+      "target": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/graph/agentPulse.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/AgentActivityStrip.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "target": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/skillScan.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/SkillsView.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/SkillsView.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "target": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/NewSkillModal.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "target": "planned/planning-as-agent-diagnostics-1793301952427/src/00_planning/skills/NewSkillModal.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "target": "plan/planning-as-agent-diagnostics-1793301952427/planning-organized-around-the-agent-1793301953116",
+      "kind": "sequence"
     }
   ]
 }

@@ -5,7 +5,7 @@
 // over `.research/`. Those docs aren't lost: the Docs pane below is that exact
 // same browser, now living beside the board instead of owning a whole tab.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { IconButton } from '../app/UIKit/IconButton/IconButton'
 import { DeletePathModal } from '../app/DesignSystem/DeletePathModal'
@@ -14,21 +14,25 @@ import { useFileStages } from '../00_planning/useFileStages'
 import { usePlanNodeLinks } from '../00_planning/usePlanNodeLinks'
 import type { GraphNode } from '../00_planning/graph/types'
 import { ResearchView } from '../01_research/ResearchView'
-import { DEFAULT_COMPONENT_ROOT } from './model/paths'
 import { CanvasBoard } from './board/CanvasBoard'
 import { CanvasInspector } from './panels/CanvasInspector'
 import { CanvasLayersPanel, layerMatches } from './panels/CanvasLayersPanel'
 import { SIDE_PANEL_W, SidebarHeader } from '../app/UIKit/SidebarHeader/SidebarHeader'
 import { Search } from '../app/UIKit/Search/Search'
 import { childrenOf, type CanvasNode } from './model/types'
-import { CreateComponentModal } from './panels/CreateComponentModal'
-import type { ComponentDraft } from './panels/CreateComponentModal'
 import { useCanvasViewModel } from './CanvasView.ViewModel'
 import { useWorkspaceImages } from './board/useWorkspaceImages'
 import { useBoardTabs } from './useBoardTabs'
 import { WorkspaceTabStrip } from '../app/WorkspaceTabStrip/WorkspaceTabStrip'
 import { TAB_ROW_H, TabPicker } from '../app/WorkspaceTabStrip/TabPicker'
 import type { CanvasViewProps } from './iCanvasView'
+import { planeGuides } from './scene3d/sketchPlane'
+import { Viewport3DBoundary } from './viewport/Viewport3DBoundary'
+
+// three.js and the 3D viewport load only when a board is first opened in 3D.
+// A fresh lazy() per attempt: React remembers a failed import, so retrying
+// the same one would only fail again.
+const loadViewport3D = () => lazy(() => import('./viewport/Viewport3D'))
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 // Shared with Planning's NODES panel, so the two side panels line up.
@@ -48,50 +52,42 @@ export function CanvasView({
   onWorkspaceChanged,
 }: CanvasViewProps) {
   const vm = useCanvasViewModel(activeProject?.path, { pendingFocus, onFocusConsumed, onFilesChanged: onWorkspaceChanged })
+  // The same board in 3D: every layer on its plane, solids built from outlines.
+  const [space, setSpace] = useState<'2d' | '3d'>('2d')
+  const [Viewport3D, setViewport3D] = useState(loadViewport3D)
+  // Blueprint lines on the selected layer's sketch from the other placed planes.
+  const planeGuideLines = useMemo(() => {
+    const only = vm.selectedIds.size === 1 ? [...vm.selectedIds][0] : null
+    return vm.doc && only ? planeGuides(vm.doc, only, vm.rectOf) : []
+  }, [vm.doc, vm.selectedIds, vm.rectOf])
+  // Vector layers anywhere on the board — what a sweep can follow.
+  const vectorPaths = useMemo(() => {
+    const out: { id: string; name: string }[] = []
+    const visit = (nodes: CanvasNode[]) => {
+      for (const n of nodes) {
+        if (n.kind === 'vector') out.push({ id: n.id, name: n.name })
+        visit(childrenOf(n))
+      }
+    }
+    visit(vm.doc?.nodes ?? [])
+    return out
+  }, [vm.doc])
+  const select3d = useCallback(
+    (id: string | null, additive: boolean) => {
+      if (id && additive) vm.toggleSelect(id)
+      else vm.selectOnly(id)
+    },
+    [vm.toggleSelect, vm.selectOnly], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const place3d = useCallback(
+    (id: string, placement: NonNullable<CanvasNode['space']>) => vm.updateNodeFields(id, { space: placement }, `space:${id}`),
+    [vm.updateNodeFields], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   // One image cache for the board and the inspector's fill swatches.
   const linkedComponents = useMemo(() => [...vm.linked.values()].map((l) => l.component), [vm.linked])
   const imageUrl = useWorkspaceImages(vm.doc, linkedComponents)
   const [showDocs, setShowDocs] = useState(false)
   const boardTabs = useBoardTabs(vm, activeProject?.path)
-  // Which already-written component the Create Component modal is open over.
-  //
-  // It no longer has a "promote" mode: promotion writes its own file into
-  // `.canvas` with a derived path (see the ViewModel's
-  // promoteSelectedToComponent), so there is no longer an unwritten in-between
-  // state for a modal to approve. What's left is renaming, retargeting and
-  // relocating a component that already exists.
-  const [pendingWrite, setPendingWrite] = useState<{ componentId: string } | null>(null)
-
-  // Field seeds only — the modal commits nothing itself.
-  const pendingDraft = useMemo((): ComponentDraft | null => {
-    if (!pendingWrite) return null
-    const component = vm.doc?.components.find((c) => c.id === pendingWrite.componentId)
-    return component
-      ? {
-          name: component.name,
-          target: component.target,
-          componentRoot: component.componentRoot,
-          filePath: component.filePath,
-        }
-      : null
-  }, [pendingWrite, vm.doc])
-
-  // Folders the inspector's WORKSPACE PATH field offers as completions: every
-  // folder that already holds a component file (workspace-relative, so
-  // unambiguous), plus the board's recorded folders — including empty ones,
-  // which exist only as records. Expressed against the selected component's own
-  // root, since that's the only component whose path this panel edits.
-  const folderOptions = useMemo(() => {
-    const root = vm.selectedComponent?.componentRoot ?? DEFAULT_COMPONENT_ROOT
-    const dirs = new Set<string>([root])
-    for (const folder of vm.doc?.componentFolders ?? []) dirs.add(`${root}/${folder}`)
-    for (const component of vm.doc?.components ?? []) {
-      const filePath = component.filePath
-      if (filePath?.includes('/')) dirs.add(filePath.slice(0, filePath.lastIndexOf('/')))
-    }
-    return [...dirs].sort()
-  }, [vm.doc, vm.selectedComponent])
-
   const { stages: fileStages, setStatus: setFileStatus } = useFileStages()
   const planNodeLinks = usePlanNodeLinks()
 
@@ -232,11 +228,40 @@ export function CanvasView({
           onClose={boardTabs.close}
           onAddTab={(name) => void vm.createBoard(name)}
           addPlaceholder="board name"
+          // Renames the open board; its folder in .components follows.
+          onRename={(id, name) => {
+            if (id === vm.doc?.id) vm.renameBoard(name)
+          }}
         />
 
         {/* History and view controls — their own group, so the row itself
             can run gap-free and the tabs start exactly where Planning's do. */}
         <Frame flow="horizontal" align="center" gap={8} shrink={0}>
+          {/* 2D edits each layer in its own plane; 3D shows the planes in space. */}
+          <Frame flow="horizontal" align="center" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-2' }} clipContent>
+            {(['2d', '3d'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={space === s}
+                onClick={() => setSpace(s)}
+                title={s === '2d' ? 'Edit layers in their own planes' : 'See the board in 3D — planes, solids, the gizmo'}
+                style={{
+                  ...MONO,
+                  fontSize: 9,
+                  letterSpacing: '0.1em',
+                  padding: '4px 8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: space === s ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
+                  color: space === s ? 'var(--text-1)' : 'var(--text-3)',
+                }}
+              >
+                {s.toUpperCase()}
+              </button>
+            ))}
+          </Frame>
+
           <button
             type="button"
             onClick={vm.undo}
@@ -377,6 +402,20 @@ export function CanvasView({
           <Frame grow align="center" justify="center">
             <span style={{ ...MONO, fontSize: 10, color: 'var(--text-3)' }}>Loading…</span>
           </Frame>
+        ) : vm.doc && space === '3d' ? (
+          <Frame grow minW={0} h="fill">
+            <Viewport3DBoundary onBack={() => setSpace('2d')} onRetry={() => setViewport3D(loadViewport3D)}>
+            <Suspense
+              fallback={
+                <Frame grow align="center" justify="center" h="fill">
+                  <span style={{ ...MONO, fontSize: 10, color: 'var(--text-3)' }}>Loading 3D…</span>
+                </Frame>
+              }
+            >
+              <Viewport3D doc={vm.doc} selectedIds={vm.selectedIds} onSelect={select3d} onPlacementChange={place3d} rectOf={vm.rectOf} />
+            </Suspense>
+            </Viewport3DBoundary>
+          </Frame>
         ) : vm.doc ? (
           <CanvasBoard
             doc={vm.doc}
@@ -421,7 +460,11 @@ export function CanvasView({
             onStartPathSlide={vm.startPathSlide}
             onStartMove={vm.startMoveDrag}
             onDoubleClick={vm.onBoardDoubleClick}
+            editingTextId={vm.editingTextId}
+            onTextChange={vm.setTextContent}
+            onEndTextEdit={vm.endTextEdit}
             guides={vm.guides}
+            planeGuides={planeGuideLines}
             dropTargetId={vm.dropTargetId}
             dropIndicator={vm.dropIndicator}
             hoverId={vm.hoverId}
@@ -470,6 +513,17 @@ export function CanvasView({
           <SidebarHeader framed label="PROPERTIES" />
           <CanvasInspector
             node={vm.singleSelected}
+            space3d={
+              vm.doc
+                ? {
+                    doc: vm.doc,
+                    topLevel: !!vm.singleSelected && vm.doc.nodes.some((n) => n.id === vm.singleSelected!.id),
+                    paths: vectorPaths,
+                    onPlacement: (id, placement, gesture) => vm.updateNodeFields(id, { space: placement }, gesture && `space:${gesture}`),
+                    onSolid: (id, solid, gesture) => vm.updateNodeFields(id, { solid }, gesture && `solid:${gesture}`),
+                  }
+                : undefined
+            }
             linked={vm.selectedLinked}
             onLinkedPropChange={vm.setLinkedPropValue}
             onOpenMainComponent={(filePath) => void vm.openMainComponent(filePath)}
@@ -495,7 +549,6 @@ export function CanvasView({
             onRename={(id, name) => vm.updateNodeFields(id, { name })}
             onRectChange={vm.updateSelectedRect}
             onStyleChange={vm.updateSelectedStyle}
-            onTextChange={(id, text) => vm.updateNodeFields(id, { text } as never)}
             onFontChange={vm.updateNodeFont}
             onComponentStyleChange={vm.updateVariantRootStyle}
             onVectorChange={(id, patch, gesture) => vm.updateNodeFields(id, patch as never, gesture)}
@@ -527,7 +580,10 @@ export function CanvasView({
                 vm.setError(e instanceof Error ? e.message : String(e))
               }
             }}
-            onWriteComponent={(componentId) => setPendingWrite({ componentId })}
+            onRenameComponent={async (componentId, name) => {
+              await vm.renameComponent(componentId, name)
+              onWorkspaceChanged?.()
+            }}
             isDirty={!!vm.selectedComponent && vm.dirtyComponentIds.has(vm.selectedComponent.id)}
             onPush={async (componentId) => {
               const result = await vm.pushComponent(componentId)
@@ -553,22 +609,23 @@ export function CanvasView({
             onSelectVariant={(variantId) => {
               if (vm.singleSelected) vm.setInstanceVariant(vm.singleSelected.id, variantId)
             }}
-            folderOptions={folderOptions}
+            componentFolders={vm.doc?.componentFolders ?? []}
             // Returned, not awaited: the panel shows a rejected move (a path
             // that escapes the component root, a failed write) inline under
             // the field rather than as a board-level error.
             onSetPath={async (componentId, nextPath) => {
-              await vm.setComponentPath(componentId, nextPath)
+              // No file yet (it was deleted outside Sleipnir): writing it is a
+              // fresh emit at that path, not a move.
+              const component = vm.doc?.components.find((c) => c.id === componentId)
+              if (component && !component.filePath) {
+                await vm.approveComponent(componentId, { name: component.name, target: component.target, filePath: nextPath })
+              } else {
+                await vm.setComponentPath(componentId, nextPath)
+              }
               onWorkspaceChanged?.()
             }}
-            onRemoveFromWorkspace={(componentId) => {
-              vm.removeComponentFile(componentId)
-                .then(() => onWorkspaceChanged?.())
-                .catch((e: unknown) => {
-                  vm.setError(e instanceof Error ? e.message : String(e))
-                })
-            }}
-            onFlatten={vm.flattenComponentToFrame}
+            boardFolder={vm.boardFolder}
+            onUnmakeComponent={vm.unmakeSelectedComponent}
             canFlatten={vm.canFlattenSelectedComponent}
           />
         </Frame>
@@ -584,18 +641,6 @@ export function CanvasView({
           </Frame>
         )}
       </Frame>
-
-      {pendingWrite && pendingDraft && (
-        <CreateComponentModal
-          draft={pendingDraft}
-          workspaceName={activeProject.name}
-          onClose={() => setPendingWrite(null)}
-          onApprove={async (input) => {
-            await vm.approveComponent(pendingWrite.componentId, input)
-            onWorkspaceChanged?.()
-          }}
-        />
-      )}
 
       {pendingDelete && (
         <DeletePathModal

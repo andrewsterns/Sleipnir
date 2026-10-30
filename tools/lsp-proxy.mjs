@@ -24,6 +24,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { WebSocketServer } from 'ws'
+import { serverForLanguage, spawnLanguageServer, stopLanguageServer } from './languageServers.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -89,7 +90,16 @@ function frame(json) {
   return Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, 'utf8'), body])
 }
 
-const CLI_PATH = path.join(REPO_ROOT, 'node_modules', 'typescript-language-server', 'lib', 'cli.mjs')
+// In a packaged build the server ships outside the asar archive (package.json's
+// asarUnpack), where a separate process can load it as a plain file.
+const CLI_PATH = path
+  .join(REPO_ROOT, 'node_modules', 'typescript-language-server', 'lib', 'cli.mjs')
+  .replace(/app\.asar([\\/])/, 'app.asar.unpacked$1')
+
+// Under Electron, process.execPath is the app itself, which only behaves as
+// Node when told to — without this, spawning it would start a second app
+// instead of a language server.
+const SERVER_ENV = process.versions.electron ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : process.env
 
 let tsServerProcess = null
 
@@ -99,6 +109,7 @@ function getTsServer() {
   // shim — sidesteps .cmd/.ps1 wrapper differences across platforms.
   tsServerProcess = spawn(process.execPath, [CLI_PATH, '--stdio'], {
     cwd: REPO_ROOT,
+    env: SERVER_ENV,
     stdio: ['pipe', 'pipe', 'pipe'],
   })
   tsServerProcess.stderr.on('data', (d) => {
@@ -131,6 +142,7 @@ function getExternalTsServer(root) {
   killExternalServer()
   const proc = spawn(process.execPath, [CLI_PATH, '--stdio'], {
     cwd: root,
+    env: SERVER_ENV,
     stdio: ['pipe', 'pipe', 'pipe'],
   })
   proc.stderr.on('data', (d) => {
@@ -146,6 +158,14 @@ function getExternalTsServer(root) {
   externalServer = { root, process: proc }
   return proc
 }
+
+// Every other language (C/C++, Rust, Go, Python, Java, …) gets its own server
+// per connection, started from the language table (see languageServers.mjs)
+// when an editor of that language connects with ?language=<id> and stopped
+// when it disconnects. One per connection because an LSP server takes exactly
+// one `initialize`; the client keeps one connection per root and server.
+const TS_FAMILY = new Set(['typescript', 'javascript', 'react', 'jquery'])
+const nativeServers = new Set()
 
 let wss = null
 
@@ -167,7 +187,16 @@ export function startLspProxy(port = 7071) {
     }
     wss = null
   })
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    // Which language this editor speaks — none (or the JS family) means tsserver.
+    let language = null
+    try {
+      language = new URL(req.url ?? '/', 'http://localhost').searchParams.get('language')
+    } catch {
+      language = null
+    }
+    const native = !!language && !TS_FAMILY.has(language)
+    let owned = null
     // Routing is decided once, from the first message (guaranteed to be the
     // client's `initialize` request — @codemirror/lsp-client sends it
     // synchronously from connect(), before any other request can be queued).
@@ -207,7 +236,45 @@ export function startLspProxy(port = 7071) {
         }
       }
 
-      if (externalRoot) {
+      if (native) {
+        // Sleipnir's own repo still speaks in fake URIs; an external project in real ones.
+        const useRewrite = !externalRoot
+        // Tells the editor why there's no code intelligence (it shows the
+        // install command), then hangs up.
+        const reportMissing = (message) => {
+          if (ws.readyState !== ws.OPEN) return
+          const known = serverForLanguage(language)
+          ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'sleipnir/serverMissing', params: { languageId: language, command: known?.command ?? null, install: known?.install ?? null, message } }))
+          ws.close(4004, 'language server missing')
+        }
+        try {
+          owned = spawnLanguageServer(language, externalRoot ?? REPO_ROOT)
+        } catch (err) {
+          reportMissing(err.message)
+          return
+        }
+        nativeServers.add(owned)
+        // A server that quits before saying anything didn't really start — a
+        // rustup shim without its rust-analyzer component, say — so its first
+        // words on stderr are the reason. Read either way: servers log freely
+        // there, and a full pipe would stall them.
+        let answered = false
+        let stderrText = ''
+        owned.stdout.once('data', () => {
+          answered = true
+        })
+        owned.stderr.on('data', (d) => {
+          if (stderrText.length < 2000) stderrText += d.toString()
+        })
+        owned.on('error', (err) => reportMissing(err.message))
+        owned.on('exit', (code) => {
+          nativeServers.delete(owned)
+          if (!answered) reportMissing(stderrText.trim().split('\n')[0] || `${language} server exited (${code}) before starting`)
+          else if (ws.readyState === ws.OPEN) ws.close()
+        })
+        bind(owned, useRewrite, false)
+        server.stdin.write(frame(useRewrite ? toRealUris(raw) : raw))
+      } else if (externalRoot) {
         bind(getExternalTsServer(externalRoot), false, true)
         server.stdin.write(frame(raw))
       } else {
@@ -224,12 +291,13 @@ export function startLspProxy(port = 7071) {
     ws.on('close', () => {
       server?.stdout.off('data', reader)
       if (external && externalServer?.process === server) killExternalServer()
+      if (owned) stopLanguageServer(owned)
     })
     ws.on('error', () => {
       server?.stdout.off('data', reader)
     })
   })
-  console.log(`[lsp-proxy] typescript-language-server bridge listening on ws://localhost:${port}`)
+  console.log(`[lsp-proxy] language server bridge listening on ws://localhost:${port}`)
   return wss
 }
 
@@ -242,4 +310,6 @@ export function stopLspProxy() {
     tsServerProcess = null
   }
   killExternalServer()
+  for (const proc of nativeServers) stopLanguageServer(proc)
+  nativeServers.clear()
 }

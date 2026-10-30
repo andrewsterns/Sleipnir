@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getGraphForMap, refreshGraphForMap, partitionArchived } from './graph/combine'
 import { resolvePlanGraph } from './graph/resolvePlan'
 import { resolveAssetPlanGraph } from './graph/resolveAssetPlan'
@@ -25,6 +25,10 @@ import {
   type ArchiveEntry,
 } from './api/sleipnirApi'
 import { useStages, setStage as setStageStore, refreshStages as refreshStagesStore } from './stagesStore'
+import { usePlanActivity } from './usePlanActivity'
+import { changedPathsByStep } from './graph/activityLog'
+import { nodeTone, stepFileSets } from './graph/nodeTone'
+import { useGitDirtyPaths } from './gitChangesStore'
 import { isPlanningWatchAvailable } from './api/iPlanningWatch'
 import { nodeStageKey } from './graph/stages'
 import { adapterForLanguage } from './graph/importAdapters'
@@ -97,7 +101,7 @@ function graphForPlan(plan: SavedPlan): GraphData {
     id: idFor(path),
     label: path.split('/').pop() ?? path,
     // Matches resolveAssetPlanGraph's own live nodes — a plan's asset picks
-    // start 'proposed' (ring), same as every other node-creation path.
+    // start as `kind: 'proposed'` (ring), same as every other node-creation path.
     kind: 'proposed',
     map: plan.id,
     filePath: path,
@@ -116,7 +120,7 @@ function graphForPlan(plan: SavedPlan): GraphData {
 
 // Every asset-plan node (a Workspace file pulled into a plan, explicitly or
 // via the reference walk — see resolveAssetPlanGraph) starts life with an
-// explicit 'proposed' status, unless it's already tagged something else —
+// explicit 'pending' status, unless it's already tagged something else —
 // via Workspace, Source Control, or a previous plan. Never overwrites an
 // existing tag; setDefaultNodeStages only fills gaps. Keyed by nodeStageKey
 // so it lands under the same `file:<path>` entry Workspace/Source Control
@@ -125,10 +129,16 @@ function graphForPlan(plan: SavedPlan): GraphData {
 // nodes already render from the resolve result regardless, this just fills
 // the stage overlay in a beat later once the write-through + shared-cache
 // refresh completes.
+// A step still waiting on a human's go-ahead: never approved, and not already
+// finished by an agent that went ahead without it.
+function awaitsApproval(n: GraphNode, stages: Record<string, NodeStage>) {
+  return n.type === 'plan-step' && n.status === 'draft' && stages[n.id] !== 'completed'
+}
+
 function defaultProposeAssetStages(nodes: GraphNode[]) {
   const ids = nodes.filter((n) => n.type === 'workspace-file').map((n) => nodeStageKey(n))
   if (ids.length === 0) return
-  setDefaultNodeStages(ids, 'proposed')
+  setDefaultNodeStages(ids, 'pending')
     .then(() => refreshStagesStore())
     .catch(() => {})
 }
@@ -443,13 +453,52 @@ export function usePlanningViewModel(
     const kept = new Set(files)
     return { files, edges: workspaceScan.edges.filter((e) => kept.has(e.source) && kept.has(e.target)) }
   }, [wantsHealth, health, workspaceScan])
+  // Files each step changed (from the plan's activity log), drawn beside it.
+  // The log is re-read on every status report, so the map is keyed by its
+  // content: only a report that actually adds changed files re-lays the graph.
+  const planEvents = usePlanActivity(activePlanId)
+  const stepChangesKey = useMemo(() => JSON.stringify([...changedPathsByStep(planEvents)]), [planEvents])
+  const stepChanges = useMemo(() => new Map<string, string[]>(JSON.parse(stepChangesKey)), [stepChangesKey])
   const planView: PlanView = useMemo(
     () =>
       activePlanId
-        ? composePlanView(live, activePlanId, viewScan, planViewMode, planViewMode === 'health' ? { max: HEALTH_MAX_FILES } : undefined)
+        ? composePlanView(live, activePlanId, viewScan, planViewMode, planViewMode === 'health' ? { max: HEALTH_MAX_FILES } : undefined, stepChanges)
         : { data: live, overlay: new Set<string>() },
-    [live, activePlanId, viewScan, planViewMode],
+    [live, activePlanId, viewScan, planViewMode, stepChanges],
   )
+  // Each node's tone: its status combined with git (graph/nodeTone.ts) — what
+  // the graph and the NODES list paint. A step's own tone needs every file it
+  // touches: the ones it plans, the ones it edits and the ones it changed.
+  const gitDirty = useGitDirtyPaths()
+  const scannedFiles = useMemo(() => (workspaceScan ? new Set(workspaceScan.files) : null), [workspaceScan])
+  // Over every plan, not just the open one: a file finished in another plan
+  // still reads as done work waiting for a commit, not as work in progress.
+  const stepFiles = useMemo(() => {
+    const files = new Map<string, string[]>()
+    const add = (stepId: string, path: string) => files.set(stepId, [...(files.get(stepId) ?? []), path])
+    for (const n of notes) {
+      for (const p of n.type === 'plan-step' ? (n.editsPaths ?? []) : []) add(n.id, p)
+      if (n.type === 'planned-file' && n.stepId && n.filePath) add(n.stepId, n.filePath)
+    }
+    for (const [stepId, paths] of stepChanges) for (const p of paths) add(stepId, p)
+    return files
+  }, [notes, stepChanges])
+  const stepSets = useMemo(
+    () => stepFileSets(notes.filter((n) => n.type === 'plan-step'), (s) => stepFiles.get(s.id) ?? [], stages),
+    [notes, stepFiles, stages],
+  )
+  const toneFor = useCallback(
+    (node: GraphNode) =>
+      nodeTone(node, {
+        stages,
+        dirty: gitDirty,
+        exists: scannedFiles ? (p) => scannedFiles.has(p) : undefined,
+        stepFiles,
+        ...stepSets,
+      }),
+    [stages, gitDirty, scannedFiles, stepFiles, stepSets],
+  )
+  const tones = useMemo(() => new Map(planView.data.nodes.map((n) => [n.id, toneFor(n)])), [planView, toneFor])
   // Full re-read of every file (a manual refresh).
   const rescanWorkspace = () => {
     invalidateWorkspaceScan()
@@ -572,10 +621,8 @@ export function usePlanningViewModel(
   const draftStepCount = useMemo(() => {
     if (!activePlan) return 0
     const refIds = new Set(activePlan.nodeIds ?? [])
-    return notes.filter(
-      (n) => n.type === 'plan-step' && n.status === 'draft' && (n.planId === activePlan.id || refIds.has(n.id)),
-    ).length
-  }, [activePlan, notes])
+    return notes.filter((n) => awaitsApproval(n, stages) && (n.planId === activePlan.id || refIds.has(n.id))).length
+  }, [activePlan, notes, stages])
   // Of draftStepCount, how many need an individual file review — a staged
   // proposedFile (see backend's proposeFileNode) or planned files (see
   // ApproveStepModal). Neither is included in Approve All's bulk write (see
@@ -587,12 +634,11 @@ export function usePlanningViewModel(
     const stepsWithPlannedFiles = new Set(notes.filter((n) => n.stepId).map((n) => n.stepId))
     return notes.filter(
       (n) =>
-        n.type === 'plan-step' &&
-        n.status === 'draft' &&
+        awaitsApproval(n, stages) &&
         (!!n.proposedFile || stepsWithPlannedFiles.has(n.id)) &&
         (n.planId === activePlan.id || refIds.has(n.id)),
     ).length
-  }, [activePlan, notes])
+  }, [activePlan, notes, stages])
 
   // Resets on every new step (or a different plan becoming active) and, if
   // nothing else arrives for a few seconds, treats the build as finished.
@@ -641,11 +687,12 @@ export function usePlanningViewModel(
   }
 
   // Only meaningful for plan nodes (created via the AI chat's
-  // create_plan_node tool, always start life as 'draft') — moves a node
-  // through draft -> approved -> done as the human reviews it.
+  // create_plan_node tool, always start life as 'draft') — records a human's
+  // approval. The backend moves the step's status along with it (approved →
+  // in progress, done → completed), so the overlay is re-read after.
   const setPlanNodeStatus = async (node: GraphNode, status: NodeStatus) => {
     await setNodeStatus(node.id, status)
-    await refreshNotes()
+    await Promise.all([refreshNotes(), refreshStagesStore().catch(() => {})])
   }
 
   // Tags (or, passing null, clears) a node's sprint stage — the card toggle's
@@ -935,7 +982,7 @@ export function usePlanningViewModel(
     [sortedNodes, kindFilter],
   )
 
-  // Every node in the current map/plan explicitly tagged 'proposed' — the "RUN
+  // Every node in the current map/plan explicitly tagged 'pending' — the "RUN
   // PLAN" batch driver's queue (see PlanningView.tsx's runPlan). Untagged nodes
   // are left out so a whole build-generated map isn't queued. Same order as the NODES
   // list itself (whatever sortOrder is active); v1 deliberately doesn't try
@@ -943,7 +990,7 @@ export function usePlanningViewModel(
   // only exist for AI-created nodes, import/borrows edges aren't guaranteed
   // to form a usable DAG, and the single-node BUILD WITH AI button already
   // gives manual ordering control when it matters for one node.
-  const todoNodes = useMemo(() => sortedNodes.filter((n) => stages[nodeStageKey(n)] === 'proposed'), [sortedNodes, stages])
+  const todoNodes = useMemo(() => sortedNodes.filter((n) => stages[nodeStageKey(n)] === 'pending'), [sortedNodes, stages])
 
   const mapLabelFor = (id: GraphMapId): string =>
     getGraphMaps().find((m) => m.id === id)?.label ?? planFor(id)?.label ?? id
@@ -1048,6 +1095,8 @@ export function usePlanningViewModel(
     todoNodes,
     isPlanTab: !!activePlanId,
     planView,
+    tones,
+    toneFor,
     planViewMode,
     setPlanViewMode,
     workspaceScanReady: !!workspaceScan,

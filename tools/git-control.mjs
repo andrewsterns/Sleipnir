@@ -6,9 +6,11 @@
 // plain plumbing-command calls. Host-agnostic: works against whatever
 // `origin` a project actually has (GitHub here), never a specific host's API.
 import { execFile } from 'node:child_process'
-import { statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { getWorkspaceRoot } from './workspace-root.mjs'
+import { detectProject } from './planDoc.mjs'
+import { LANGUAGES } from './agentSkills/vendor/languages.mjs'
 
 const GIT_TIMEOUT_MS = 15_000
 // Network ops (clone/push/pull/fetch) can legitimately run much longer than a
@@ -549,8 +551,29 @@ export async function clone(url, destPath) {
   return { ok: true, path: destPath }
 }
 
-// Turns the open folder into a git repo (main as the initial branch). No
-// ensureRepo — the whole point is that it isn't one yet.
+// The .gitignore a new repo starts with: the build output and caches of the
+// languages the project is written in (each language table entry's
+// `gitignore` — target/ for Rust, build/ and *.o for C, __pycache__/ for
+// Python, bin/ and obj/ for .NET), plus OS clutter every repo wants out.
+export function gitignoreFor(root) {
+  const listDir = (rel) => readdirSync(path.join(root, rel), { withFileTypes: true }).map((e) => ({ name: e.name, dir: e.isDirectory() }))
+  const readText = (rel) => {
+    try {
+      return readFileSync(path.join(root, rel), 'utf8')
+    } catch {
+      return null
+    }
+  }
+  const { detected, unsupported } = detectProject(listDir, readText)
+  const found = new Set([...detected, ...unsupported].map((d) => d.language))
+  const ignores = [...new Set(LANGUAGES.filter((l) => found.has(l.id)).flatMap((l) => l.gitignore))]
+  const sections = ignores.length ? ['# Build output and caches', ...ignores, ''] : []
+  return [...sections, '# OS clutter', '.DS_Store', 'Thumbs.db', ''].join('\n')
+}
+
+// Turns the open folder into a git repo (main as the initial branch), with a
+// .gitignore for its languages unless it already has one. No ensureRepo — the
+// whole point is that it isn't one yet.
 export async function initRepo() {
   let result = await git(['init', '-b', 'main'])
   // Git < 2.28 has no `-b`; fall back to a plain init (whatever default branch).
@@ -558,6 +581,15 @@ export async function initRepo() {
     result = await git(['init'])
   }
   if (result.exitCode !== 0) return { ok: false, message: result.stderr || 'git init failed' }
+  const root = getWorkspaceRoot()
+  if (root && !existsSync(path.join(root, '.gitignore'))) {
+    try {
+      writeFileSync(path.join(root, '.gitignore'), gitignoreFor(root))
+      return { ok: true, message: 'Initialized repository, with a .gitignore for its build output.' }
+    } catch {
+      // The repo exists either way; a .gitignore can be added by hand.
+    }
+  }
   return { ok: true, message: 'Initialized repository.' }
 }
 

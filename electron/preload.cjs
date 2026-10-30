@@ -45,6 +45,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updatePlannedFilePath: (nodeId, plannedPath) => ipcRenderer.invoke('sleipnir:updatePlannedFilePath', nodeId, plannedPath),
   updateNote: (id, patch) => ipcRenderer.invoke('sleipnir:updateNote', id, patch),
   deleteNote: (id) => ipcRenderer.invoke('sleipnir:deleteNote', id),
+  getPlanActivity: (planId) => ipcRenderer.invoke('sleipnir:getPlanActivity', planId),
+  settleCommittedStages: (dirtyPaths) => ipcRenderer.invoke('sleipnir:settleCommittedStages', dirtyPaths),
   getNodeStages: () => ipcRenderer.invoke('sleipnir:getNodeStages'),
   setNodeStage: (id, stage) => ipcRenderer.invoke('sleipnir:setNodeStage', id, stage),
   setDefaultNodeStages: (ids, stage) => ipcRenderer.invoke('sleipnir:setDefaultNodeStages', ids, stage),
@@ -213,7 +215,8 @@ contextBridge.exposeInMainWorld('chatAPI', {
 // Validation — same shape as previewAPI above (fire-and-forget start/stop,
 // push-event status filtered by id). No web equivalent (see electron/validation.cjs).
 contextBridge.exposeInMainWorld('validationAPI', {
-  run: (sessionId) => ipcRenderer.send('validation:run', sessionId),
+  runners: () => ipcRenderer.invoke('validation:runners'),
+  run: (sessionId, runnerId) => ipcRenderer.send('validation:run', sessionId, runnerId),
   stop: (sessionId) => ipcRenderer.send('validation:stop', sessionId),
   onOutput: (sessionId, callback) => {
     const listener = (_e, id, payload) => { if (id === sessionId) callback(payload) }

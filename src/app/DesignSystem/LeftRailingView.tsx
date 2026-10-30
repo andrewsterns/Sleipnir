@@ -30,22 +30,9 @@ import { useFileStages } from '../../00_planning/useFileStages'
 import type { PlanNodeLink } from '../../00_planning/usePlanNodeLinks'
 import { StatusGlyph } from '../../00_planning/graph/StatusGlyph'
 import { NODE_STAGES } from '../../00_planning/graph/stages'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
-
-// Name-entry field styled to match the Search box (variant="surface") — bg-2
-// surface, border-1 hairline, shared control radius, 10px mono. Theme-aware
-// tokens so it reads correctly in light mode too.
-const FIELD_STYLE: React.CSSProperties = {
-  background: 'var(--bg-2)',
-  border: '1px solid var(--border-1)',
-  borderRadius: 'var(--radius-control)',
-  color: 'var(--text-1)',
-  fontSize: 10,
-  padding: '6px 10px',
-  outline: 'none',
-  ...MONO,
-}
 
 interface LeftRailingProps {
   tree: FileTreeNode[]
@@ -334,7 +321,7 @@ function InlineCreateForm({
 
   return (
     <Frame flow="vertical" gap={2} padding={{ left: 8 + depth * 14 + 18, right: 8, top: 2, bottom: 4 }}>
-      <input
+      <TextField size="md"
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -344,7 +331,7 @@ function InlineCreateForm({
         }}
         onBlur={() => !name && onDone()}
         placeholder={placeholder}
-        style={FIELD_STYLE}
+       
       />
       {error && <span style={{ fontSize: 11, color: '#e07a7a', ...MONO }}>{error}</span>}
     </Frame>
@@ -552,7 +539,7 @@ function TreeNodeRow({
       trailing={(hovered) => (
         <>
           {/* Planning status of the plan node this file backs, at rest — the same
-              glyph the planning list and git view show; 'proposed' by default. */}
+              glyph the planning list and git view show; pending by default. */}
           {!hovered && <StatusGlyph stage={fileStages.get(node.path)} />}
           {hovered && action && (
             <IconButton onClick={(e) => { e.stopPropagation(); action.onClick() }} title={action.title} icon={action.icon} />

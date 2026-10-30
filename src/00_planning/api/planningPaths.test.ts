@@ -60,6 +60,7 @@ describe('.planning stale path repair', () => {
       nodes: [{ id: 'note/n', label: 'N', kind: 'proposed', map: 'todo', filePath: 'src/old/c.tsx' }],
       edges: [],
     })
+    // Values from two lifecycles ago: any rewrite also migrates them.
     write('.planning/stages.json', { 'file:src/a.tsx': 'todo', 'file:src/old/c.tsx': 'blocked', 'note/n': 'todo' })
   }
 
@@ -70,7 +71,7 @@ describe('.planning stale path repair', () => {
       const [plan] = read('plans.json')
       expect(plan.assetPaths).toEqual(['src/z.tsx', 'src/b.tsx'])
       expect(plan.assetEdges).toEqual([{ source: 'src/z.tsx', target: 'src/b.tsx' }])
-      expect(read('stages.json')).toEqual({ 'file:src/z.tsx': 'todo', 'file:src/old/c.tsx': 'blocked', 'note/n': 'todo' })
+      expect(read('stages.json')).toEqual({ 'file:src/z.tsx': 'pending', 'file:src/old/c.tsx': 'in_progress', 'note/n': 'pending' })
     })
 
     it('carries everything under a moved folder', () => {
@@ -78,7 +79,7 @@ describe('.planning stale path repair', () => {
       relinkPlanningPath('src/old', 'src/new')
       expect(read('plans.json')[0].assetFolders).toEqual(['src/new'])
       expect(read('notes.json').nodes[0].filePath).toBe('src/new/c.tsx')
-      expect(read('stages.json')['file:src/new/c.tsx']).toBe('blocked')
+      expect(read('stages.json')['file:src/new/c.tsx']).toBe('in_progress')
     })
 
     it('dedupes when the new path is already listed', () => {

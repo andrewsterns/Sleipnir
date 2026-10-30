@@ -9,7 +9,7 @@
 // planned file's current (possibly just-edited) path.
 import type { LanguageId, NodeRole } from './architectures'
 import { adapterForLanguage } from './importAdapters'
-import { ROLE_SUFFIX } from './naming'
+import { isHeaderPath, ROLE_SUFFIX, toSnakeCase } from './naming'
 import { renderTemplate } from './templates'
 import type { GraphEdge, GraphNode } from './types'
 
@@ -32,13 +32,18 @@ export interface ImportUpdate {
 }
 
 // "src/cart/cartViewModel.tsx" as a view-model -> "cartViewModel" minus its
-// role suffix -> "cartViewModel" -> "cart": the label templates and import
-// adapters derive symbol names from (they append the role suffix themselves).
+// role suffix -> "cart": the label templates and import adapters derive symbol
+// names from (they append the role suffix themselves). The suffix is matched in
+// either case convention a file name takes: cartViewModel, CartViewModel,
+// cart_view_model.
 export function featureLabel(path: string, role?: NodeRole): string {
   let name = path.slice(path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, '')
   const suffix = role ? ROLE_SUFFIX[role] : ''
-  if (suffix && name.length > suffix.length && name.toLowerCase().endsWith(suffix.toLowerCase())) {
-    name = name.slice(0, -suffix.length)
+  for (const form of suffix ? [`_${toSnakeCase(suffix)}`, suffix] : []) {
+    if (name.length > form.length && name.toLowerCase().endsWith(form.toLowerCase())) {
+      name = name.slice(0, -form.length)
+      break
+    }
   }
   return name
 }
@@ -65,7 +70,10 @@ export function renderStepFiles({
   const files = inStep.map((node): StepFileDraft => {
     const role = node.role ?? 'node'
     const path = pathFor(node)
-    let content = node.language ? renderTemplate(node.language, role, featureLabel(path, role)).content : ''
+    const folder = path.slice(0, Math.max(0, path.lastIndexOf('/')))
+    let content = node.language
+      ? renderTemplate(node.language, role, featureLabel(path, role), { header: isHeaderPath(node.language, path), folder }).content
+      : ''
     const adapter = node.language ? adapterForLanguage(node.language) : null
     if (adapter) {
       for (const e of borrows) {

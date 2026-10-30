@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { NumberField } from './inspectorKit'
+import { NumberField } from './NumberField'
 
 function Field({ onChange, min, max }: { onChange?: (n: number) => void; min?: number; max?: number }) {
   const [value, setValue] = useState(10)

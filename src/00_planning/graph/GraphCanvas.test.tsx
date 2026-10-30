@@ -1,12 +1,14 @@
-// The graph's visual ladder: every node and line in the theme's ink at 95% at
-// rest; a clicked node, its neighbours and the lines between them at full;
-// everything else pushed back; and nodes created since the project opened in
-// blue until clicked.
+// The graph's visual ladder: every node and line in its tone at rest (status
+// combined with git — see nodeTone.ts); a clicked node, its neighbours and the
+// lines between them as they are; everything else pushed back.
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { render } from '@testing-library/react'
 import { GraphCanvas } from './GraphCanvas'
 import type { GraphData, GraphNode } from './types'
+import { TONE_STYLE } from './nodeTone'
+
+const COMMITTED = TONE_STYLE.committed.color
 
 beforeAll(() => {
   // jsdom has neither; the canvas only needs them to exist.
@@ -57,10 +59,10 @@ describe('GraphCanvas opacity ladder', () => {
     expect(lines.map((l) => l.getAttribute('opacity')).sort()).toEqual(['0.15', '1'])
   })
 
-  it('draws every node in the theme ink, not a separate grey per state', () => {
+  it('draws untouched nodes as committed: faint, all the same', () => {
     const { container } = draw({ selectedId: 'b' })
     const dots = [...container.querySelectorAll('circle')].filter((c) => c.getAttribute('fill') !== 'transparent' && c.getAttribute('fill') !== 'none')
-    for (const dot of dots) expect(dot.style.fill).toBe('var(--graph-node, #ffffff)')
+    for (const dot of dots) expect(dot.style.fill).toBe(COMMITTED)
   })
 
   it('rings the selected node, since its color no longer changes', () => {
@@ -70,31 +72,55 @@ describe('GraphCanvas opacity ladder', () => {
   })
 })
 
-describe('GraphCanvas color rules', () => {
-  const fills = (container: HTMLElement) =>
-    // An outline ring's paint is its stroke; a solid dot's is its fill.
-    [...container.querySelectorAll('circle')]
-      .map((c) => (c.style.fill && c.style.fill !== 'none' ? c.style.fill : c.style.stroke))
-      .filter(Boolean)
+describe('GraphCanvas tones', () => {
+  const paintOf = (g: Element) => {
+    // A ring's paint is its stroke; a dot's is its fill.
+    const c = [...g.querySelectorAll('circle')].find((el) => el.style.stroke || el.style.fill)!
+    return c.style.fill && c.style.fill !== 'none' ? { color: c.style.fill, ring: false, dash: c.getAttribute('stroke-dasharray') } : { color: c.style.stroke, ring: true, dash: c.getAttribute('stroke-dasharray') }
+  }
 
-  it('draws a stage in the node ink — its shape says the stage, not its color', () => {
-    const { container } = draw({ stages: { a: 'completed', b: 'in-progress' } })
-    for (const f of fills(container)) expect(f).toBe('var(--graph-node, #ffffff)')
+  it('draws each status in its tone: proposed and in progress blue rings, done a white dot', () => {
+    const { nodeGroup } = draw({ stages: { a: 'pending', b: 'in_progress', c: 'completed' } })
+    expect(paintOf(nodeGroup('a'))).toEqual({ color: TONE_STYLE.proposed.color, ring: true, dash: '3 1' })
+    expect(paintOf(nodeGroup('b'))).toEqual({ color: TONE_STYLE.in_progress.color, ring: true, dash: null })
+    expect(paintOf(nodeGroup('c'))).toEqual({ color: TONE_STYLE.done.color, ring: false, dash: null })
+    expect(paintOf(nodeGroup('d'))).toEqual({ color: COMMITTED, ring: false, dash: null })
   })
 
-  it("changes a node's shape when its stage changes", () => {
-    const dot = (stage: 'completed' | 'in-progress') => {
-      const { nodeGroup } = draw({ stages: { a: stage } })
-      return [...nodeGroup('a').querySelectorAll('circle')].find((c) => c.style.stroke)!
-    }
-    expect(dot('completed').style.fill).toBe('var(--graph-node, #ffffff)')
-    expect(dot('in-progress').style.fill).toBe('none')
+  it('lets the tones it is given win over status alone', () => {
+    const { nodeGroup } = draw({ stages: { a: 'completed' }, tones: new Map([['a', 'committed' as const]]) })
+    expect(paintOf(nodeGroup('a')).color).toBe(COMMITTED)
   })
 
-  it('keeps plan members in ink under an overlay, and fades the rest', () => {
-    const { container, nodeGroup } = draw({ overlay: new Set(['a', 'b']) })
-    for (const f of fills(container)) expect(f).not.toContain('--graph-plan')
+  it('draws a line in the more active tone of its two ends, dashed while proposed', () => {
+    const { lines } = draw({ stages: { a: 'pending', c: 'completed' } })
+    // a—b: proposed beats committed; b—c: done beats committed.
+    const [ab, bc] = lines
+    expect(ab.style.stroke).toBe(TONE_STYLE.proposed.color)
+    expect(ab.getAttribute('stroke-dasharray')).toBe('5 4')
+    expect(bc.style.stroke).toBe(TONE_STYLE.done.color)
+    expect(bc.getAttribute('stroke-dasharray')).toBeNull()
+  })
+
+  it('pulses a plan step in progress, and nothing else', () => {
+    const step = (id: string): GraphNode => ({ ...node(id), type: 'plan-step' })
+    const data: GraphData = { nodes: [step('s1'), step('s2'), node('f')], edges: [] }
+    const { container } = render(
+      <GraphCanvas
+        data={data}
+        selectedId={null}
+        onSelectNode={() => {}}
+        stages={{ s1: 'in_progress', s2: 'pending', f: 'in_progress' }}
+      />,
+    )
+    const pulsing = [...container.querySelectorAll('.graph-step-pulse')].map((c) => c.closest('g')?.textContent)
+    expect(pulsing).toHaveLength(1)
+    expect(pulsing[0]).toContain('s1')
+  })
+
+  it('no longer dims what is outside the plan — the tones say what matters', () => {
+    const { nodeGroup } = draw({ overlay: new Set(['a', 'b']) })
     expect(nodeGroup('a').getAttribute('opacity')).toBe('1')
-    expect(nodeGroup('d').getAttribute('opacity')).toBe('0.35')
+    expect(nodeGroup('d').getAttribute('opacity')).toBe('1')
   })
 })

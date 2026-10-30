@@ -106,6 +106,9 @@ export function useApproveStepViewModel({ step, plannedNodes, edges, planId, onA
           idFor.set(node.id, moved.id)
         }
       }
+      // Approving starts the step: it goes in progress before anything is
+      // written, so the files it creates are recorded as the step's own changes.
+      await setStage(step.id, 'in_progress')
       // 2. Create each file — create-only, so nothing is ever overwritten.
       for (const f of files) {
         await createWorkspaceFile(f.path, f.content)
@@ -122,12 +125,11 @@ export function useApproveStepViewModel({ step, plannedNodes, edges, planId, onA
           updated.push(u.path)
         }
       }
-      // 4. Approved, and everything it produced is now In Progress.
+      // 4. Approved, and everything it produced is now in progress.
       await setNodeStatus(step.id, 'approved')
-      await setStage(step.id, 'in-progress')
       for (const f of files) {
-        await setStage(idFor.get(f.nodeId) ?? f.nodeId, 'in-progress')
-        await setStage(fileStageKey(f.path), 'in-progress')
+        await setStage(idFor.get(f.nodeId) ?? f.nodeId, 'in_progress')
+        await setStage(fileStageKey(f.path), 'in_progress')
       }
       if (planId) await appendPlanGeneratedFiles(planId, written).catch(() => {})
       onApproved(written)

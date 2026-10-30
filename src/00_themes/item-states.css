@@ -46,3 +46,9 @@
   color: var(--item-ground, #000);
   outline-color: transparent;
 }
+
+/* A row's hover actions (ListRow's trailing slot) never grow past the row:
+   IconButton's 28px hit box is clamped to the row height, glyph still centred. */
+.srow-trailing > * {
+  max-height: 100%;
+}

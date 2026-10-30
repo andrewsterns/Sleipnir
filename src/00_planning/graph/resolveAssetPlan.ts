@@ -99,7 +99,7 @@ export async function resolveAssetPlanGraph(plan: SavedPlan): Promise<GraphData>
       id: idFor(path),
       label: path.split('/').pop() ?? path,
       // Every node a plan picks up — explicitly added or pulled in by the
-      // reference walk — starts life as 'proposed' (ring, not solid dot):
+      // reference walk — starts life as kind 'proposed' (ring, not solid dot):
       // a file being under review for this plan isn't the same claim as
       // "this is a finished, built part of the app," and every other
       // node-creation path (scaffoldNodes, addNote, createPlanNode) already

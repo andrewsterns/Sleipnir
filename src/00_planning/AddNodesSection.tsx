@@ -6,6 +6,7 @@ import { Dropdown } from '../app/UIKit/Dropdown/Dropdown'
 import { NODE_STAGES } from './graph/stages'
 import type { NodeStage } from './graph/types'
 import type { AddNodeRow, RowSuggestion } from '../app/Workspace/NewWorkspacePlanModal.ViewModel'
+import { TextField } from '../app/UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -13,17 +14,6 @@ const SECTION_LABEL: React.CSSProperties = {
   fontSize: 8,
   letterSpacing: '0.1em',
   color: 'var(--text-3)',
-  ...MONO,
-}
-
-const ROW_INPUT_STYLE: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  background: 'var(--bg-2)',
-  border: '1px solid var(--border-2)',
-  color: 'var(--text-1)',
-  fontSize: 11,
-  padding: '6px 8px',
   ...MONO,
 }
 
@@ -166,7 +156,7 @@ function AddNodeRowView({
   return (
     <Frame flow="horizontal" align="center" gap={6}>
       <div ref={triggerRef} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-        <input
+        <TextField size="md" style={{ flex: 1 }}
           value={row.query}
           onChange={(e) => { onQueryChange(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
@@ -178,7 +168,7 @@ function AddNodeRowView({
             else if (e.key === 'Escape') setOpen(false)
           }}
           placeholder="Search files/dirs, or type a name to create a node…"
-          style={ROW_INPUT_STYLE}
+         
         />
       </div>
       <button type="button" onClick={onRemove} title="Remove row" style={ROW_X_BUTTON}>

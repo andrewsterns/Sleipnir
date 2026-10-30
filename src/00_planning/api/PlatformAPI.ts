@@ -2,7 +2,7 @@
 // IPC → main process) implement identically, so the rest of the app never
 // needs to know which one it's talking to.
 
-import type { GraphEdge, GraphNode, NodeStage, NodeStatus, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
+import type { GraphEdge, GraphNode, NodeStage, NodeStatus, PlanActivity, SavedPlan, ScaffoldEntry, ScaffoldLink } from '../graph/types'
 
 // Re-exported so existing consumers (e.g. sleipnirApi.ts) keep working
 // unchanged.
@@ -362,6 +362,10 @@ export interface PlatformAPI {
   updateNote(id: string, patch: { label?: string; description?: string }): Promise<{ node: GraphNode }>
   /** Permanently deletes a notes.json node (note, scaffolded, or plan-step) plus every edge touching it. The restorable-soft-hide counterpart, setArchived, is for build-generated src nodes instead. Does not delete any real Workspace file a scaffolded node points at — callers pair this with deleteWorkspacePath when the file should go too. */
   deleteNote(id: string): Promise<void>
+  /** Clears the status of every file that's in progress or done but that git no longer sees as changed (`dirtyPaths`: what it does see, workspace-relative) — it's been committed. Proposed statuses, plan steps and planned files not on disk stay. Returns how many were cleared. */
+  settleCommittedStages(dirtyPaths: string[]): Promise<{ cleared: number }>
+  /** A plan's activity log (.planning/<plan>/activity.json): every status its agents reported on its steps, oldest first, each with an optional one-line note. Empty for a plan nothing has reported on. */
+  getPlanActivity(planId: string): Promise<PlanActivity>
   /** The per-node sprint-stage overlay — a { [nodeId]: stage } map covering every node id that's been tagged (see graph/stages.ts). Kept separate from the node records so build-generated nodes can be tagged too. */
   getNodeStages(): Promise<{ stages: Record<string, NodeStage> }>
   /** Tags one node with a stage, or clears it when `stage` is null. Any node id is valid — not restricted to notes.json nodes. */

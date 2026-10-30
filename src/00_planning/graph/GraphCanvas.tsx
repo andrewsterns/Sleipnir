@@ -1,7 +1,8 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { forceCenter } from 'd3-force-3d'
 import type { GraphData, GraphNode, NodeStage } from './types'
-import { stageConfig, nodeStageKey, STAGE_PATH_LENGTH } from './stages'
+import { nodeStageKey, STAGE_PATH_LENGTH } from './stages'
+import { TONES, TONE_STYLE, edgeTone, toneOfStage, type Tone } from './nodeTone'
 import { buildForceLayout, linkNode, linkId, nodeRadius, type NodePositions, type SimNode } from './layout'
 import { Icon, type IconName } from '../../app/UIKit/Icon/Icon'
 import { describeNodeHealth, edgeKey, healthRadius, type HealthLens, type NodeHealth } from './healthLens'
@@ -85,10 +86,11 @@ const UNUSED_NODE_OPACITY = 0.5
 // there are more of them than this, when the labels would only pile up.
 const MAX_NEIGHBOR_COUNT_LABELS = 12
 
-// Every node and line is full-strength white at rest. Selecting a node keeps
-// it, its neighbours and the links between them at full (its own links
-// thicken a little) and pushes everything else back, so the selection is
-// the only full-strength thing on screen.
+// At rest every node and line is drawn in its tone (graph/nodeTone.ts), whose
+// color carries its own strength: committed work steps back, work in flight
+// stands out. Selecting a node keeps it, its neighbours and the links between
+// them as they are (its own links thicken a little) and pushes everything else
+// back, so the selection is what the eye lands on.
 const REST_OPACITY = 1
 const FOCUS_OPACITY = 1
 const DIMMED_NODE_OPACITY = 0.3
@@ -191,9 +193,11 @@ export interface GraphCanvasProps {
   overlay?: Set<string>
   /** The Health lens (see graph/healthLens.ts): nodes sized by fan-in, import loops red, upward imports amber, unused files faded. Separate from `data` like `overlay` — toggling it never rebuilds the layout. Omit for the plain view. */
   health?: HealthLens | null
+  /** Each node's tone — its status combined with git (graph/nodeTone.ts). A node missing from it is toned by its status alone. Separate from `data` for the same reason as `stages`. Not drawn under the Health lens, which has its own emphasis. */
+  tones?: ReadonlyMap<string, Tone>
 }
 
-export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages, missingPaths, overlay, health }) => {
+export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages, missingPaths, overlay, health, tones }) => {
   const overlayActive = !!overlay && overlay.size > 0
   // Read by the tick loop, which outlives any one render.
   const healthRef = useRef(health)
@@ -643,6 +647,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
     [],
   )
 
+  // A node's tone: the one worked out with git, else its status alone.
+  const toneOf = (id: string): Tone => {
+    const known = tones?.get(id)
+    if (known) return known
+    const node = nodeById.get(id)
+    return toneOfStage(node ? stages?.[nodeStageKey(node)] : undefined)
+  }
+
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
       <svg
@@ -673,11 +685,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
             <marker id="graph-edge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.5" markerHeight="4.5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M2,1 L9,5 L2,9" fill="none" style={{ stroke: 'var(--graph-edge, #ffffff)' }} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />
             </marker>
-            {/* Plan sequence arrowhead — solid, in the plan color, at the END
-                of the line: the arrow points from a step to the one after it. */}
-            <marker id="graph-seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto">
-              <path d="M1,1 L9,5 L1,9 Z" style={{ fill: PLAN_COLOR }} />
-            </marker>
+            {/* The same heads in each tone: a marker can't take its line's
+                color, so every tone gets its own. Import links carry the open
+                chevron at their source end; a plan's step-to-step links a solid
+                head at their end — the arrow points to the next step. */}
+            {TONES.map((tone) => (
+              <marker key={`edge-${tone}`} id={`graph-edge-arrow-${tone}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.5" markerHeight="4.5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M2,1 L9,5 L2,9" fill="none" style={{ stroke: TONE_STYLE[tone].color }} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />
+              </marker>
+            ))}
+            {TONES.map((tone) => (
+              <marker key={`seq-${tone}`} id={`graph-seq-arrow-${tone}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto">
+                <path d="M1,1 L9,5 L1,9 Z" style={{ fill: TONE_STYLE[tone].color }} />
+              </marker>
+            ))}
             {/* Heat glows: dense at the middle, gone by the rim. */}
             {([['graph-heat', HEAT_COLOR], ['graph-heat-loop', DANGER_COLOR]] as const).map(([id, color]) => (
               <radialGradient key={id} id={id}>
@@ -731,10 +752,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 key={`${sourceId}->${targetId}:${edge.kind}:${i}`}
                 index={i}
                 sequence={edge.kind === 'sequence'}
+                tone={edgeTone(toneOf(sourceId), toneOf(targetId))}
                 selected={isSelectedEdge}
                 dimmed={hasSelection && !isSelectedEdge}
                 inPlan={overlayActive && overlay!.has(sourceId) && overlay!.has(targetId)}
-                overlayActive={overlayActive}
                 health={edgeHealth}
                 handlers={handlers}
               />
@@ -749,7 +770,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
             const showCounts =
               !!nodeHealth &&
               (isSelected || node.id === hoveredId || (isNeighbor && (neighbors.get(selectedId!)?.size ?? 0) <= MAX_NEIGHBOR_COUNT_LABELS))
-            const stage = stages?.[nodeStageKey(node)]
             return (
               <GraphNodeView
                 key={node.id}
@@ -759,10 +779,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSe
                 dimmed={hasSelection && !isSelected && !isNeighbor}
                 hovered={node.id === hoveredId}
                 linked={(neighbors.get(node.id)?.size ?? 0) > 0}
-                stage={stage}
+                tone={toneOf(node.id)}
                 missing={!!node.filePath && !node.proposedFile && !node.planned && !!missingPaths?.has(node.filePath)}
-                inPlan={overlayActive && overlay!.has(node.id)}
-                overlayActive={overlayActive}
                 health={nodeHealth}
                 showCounts={showCounts}
                 handlers={handlers}
@@ -788,10 +806,11 @@ interface GraphEdgeViewProps {
   /** Position in simLinks — the tick loop finds this line's element by it. */
   index: number
   sequence: boolean
+  /** The more active tone of its two ends (graph/nodeTone.ts's edgeTone). */
+  tone: Tone
   selected: boolean
   dimmed: boolean
   inPlan: boolean
-  overlayActive: boolean
   /** Under the Health lens: whether this link closes an import loop, points up the layers, or is fine. Undefined with the lens off. */
   health?: 'cycle' | 'upward' | 'ok'
   handlers: GraphViewHandlers
@@ -800,19 +819,21 @@ interface GraphEdgeViewProps {
 // One link. Its endpoints are never props: the tick loop writes x1/y1/x2/y2
 // straight onto the element every frame, so this only re-renders when the
 // link's highlight state changes.
-const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, selected, dimmed, inPlan, overlayActive, health, handlers }: GraphEdgeViewProps) {
+const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, tone, selected, dimmed, inPlan, health, handlers }: GraphEdgeViewProps) {
   const ref = (el: SVGLineElement | null) => handlers.registerEdge(index, el)
-  // A plan's work order: dashed, plan-colored, arrow toward the next step.
+  const style = TONE_STYLE[tone]
+  // A plan's work order: an arrow toward the next step, in its tone — dashed
+  // while what it leads to is still proposed.
   if (sequence) {
     return (
       <line
         ref={ref}
-        style={{ stroke: PLAN_COLOR }}
+        style={{ stroke: style.color }}
         strokeWidth={selected ? 1.5 : 1}
-        strokeDasharray="5 4"
+        strokeDasharray={tone === 'proposed' ? '5 4' : undefined}
         vectorEffect="non-scaling-stroke"
         opacity={dimmed ? 0.2 : selected ? FOCUS_OPACITY : REST_OPACITY}
-        markerEnd="url(#graph-seq-arrow)"
+        markerEnd={`url(#graph-seq-arrow-${tone})`}
       />
     )
   }
@@ -831,40 +852,26 @@ const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, selected, d
       />
     )
   }
-  // A link inside the plan (both ends belong to it) stays at full strength
-  // while everything else recedes. Not recolored: blue on the graph means
-  // "new" (see NEW_NODE_COLOR), and a whole plan in blue made every node in
-  // it look new.
+  // Under the Health lens a healthy link is plain ink, stepped back; anywhere
+  // else a link wears its tone (dashed while proposed). A link inside the plan
+  // (both ends belong to it) is a little heavier.
+  const underLens = health === 'ok'
   return (
     <line
       ref={ref}
-      // Theme-aware edge ink (--graph-edge: white on tactical dark,
-      // near-black on light — see 00_themes/*.css) on the shared opacity
-      // ladder: rest, full for a selected node's own links, faded for the
-      // rest. `opacity` applies to the arrowhead marker too (same element).
-      style={{ stroke: 'var(--graph-edge, #ffffff)' }}
-      // 1px at rest so a line reads as white, not grey; a selected node's own
-      // links step up to 1.5px.
+      // Theme tokens (00_themes/*.css), applied through `style` so var()
+      // always resolves. `opacity` applies to the arrowhead marker too.
+      style={{ stroke: underLens ? 'var(--graph-edge, #ffffff)' : style.color }}
       strokeWidth={selected || inPlan ? 1.5 : 1}
+      strokeDasharray={!underLens && tone === 'proposed' ? '5 4' : undefined}
       // Screen pixels, not graph units: zoomed out, a 1-unit line shrank
-      // below a pixel and anti-aliased to grey — the "still dim" look. Now
-      // it's always at least one real white pixel.
+      // below a pixel and anti-aliased away. Now it's always one real pixel.
       vectorEffect="non-scaling-stroke"
-      opacity={
-        dimmed
-          ? DIMMED_EDGE_OPACITY
-          : selected
-            ? FOCUS_OPACITY
-            : overlayActive && !inPlan
-              ? 0.25
-              : health === 'ok'
-                ? HEALTHY_EDGE_OPACITY_UNDER_LENS
-                : REST_OPACITY
-      }
+      opacity={dimmed ? DIMMED_EDGE_OPACITY : selected ? FOCUS_OPACITY : underLens ? HEALTHY_EDGE_OPACITY_UNDER_LENS : REST_OPACITY}
       // Edges run importer → imported, but the arrow shows the import flowing
       // *into* the importer, so the head sits at the source end
       // (auto-start-reverse points it back toward the source).
-      markerStart="url(#graph-edge-arrow)"
+      markerStart={underLens ? 'url(#graph-edge-arrow)' : `url(#graph-edge-arrow-${tone})`}
     />
   )
 })
@@ -878,16 +885,29 @@ interface GraphNodeViewProps {
   hovered: boolean
   /** Has at least one link — picks the label's node glyph (see nodeIconName). */
   linked: boolean
-  stage: NodeStage | undefined
+  tone: Tone
   missing: boolean
-  inPlan: boolean
-  overlayActive: boolean
   /** This file's numbers under the Health lens; undefined with the lens off, or for a node that isn't a scanned file (a step, a folder). */
   health?: NodeHealth
   /** Draw the "in N · out M" line under the dot (lens only). */
   showCounts: boolean
   handlers: GraphViewHandlers
 }
+
+// The ring that grows and fades around a step in progress. Injected once, like
+// PlanBuildStatusBar's keyframes; still for anyone who asked for less motion.
+let pulseCssInjected = false
+function ensurePulseCss() {
+  if (pulseCssInjected || typeof document === 'undefined') return
+  const el = document.createElement('style')
+  el.setAttribute('data-graph-step-pulse', '')
+  el.textContent = `@keyframes graph-step-pulse { 0% { transform: scale(1); opacity: 0.7 } 100% { transform: scale(1.9); opacity: 0 } }
+.graph-step-pulse { transform-box: fill-box; transform-origin: center; animation: graph-step-pulse 1.6s ease-out infinite }
+@media (prefers-reduced-motion: reduce) { .graph-step-pulse { animation: none; opacity: 0.5 } }`
+  document.head.appendChild(el)
+  pulseCssInjected = true
+}
+ensurePulseCss()
 
 // One node: its dot, stage shape and label chip. Positioned by the tick loop
 // through the registered <g> (see GraphCanvas's render()).
@@ -898,17 +918,16 @@ const GraphNodeView = memo(function GraphNodeView({
   dimmed,
   hovered: isHovered,
   linked,
-  stage: stageId,
+  tone,
   missing: isMissing,
-  inPlan,
-  overlayActive,
   health,
   showCounts,
   handlers,
 }: GraphNodeViewProps) {
-  // Every node is the theme's ink (pure white on the dark theme) at full
-  // strength; its stage shows through shape alone (below).
-  const color = 'var(--graph-node, #ffffff)'
+  // Under the Health lens every node is the theme's ink — the lens has its own
+  // emphasis; anywhere else a node wears its tone.
+  const toneStyle = TONE_STYLE[tone]
+  const color = health ? 'var(--graph-node, #ffffff)' : toneStyle.color
   // Node-label chip follows the shared item-state ladder (the same one list
   // rows use, see item-states.css): selected = solid ink fill; hover (the
   // hovered node only) and a selected node's neighbours (connected) = an ink
@@ -936,43 +955,21 @@ const GraphNodeView = memo(function GraphNodeView({
   const labelIconGap = 3
   const contentWidth = labelIconSize + labelIconGap + labelWidth
   const contentLeft = -(contentWidth / 2)
-  // A tagged stage keeps its shape from graph/stages.ts — dashed ring
-  // (Proposed) → ring (In Progress) → ring with a center dot (In Review) →
-  // solid dot (Done) — the same marks StatusGlyph draws in list rows, so
-  // toggling a node's status visibly changes its dot. Untagged nodes are
-  // plain solid dots.
-  const stage = stageConfig(stageId)
-  // A planned file that hasn't been built: a dashed ring in the plan color.
-  // Once its step moves past Proposed, its stage shape wins. (A node whose
-  // backing file is gone — `missing` — gets a red ring instead: the file moved
-  // or was deleted outside Sleipnir, and opening it would only fail.)
-  const isPlannedPlaceholder = !!node.planned && !isMissing && (!stage || stage.id === 'proposed')
-  // Two exceptions to the plain white dot, both warnings rather than
-  // decoration: a missing file's red ring and a planned file's plan-colored
-  // dash.
-  // Under the Health lens an unused file is a hollow dashed ring — the lens
-  // says more than the stage does. (Loops and heat are the glow underneath —
-  // see the heat layer — so every other dot stays plain ink.)
-  const healthShape = isMissing || isPlannedPlaceholder || !health ? null : health.unused ? 'unused' : 'plain'
-  const circleStyle = isMissing
-    ? { fill: 'none', stroke: '#e07a7a' }
-    : isPlannedPlaceholder
-      ? { fill: 'none', stroke: PLAN_COLOR }
-      : healthShape === 'unused'
-        ? { fill: 'none', stroke: color }
-        : healthShape === 'plain' || !stage
-          ? { fill: color, stroke: color }
-          : { fill: stage.fill === 'solid' ? color : 'none', stroke: color }
-  const circleStrokeWidth = isMissing
-    ? 2
-    : isPlannedPlaceholder
-      ? 1.5
-      : healthShape === 'unused'
-        ? 1
-        : !healthShape && stage && stage.fill !== 'solid'
-          ? stage.strokeWidth
-          : 0
-  const circleDash = isMissing ? '2 2' : isPlannedPlaceholder ? '1.5 1' : healthShape === 'unused' ? '2 2' : healthShape ? undefined : stage?.dash
+  // A plan step being worked or tested pulses: that's where the agent is.
+  const isWorking = node.type === 'plan-step' && (tone === 'in_progress' || tone === 'testing')
+  // A planned file that isn't on disk yet: its tone is proposed (a dashed blue
+  // ring), and it says so on hover.
+  const isPlannedPlaceholder = !!node.planned && tone === 'proposed'
+  // Exceptions to the tone, both warnings rather than decoration: a node whose
+  // backing file is gone (`missing`) gets a red ring — the file moved or was
+  // deleted outside Sleipnir, and opening it would only fail — and under the
+  // Health lens an unused file is a hollow dashed ring. (Loops and heat are
+  // the glow underneath, so every other dot under the lens stays plain ink.)
+  const healthShape = isMissing || !health ? null : health.unused ? 'unused' : 'plain'
+  const ring = isMissing || healthShape === 'unused' || (!healthShape && toneStyle.fill === 'none')
+  const circleStyle = isMissing ? { fill: 'none', stroke: '#e07a7a' } : ring ? { fill: 'none', stroke: color } : { fill: color, stroke: 'none' }
+  const circleStrokeWidth = isMissing ? 2 : healthShape === 'unused' ? 1 : ring ? 1.5 : 0
+  const circleDash = isMissing ? '2 2' : healthShape === 'unused' ? '2 2' : healthShape ? undefined : toneStyle.dash
   const id = node.id
   return (
     <g
@@ -985,15 +982,7 @@ const GraphNodeView = memo(function GraphNodeView({
       onDoubleClick={() => handlers.nodeDoubleClick(id)}
       onPointerEnter={() => handlers.nodeEnter(id)}
       onPointerLeave={() => handlers.nodeLeave(id)}
-      opacity={
-        dimmed
-          ? DIMMED_NODE_OPACITY
-          : overlayActive && !inPlan && !isSelected && !isNeighbor
-            ? 0.35
-            : healthShape === 'unused' && !isSelected && !isHovered
-              ? UNUSED_NODE_OPACITY
-              : FOCUS_OPACITY
-      }
+      opacity={dimmed ? DIMMED_NODE_OPACITY : healthShape === 'unused' && !isSelected && !isHovered ? UNUSED_NODE_OPACITY : FOCUS_OPACITY}
       style={{ cursor: 'pointer' }}
     >
       {isMissing && <title>File missing: {node.filePath} (moved or deleted outside Sleipnir)</title>}
@@ -1010,7 +999,9 @@ const GraphNodeView = memo(function GraphNodeView({
         strokeDasharray={circleDash}
         pathLength={!isMissing && circleDash ? STAGE_PATH_LENGTH : undefined}
       />
-      {!isMissing && !isPlannedPlaceholder && !healthShape && stage?.centerDot && <circle r={radius * 0.35} style={{ fill: color }} />}
+      {isWorking && !isMissing && (
+        <circle r={radius + 2} className="graph-step-pulse" fill="none" style={{ stroke: color }} strokeWidth={1} pointerEvents="none" />
+      )}
       {showCounts && health && (
         <text
           y={radius + 10}

@@ -102,11 +102,14 @@ export const ListRow: React.FC<ListRowProps> = ({
         // panel padding with negative margins — actually reach the far edge;
         // an explicit width can't grow into a negative margin.
         alignSelf: 'stretch',
-        // Fixed height (not min-height) so the taller controls that only appear
-        // on hover — the row's action IconButtons are 28px, larger than the row
-        // — overflow the row invisibly (transparent hit area, centered glyphs)
-        // instead of stretching it and shoving every row below down on hover.
+        // Fixed height, and nothing allowed past it: the action IconButtons that
+        // appear on hover are 28px, taller than the row. Left to overflow, they
+        // changed the scroll area under them as they came and went, which read
+        // as rows jumping up and down on hover. The trailing slot below clamps
+        // them to the row (glyphs stay centred; only spare hit area is lost).
         height: LIST_ROW_MIN_H,
+        flexShrink: 0,
+        overflow: 'hidden',
         boxSizing: 'border-box',
         paddingLeft: indent + (LIST_ROW_PAD_X - 8),
         paddingRight: LIST_ROW_PAD_X,
@@ -140,7 +143,11 @@ export const ListRow: React.FC<ListRowProps> = ({
       >
         {children}
       </span>
-      {typeof trailing === 'function' ? trailing(hovered) : trailing}
+      {trailing != null && (
+        <span className="srow-trailing" style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, height: '100%' }}>
+          {typeof trailing === 'function' ? trailing(hovered) : trailing}
+        </span>
+      )}
     </div>
   )
 }

@@ -104,6 +104,14 @@ describe('composePlanView', () => {
     expect([...overlay].sort()).toEqual(['planned/vm', 'step-1', 'step-2', archId('src/App.tsx'), archId('src/cart/cartView.tsx')].sort())
     expect(overlay.has(archId('src/util.ts'))).toBe(false)
   })
+
+  it('links a step to the files it changed when it ran, and lights them up', () => {
+    const changes = new Map([['step-2', ['src/util.ts', 'src/App.tsx']]])
+    const { data, overlay } = composePlanView(planGraph, 'plan/x', scan, 'architecture', undefined, changes)
+    expect(data.edges).toContainEqual({ source: 'step-2', target: archId('src/util.ts'), kind: 'plan-step' })
+    expect(data.edges).toContainEqual({ source: 'step-2', target: archId('src/App.tsx'), kind: 'plan-step' })
+    expect(overlay.has(archId('src/util.ts'))).toBe(true)
+  })
 })
 
 describe('workspaceScanCache', () => {

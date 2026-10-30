@@ -8,6 +8,7 @@ import { CANVAS_TARGETS } from '../emit/targets'
 import { effectsOf, type ImageUrlResolver } from '../model/paint'
 import type {
   CanvasComponent,
+  CanvasDoc,
   CanvasNode,
   CanvasPropValue,
   CanvasRect,
@@ -22,7 +23,7 @@ import type {
   NodeId,
   StrokeStyle,
 } from '../model/types'
-import { ACTION, FIELD, ICON_BUTTON, Label, MONO, NumberField, Section } from './inspectorKit'
+import { ACTION, ICON_BUTTON, Label, MONO, NumberField, Section } from './inspectorKit'
 import type { PointType } from '../model/vectorEdit'
 
 /** The selected anchors while editing a path (see CanvasView.ViewModel's pointSelection). */
@@ -41,14 +42,17 @@ import { normalizeDegrees } from '../model/rotation'
 import { ArrangeSection, LayoutSection, SpacingSection, type ArrangeProps } from './LayoutSection'
 import { imageFillOf, isImageLayer, rectAtImageRatio, rectAtScale, scalePercent } from '../model/imageSizing'
 import { resolveVariant } from '../model/variants'
+import { componentFileName, componentPathIn, resolveComponentPath } from '../model/paths'
+import { ComponentPathField } from './ComponentPathField'
+import { IconButton } from '../../app/UIKit/IconButton/IconButton'
+import { PlaneSection } from './PlaneSection'
+import { SolidSection } from './SolidSection'
+import type { Placement3D, SolidSpec } from '../scene3d/sceneTypes'
+import { SelectField, TextField } from '../../app/UIKit/Field/TextField'
+import { Checkbox } from '../../app/UIKit/Checkbox/Checkbox'
 
 /** Shared, so an unfilled node doesn't hand the memoized fill section a new array every render. */
 const NO_FILLS: Fill[] = []
-
-/** Basename of a forward-slashed path — '' when the path ends in a separator. */
-function fileNameOf(path: string): string {
-  return path.includes('/') ? path.slice(path.lastIndexOf('/') + 1) : path
-}
 
 export interface CanvasInspectorProps {
   node: CanvasNode | null
@@ -67,7 +71,6 @@ export interface CanvasInspectorProps {
   onRectChange: (patch: Partial<CanvasRect>, gesture?: string) => void
   /** `gesture` names the control behind the edit, so a run of edits from one control is one undo step. */
   onStyleChange: (patch: Partial<CanvasStyle>, gesture?: string) => void
-  onTextChange: (id: NodeId, text: string) => void
   /** Restyles a component's variant root — the main component every instance renders — or, with `nodeId`, one node inside it. */
   onComponentStyleChange: (componentId: string, variantId: string, patch: Partial<CanvasStyle>, gesture?: string, nodeId?: NodeId) => void
   /** Changes a vector's own shape fields — a polygon's sides, a path's closed flag. */
@@ -90,7 +93,8 @@ export interface CanvasInspectorProps {
   /** How the image fill editor lists and imports images. */
   images: ImageSources
   onPromote: () => void
-  onWriteComponent: (componentId: string) => void
+  /** Renames the selected component — its file, exported symbol and instances follow. Rejects with a reason to show inline. */
+  onRenameComponent: (componentId: string, name: string) => Promise<void>
   /** True when the canvas state has changed since the component's file was last written. */
   isDirty: boolean
   onPush: (componentId: string) => void
@@ -98,21 +102,34 @@ export interface CanvasInspectorProps {
   onRemoveVariant: (variantId: string) => void
   onRenameVariant: (variantId: string, name: string) => void
   onSelectVariant: (variantId: string) => void
-  /** Workspace-relative folders the WORKSPACE PATH field can autocomplete to. */
-  folderOptions: string[]
+  /** Folders the board records under the component root (CanvasDoc.componentFolders) — offered by the FOLDER field alongside the real ones. */
+  componentFolders: string[]
   /** Retargets where the component's file lives — a real file move once it has one. Must reject (not throw synchronously) so the panel can show the reason inline. */
   onSetPath: (componentId: string, path: string) => Promise<void>
-  /** Deletes the component's file, leaving the design on the board. */
-  onRemoveFromWorkspace: (componentId: string) => void
-  /** Dissolves the component back into a plain frame. Offered only when `canFlatten`. */
-  onFlatten: (componentId: string) => void
-  /** Whether flattening is meaningful — exactly one instance to dissolve into. */
+  /** The open board's folder under the component root — where a component's file goes by default. */
+  boardFolder: string | null
+  /** Makes the selected instance a plain frame again: flattens the component when this is its only instance, detaches just this one otherwise. */
+  onUnmakeComponent: () => void
+  /** True when it's the component's only instance — the button then dissolves the component itself. */
   canFlatten: boolean
   /** Set when the selection links to a component on another board (see model/clipboard.ts). */
   linked: LinkedComponent | null
   onLinkedPropChange: (id: NodeId, name: string, value: CanvasPropValue | undefined) => void
   onOpenMainComponent: (filePath: string) => void
   onDetachLinked: () => void
+  /**
+   * The 3D sections: where a top-level layer's plane stands (3D PLANE) and
+   * how its outline becomes a solid (SOLID). Absent hides both.
+   */
+  space3d?: {
+    doc: CanvasDoc
+    /** Only a top-level layer has a plane of its own; a child lies in its parent's. */
+    topLevel: boolean
+    /** Vector layers a sweep can follow — every one but the selection. */
+    paths: { id: NodeId; name: string }[]
+    onPlacement: (id: NodeId, space: Placement3D | undefined, gesture?: string) => void
+    onSolid: (id: NodeId, solid: SolidSpec | undefined, gesture?: string) => void
+  }
 }
 
 /**
@@ -128,292 +145,255 @@ function ReadOnly({ when, children }: { when: boolean; children: React.ReactNode
   )
 }
 
-/** Create-component / variant controls. Only the component half of the panel. */
-function ComponentSection({
+/** The accent a component reads in — the canvas's selection blue. */
+const COMPONENT_BLUE = '#6fa8dc'
+
+/** "Variant 2", "Variant 3", … — the first name no variant has yet. */
+function nextVariantName(component: CanvasComponent): string {
+  const taken = new Set(component.variants.map((v) => v.name.toLowerCase()))
+  let n = component.variants.length + 1
+  while (taken.has(`variant ${n}`)) n += 1
+  return `Variant ${n}`
+}
+
+/**
+ * Component on/off, as one switch. Off (a frame): a quiet outline — click to
+ * make it a component. On (an instance): filled in the component blue, and
+ * hovering shows the struck-through mark, since a click turns it back into a
+ * frame.
+ */
+function ComponentToggle({
+  active,
+  onMake,
+  onUnmake,
+  unmakeTitle,
+}: {
+  active: boolean
+  onMake: () => void
+  onUnmake: () => void
+  unmakeTitle: string
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={active ? onUnmake : onMake}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={active ? unmakeTitle : 'Make component — turn this frame into a reusable component'}
+      style={{
+        ...ICON_BUTTON,
+        width: 24,
+        height: 24,
+        color: active ? COMPONENT_BLUE : hover ? 'var(--text-1)' : 'var(--text-3)',
+        background: active ? 'rgba(111,168,220,0.16)' : hover ? 'rgba(var(--item-ink, 255,255,255), 0.08)' : 'transparent',
+        border: `1px solid ${active ? 'rgba(111,168,220,0.55)' : 'transparent'}`,
+      }}
+    >
+      <Icon name={active && hover ? 'component-off' : 'component'} size={13} />
+    </button>
+  )
+}
+
+/**
+ * A component's name. Renaming moves real files (the file, the exported
+ * symbol), so it's a draft until Enter or leaving the field — never a file move
+ * per keystroke. Escape puts it back.
+ */
+function ComponentNameField({
   component,
+  onRename,
+}: {
+  component: CanvasComponent
+  onRename: (componentId: string, name: string) => Promise<void>
+}) {
+  const [draft, setDraft] = useState(component.name)
+  const [error, setError] = useState<string | null>(null)
+  const [seen, setSeen] = useState(component.name)
+  if (seen !== component.name) {
+    setSeen(component.name)
+    setDraft(component.name)
+  }
+  const commit = () => {
+    const name = draft.trim()
+    if (!name) {
+      setDraft(component.name)
+      return
+    }
+    if (name === component.name) return
+    setError(null)
+    onRename(component.id, name).catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+  }
+  return (
+    <Frame flow="vertical" gap={3} grow style={{ minWidth: 0 }}>
+      <TextField size="sm"
+        value={draft}
+        title="Component name — also its file and exported name"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') setDraft(component.name)
+        }}
+        style={{ flex: 1, color: COMPONENT_BLUE }}
+      />
+      {error && <span style={{ ...MONO, fontSize: 9, color: '#e07a7a' }}>{error}</span>}
+    </Frame>
+  )
+}
+
+/**
+ * Everything else about the selected component, in the same block as its
+ * name: where its file lives, whether that file is current, its variants, and
+ * the file actions.
+ */
+function ComponentDetails({
+  component,
+  componentFolders,
   activeVariant,
-  onWriteComponent,
   isDirty,
+  onSetPath,
   onPush,
-  onAddVariant,
   onRemoveVariant,
   onRenameVariant,
   onSelectVariant,
-  folderOptions,
-  onSetPath,
-  onRemoveFromWorkspace,
-  onFlatten,
-  canFlatten,
+  boardFolder,
 }: {
   component: CanvasComponent
+  componentFolders: string[]
   activeVariant: CanvasVariant | null
-  onWriteComponent: (componentId: string) => void
   isDirty: boolean
+  onSetPath: (componentId: string, path: string) => Promise<void>
   onPush: (componentId: string) => void
-  onAddVariant: (name: string) => void
   onRemoveVariant: (variantId: string) => void
   onRenameVariant: (variantId: string, name: string) => void
   onSelectVariant: (variantId: string) => void
-  folderOptions: string[]
-  onSetPath: (componentId: string, path: string) => Promise<void>
-  onRemoveFromWorkspace: (componentId: string) => void
-  onFlatten: (componentId: string) => void
-  canFlatten: boolean
+  boardFolder: string | null
 }) {
-  const [adding, setAdding] = useState(false)
-  const [name, setName] = useState('')
-  // The path field is a draft until committed, so a half-typed path never
-  // triggers a file move on every keystroke.
-  const [pathDraft, setPathDraft] = useState(component.filePath ?? '')
+  // With no file (deleted outside Sleipnir), the field starts at where its
+  // name would put it, ready for WRITE TO WORKSPACE.
+  const homePath = component.filePath ?? componentPathIn(component.componentRoot, component.name, '', boardFolder ?? undefined).path ?? ''
+  // The path is a draft until committed, so a half-typed one never moves the file.
+  const [path, setPath] = useState(homePath)
   const [pathError, setPathError] = useState<string | null>(null)
-
-  // Re-seed when the selection changes to a different component.
-  const [seededFor, setSeededFor] = useState(component.id)
-  if (seededFor !== component.id) {
-    setSeededFor(component.id)
-    setPathDraft(component.filePath ?? '')
-    setPathError(null)
+  const [seenPath, setSeenPath] = useState(homePath)
+  if (seenPath !== homePath) {
+    setSeenPath(homePath)
+    setPath(homePath)
   }
-
-  const submit = () => {
-    if (!name.trim()) return
-    onAddVariant(name)
-    setName('')
-    setAdding(false)
-  }
-
-  const pathChanged = pathDraft.trim() !== (component.filePath ?? '')
-
-  const folderMatches = (() => {
-    const dir = pathDraft.includes('/') ? pathDraft.slice(0, pathDraft.lastIndexOf('/')) : pathDraft
-    const query = dir.trim().toLowerCase()
-    if (!query || !pathChanged) return []
-    return folderOptions.filter((f) => f.toLowerCase().includes(query) && f !== dir).slice(0, 5)
-  })()
 
   const commitPath = () => {
-    const next = pathDraft.trim()
-    if (!next || !pathChanged) return
-    setPathError(null)
-    onSetPath(component.id, next).catch((e: unknown) => {
+    const typed = path.trim()
+    if (!typed || typed === component.filePath) return
+    let safe: string
+    try {
+      safe = resolveComponentPath(component.componentRoot, typed)
+    } catch (e) {
       setPathError(e instanceof Error ? e.message : String(e))
-    })
+      return
+    }
+    setPathError(null)
+    onSetPath(component.id, safe).catch((e: unknown) => setPathError(e instanceof Error ? e.message : String(e)))
   }
 
-  return (
-    <Section title={`COMPONENT · ${component.sync.toUpperCase()}`}>
-      {/* Shown for detached as well as ejected. Detached is the state a
-          deleted or vanished file leaves behind, so gating the explanation on
-          'ejected' alone meant the one case that most needs explaining said
-          nothing at all. */}
-      {(component.sync === 'ejected' || component.sync === 'detached') && component.ejectReason && (
-        <span style={{ ...MONO, fontSize: 9, color: '#e07a7a', lineHeight: 1.5 }}>
-          {component.ejectReason}
-        </span>
-      )}
-      {/* "yet" is only true for a component that was never written. Saying it
-          about one whose file was just deleted reads as though the delete
-          didn't happen. */}
-      {!component.filePath && !component.ejectReason && (
-        <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)' }}>Not in the workspace yet</span>
-      )}
-      {component.filePath && !isDirty && (
-        <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)' }}>Up to date</span>
-      )}
+  // Whether the file is current is the sync icon's to say; this line is only
+  // for what it can't — why a file went missing.
+  const status =
+    (component.sync === 'ejected' || component.sync === 'detached') && component.ejectReason
+      ? { text: component.ejectReason, color: '#e07a7a' }
+      : !component.filePath
+        ? { text: 'Not in the workspace yet', color: 'var(--text-3)' }
+        : null
+  const canUpdate = !!component.filePath && isDirty
 
-      <Label>VARIANTS</Label>
-      {component.variants.map((variant) => (
-        <Frame key={variant.id} flow="horizontal" gap={4} align="center" w="fill">
+  return (
+    <>
+      <Frame flow="horizontal" gap={2} align="center" w="fill">
+      <ComponentPathField
+        componentRoot={component.componentRoot}
+        value={path}
+        onChange={(next) => {
+          setPath(next)
+          setPathError(null)
+        }}
+        onSubmit={commitPath}
+        onCancel={() => setPath(homePath)}
+        extraFolders={componentFolders}
+        fallbackFileName={componentFileName(component.name)}
+        submitOnBlur={!!component.filePath}
+      />
+        {component.filePath && (
           <button
             type="button"
-            onClick={() => onSelectVariant(variant.id)}
-            title="Show this variant"
+            disabled={!canUpdate}
+            onClick={() => onPush(component.id)}
+            aria-label="Update component"
+            title={canUpdate ? "Update component — write the canvas's current state into this file" : 'Up to date — the file matches the canvas'}
             style={{
-              ...MONO,
-              fontSize: 9,
-              width: 14,
-              height: 14,
-              background: variant.id === activeVariant?.id ? 'var(--accent, #6fa8dc)' : 'transparent',
-              border: '1px solid var(--border-1)',
-              borderRadius: 2,
-              cursor: 'pointer',
-              padding: 0,
-              flexShrink: 0,
+              ...ICON_BUTTON,
+              width: 24,
+              height: 24,
+              position: 'relative',
+              color: canUpdate ? '#e0a040' : 'var(--text-3)',
+              opacity: canUpdate ? 1 : 0.45,
+              cursor: canUpdate ? 'pointer' : 'default',
+              border: `1px solid ${canUpdate ? 'rgba(224,160,64,0.5)' : 'transparent'}`,
             }}
-          />
-          <input
-            value={variant.name}
-            onChange={(e) => onRenameVariant(variant.id, e.target.value)}
-            style={{ ...FIELD, flex: 1 }}
-          />
-          {component.variants.length > 1 && (
+          >
+            <Icon name="file-sync" size={13} />
+            {canUpdate && (
+              <span style={{ position: 'absolute', top: 2, right: 2, width: 5, height: 5, borderRadius: '50%', background: '#e0a040' }} />
+            )}
+          </button>
+        )}
+      </Frame>
+      {pathError && <span style={{ ...MONO, fontSize: 9, color: '#e07a7a' }}>{pathError}</span>}
+      {status && <span style={{ ...MONO, fontSize: 9, color: status.color, lineHeight: 1.5 }}>{status.text}</span>}
+
+      {component.variants.length > 1 && <Label>VARIANTS</Label>}
+      {component.variants.length > 1 &&
+        component.variants.map((variant) => (
+          <Frame key={variant.id} flow="horizontal" gap={4} align="center" w="fill">
+            <button
+              type="button"
+              onClick={() => onSelectVariant(variant.id)}
+              title="Show this variant"
+              style={{
+                ...MONO,
+                fontSize: 9,
+                width: 14,
+                height: 14,
+                background: variant.id === activeVariant?.id ? COMPONENT_BLUE : 'transparent',
+                border: '1px solid var(--border-1)',
+                borderRadius: 2,
+                cursor: 'pointer',
+                padding: 0,
+                flexShrink: 0,
+              }}
+            />
+            <TextField size="sm"
+              value={variant.name}
+              onChange={(e) => onRenameVariant(variant.id, e.target.value)}
+              style={{ flex: 1 }}
+            />
             <button
               type="button"
               onClick={() => onRemoveVariant(variant.id)}
               title="Remove variant"
-              style={{
-                ...MONO,
-                fontSize: 10,
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-3)',
-                cursor: 'pointer',
-                padding: '0 2px',
-              }}
+              style={{ ...ICON_BUTTON, color: 'var(--text-3)' }}
             >
               ×
             </button>
-          )}
-        </Frame>
-      ))}
+          </Frame>
+        ))}
 
-      {adding ? (
-        <input
-          autoFocus
-          value={name}
-          placeholder="variant name"
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit()
-            if (e.key === 'Escape') { setAdding(false); setName('') }
-          }}
-          onBlur={() => { if (!name) setAdding(false) }}
-          style={FIELD}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          style={{
-            ...MONO,
-            fontSize: 9,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border-1)',
-            borderRadius: 'var(--radius-control)',
-            color: 'var(--text-2)',
-            padding: '4px 8px',
-            cursor: 'pointer',
-          }}
-        >
-          + ADD VARIANT
+      {!component.filePath && (
+        <button type="button" onClick={commitPath} style={{ ...ACTION, color: 'var(--text-1)', cursor: 'pointer' }}>
+          WRITE TO WORKSPACE
         </button>
       )}
-
-      {/* ── Where it lives ── */}
-      <Label>WORKSPACE PATH</Label>
-      <input
-        value={pathDraft}
-        placeholder={`${component.componentRoot}/…`}
-        onChange={(e) => setPathDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commitPath()
-          if (e.key === 'Escape') setPathDraft(component.filePath ?? '')
-        }}
-        style={FIELD}
-      />
-      {folderMatches.length > 0 && (
-        <Frame flow="vertical" w="fill">
-          {folderMatches.map((dir) => (
-            <button
-              key={dir}
-              type="button"
-              className="srow"
-              onClick={() => setPathDraft(`${dir}/${fileNameOf(pathDraft) || 'component.tsx'}`)}
-              style={{
-                ...MONO,
-                fontSize: 9,
-                textAlign: 'left',
-                padding: '3px 6px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-2)',
-                cursor: 'pointer',
-              }}
-            >
-              {dir}
-            </button>
-          ))}
-        </Frame>
-      )}
-      {pathError && <span style={{ ...MONO, fontSize: 9, color: '#e07a7a' }}>{pathError}</span>}
-      {pathChanged && !pathError && (
-        <button
-          type="button"
-          onClick={commitPath}
-          style={{ ...ACTION, color: 'var(--text-1)' }}
-        >
-          {component.filePath ? 'MOVE FILE' : 'SET PATH'}
-        </button>
-      )}
-
-      {/* ── Actions ── */}
-      <Frame flow="vertical" gap={4} w="fill" padding={{ top: 6 }}>
-        {/* Naming used to happen in the dialog that gated promotion. Promotion
-            no longer opens one, so this is where a component gets renamed or
-            sent to a different path — which means it must stay enabled once
-            the file exists, not grey out the moment it does. */}
-        <button
-          type="button"
-          onClick={() => onWriteComponent(component.id)}
-          title={
-            component.filePath
-              ? 'Rename this component, or write it to a different path'
-              : 'Create this component as a real file'
-          }
-          style={{ ...ACTION, cursor: 'pointer' }}
-        >
-          {component.filePath ? 'RENAME / MOVE…' : 'PUSH TO WORKSPACE'}
-        </button>
-        <button
-          type="button"
-          disabled={!component.filePath || !isDirty}
-          onClick={() => onPush(component.id)}
-          title={
-            !component.filePath
-              ? 'Not in the workspace yet'
-              : isDirty
-                ? "Write the canvas's current state into the existing file"
-                : 'Nothing to update — the file matches the canvas'
-          }
-          style={{
-            ...ACTION,
-            opacity: component.filePath && isDirty ? 1 : 0.4,
-            cursor: component.filePath && isDirty ? 'pointer' : 'default',
-          }}
-        >
-          {isDirty && component.filePath ? '● UPDATE COMPONENT' : 'UPDATE COMPONENT'}
-        </button>
-        {/* The deliberate half of the downgrade rule: removing the file
-            un-promotes a component automatically only when nothing would be
-            lost, so the case that WOULD lose something needs somewhere to say
-            "yes, I meant it". Offered only with a single instance, which is
-            the only case that has a single place to dissolve into. */}
-        {canFlatten && (
-          <button
-            type="button"
-            onClick={() => onFlatten(component.id)}
-            title="Turn this back into a plain frame. Variants and props are discarded; the layout stays."
-            style={{ ...ACTION, cursor: 'pointer' }}
-          >
-            FLATTEN TO FRAME
-          </button>
-        )}
-        <button
-          type="button"
-          disabled={!component.filePath}
-          onClick={() => onRemoveFromWorkspace(component.id)}
-          title="Delete this component's file from the workspace. The design stays on the canvas — a component still in .canvas turns back into a frame."
-          style={{
-            ...ACTION,
-            color: component.filePath ? '#e07a7a' : 'var(--text-3)',
-            opacity: component.filePath ? 1 : 0.4,
-            cursor: component.filePath ? 'pointer' : 'default',
-          }}
-        >
-          REMOVE FROM WORKSPACE
-        </button>
-      </Frame>
-    </Section>
+    </>
   )
 }
 
@@ -429,7 +409,6 @@ export function CanvasInspector({
   onRename,
   onRectChange,
   onStyleChange,
-  onTextChange,
   onFontChange,
   onComponentStyleChange,
   onVectorChange,
@@ -444,22 +423,23 @@ export function CanvasInspector({
   imageUrl,
   images,
   onPromote,
-  onWriteComponent,
+  onRenameComponent,
   isDirty,
   onPush,
   onAddVariant,
   onRemoveVariant,
   onRenameVariant,
   onSelectVariant,
-  folderOptions,
+  componentFolders,
   onSetPath,
-  onRemoveFromWorkspace,
-  onFlatten,
+  boardFolder,
+  onUnmakeComponent,
   canFlatten,
   linked,
   onLinkedPropChange,
   onOpenMainComponent,
   onDetachLinked,
+  space3d,
 }: CanvasInspectorProps) {
   // The paint sections are memoized, so they get callbacks that never change:
   // they read whatever is being painted right now through this ref. The
@@ -561,34 +541,55 @@ export function CanvasInspector({
 
   return (
     <Frame flow="vertical" w="fill" style={{ overflowY: 'auto' }} grow>
-      <Section title="NAME">
-        <input
-          value={node.name}
-          onChange={(e) => onRename(node.id, e.target.value)}
-          style={FIELD}
-        />
-        {canPromote && (
-          <button
-            type="button"
-            onClick={onPromote}
-            title="Turn this frame into a reusable component"
-            style={{
-              ...MONO,
-              fontSize: 9,
-              background: 'var(--bg-2)',
-              border: '1px solid var(--border-1)',
-              borderRadius: 'var(--radius-control)',
-              color: 'var(--text-1)',
-              padding: '5px 8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <Icon name="component" size={11} />
-            CREATE COMPONENT
-          </button>
+      <Section title={component ? 'COMPONENT' : 'NAME'}>
+        <Frame flow="horizontal" gap={2} align="center" w="fill">
+          {component ? (
+            <ComponentNameField key={component.id} component={component} onRename={onRenameComponent} />
+          ) : (
+            <TextField size="sm"
+              value={node.name}
+              onChange={(e) => onRename(node.id, e.target.value)}
+              style={{ flex: 1 }}
+            />
+          )}
+          {(canPromote || component) && (
+            <ComponentToggle
+              active={!!component}
+              onMake={onPromote}
+              onUnmake={onUnmakeComponent}
+              unmakeTitle={
+                canFlatten
+                  ? 'Component · click to flatten back to a frame (its only instance, so variants and props are dropped)'
+                  : 'Component · click to detach just this instance into a frame (the component and its other instances stay)'
+              }
+            />
+          )}
+          {component && (
+            <IconButton
+              icon="variant-add"
+              iconSize={13}
+              size={24}
+              onClick={() => onAddVariant(nextVariantName(component))}
+              title="Add variant"
+              textColor="var(--text-2)"
+              hoverFill="rgba(var(--item-ink, 255,255,255), 0.08)"
+            />
+          )}
+        </Frame>
+        {component && (
+          <ComponentDetails
+            key={component.id}
+            component={component}
+            componentFolders={componentFolders}
+            activeVariant={activeVariant}
+            isDirty={isDirty}
+            onSetPath={onSetPath}
+            onPush={onPush}
+            onRemoveVariant={onRemoveVariant}
+            onRenameVariant={onRenameVariant}
+            onSelectVariant={onSelectVariant}
+            boardFolder={boardFolder}
+          />
         )}
         {canMakeSvgComponent && <MakeSvgButton onClick={onMakeSvgComponent} />}
       </Section>
@@ -600,25 +601,6 @@ export function CanvasInspector({
           onPropChange={(name, value) => onLinkedPropChange(node.id, name, value)}
           onOpenMain={() => onOpenMainComponent(node.filePath)}
           onDetach={onDetachLinked}
-        />
-      )}
-
-      {component && (
-        <ComponentSection
-          component={component}
-          activeVariant={activeVariant}
-          onWriteComponent={onWriteComponent}
-          isDirty={isDirty}
-          onPush={onPush}
-          onAddVariant={onAddVariant}
-          onRemoveVariant={onRemoveVariant}
-          onRenameVariant={onRenameVariant}
-          onSelectVariant={onSelectVariant}
-          folderOptions={folderOptions}
-          onSetPath={onSetPath}
-          onRemoveFromWorkspace={onRemoveFromWorkspace}
-          onFlatten={onFlatten}
-          canFlatten={canFlatten}
         />
       )}
 
@@ -676,12 +658,7 @@ export function CanvasInspector({
 
       {node.kind === 'text' && (
         <Section title="TEXT">
-          <textarea
-            value={node.text}
-            onChange={(e) => onTextChange(node.id, e.target.value)}
-            rows={3}
-            style={{ ...FIELD, resize: 'vertical' }}
-          />
+          <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)' }}>Double-click the text on the board to edit it.</span>
           <Frame flow="horizontal" gap={6} w="fill">
             <NumberField
               label="SIZE"
@@ -691,17 +668,17 @@ export function CanvasInspector({
             />
             <Frame flow="vertical" gap={2} grow style={{ minWidth: 0 }}>
               <Label>WEIGHT</Label>
-              <select
+              <SelectField size="sm"
                 value={node.font?.weight ?? 400}
                 onChange={(e) => onFontChange(node.id, { weight: Number(e.target.value) })}
-                style={FIELD}
+               
               >
                 {[100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => (
                   <option key={w} value={w}>
                     {w}
                   </option>
                 ))}
-              </select>
+              </SelectField>
             </Frame>
           </Frame>
           <Label>COLOR</Label>
@@ -750,6 +727,11 @@ export function CanvasInspector({
       {node.kind === 'frame' && <LayoutSection node={node} onStyleChange={onStyleChange} />}
       <SpacingSection node={node} parentFlow={parentFlow} onStyleChange={onStyleChange} />
 
+      {space3d?.topLevel && <PlaneSection node={node} onChange={space3d.onPlacement} />}
+      {space3d && (node.kind === 'frame' || node.kind === 'vector') && (
+        <SolidSection node={node} doc={space3d.doc} paths={space3d.paths.filter((p) => p.id !== node.id)} onChange={space3d.onSolid} />
+      )}
+
       <ReadOnly when={!!paint?.readOnly}>
       {paint?.hasPaint && (
         <>
@@ -783,9 +765,9 @@ export function CanvasInspector({
             {/* The language dropdown. Unavailable targets stay listed and
                 disabled with their reason, so "why can't I pick Rust?" is
                 answered here rather than in a doc. */}
-            <select
+            <SelectField size="sm"
               defaultValue="react"
-              style={FIELD}
+             
               onChange={() => {
                 /* Wiring the choice onto a ComponentDef lands with
                    promote-to-component in Stage 2; the control ships now so the
@@ -797,7 +779,7 @@ export function CanvasInspector({
                   {target.available ? target.label : `${target.label} — ${target.unavailableReason ?? 'unavailable'}`}
                 </option>
               ))}
-            </select>
+            </SelectField>
             <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)', lineHeight: 1.5 }}>
               A frame is language-agnostic. Each target lowers it into that
               language's own container — there is no shared &lt;Frame/&gt; runtime to install.
@@ -843,7 +825,7 @@ const LayerSection = memo(function LayerSection({
               flexShrink: 0,
             }}
           >
-            <input type="checkbox" checked={!!style.clip} onChange={(e) => onStyleChange({ clip: e.target.checked || undefined })} />
+            <Checkbox checked={!!style.clip} onChange={(checked) => onStyleChange({ clip: checked || undefined })} />
             CLIP CONTENT
           </label>
         )}
@@ -955,25 +937,25 @@ const StrokeSection = memo(function StrokeSection({
         <>
           <Frame flow="horizontal" gap={6} w="fill">
             {!vector && (
-              <select
+              <SelectField size="sm"
                 value={stroke.position ?? 'inside'}
                 onChange={(e) => setStroke({ position: e.target.value as StrokeStyle['position'] })}
-                style={FIELD}
+               
               >
                 <option value="inside">Inside</option>
                 <option value="center">Center</option>
                 <option value="outside">Outside</option>
-              </select>
+              </SelectField>
             )}
-            <select
+            <SelectField size="sm"
               value={stroke.style ?? 'solid'}
               onChange={(e) => setStroke({ style: e.target.value as StrokeStyle['style'] })}
-              style={FIELD}
+             
             >
               <option value="solid">Solid</option>
               <option value="dashed">Dashed</option>
               <option value="dotted">Dotted</option>
-            </select>
+            </SelectField>
           </Frame>
         </>
       )}
@@ -1067,7 +1049,7 @@ function VectorSection({
         <Frame flow="horizontal" align="center" justify="between" w="fill">
           <Label>{`${node.points?.length ?? 0} POINTS`}</Label>
           <label style={{ ...MONO, fontSize: 9, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input type="checkbox" checked={!!node.closed} onChange={(e) => onVectorChange(node.id, { closed: e.target.checked })} />
+            <Checkbox checked={!!node.closed} onChange={(checked) => onVectorChange(node.id, { closed: checked })} />
             CLOSED
           </label>
         </Frame>

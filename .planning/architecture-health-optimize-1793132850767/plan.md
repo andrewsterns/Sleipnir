@@ -6,6 +6,8 @@
 
 ## 1. Graph metrics core
 <!-- step:plan/architecture-health-optimize-1793132850767/graph-metrics-core-1793132850850 -->
+**Status:** Done — Backfilled: checked in the code (graphCore/analyze.mjs, Health lens and panel, analyze_architecture, /optimize)
+
 One dependency-free module (node builtins only) that turns {files, import edges} into the numbers everything else uses: fan-in and fan-out per file, instability (fan-out / (fan-in + fan-out)), cycles via strongly connected components, dead files (no importers, not an entry point), hubs, clusters (label propagation) and reverse reachability for blast radius. Lives beside the other vendored CLIs so the app, the in-app agent and terminal agents all compute identical results — the AI never estimates a number.
 
 **Files**
@@ -17,6 +19,8 @@ One dependency-free module (node builtins only) that turns {files, import edges}
 
 ## 2. Metrics on the Planning graph
 <!-- step:plan/architecture-health-optimize-1793132850767/metrics-on-the-planning-graph-1793132850946 -->
+**Status:** Done — Backfilled: checked in the code (graphCore/analyze.mjs, Health lens and panel, analyze_architecture, /optimize)
+
 Feed the edges Sleipnir already detects (importAdapters/detectEdges) through the metrics core, memoized per graph so a re-scan only recomputes what changed. Adds fan-in/fan-out, cycle membership and dead-file flags to graph nodes without changing the layout data. Zero tokens: purely local.
 
 **Files**
@@ -33,6 +37,8 @@ Feed the edges Sleipnir already detects (importAdapters/detectEdges) through the
 
 ## 3. Health lens on the graph
 <!-- step:plan/architecture-health-optimize-1793132850767/health-lens-on-the-graph-1793132851059 -->
+**Status:** Done — Backfilled: checked in the code (graphCore/analyze.mjs, Health lens and panel, analyze_architecture, /optimize)
+
 An optional 'Health' view toggle beside ARCHITECTURE / PLAN ONLY, so the default all-white graph is untouched. With it on: node size grows with fan-in, counts (imports and imported-by) on hover or selection, cycles drawn red, wrong-direction imports amber, dead files faded. Visual rules live in a pure module so they are testable and theme tokens carry the colors in light and dark.
 
 **Files**
@@ -51,6 +57,8 @@ An optional 'Health' view toggle beside ARCHITECTURE / PLAN ONLY, so the default
 
 ## 4. Readable large graphs
 <!-- step:plan/architecture-health-optimize-1793132850767/readable-large-graphs-1793132851209 -->
+**Status:** Proposed — Partly done: folders collapse into one node; hiding labels by zoom is not built
+
 Big projects overlap today. Hide labels below a zoom level except for important nodes (high fan-in, selected, neighbours), collapse folders into single nodes with an aggregate count and expand on click, and keep the force layout stable when collapsing. Makes the health view legible at repo scale.
 
 **Files**
@@ -67,6 +75,8 @@ Big projects overlap today. Hide labels below a zoom level except for important 
 
 ## 5. Health panel and blast radius
 <!-- step:plan/architecture-health-optimize-1793132850767/health-panel-and-blast-radius-1793132851352 -->
+**Status:** Done — Backfilled: checked in the code (graphCore/analyze.mjs, Health lens and panel, analyze_architecture, /optimize)
+
 A panel next to the graph listing hubs, cycles, wrong-direction imports, dead files and (later) hotspots, each clickable to focus the graph. Selecting a file in the Health view lights up everything that depends on it, directly or not — its blast radius, for safer changes and faster debugging.
 
 **Files**
@@ -83,6 +93,8 @@ A panel next to the graph listing hubs, cycles, wrong-direction imports, dead fi
 
 ## 6. analyze_architecture agent tool
 <!-- step:plan/architecture-health-optimize-1793132850767/analyze-architecture-agent-tool-1793132851608 -->
+**Status:** Done — Backfilled: checked in the code (graphCore/analyze.mjs, Health lens and panel, analyze_architecture, /optimize)
+
 An in-app agent tool that runs the metrics core on the open project and returns a compact, capped report (top 20 hubs, every cycle up to a limit, violations, hotspots, per-file counts on request) — a few thousand tokens instead of source code. The agent then reads only the files it decides to change. Scoping by folder and a goal keep it smaller still.
 
 **Files**
@@ -97,6 +109,8 @@ An in-app agent tool that runs the metrics core on the open project and returns 
 
 ## 7. C:/Program Files/Git/optimize command
 <!-- step:plan/architecture-health-optimize-1793132850767/c-program-files-git-optimize-command-1793132851778 -->
+**Status:** Done — Backfilled: checked in the code (graphCore/analyze.mjs, Health lens and panel, analyze_architecture, /optimize)
+
 /optimize [folder] [for <goal>] in the app and in Claude Code, Codex and Gemini: get the report (analyze_architecture, or node .sleipnir/analyze.mjs report for terminal agents), decide improvements, and draft them as a reviewable plan in the Planning graph via the existing plan tool — each step naming the files it moves, extracts or splits. Nothing changes until a step is approved. Scaffolded like /plan, /frame and /component, and listed in the chat's slash suggestions.
 
 **Edits**
@@ -112,6 +126,8 @@ An in-app agent tool that runs the metrics core on the open project and returns 
 
 ## 8. Measure every approved step
 <!-- step:plan/architecture-health-optimize-1793132850767/measure-every-approved-step-1793132851912 -->
+**Status:** Proposed
+
 Snapshot the metrics when an /optimize plan is created and again after each step is approved and built, then show the change on the step and in the plan status bar (cycles 3 → 1, ExamplePage fan-in 3 → 0, largest hub 22 → 14). Turns 'did this help?' into a number, and flags a step that made things worse.
 
 **Files**

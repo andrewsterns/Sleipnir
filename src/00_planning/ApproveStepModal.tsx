@@ -5,19 +5,10 @@ import { Card } from '../app/UIKit/Card/Card'
 import { Button } from '../app/UIKit/Button/Button'
 import { Text } from '../app/UIKit/Text/Text'
 import { useApproveStepViewModel, type ApproveStepModalProps } from './ApproveStepModal.ViewModel'
+import { TextArea, TextField } from '../app/UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 const PLAN_COLOR = 'var(--graph-plan, #5b9dff)'
-
-const INPUT_STYLE: React.CSSProperties = {
-  background: 'var(--bg-2)',
-  border: '1px solid var(--border-2)',
-  borderRadius: 'var(--radius-control)',
-  color: 'var(--text-1)',
-  fontSize: 12,
-  padding: '7px 9px',
-  ...MONO,
-}
 
 const SECTION_LABEL: React.CSSProperties = { fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-3)', ...MONO }
 
@@ -70,12 +61,12 @@ export function ApproveStepModal(props: ApproveStepModalProps) {
                 return (
                   <Frame key={f.nodeId} flow="vertical" gap={6} padding={8} radius="var(--radius-control)" stroke={{ color: f.problem ? 'border-2' : 'border-1' }}>
                     <Frame flow="horizontal" align="center" gap={6}>
-                      <input
+                      <TextField size="lg"
                         value={f.rawPath}
                         onChange={(e) => vm.setPath(f.nodeId, e.target.value)}
                         disabled={vm.submitting}
                         aria-label="File path"
-                        style={{ ...INPUT_STYLE, flex: 1, minWidth: 0 }}
+                        style={{ flex: 1, minWidth: 0 }}
                       />
                       <span style={{ fontSize: 9, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}>
                         {f.role}
@@ -88,14 +79,14 @@ export function ApproveStepModal(props: ApproveStepModalProps) {
                     {f.problem && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{f.problem}</span>}
                     {expanded && (
                       <Frame flow="vertical" gap={4}>
-                        <textarea
+                        <TextArea size="lg"
                           value={f.content}
                           onChange={(e) => vm.setContent(f.nodeId, e.target.value)}
                           disabled={vm.submitting}
                           rows={10}
                           spellCheck={false}
                           aria-label={`Contents of ${f.path}`}
-                          style={{ ...INPUT_STYLE, fontSize: 11, resize: 'vertical', whiteSpace: 'pre' }}
+                          style={{ fontSize: 11, resize: 'vertical', whiteSpace: 'pre' }}
                         />
                         {f.contentEdited && (
                           <Frame flow="horizontal" justify="end">

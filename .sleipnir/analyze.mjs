@@ -22,8 +22,15 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { analyzeGraph, blastRadius, dependenciesOf, featureScope, featureTerms, formatReport } from './graphCore.mjs'
+import { LANGUAGES, languageForPath } from './languages.mjs'
 
-const SOURCE_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts', '.vue', '.svelte', '.py', '.go', '.rs'])
+// The import syntaxes this scanner reads. A language in the table whose
+// syntax isn't here is left out entirely: listing files it can't read the
+// imports of would only report them all as unused.
+const PARSED_SYNTAX = new Set(['js', 'python', 'go', 'rust', 'c', 'jvm', 'swift', 'csharp'])
+const SOURCE_EXT = new Set(LANGUAGES.filter((l) => PARSED_SYNTAX.has(l.imports)).flatMap((l) => l.extensions.map((e) => `.${e}`)))
+// The order an extensionless JS import tries extensions in — a resolver
+// preference (.ts before .tsx), so it stays spelled out.
 const JS_EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts', '.vue', '.svelte']
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'release', 'coverage', 'target', '__pycache__', 'venv', '.venv', 'vendor', 'tmp'])
 const MANIFESTS = ['package.json', 'go.mod', 'Cargo.toml', 'pyproject.toml', 'setup.py']
@@ -165,6 +172,19 @@ function goImports(src) {
   return specs
 }
 
+// `#include "x.h"` and `#include <x.h>`: whether it was quoted, and the path.
+function cIncludes(src) {
+  const code = stripComments(src)
+  return [...code.matchAll(/^[ \t]*#[ \t]*include[ \t]*([<"])([^>"\n]+)[>"]/gm)].map((m) => ({ quoted: m[1] === '"', spec: m[2] }))
+}
+
+// `import com.shop.cart.CartView` (Java, with ;) and `import com.shop.cart.CartView` (Kotlin).
+// Wildcards name a package, not a file, and are skipped.
+function jvmImports(src) {
+  const code = stripComments(src)
+  return [...code.matchAll(/^[ \t]*import[ \t]+(?:static[ \t]+)?([\w.]+?)(\.\*)?[ \t]*;?[ \t]*$/gm)].filter((m) => !m[2]).map((m) => m[1])
+}
+
 function rustImports(src) {
   const code = stripComments(src)
   const mods = [...code.matchAll(/^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;/gm)].map((m) => m[1])
@@ -294,6 +314,11 @@ function runsItself(file, src) {
   if (file.endsWith('.py')) return /^if\s+__name__\s*==\s*['"]__main__['"]/m.test(src)
   if (file.endsWith('.go')) return /^package\s+main\b/m.test(src) && /\bfunc\s+main\s*\(\s*\)/.test(src)
   if (file.endsWith('.rs')) return /\bfn\s+main\s*\(\s*\)/.test(src)
+  if (/\.(c|cc|cpp|cxx)$/.test(file)) return /\bint\s+main\s*\(/.test(src)
+  if (file.endsWith('.java')) return /\bstatic\s+void\s+main\s*\(/.test(src)
+  if (file.endsWith('.kt')) return /^\s*fun\s+main\s*\(/m.test(src)
+  if (file.endsWith('.swift')) return /(^|\/)main\.swift$/.test(file) || /^\s*@main\b/m.test(src)
+  if (file.endsWith('.cs')) return /(^|\/)Program\.cs$/.test(file) || /\bstatic\s+(?:async\s+)?(?:void|int|Task(?:<int>)?)\s+Main\s*\(/.test(src)
   return false
 }
 
@@ -319,6 +344,23 @@ export function scanProject(root) {
     const dir = path.posix.dirname(f)
     if (!goPackages.has(dir)) goPackages.set(dir, [])
     goPackages.get(dir).push(f)
+  }
+
+  // C/C++: a quoted include is looked up beside the file first; failing that,
+  // and for <...>, any project file ending with the path, include/ and src/
+  // first, then the shortest. Java/Kotlin: classes by their path under a
+  // java/ or kotlin/ source root (com/shop/cart/CartView).
+  const cFiles = files.filter((f) => languageForPath(f)?.imports === 'c')
+  const findHeader = (spec) => {
+    const suffix = `/${spec.replace(/^\.\//, '')}`
+    const hits = cFiles.filter((p) => p === spec || p.endsWith(suffix))
+    const rank = (p) => (/(^|\/)include\//.test(p) ? 0 : /(^|\/)src\//.test(p) ? 1 : 2)
+    return hits.sort((a, b) => rank(a) - rank(b) || a.length - b.length || a.localeCompare(b))[0] ?? null
+  }
+  const jvmClasses = new Map()
+  for (const f of files) {
+    const m = f.match(/(?:^|\/)(?:java|kotlin)\/(.+)\.(java|kt)$/)
+    if (m && !jvmClasses.has(m[1])) jvmClasses.set(m[1], f)
   }
 
   const edges = []
@@ -351,8 +393,8 @@ export function scanProject(root) {
     }
     contents[f] = src
     lines[f] = src.split('\n').length
-    const e = path.extname(f)
-    if (JS_EXT.includes(e)) {
+    const syntax = languageForPath(f)?.imports
+    if (syntax === 'js') {
       const { found, reexports: re } = jsImports(src)
       if (re) reexports[f] = re
       for (const { spec, kind } of found) {
@@ -360,7 +402,7 @@ export function scanProject(root) {
         if (r.file) edge(f, r.file, kind)
         else ext(f, r.pkg)
       }
-    } else if (e === '.py') {
+    } else if (syntax === 'python') {
       for (const imp of pyImports(src)) {
         const baseDir = imp.dots ? path.posix.dirname(f).split('/').slice(0, Math.max(0, path.posix.dirname(f).split('/').length - (imp.dots - 1))).join('/') : ''
         const roots = imp.dots ? [baseDir] : ['', 'src', path.posix.dirname(f)]
@@ -384,14 +426,14 @@ export function scanProject(root) {
         if (hit && hit !== 'sub') edge(f, hit, 'static')
         else if (!hit && !imp.dots) ext(f, imp.module.split('.')[0])
       }
-    } else if (e === '.go') {
+    } else if (syntax === 'go') {
       for (const spec of goImports(src)) {
         if (goModule && (spec === goModule || spec.startsWith(`${goModule}/`))) {
           const dir = spec.slice(goModule.length).replace(/^\//, '') || '.'
           for (const target of goPackages.get(dir) ?? []) edge(f, target, 'static')
         } else if (spec.split('/')[0].includes('.')) ext(f, spec.split('/').slice(0, 3).join('/'))
       }
-    } else if (e === '.rs') {
+    } else if (syntax === 'rust') {
       const { mods, uses } = rustImports(src)
       const dir = path.posix.dirname(f)
       const stem = path.posix.basename(f, '.rs')
@@ -421,10 +463,56 @@ export function scanProject(root) {
         }
         edge(f, target, 'static')
       }
+    } else if (syntax === 'c') {
+      for (const { quoted, spec } of cIncludes(src)) {
+        const beside = path.posix.normalize(path.posix.join(path.posix.dirname(f), spec))
+        if (quoted && fileSet.has(beside)) edge(f, beside, 'static')
+        else edge(f, findHeader(spec), 'static')
+      }
+    } else if (syntax === 'jvm') {
+      for (const spec of jvmImports(src)) {
+        // A static import names a member: drop segments until a class matches.
+        const segs = spec.split('.')
+        for (let n = segs.length; n > 0; n -= 1) {
+          const hit = jvmClasses.get(segs.slice(0, n).join('/'))
+          if (hit) {
+            edge(f, hit, 'static')
+            break
+          }
+        }
+      }
     }
   }
 
-  const keep = files.filter((f) => KEEP_MARKER.test(contents[f] ?? ''))
+  // Same-package Java/Kotlin and same-module Swift/C# code uses types without
+  // importing them. Index the types each file declares, then link a file to
+  // the declaring one wherever it names a type — Java and Kotlin within their
+  // folder (imports cover the rest), Swift and C# across their language.
+  const byType = files.filter((f) => ['jvm', 'swift', 'csharp'].includes(languageForPath(f)?.imports))
+  const declared = new Map()
+  for (const f of byType) {
+    for (const m of stripComments(contents[f] ?? '').matchAll(/\b(?:class|interface|enum|record|struct|protocol|object|actor)\s+([A-Z]\w{2,})/g)) {
+      if (!declared.has(m[1])) declared.set(m[1], f)
+    }
+  }
+  for (const f of byType) {
+    const syntax = languageForPath(f)?.imports
+    for (const word of new Set(stripComments(contents[f] ?? '').match(/\b[A-Z]\w{2,}\b/g) ?? [])) {
+      const target = declared.get(word)
+      if (!target || target === f || languageForPath(target)?.imports !== syntax) continue
+      if (syntax === 'jvm' && path.posix.dirname(target) !== path.posix.dirname(f)) continue
+      edge(f, target, 'static')
+    }
+  }
+
+  // A C or C++ source isn't included by anything — it implements its header,
+  // and the build links it. It's in use when its header is, so it's never
+  // reported unused on its own.
+  // Its header may sit beside it or in an include folder, so match by name.
+  const headerNames = new Set(cFiles.filter((f) => /\.(h|hh|hpp|hxx)$/.test(f)).map((f) => path.posix.basename(f).replace(/\.[^.]+$/, '')))
+  const implementsHeader = files.filter((f) => /\.(c|cc|cpp|cxx)$/.test(f) && headerNames.has(path.posix.basename(f).replace(/\.[^.]+$/, '')))
+
+  const keep = [...files.filter((f) => KEEP_MARKER.test(contents[f] ?? '')), ...implementsHeader]
   return { files, edges, lines, external, reexports, entries: entryPoints(root, files, fileSet, contents), keep, contents }
 }
 

@@ -65,6 +65,7 @@ vi.mock('../00_planning/api/sleipnirApi', () => ({
 }))
 
 import { CanvasView } from './CanvasView'
+import { deleteWorkspacePath } from '../00_planning/api/sleipnirApi'
 import { reconcileDelete } from './model/store'
 
 const PROJECT = { path: 'C:/proj', name: 'proj' }
@@ -170,21 +171,18 @@ function currentDoc() {
   return savedDocs()[0]
 }
 
-/**
- * The Create Component dialog. Scoped so its NAME field is unambiguous, and
- * matched on the title SPAN so it never picks up the inspector's identically
- * labelled "Create component" button.
- *
- * No longer reachable from promotion — promoting writes its own file. This is
- * the rename/retarget dialog, opened from the inspector over a component that
- * already exists.
- */
-async function findModal(): Promise<HTMLElement> {
-  // Titled CREATE or EDIT depending on whether the component already has a
-  // file — matched on either so callers don't have to care which mode they
-  // opened it in.
-  const title = await screen.findByText(/^(CREATE|EDIT) COMPONENT$/, { selector: 'span' })
-  return title.parentElement as HTMLElement
+/** Every path the canvas asked the workspace to delete — files and the folders it pruned. */
+function deletedPaths(): string[] {
+  return vi.mocked(deleteWorkspacePath).mock.calls.map(([p]) => p as string)
+}
+
+/** Adds a variant with the properties panel's add-variant button, then names it in the VARIANTS list. */
+async function addVariantNamed(name: string): Promise<void> {
+  const before = screen.queryAllByDisplayValue(/^Variant \d+$/).length
+  fireEvent.click(await screen.findByTitle('Add variant'))
+  await waitFor(() => expect(screen.queryAllByDisplayValue(/^Variant \d+$/).length).toBeGreaterThan(before))
+  const fields = screen.getAllByDisplayValue(/^Variant \d+$/)
+  fireEvent.change(fields[fields.length - 1], { target: { value: name } })
 }
 
 /** Real component code — everything written outside the board store. */
@@ -205,7 +203,7 @@ function componentFiles(): string[] {
  */
 async function promoteFrame(): Promise<void> {
   const before = componentFiles().length
-  fireEvent.click(await screen.findByText('CREATE COMPONENT', { selector: 'button' }))
+  fireEvent.click(await screen.findByTitle(/^Make component/))
   await waitFor(() => expect(componentFiles()).toHaveLength(before + 1))
 }
 
@@ -365,10 +363,10 @@ describe('CanvasView', () => {
     // path with no dialog, and the component records it — the two-step
     // "promote, then approve somewhere" flow is gone.
     expect(saved.components[0].componentRoot).toBe('.components')
-    expect(componentFiles()).toEqual(['.components/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
-      expect(component.filePath).toBe('.components/frame/frame.tsx')
+      expect(component.filePath).toBe('.components/untitled/frame/frame.tsx')
       expect(component.sync).toBe('live')
       expect(component.lastWrittenHash).toBeTruthy()
     })
@@ -390,10 +388,10 @@ describe('CanvasView', () => {
     drawFrame(300, 320, 440, 420)
     await promoteFrame()
 
-    expect(componentFiles().sort()).toEqual(['.components/frame-2/frame.tsx', '.components/frame/frame.tsx'])
+    expect(componentFiles().sort()).toEqual(['.components/untitled/frame-2/frame.tsx', '.components/untitled/frame/frame.tsx'])
     await waitFor(() => {
       const paths = savedDocs()[0].components.map((c: { filePath?: string }) => c.filePath).sort()
-      expect(paths).toEqual(['.components/frame-2/frame.tsx', '.components/frame/frame.tsx'])
+      expect(paths).toEqual(['.components/untitled/frame-2/frame.tsx', '.components/untitled/frame/frame.tsx'])
     })
   })
 
@@ -404,10 +402,7 @@ describe('CanvasView', () => {
     drawFrame()
     await promoteFrame()
 
-    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
-    const input = screen.getByPlaceholderText('variant name')
-    fireEvent.change(input, { target: { value: 'Hover' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    await addVariantNamed('Hover')
 
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
@@ -428,10 +423,7 @@ describe('CanvasView', () => {
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
-    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
-    const input = screen.getByPlaceholderText('variant name')
-    fireEvent.change(input, { target: { value: 'Hover' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    await addVariantNamed('Hover')
 
     const trigger = await screen.findByTitle('Preview next variant')
     fireEvent.click(trigger)
@@ -448,7 +440,7 @@ describe('CanvasView', () => {
     await screen.findByText('EMPTY BOARD')
     drawFrame()
 
-    fireEvent.click(await screen.findByText('CREATE COMPONENT', { selector: 'button' }))
+    fireEvent.click(await screen.findByTitle(/^Make component/))
 
     // No dialog stands between the frame and its file. The old flow opened one
     // here and only wrote on APPROVE, which is what made "I promoted it and
@@ -467,9 +459,9 @@ describe('CanvasView', () => {
     drawFrame()
     await promoteFrame()
 
-    expect(componentFiles()).toEqual(['.components/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
 
-    const source = files.get('.components/frame/frame.tsx')!
+    const source = files.get('.components/untitled/frame/frame.tsx')!
     expect(source).toContain('export type FrameProps = Record<string, never>')
     expect(source).toContain('export const Frame = () => {')
     expect(source).toContain('// <sleipnir:layout component=')
@@ -479,19 +471,22 @@ describe('CanvasView', () => {
     expect(source).toContain('<div style={{')
   })
 
-  it('removes a component file without leaving its folder behind', async () => {
+  it('flattening removes the component file without leaving its folders behind', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
 
-    fireEvent.click(await screen.findByText('REMOVE FROM WORKSPACE'))
+    vi.mocked(deleteWorkspacePath).mockClear()
+    fireEvent.click(await screen.findByTitle(/flatten back to a frame/))
 
     // The file goes, and so does the folder promotion made for it — a hollow
     // directory reads as "something was supposed to be here", and under
     // automatic promotion they would accumulate one per discarded experiment.
     await waitFor(() => expect(componentFiles()).toEqual([]))
+    // Nor the board folder it sat in, now that it holds nothing.
+    expect(deletedPaths()).toContain('.components/untitled')
 
     // And because promotion always writes a file, a component with no file is
     // no longer a rung on the ladder — it is what a frame is. This one carried
@@ -509,21 +504,18 @@ describe('CanvasView', () => {
     expect(currentDoc().components).toHaveLength(0)
   })
 
-  it('flattens a staged component that carries variants when its file is removed, and undo brings both back', async () => {
+  it('flattening a component that carries variants removes its file, and undo brings both back', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
 
-    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
-    const input = screen.getByPlaceholderText('variant name')
-    fireEvent.change(input, { target: { value: 'Hover' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    await addVariantNamed('Hover')
     await waitFor(() => expect(currentDoc().components[0].variants).toHaveLength(2))
-    const written = files.get('.components/frame/frame.tsx')
+    const written = files.get('.components/untitled/frame/frame.tsx')
 
-    fireEvent.click(await screen.findByText('REMOVE FROM WORKSPACE'))
+    fireEvent.click(await screen.findByTitle(/flatten back to a frame/))
 
     // In `.components` the file and the component are one thing, so a component
     // with no file there is a state that must not exist: it goes back to
@@ -538,7 +530,7 @@ describe('CanvasView', () => {
     // variants for good. Undo now restores the component AND its file, byte
     // for byte.
     fireEvent.click(screen.getByText('UNDO'))
-    await waitFor(() => expect(files.get('.components/frame/frame.tsx')).toBe(written))
+    await waitFor(() => expect(files.get('.components/untitled/frame/frame.tsx')).toBe(written))
     await waitFor(() => expect(currentDoc().components[0]?.variants).toHaveLength(2))
   })
 
@@ -548,7 +540,7 @@ describe('CanvasView', () => {
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
-    const written = files.get('.components/frame/frame.tsx')
+    const written = files.get('.components/untitled/frame/frame.tsx')
 
     // The instance is selected after promotion; Delete is the board's own key.
     fireEvent.keyDown(window, { key: 'Delete' })
@@ -560,7 +552,7 @@ describe('CanvasView', () => {
     })
 
     fireEvent.click(screen.getByText('UNDO'))
-    await waitFor(() => expect(files.get('.components/frame/frame.tsx')).toBe(written))
+    await waitFor(() => expect(files.get('.components/untitled/frame/frame.tsx')).toBe(written))
     await waitFor(() => expect(currentDoc().components).toHaveLength(1))
   })
 
@@ -576,7 +568,7 @@ describe('CanvasView', () => {
     await waitFor(() => expect(currentDoc().nodes[0]?.kind).toBe('frame'))
 
     fireEvent.click(screen.getByText('REDO'))
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/frame/frame.tsx']))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx']))
     await waitFor(() => expect(currentDoc().components).toHaveLength(1))
   })
 
@@ -612,12 +604,12 @@ describe('CanvasView', () => {
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
-    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/frame/frame.tsx'))
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitled/frame/frame.tsx'))
     first.unmount()
 
     // Moved in VS Code: Sleipnir never saw it, so nothing reconciled the board.
-    files.set('src/ui/frame/frame.tsx', files.get('.components/frame/frame.tsx')!)
-    files.delete('.components/frame/frame.tsx')
+    files.set('src/ui/frame/frame.tsx', files.get('.components/untitled/frame/frame.tsx')!)
+    files.delete('.components/untitled/frame/frame.tsx')
 
     render(<CanvasView activeProject={PROJECT} />)
 
@@ -636,11 +628,11 @@ describe('CanvasView', () => {
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
-    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/frame/frame.tsx'))
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitled/frame/frame.tsx'))
     first.unmount()
 
-    const source = files.get('.components/frame/frame.tsx')!
-    files.delete('.components/frame/frame.tsx')
+    const source = files.get('.components/untitled/frame/frame.tsx')!
+    files.delete('.components/untitled/frame/frame.tsx')
     files.set('src/a/frame.tsx', source)
     files.set('src/b/frame.tsx', source)
 
@@ -650,7 +642,7 @@ describe('CanvasView', () => {
 
     // Picking one of two copies would be a guess; it says what happened instead.
     expect(await screen.findByText(/is gone — it was moved or deleted outside Sleipnir/)).toBeInTheDocument()
-    expect(currentDoc().components[0].filePath).toBe('.components/frame/frame.tsx')
+    expect(currentDoc().components[0].filePath).toBe('.components/untitled/frame/frame.tsx')
   })
 
   it('removes the staged file when a component is flattened to a frame', async () => {
@@ -660,7 +652,7 @@ describe('CanvasView', () => {
     drawFrame()
     await promoteFrame()
 
-    fireEvent.click(await screen.findByText('FLATTEN TO FRAME'))
+    fireEvent.click(await screen.findByTitle(/flatten back to a frame/))
 
     await waitFor(() => expect(componentFiles()).toEqual([]))
     await waitFor(() => expect(currentDoc().components).toHaveLength(0))
@@ -672,7 +664,7 @@ describe('CanvasView', () => {
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
-    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/frame/frame.tsx'))
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitled/frame/frame.tsx'))
 
     fireEvent.click(screen.getByTitle('Delete this board'))
 
@@ -711,96 +703,108 @@ describe('CanvasView', () => {
     drawFrame()
     await promoteFrame()
 
-    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
-    const input = screen.getByPlaceholderText('variant name')
-    fireEvent.change(input, { target: { value: 'Hover' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    await addVariantNamed('Hover')
     await waitFor(() => expect(currentDoc().components[0].variants).toHaveLength(2))
 
-    fireEvent.click(await screen.findByText('FLATTEN TO FRAME'))
+    fireEvent.click(await screen.findByTitle(/flatten back to a frame/))
 
     await waitFor(() => expect(currentDoc().components).toHaveLength(0))
     expect(currentDoc().nodes[0].kind).toBe('frame')
   })
 
-  it('renames a live component, carrying its file and its exported symbol along', async () => {
+  it('renames a live component from its name field, carrying its file and its exported symbol along', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
 
-    // Naming used to happen in the dialog that gated promotion. Promotion no
-    // longer opens one, so this is the path that has to keep working — it was
-    // reachable-but-disabled before, which would have left components stuck
-    // with whatever the frame happened to be called.
-    fireEvent.click(await screen.findByText('RENAME / MOVE…'))
-    const modal = await findModal()
-    expect(within(modal).getByText('EDIT COMPONENT')).toBeInTheDocument()
-    fireEvent.change(within(modal).getByDisplayValue('Frame'), { target: { value: 'Card' } })
-    fireEvent.click(within(modal).getByText('SAVE'))
+    // The properties panel's name field IS the component's name now — no
+    // separate rename dialog.
+    const name = await screen.findByTitle(/^Component name/)
+    fireEvent.change(name, { target: { value: 'Card' } })
+    fireEvent.keyDown(name, { key: 'Enter' })
+    fireEvent.blur(name)
 
     // The file moves, and the old one (plus its now-empty folder) goes.
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/card/card.tsx']))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/card/card.tsx']))
 
     // The rename reaches INSIDE the file, not just the board — a file called
     // card.tsx still exporting `Frame` would be the worse half-outcome.
-    const source = files.get('.components/card/card.tsx')!
+    const source = files.get('.components/untitled/card/card.tsx')!
     expect(source).toContain('export type CardProps = Record<string, never>')
     expect(source).toContain('export const Card = () => {')
     expect(source).not.toContain('export const Frame')
 
     await waitFor(() => {
-      const component = savedDocs()[0].components[0]
-      expect(component.name).toBe('Card')
-      expect(component.filePath).toBe('.components/card/card.tsx')
+      const doc = savedDocs()[0]
+      expect(doc.components[0].name).toBe('Card')
+      expect(doc.components[0].filePath).toBe('.components/untitled/card/card.tsx')
+      // The instance was still called what the component was, so it follows.
+      expect(doc.nodes[0].name).toBe('Card')
     })
+    // And the path field shows where it went.
+    expect(screen.getByDisplayValue('.components/untitled/card/card.tsx')).toBeInTheDocument()
   })
 
-  it('saving the rename dialog unchanged relocates nothing', async () => {
+  it('leaving the name and path fields unchanged relocates nothing', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
 
-    fireEvent.click(await screen.findByText('RENAME / MOVE…'))
-    fireEvent.click(within(await findModal()).getByText('SAVE'))
+    const name = await screen.findByTitle(/^Component name/)
+    fireEvent.focus(name)
+    fireEvent.blur(name)
+    const path = screen.getByDisplayValue('.components/untitled/frame/frame.tsx')
+    fireEvent.focus(path)
+    fireEvent.keyDown(path, { key: 'Enter' })
+    fireEvent.blur(path)
 
-    // The folder field is seeded from where the file actually is, so a no-op
-    // save is a no-op — not a move to a freshly derived path.
-    await waitFor(() => {
-      expect(screen.queryByText('EDIT COMPONENT')).not.toBeInTheDocument()
-    })
-    expect(componentFiles()).toEqual(['.components/frame/frame.tsx'])
+    await new Promise((r) => setTimeout(r, 50))
+    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
   })
 
-  it('keeps a deliberately filed component where it was put across a rename', async () => {
+  it('moves a component from its path field, and keeps it there across a rename', async () => {
     render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
     drawFrame()
     await promoteFrame()
 
-    // File it somewhere of our own choosing first.
-    fireEvent.click(await screen.findByText('RENAME / MOVE…'))
-    const first = await findModal()
-    // The FOLDER field's placeholder is the auto-derived folder it would use.
-    fireEvent.change(within(first).getByPlaceholderText('frame'), { target: { value: 'widgets' } })
-    fireEvent.click(within(first).getByText('SAVE'))
+    // File it somewhere of our own choosing: the path is typed out in full.
+    const path = await screen.findByDisplayValue('.components/untitled/frame/frame.tsx')
+    fireEvent.change(path, { target: { value: '.components/widgets/frame.tsx' } })
+    fireEvent.keyDown(path, { key: 'Enter' })
     await waitFor(() => expect(componentFiles()).toEqual(['.components/widgets/frame.tsx']))
+    await waitFor(() => expect(savedDocs()[0].components[0].filePath).toBe('.components/widgets/frame.tsx'))
 
     // Renaming must not drag it back to an auto-derived folder — that choice
     // was made on purpose and outranks the naming convention.
-    fireEvent.click(await screen.findByText('RENAME / MOVE…'))
-    const second = await findModal()
-    fireEvent.change(within(second).getByDisplayValue('Frame'), { target: { value: 'Card' } })
-    fireEvent.click(within(second).getByText('SAVE'))
+    const name = screen.getByTitle(/^Component name/)
+    fireEvent.change(name, { target: { value: 'Card' } })
+    fireEvent.blur(name)
 
     await waitFor(() => expect(componentFiles()).toEqual(['.components/widgets/card.tsx']))
+    expect(files.get('.components/widgets/card.tsx')).toContain('export const Card = () => {')
   })
 
-  it('writes a detached component back into the workspace through the modal', async () => {
+  it('refuses a path outside the component root, saying why, and writes nothing', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await promoteFrame()
+
+    const path = await screen.findByDisplayValue('.components/untitled/frame/frame.tsx')
+    fireEvent.change(path, { target: { value: '../outside/frame.tsx' } })
+    fireEvent.keyDown(path, { key: 'Enter' })
+    expect((await screen.findAllByText(/outside|escape/i)).length).toBeGreaterThan(0)
+    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
+  })
+
+  it('writes a detached component back into the workspace from the panel', async () => {
     const first = render(<CanvasView activeProject={PROJECT} />)
     fireEvent.click(await screen.findByText('CREATE A BOARD'))
     await screen.findByText('EMPTY BOARD')
@@ -810,42 +814,33 @@ describe('CanvasView', () => {
     // A variant first, so deleting the file leaves the component DETACHED
     // rather than dissolving it — a bare component would be un-promoted back
     // to a frame and there would be nothing left to push.
-    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
-    const variantField = screen.getByPlaceholderText('variant name')
-    fireEvent.change(variantField, { target: { value: 'Hover' } })
-    fireEvent.keyDown(variantField, { key: 'Enter' })
+    await addVariantNamed('Hover')
     await waitFor(() => expect(currentDoc().components[0].variants).toHaveLength(2))
 
     // Detached is now only reachable from OUTSIDE the canvas — the file deleted
     // in the Workspace tree, where there is no undo to bring the variants back
-    // (inside the canvas, removing a staged file flattens instead). PUSH TO
-    // WORKSPACE is the way back from it.
+    // (inside the canvas, removing a staged file flattens instead).
     first.unmount()
-    files.delete('.components/frame/frame.tsx')
-    await reconcileDelete('.components/frame/frame.tsx')
+    files.delete('.components/untitled/frame/frame.tsx')
+    await reconcileDelete('.components/untitled/frame/frame.tsx')
     render(<CanvasView activeProject={PROJECT} />)
     await screen.findAllByText('Frame')
     clickAt(200, 200)
 
-    fireEvent.click(await screen.findByText('PUSH TO WORKSPACE'))
-    const modal = await findModal()
-    fireEvent.change(within(modal).getByDisplayValue('Frame'), { target: { value: 'Card' } })
+    // The path field already holds where it would go; one button writes it.
+    expect(await screen.findByDisplayValue('.components/untitled/frame/frame.tsx')).toBeInTheDocument()
+    fireEvent.click(await screen.findByText('WRITE TO WORKSPACE'))
 
-    // It still shows exactly what will be produced.
-    expect(await within(modal).findByText(/export const Card · CardProps/)).toBeInTheDocument()
-
-    fireEvent.click(within(modal).getByText('APPROVE'))
-
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/card/card.tsx']))
-    const source = files.get('.components/card/card.tsx')!
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx']))
+    const source = files.get('.components/untitled/frame/frame.tsx')!
     // The variant added above is a real prop, so it reaches the interface and
     // the signature — the fresh emit carries the component's whole shape.
     expect(source).toContain("state?: 'default' | 'hover'")
-    expect(source).toContain("export const Card = ({ state = 'default' }: CardProps) => {")
+    expect(source).toContain("export const Frame = ({ state = 'default' }: FrameProps) => {")
 
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
-      expect(component.filePath).toBe('.components/card/card.tsx')
+      expect(component.filePath).toBe('.components/untitled/frame/frame.tsx')
       expect(component.sync).toBe('live')
       expect(component.lastWrittenHash).toBeTruthy()
     })
@@ -858,16 +853,13 @@ describe('CanvasView', () => {
     drawFrame()
     await promoteFrame()
 
-    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
-    const variantField = screen.getByPlaceholderText('variant name')
-    fireEvent.change(variantField, { target: { value: 'Hover' } })
-    fireEvent.keyDown(variantField, { key: 'Enter' })
+    await addVariantNamed('Hover')
 
     // The file already exists from promotion, so the new variant reaches it via
     // a push (which splices the region) rather than a first write.
     // Matched loosely: the button carries a ● dirty marker once the canvas has
     // drifted from the file, which is exactly the state we're in here.
-    fireEvent.click(await screen.findByText(/UPDATE COMPONENT/))
+    fireEvent.click(await screen.findByLabelText('Update component'))
 
     const path = componentFiles()[0]
     await waitFor(() => {
@@ -1370,7 +1362,7 @@ describe('CanvasView paint', () => {
 
     await promoteFrame()
     // Top layer first, over the frame's own bg-2 fill as a layer of its own.
-    expect(files.get('.components/frame/frame.tsx')).toContain(
+    expect(files.get('.components/untitled/frame/frame.tsx')).toContain(
       "background: 'radial-gradient(ellipse 50% 50% at 50% 50%, #d9d9d9 0%, rgba(217, 217, 217, 0) 100%), linear-gradient(var(--bg-2), var(--bg-2))',",
     )
   })
@@ -1389,8 +1381,8 @@ describe('CanvasView paint', () => {
     expect(files.get('.components/assets/My-Hero.png')).toBe('iVBORw==')
 
     await promoteFrame()
-    const source = files.get('.components/frame/frame.tsx')!
-    expect(source).toContain("import myHeroImage from '../assets/My-Hero.png'")
+    const source = files.get('.components/untitled/frame/frame.tsx')!
+    expect(source).toContain("import myHeroImage from '../../assets/My-Hero.png'")
     expect(source).toContain('background: `url("${myHeroImage}") center / cover no-repeat, linear-gradient(var(--bg-2), var(--bg-2))`,')
   })
 
@@ -1420,9 +1412,9 @@ describe('CanvasView paint', () => {
     // The instance itself stays unpainted.
     expect(savedDocs()[0].nodes[0].style.effects).toBeUndefined()
 
-    fireEvent.click(await screen.findByText('● UPDATE COMPONENT'))
+    fireEvent.click(await screen.findByLabelText('Update component'))
     await waitFor(() =>
-      expect(files.get('.components/frame/frame.tsx')).toContain("boxShadow: '0px 4px 4px 0px rgba(0, 0, 0, 0.25)',"),
+      expect(files.get('.components/untitled/frame/frame.tsx')).toContain("boxShadow: '0px 4px 4px 0px rgba(0, 0, 0, 0.25)',"),
     )
   })
 
@@ -1541,8 +1533,8 @@ describe('CanvasView shapes, pen and SVG components', () => {
 
     fireEvent.click(await screen.findByText('MAKE SVG COMPONENT'))
 
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/ellipse/ellipse.tsx']))
-    const source = files.get('.components/ellipse/ellipse.tsx')!
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/ellipse/ellipse.tsx']))
+    const source = files.get('.components/untitled/ellipse/ellipse.tsx')!
     expect(source).toContain('export const Ellipse = () => {')
     expect(source).toContain('<svg width={60} height={60} viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">')
     expect(source).toContain('<ellipse cx={30} cy={30} rx={30} ry={30} fill="#d9d9d9" />')
@@ -1577,11 +1569,8 @@ describe('CanvasView shapes, pen and SVG components', () => {
     fireEvent.click(await screen.findByText('MAKE SVG COMPONENT'))
     await waitFor(() => expect(componentFiles()).toHaveLength(1))
 
-    fireEvent.click(await screen.findByText('+ ADD VARIANT'))
-    const field = screen.getByPlaceholderText('variant name')
-    fireEvent.change(field, { target: { value: 'Active' } })
-    fireEvent.keyDown(field, { key: 'Enter' })
-    fireEvent.click(await screen.findByText(/UPDATE COMPONENT/))
+    await addVariantNamed('Active')
+    fireEvent.click(await screen.findByLabelText('Update component'))
 
     await waitFor(() => expect(files.get(componentFiles()[0])).toContain("if (state === 'active') {"))
     expect(files.get(componentFiles()[0])!.match(/<svg /g)).toHaveLength(2)
@@ -1913,5 +1902,97 @@ describe('layout controls in the inspector', () => {
     // Padding per side.
     fireEvent.click(await screen.findByTitle('Padding per side'))
     await waitFor(() => expect(currentDoc().nodes[0].style.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 0 }))
+  })
+})
+
+describe('CanvasView text and components from the properties panel', () => {
+  async function emptyBoard() {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+  }
+  const editor = () => document.querySelector('[data-canvas-text-editor]') as HTMLTextAreaElement | null
+
+  it('types into a new text layer on the board right away, and saves it', async () => {
+    await emptyBoard()
+    fireEvent.click(screen.getByTitle(/^Text \(T\)/))
+    const board = getBoard()
+    fireEvent.pointerDown(board, { clientX: 100, clientY: 120, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(board, { clientX: 300, clientY: 160, button: 0, pointerId: 1 })
+    fireEvent.pointerUp(board, { clientX: 300, clientY: 160, button: 0, pointerId: 1 })
+
+    await waitFor(() => expect(editor()).not.toBeNull())
+    fireEvent.change(editor()!, { target: { value: 'Hello board' } })
+    await waitFor(() => expect(savedDocs()[0].nodes[0].text).toBe('Hello board'))
+
+    fireEvent.keyDown(editor()!, { key: 'Escape' })
+    await waitFor(() => expect(editor()).toBeNull())
+    // The properties panel no longer carries a second copy of the text.
+    expect(document.querySelector('textarea')).toBeNull()
+
+    // Double-clicking the layer opens the editor again.
+    fireEvent.doubleClick(getBoard(), { clientX: 150, clientY: 130 })
+    await waitFor(() => expect(editor()).not.toBeNull())
+  })
+
+  it('makes a component with one click, and turns it back into a frame with the other', async () => {
+    await emptyBoard()
+    drawFrame()
+    await waitFor(() => expect(savedDocs()[0]?.nodes).toHaveLength(1))
+    await promoteFrame()
+    await waitFor(() => expect(savedDocs()[0].nodes[0].kind).toBe('instance'))
+
+    // Its only instance: the button flattens the component itself.
+    fireEvent.click(await screen.findByTitle(/flatten back to a frame/))
+    await waitFor(() => {
+      const doc = savedDocs()[0]
+      expect(doc.nodes[0].kind).toBe('frame')
+      expect(doc.components).toHaveLength(0)
+    })
+  })
+})
+
+describe('CanvasView board folders', () => {
+  async function componentOnBoard() {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('CREATE A BOARD'))
+    await screen.findByText('EMPTY BOARD')
+    drawFrame()
+    await waitFor(() => expect(savedDocs()[0]?.nodes).toHaveLength(1))
+    await promoteFrame()
+  }
+
+  it("files a new component under its board's folder", async () => {
+    await componentOnBoard()
+    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
+  })
+
+  it("moves the board's components along when the board is renamed", async () => {
+    await componentOnBoard()
+    fireEvent.doubleClick(await screen.findByTitle('Double-click to rename'))
+    const field = await screen.findByDisplayValue('Untitled')
+    fireEvent.change(field, { target: { value: 'Checkout flow' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/checkoutFlow/frame/frame.tsx']), { timeout: 3000 })
+    await waitFor(() => {
+      const doc = savedDocs()[0]
+      expect(doc.name).toBe('Checkout flow')
+      expect(doc.components[0].filePath).toBe('.components/checkoutFlow/frame/frame.tsx')
+    }, { timeout: 3000 })
+    // The old board folder doesn't linger.
+    expect(deletedPaths()).toContain('.components/untitled')
+  })
+
+  it('writes canvas changes into the file from the update icon beside the path', async () => {
+    await componentOnBoard()
+    const update = await screen.findByLabelText('Update component')
+    expect(update).toBeDisabled() // up to date
+
+    fireEvent.click(screen.getByTitle('Add effect'))
+    await waitFor(() => expect(screen.getByLabelText('Update component')).not.toBeDisabled())
+    fireEvent.click(screen.getByLabelText('Update component'))
+    await waitFor(() => expect(files.get('.components/untitled/frame/frame.tsx')).toContain('boxShadow'))
+    await waitFor(() => expect(screen.getByLabelText('Update component')).toBeDisabled())
   })
 })

@@ -3,6 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
 import { DiffView } from '../../06_source_control/DiffView'
 import type { ChangeSet, ToolActivity, ToolDecision } from './iAgentChat'
+import { Checkbox } from '../UIKit/Checkbox/Checkbox'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -56,12 +57,10 @@ function ChangeSetFiles({
         <Frame key={f.path} flow="vertical" gap={4}>
           <Frame flow="horizontal" align="center" gap={8}>
             {selectable && (
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selected.has(f.path)}
                 onChange={() => onToggle(f.path)}
-                aria-label={`Include ${f.path}`}
-                style={{ margin: 0 }}
+                title={`Include ${f.path}`}
               />
             )}
             <button

@@ -19,5 +19,5 @@ exact data shapes.
 Files:
   plans.json    Named plan tabs. nodeIds only ever *reference* ids in notes.json.
   notes.json    Real graph node content (drafts, scaffolds, AI plan steps).
-  stages.json   Per-node sprint-stage tags ({ [nodeId]: 'proposed'|'in-progress'|'in-review'|'completed' }).
+  stages.json   Per-node status ({ [nodeId]: 'pending'|'in_progress'|'testing'|'completed' }).
   archive.json  Archived/hidden node ids.

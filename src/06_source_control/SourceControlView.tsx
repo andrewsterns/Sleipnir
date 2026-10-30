@@ -16,11 +16,13 @@ import { getWorkspaceInfo } from '../00_planning/api/sleipnirApi'
 import { useSourceControlViewModel } from './SourceControlView.ViewModel'
 import { useFileStages } from '../00_planning/useFileStages'
 import { StatusGlyph } from '../00_planning/graph/StatusGlyph'
+import { stageConfig } from '../00_planning/graph/stages'
 import type { NodeStage } from '../00_planning/graph/types'
 import type { GitFileStatus, GitBranch, GitBranchTree, GitBranchTreeEntry, GitCommitSummary, GitStash } from '../00_planning/api/sleipnirApi'
 import { StashDropModal } from './StashDropModal'
 import { DiffView } from './DiffView'
 import { useAppTheme } from '../00_themes/ThemeController'
+import { TextArea, TextField } from '../app/UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -79,9 +81,9 @@ function FileRow({
             textColor="var(--text-3)"
           />
         ) : (
-          // Planning status: the plan node this file backs, or 'proposed' by
+          // Planning status: the plan node this file backs, or pending by
           // default (the universal default) when it backs no node.
-          <StatusGlyph stage={stage} title={stage ? `plan: ${stage}` : undefined} />
+          <StatusGlyph stage={stage} title={stage ? `plan: ${stageConfig(stage)?.label ?? stage}` : undefined} />
         )
       }
     >
@@ -423,7 +425,7 @@ export default function SourceControlView({
               {vm.branches.map((b) =>
                 vm.renamingBranch === b.name ? (
                   <Frame key={b.name} flow="horizontal" align="center" gap={4} padding={{ x: 4, y: 3 }}>
-                    <input
+                    <TextField size="sm"
                       autoFocus
                       value={vm.renameValue}
                       onChange={(e) => vm.setRenameValue(e.target.value)}
@@ -432,10 +434,7 @@ export default function SourceControlView({
                         if (e.key === 'Escape') vm.cancelRenameBranch()
                       }}
                       disabled={vm.renamingInFlight}
-                      style={{
-                        flex: 1, background: 'var(--bg-2)', border: '1px solid var(--border-2)',
-                        color: 'var(--text-1)', fontSize: 10, padding: '3px 5px', ...MONO,
-                      }}
+                      style={{ flex: 1 }}
                     />
                     <button
                       onClick={() => vm.submitRenameBranch()}
@@ -480,14 +479,11 @@ export default function SourceControlView({
                 ),
               )}
               <Frame flow="horizontal" gap={4} padding={{ top: 4 }}>
-                <input
+                <TextField size="sm"
                   value={vm.newBranchName}
                   onChange={(e) => vm.setNewBranchName(e.target.value)}
                   placeholder="new-branch-name"
-                  style={{
-                    flex: 1, background: 'var(--bg-2)', border: '1px solid var(--border-2)',
-                    color: 'var(--text-1)', fontSize: 10, padding: '4px 6px', ...MONO,
-                  }}
+                  style={{ flex: 1 }}
                 />
                 <Button variant="ghost" size="sm" onClick={vm.submitNewBranch} disabled={vm.switchingBranch || !vm.newBranchName.trim()}>
                   Create
@@ -521,7 +517,7 @@ export default function SourceControlView({
           ) : showAddRemote ? (
             /* No remote → let the user wire an 'origin' so Publish has a target. */
             <Frame flow="vertical" gap={6}>
-              <input
+              <TextField size="md"
                 autoFocus
                 value={remoteUrl}
                 onChange={(e) => setRemoteUrl(e.target.value)}
@@ -530,7 +526,6 @@ export default function SourceControlView({
                   if (e.key === 'Escape') setShowAddRemote(false)
                 }}
                 placeholder="https://github.com/user/repo.git"
-                style={{ background: 'var(--bg-2)', border: '1px solid var(--border-2)', borderRadius: 'var(--radius-control)', color: 'var(--text-1)', fontSize: 10, padding: '5px 8px', outline: 'none', ...MONO }}
               />
               <Frame flow="horizontal" gap={6}>
                 <Button variant="ghost" size="sm" onClick={() => setShowAddRemote(false)} disabled={vm.addingRemote}>Cancel</Button>
@@ -564,15 +559,12 @@ export default function SourceControlView({
           {showStashes && (
             <Frame flow="vertical" gap={6} padding={8} radius="var(--radius-2)" stroke={{ color: 'border-1' }}>
               <Frame flow="horizontal" gap={4}>
-                <input
+                <TextField size="sm"
                   value={vm.stashMessage}
                   onChange={(e) => vm.setStashMessage(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && status.files.length > 0) vm.doStashPush() }}
                   placeholder="Stash message (optional)"
-                  style={{
-                    flex: 1, background: 'var(--bg-2)', border: '1px solid var(--border-2)',
-                    color: 'var(--text-1)', fontSize: 10, padding: '4px 6px', ...MONO,
-                  }}
+                  style={{ flex: 1 }}
                 />
                 <Button variant="ghost" size="sm" onClick={vm.doStashPush} disabled={vm.stashing || status.files.length === 0} isLoading={vm.stashing}>
                   Stash
@@ -680,15 +672,12 @@ export default function SourceControlView({
         </Frame>
 
         <Frame flow="vertical" gap={6} padding={14} stroke={{ top: { color: 'border-1' } }}>
-          <textarea
+          <TextArea size="md"
             value={vm.commitMessage}
             onChange={(e) => vm.setCommitMessage(e.target.value)}
             placeholder="Commit message"
             rows={3}
-            style={{
-              resize: 'none', background: 'var(--bg-2)', border: '1px solid var(--border-2)',
-              color: 'var(--text-1)', fontSize: 11, padding: '6px 8px', ...MONO,
-            }}
+            style={{ resize: 'none' }}
           />
           <Button
             variant="primary"

@@ -22,7 +22,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, GRAPH_CORE } from './registry.mjs'
+import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, GRAPH_CORE, LANGUAGES_LIB } from './registry.mjs'
 import { emitAll } from './emitters/index.mjs'
 import { mergeBlock } from './managedBlock.mjs'
 
@@ -33,6 +33,7 @@ const VENDOR_CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vend
 const VENDOR_CANVAS_CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'canvas.mjs')
 const VENDOR_ANALYZE_CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'analyze.mjs')
 const VENDOR_GRAPH_CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'graphCore.mjs')
+const VENDOR_LANGUAGES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'languages.mjs')
 
 const STATE_FILE = '.sleipnir/scaffold.json'
 
@@ -45,6 +46,7 @@ export function scaffoldFiles() {
   files.push({ path: CANVAS_CLI, content: fs.readFileSync(VENDOR_CANVAS_CLI, 'utf8'), managed: false })
   files.push({ path: ANALYZE_CLI, content: fs.readFileSync(VENDOR_ANALYZE_CLI, 'utf8'), managed: false })
   files.push({ path: GRAPH_CORE, content: fs.readFileSync(VENDOR_GRAPH_CORE, 'utf8'), managed: false })
+  files.push({ path: LANGUAGES_LIB, content: fs.readFileSync(VENDOR_LANGUAGES, 'utf8'), managed: false })
   return files
 }
 

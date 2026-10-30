@@ -21,8 +21,9 @@ The user wants this optimized: {{args}}
    files, `--file` for new ones): one step per change, the ones that change behaviour
    or load time first, each saying what it fixes and which number should move
    (cycles 3 → 0, fan-in 4 → 1, three off the first load).
-5. Only if the user asked you to apply it: one step at a time — change, run the tests,
-   re-run the report, confirm the number moved. Stop and say so if a step makes
-   anything worse.
+5. Only if the user asked you to apply it: one step at a time — mark it in progress
+   (`node .sleipnir/plan.mjs set-status --root . --step <stepId> --status in_progress`), change,
+   run the tests, re-run the report, confirm the number moved, then mark it completed
+   with a note naming the number. Stop and say so if a step makes anything worse.
 6. Finish with the before and after numbers.
 '''

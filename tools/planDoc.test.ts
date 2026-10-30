@@ -13,6 +13,14 @@ import {
   ROLE_SUFFIX,
   PLANNED_ROLES,
   PLANNED_LANGUAGES,
+  toStepStatus,
+  applyStepStatus,
+  latestStepNotes,
+  snapshotTree,
+  diffSnapshots,
+  snapshotActionFor,
+  attachChanges,
+  MAX_SNAPSHOT_FILES,
 } from './planDoc.mjs'
 import { ROLE_OPTIONS, LANGUAGES } from '../src/00_planning/graph/architectures'
 import { ROLE_SUFFIX as TS_ROLE_SUFFIX } from '../src/00_planning/graph/naming'
@@ -65,7 +73,10 @@ describe('paths and specs', () => {
 
   it('rejects unknown roles, unknown languages and empty paths', () => {
     expect(() => parseFileSpec('src/a.tsx:widget')).toThrow(/Unknown role/)
-    expect(() => parseFileSpec('src/a.cpp:node:cpp')).toThrow(/Unknown language/)
+    expect(() => parseFileSpec('src/a.cob:node:cobol')).toThrow(/Unknown language/)
+    // C, C++, Java, Kotlin, Swift and C# are planning languages now.
+    expect(parseFileSpec('src/sensor.h:interface')).toMatchObject({ language: 'c' })
+    expect(parseFileSpec('src/main/java/App.java:view')).toMatchObject({ language: 'java' })
     expect(() => parseFileSpec(':view')).toThrow(/needs a path/)
   })
 
@@ -260,10 +271,33 @@ describe('detectProject', () => {
     expect(fake({ 'requirements.txt': '' }).primary).toBe('python')
   })
 
-  it('reports C and C++ as unsupported rather than guessing', () => {
-    expect(fake({ 'CMakeLists.txt': '', 'main.cpp': '' })).toMatchObject({ primary: null, unsupported: [{ file: 'CMakeLists.txt', language: 'cpp' }] })
-    expect(fake({ Makefile: '', 'main.c': '' }).unsupported).toEqual([{ file: 'Makefile', language: 'c' }])
-    expect(fake({ Makefile: '' }).unsupported).toEqual([])
+  it('detects C and C++ from their build files, but not a bare Makefile', () => {
+    expect(fake({ 'CMakeLists.txt': '', 'main.cpp': '' })).toMatchObject({ primary: 'cpp', detected: [{ file: 'CMakeLists.txt', language: 'cpp' }], unsupported: [] })
+    expect(fake({ Makefile: '', 'main.c': '' }).detected).toEqual([{ file: 'Makefile', language: 'c' }])
+    expect(fake({ Makefile: '' }).detected).toEqual([])
+  })
+
+  it('tells C from C++ by sources and CMake project languages', () => {
+    expect(fake({ 'CMakeLists.txt': 'project(sensors LANGUAGES C)', 'src/main.c': '' }).detected).toEqual([{ file: 'CMakeLists.txt', language: 'c' }])
+    expect(fake({ 'CMakeLists.txt': '', 'src/engine.cpp': '' }).detected).toEqual([{ file: 'CMakeLists.txt', language: 'cpp' }])
+    expect(fake({ 'meson.build': '', 'src/main.c': '' }).detected).toEqual([{ file: 'meson.build', language: 'c' }])
+  })
+
+  it('detects Java, Kotlin, Swift and C# from their build files', () => {
+    expect(fake({ 'pom.xml': '', 'src/main/java/App.java': '' })).toMatchObject({
+      primary: 'java',
+      detected: [{ file: 'pom.xml', language: 'java' }],
+      conventions: { srcDir: 'src', sourceDirs: { java: 'src/main/java' } },
+    })
+    expect(fake({ 'build.gradle.kts': '', 'src/main/kotlin/App.kt': '' }).detected).toEqual([{ file: 'build.gradle.kts', language: 'kotlin' }])
+    // A Kotlin build script alone doesn't make a Java project Kotlin.
+    expect(fake({ 'build.gradle.kts': '', 'src/main/java/App.java': '' }).detected).toEqual([{ file: 'build.gradle.kts', language: 'java' }])
+    expect(fake({ 'Package.swift': '', 'Sources/App/main.swift': '' })).toMatchObject({ detected: [{ file: 'Package.swift', language: 'swift' }], conventions: { sourceDirs: { swift: 'Sources' } } })
+    expect(fake({ 'Shop.csproj': '' }).detected).toEqual([{ file: 'Shop.csproj', language: 'csharp' }])
+  })
+
+  it('reports an include folder for C-family layouts', () => {
+    expect(fake({ 'CMakeLists.txt': '', 'include/sensor.h': '', 'src/sensor.c': '' }).conventions).toEqual({ srcDir: 'src', includeDir: 'include' })
   })
 
   it('looks one folder down for monorepos, preferring root-level manifests', () => {
@@ -277,5 +311,128 @@ describe('detectProject', () => {
 
   it('skips dependency and build folders', () => {
     expect(fake({ 'node_modules/package.json': '{}', 'target/Cargo.toml': '' }).detected).toEqual([])
+  })
+})
+
+describe('step status', () => {
+  it('takes the status however an agent spells it', () => {
+    for (const v of ['in_progress', 'In progress', 'in-progress', ' IN PROGRESS ']) expect(toStepStatus(v)).toBe('in_progress')
+    expect(toStepStatus('Completed')).toBe('completed')
+    expect(toStepStatus('done')).toBe('completed')
+    expect(toStepStatus('Done')).toBe('completed')
+    expect(toStepStatus('later')).toBeUndefined()
+  })
+
+  it('records a report: the status, and the note on one line', () => {
+    const data = empty()
+    addPlanStep(data, { planId: PLAN, node: step('Build cart') })
+    const stages: Record<string, string> = {}
+    const events: Array<Record<string, unknown>> = []
+    const id = step('Build cart').id
+    applyStepStatus({ nodes: data.nodes, stages, events, stepId: id, status: 'completed', note: ' Built it\n  with tests ', agent: 'codex', at: 5 })
+    expect(stages).toEqual({ [id]: 'completed' })
+    expect(events).toEqual([{ at: 5, stepId: id, status: 'completed', note: 'Built it with tests', agent: 'codex' }])
+    expect(latestStepNotes(events)).toEqual({ [id]: 'Built it with tests' })
+  })
+
+  it('reports only on plan steps', () => {
+    const nodes = [{ id: 'note/a', type: 'note' }]
+    expect(() => applyStepStatus({ nodes, stages: {}, events: [], stepId: 'note/a', status: 'completed', at: 1 })).toThrow('not a plan step')
+  })
+
+  it('shows every step with its status in plan.md, pending by default', () => {
+    const data = empty()
+    addPlanStep(data, { planId: PLAN, node: step('Build cart') })
+    addPlanStep(data, { planId: PLAN, node: step('Test it') })
+    const text = renderPlanDoc({
+      plan: { id: PLAN, label: 'Cart' },
+      steps: planSteps(data.nodes, PLAN),
+      plannedFiles: [],
+      existing: null,
+      statuses: { [step('Build cart').id]: 'completed' },
+      notes: { [step('Build cart').id]: 'Shipped' },
+    })
+    expect(text).toContain(`<!-- step:${step('Build cart').id} -->\n**Status:** Done — Shipped\n`)
+    expect(text).toContain(`<!-- step:${step('Test it').id} -->\n**Status:** Proposed\n`)
+  })
+})
+
+describe('what a step changed', () => {
+  // A path -> [size, mtime] map standing in for a project folder.
+  const tree = (files: Record<string, [number, number]>) => {
+    const listDir = (rel: string) => {
+      const prefix = rel ? `${rel}/` : ''
+      const names = new Map<string, boolean>()
+      for (const p of Object.keys(files)) {
+        if (!p.startsWith(prefix)) continue
+        const [name, ...rest] = p.slice(prefix.length).split('/')
+        names.set(name, rest.length > 0)
+      }
+      return [...names].map(([name, dir]) => ({ name, dir }))
+    }
+    return { listDir, statFile: (rel: string) => files[rel] ?? null }
+  }
+
+  it('snapshots every file but dependencies, git, the plan itself and what git ignores', () => {
+    const { listDir, statFile } = tree({
+      'src/a.ts': [10, 1],
+      'node_modules/x/index.js': [1, 1],
+      '.git/HEAD': [1, 1],
+      '.planning/stages.json': [1, 1],
+      '.claude/worktrees/w/src/a.ts': [1, 1],
+      '.claude/commands/plan.md': [5, 1],
+      'release/app.exe': [9, 1],
+      '.env': [3, 1],
+    })
+    expect(snapshotTree(listDir, statFile, new Set(['release', '.env']))).toEqual({
+      '.claude/commands/plan.md': [5, 1],
+      'src/a.ts': [10, 1],
+    })
+  })
+
+  it('gives up past the file limit rather than stall the step', () => {
+    const files: Record<string, [number, number]> = {}
+    for (let i = 0; i <= MAX_SNAPSHOT_FILES; i++) files[`f${i}`] = [1, 1]
+    const { listDir, statFile } = tree(files)
+    expect(snapshotTree(listDir, statFile)).toBeNull()
+  })
+
+  it('lists files added, modified and deleted, by path', () => {
+    const before = { 'a.ts': [1, 1], 'b.ts': [2, 2], 'c.ts': [3, 3] } as Record<string, [number, number]>
+    const after = { 'a.ts': [1, 1], 'b.ts': [2, 9], 'd.ts': [4, 4] } as Record<string, [number, number]>
+    expect(diffSnapshots(before, after)).toEqual({
+      changes: [
+        { path: 'b.ts', change: 'modified' },
+        { path: 'c.ts', change: 'deleted' },
+        { path: 'd.ts', change: 'added' },
+      ],
+      more: 0,
+    })
+  })
+
+  it('snapshots when work starts, compares when it ends, drops it when it goes back', () => {
+    expect(snapshotActionFor(undefined, 'in_progress')).toBe('take')
+    expect(snapshotActionFor('completed', 'in_progress')).toBe('take')
+    expect(snapshotActionFor('in_progress', 'in_progress')).toBe('keep')
+    expect(snapshotActionFor('in_progress', 'completed')).toBe('compare')
+    expect(snapshotActionFor('in_progress', 'pending')).toBe('drop')
+  })
+
+  it('puts the changes on the completing report, or says they are unknown', () => {
+    const event = attachChanges({ at: 9 }, { at: 1, files: { 'a.ts': [1, 1] } }, { 'a.ts': [2, 2] })
+    expect(event).toEqual({ at: 9, since: 1, changes: [{ path: 'a.ts', change: 'modified' }] })
+    expect(attachChanges({ at: 9 }, { at: 1, files: null }, {})).toEqual({ at: 9, since: 1, changesUnknown: true })
+    expect(attachChanges({ at: 9 }, null, {})).toEqual({ at: 9 })
+  })
+})
+
+describe('testing status', () => {
+  it('is its own status, keeping the snapshot the step started with', () => {
+    expect(toStepStatus('testing')).toBe('testing')
+    expect(toStepStatus('Testing')).toBe('testing')
+    expect(snapshotActionFor('in_progress', 'testing')).toBe('keep')
+    expect(snapshotActionFor('testing', 'in_progress')).toBe('keep')
+    expect(snapshotActionFor('testing', 'completed')).toBe('compare')
+    expect(snapshotActionFor(undefined, 'testing')).toBe('take')
   })
 })

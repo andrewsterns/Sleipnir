@@ -24,6 +24,35 @@ afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true })
 })
 
+describe('detectTargets: compiled languages', () => {
+  it('builds C/C++ with CMake, and runs Gradle, SwiftPM and .NET projects', () => {
+    write('CMakeLists.txt', 'project(app C)')
+    write('server/build.gradle.kts')
+    write('tool/Package.swift')
+    write('api/Shop.csproj')
+    const ids = detectTargets(root).targets.map((t: { id: string }) => t.id)
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        '.:cmake-configure',
+        '.:cmake-build',
+        'server:gradle-run',
+        'server:gradle-build',
+        'tool:swift-run',
+        'api:dotnet-run',
+        'api:dotnet-build',
+      ]),
+    )
+  })
+
+  it('prefers the Gradle wrapper, and ignores a Makefile-free folder', () => {
+    write('build.gradle')
+    write(process.platform === 'win32' ? 'gradlew.bat' : 'gradlew')
+    const run = detectTargets(root).targets.find((t: { id: string }) => t.id === '.:gradle-run')
+    expect(run.command).toBe(process.platform === 'win32' ? 'gradlew.bat' : './gradlew')
+    expect(detectTargets(root).targets.some((t: { id: string }) => t.id === '.:make')).toBe(false)
+  })
+})
+
 describe('detectTargets', () => {
   it('classifies package scripts and picks the dev server by default', () => {
     write('package.json', JSON.stringify({

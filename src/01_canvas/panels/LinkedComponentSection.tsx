@@ -8,7 +8,9 @@ import { Frame } from '../../app/UIKit/Frame/Frame'
 import { Icon } from '../../app/UIKit/Icon/Icon'
 import type { LinkedComponent } from '../hooks/useLinkedComponents'
 import type { CanvasExternalNode, CanvasProp, CanvasPropValue } from '../model/types'
-import { ACTION, FIELD, Label, MONO, Section } from './inspectorKit'
+import { ACTION, Label, MONO, Section } from './inspectorKit'
+import { SelectField, TextField } from '../../app/UIKit/Field/TextField'
+import { Checkbox } from '../../app/UIKit/Checkbox/Checkbox'
 
 function PropField({
   prop,
@@ -23,7 +25,7 @@ function PropField({
   if (prop.type === 'boolean') {
     return (
       <label style={{ ...MONO, fontSize: 10, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <input type="checkbox" checked={Boolean(value ?? fallback)} onChange={(e) => onChange(e.target.checked)} />
+        <Checkbox checked={Boolean(value ?? fallback)} onChange={(checked) => onChange(checked)} />
         {prop.name}
       </label>
     )
@@ -32,15 +34,15 @@ function PropField({
     <Frame flow="vertical" gap={2} w="fill">
       <Label>{prop.name.toUpperCase()}</Label>
       {prop.type === 'enum' ? (
-        <select value={String(value ?? fallback ?? prop.options?.[0] ?? '')} onChange={(e) => onChange(e.target.value)} style={FIELD}>
+        <SelectField size="sm" value={String(value ?? fallback ?? prop.options?.[0] ?? '')} onChange={(e) => onChange(e.target.value)}>
           {(prop.options ?? []).map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </select>
+        </SelectField>
       ) : (
-        <input
+        <TextField size="sm"
           type={prop.type === 'number' ? 'number' : 'text'}
           value={value === undefined || value === null ? '' : String(value)}
           placeholder={fallback === undefined || fallback === null ? 'default' : String(fallback)}
@@ -49,7 +51,7 @@ function PropField({
             if (raw === '') onChange(undefined)
             else onChange(prop.type === 'number' ? Number(raw) : raw)
           }}
-          style={FIELD}
+         
         />
       )}
     </Frame>

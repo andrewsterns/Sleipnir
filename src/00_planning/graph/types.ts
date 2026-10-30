@@ -1,4 +1,5 @@
 import type { ArchitectureId, LanguageId, NodeRole } from './architectures'
+import type { StepStatus } from './stepStatus'
 
 // The 5 fixed maps — always exist, never created/deleted by the user.
 export type FixedMapId = 'welcome' | 'research' | 'validation' | 'todo' | 'claude'
@@ -37,17 +38,47 @@ export interface SavedPlan {
 
 export type NodeKind = 'built' | 'proposed'
 
-// Only set on AI-created plan nodes (see tools/sleipnir-backend.mjs#createPlanNode).
-// Undefined means "not a plan node" — every existing node (generated, proposed,
-// hand-typed note) has no status and must keep rendering exactly as it does today.
+// A plan step's approval record, set only on AI-created plan nodes (see
+// tools/sleipnir-backend.mjs#createPlanNode): 'approved' once a human has said go
+// and its planned files were written, 'done' once a staged file was saved.
+// Not a status — the node's one status is its NodeStage below.
 export type NodeStatus = 'draft' | 'approved' | 'done'
 
-// The sprint-ticket "stage" any node can be tagged with from the detail card —
-// independent of both `kind` and the plan-step `status` above. Persisted per
-// node id in an overlay store (backend getNodeStages/setNodeStage), not on the
-// node's own record, so it applies to build-generated nodes too. See
-// graph/stages.ts for the label + color + stroke each value renders as.
-export type NodeStage = 'proposed' | 'in-progress' | 'in-review' | 'completed'
+// The one status any node or file carries — pending, in progress, completed, the
+// states AI agents track their own work in (see graph/stepStatus.ts). Persisted
+// per node id in an overlay store (backend getNodeStages/setNodeStage), not on
+// the node's own record, so it applies to build-generated nodes too. See
+// graph/stages.ts for the label and shape each value renders as.
+export type NodeStage = StepStatus
+
+// One progress report an agent made on a plan step (tools/planDoc.mjs's
+// applyStepStatus), kept in the plan's .planning/<plan>/activity.json.
+export interface PlanActivityEvent {
+  at: number
+  stepId: string
+  status: StepStatus
+  /** One line of what the agent did. */
+  note?: string
+  /** Who reported it, e.g. "claude", "Sleipnir · <model>", or "you" for the card toggle and approvals. */
+  agent?: string
+  /** On a report that completed a step: when the step started (its workspace snapshot). */
+  since?: number
+  /** On a report that completed a step: every file created, changed or deleted since it started. */
+  changes?: FileChange[]
+  /** How many more changed files there were past the recorded list's cap. */
+  moreChanges?: number
+  /** The step completed, but its start snapshot was too big to take, so its changes are unknown. */
+  changesUnknown?: boolean
+}
+
+export interface FileChange {
+  path: string
+  change: 'added' | 'modified' | 'deleted'
+}
+
+export interface PlanActivity {
+  events: PlanActivityEvent[]
+}
 
 export interface GraphNode {
   id: string

@@ -3,6 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import type { WorkspaceTabStripProps } from './iWorkspaceTabStrip'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -11,9 +12,18 @@ const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 // WorkspaceHeader's own row (which owns the border/background) so it can
 // share that row with trailing actions instead of owning a full-width strip
 // of its own.
-export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose, onAddTab, onAddTabClick, addPlaceholder = 'filename' }) => {
+export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, activeTabId, onActivate, onClose, onAddTab, onAddTabClick, addPlaceholder = 'filename', onRename }) => {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
+  // The tab being renamed in place, and its draft label.
+  const [renaming, setRenaming] = useState<{ id: string; draft: string } | null>(null)
+  const commitRename = () => {
+    if (!renaming) return
+    const next = renaming.draft.trim()
+    const tab = tabs.find((t) => t.id === renaming.id)
+    if (next && tab && next !== tab.label) onRename?.(renaming.id, next)
+    setRenaming(null)
+  }
 
   if (tabs.length === 0 && !onAddTab && !onAddTabClick) return null
 
@@ -57,9 +67,29 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
                 <Icon name={tab.icon} size={12} />
               </span>
             )}
-            <span style={{ fontSize: 12, letterSpacing: '0.02em', color: active ? 'var(--text-1)' : 'var(--text-3)', ...MONO }}>
-              {tab.label}
-            </span>
+            {renaming?.id === tab.id ? (
+              <TextField size="md"
+                autoFocus
+                value={renaming.draft}
+                onChange={(e) => setRenaming({ id: tab.id, draft: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => e.target.select()}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename()
+                  if (e.key === 'Escape') setRenaming(null)
+                }}
+                style={{ fontSize: 12, padding: '1px 4px', width: Math.max(80, renaming.draft.length * 8) }}
+              />
+            ) : (
+              <span
+                title={onRename && active ? 'Double-click to rename' : undefined}
+                onDoubleClick={onRename && active ? () => setRenaming({ id: tab.id, draft: tab.label }) : undefined}
+                style={{ fontSize: 12, letterSpacing: '0.02em', color: active ? 'var(--text-1)' : 'var(--text-3)', ...MONO }}
+              >
+                {tab.label}
+              </span>
+            )}
             {tab.closable && (
               // Extra left margin (on top of the row's gap) pushes the close
               // clear of the label toward the tab's right edge.
@@ -83,7 +113,7 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
         // onAddTabClick short-circuits the inline input entirely — the "+"
         // just fires the callback (Planning opens its full-page create screen).
         adding && !onAddTabClick ? (
-          <input
+          <TextField size="md"
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -93,18 +123,7 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
             }}
             onBlur={() => { if (!name) setAdding(false) }}
             placeholder={addPlaceholder}
-            style={{
-              flexShrink: 0,
-              background: 'var(--bg-2)',
-              border: '1px solid var(--border-2)',
-              borderRadius: 'var(--radius-2)',
-              color: 'var(--text-1)',
-              fontSize: 12,
-              padding: '4px 6px',
-              margin: '0 8px',
-              width: 130,
-              ...MONO,
-            }}
+            style={{ flexShrink: 0, margin: '0 8px', width: 130 }}
           />
         ) : (
           <IconButton

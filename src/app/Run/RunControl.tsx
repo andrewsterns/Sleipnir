@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Dropdown } from '../UIKit/Dropdown/Dropdown'
 import type { DropdownOption } from '../UIKit/Dropdown/iDropdown'
 import { IconButton } from '../UIKit/IconButton/IconButton'
+import { TextField } from '../UIKit/Field/TextField'
 import { CUSTOM_TARGET_ID, type Runner } from './useRunner'
 import type { RunTarget } from './iRun'
 import { phaseColor, targetLabel } from './runLabels'
@@ -65,7 +66,7 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel }) => {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 0 }}>
       {editing ? (
-        <input
+        <TextField size="sm"
           autoFocus
           value={draft}
           placeholder="e.g. npm run dev"
@@ -75,18 +76,7 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel }) => {
             if (e.key === 'Enter') commitCustom()
             if (e.key === 'Escape') setEditing(false)
           }}
-          style={{
-            width: 220,
-            height: 18,
-            padding: '0 6px',
-            fontSize: 10,
-            background: 'var(--bg-2)',
-            color: 'var(--text-1)',
-            border: '1px solid var(--border-2)',
-            borderRadius: 3,
-            outline: 'none',
-            ...MONO,
-          }}
+          style={{ width: 220, height: 18, padding: '0 6px' }}
         />
       ) : (
         <Dropdown

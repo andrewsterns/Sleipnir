@@ -1,8 +1,10 @@
 // Config for the "Add Node" modal's file-scaffolding branch (Planning's
-// NODES header) — single source of truth for the modal's Architecture/
-// Language dropdown options and its role checkbox list. Self-contained, no
-// imports from graph/types.ts (that file imports these ids instead, never
-// the reverse).
+// NODES header) — the modal's Architecture/Language dropdown options and its
+// role checkbox list. Languages themselves come from the one language table
+// (tools/agentSkills/vendor/languages.mjs); this is the slice of it Planning
+// can scaffold. No imports from graph/types.ts (that file imports these ids
+// instead, never the reverse).
+import { LANGUAGES as LANGUAGE_TABLE } from '../../../tools/agentSkills/vendor/languages.mjs'
 
 export type NodeRole = 'node' | 'view' | 'view-model' | 'interface' | 'controller' | 'presenter'
 // The JS/TS family (typescript/javascript/react/jquery) differ only by
@@ -18,6 +20,12 @@ export type LanguageId =
   | 'go'
   | 'html'
   | 'css'
+  | 'c'
+  | 'cpp'
+  | 'java'
+  | 'kotlin'
+  | 'swift'
+  | 'csharp'
 export type ArchitectureId = 'mvvm' | 'mvc' | 'mvp'
 
 export interface RoleDef {
@@ -80,22 +88,16 @@ export interface LanguageDef {
   architectural: boolean
 }
 
-export const LANGUAGES: LanguageDef[] = [
-  { id: 'react', label: 'React (TSX)', ext: 'tsx', architectural: true },
-  { id: 'typescript', label: 'TypeScript', ext: 'ts', architectural: true },
-  { id: 'javascript', label: 'JavaScript', ext: 'js', architectural: true },
-  { id: 'jquery', label: 'jQuery', ext: 'js', architectural: true },
-  { id: 'python', label: 'Python', ext: 'py', architectural: true },
-  { id: 'rust', label: 'Rust', ext: 'rs', architectural: true },
-  { id: 'go', label: 'Go', ext: 'go', architectural: true },
-  { id: 'html', label: 'HTML', ext: 'html', architectural: false },
-  { id: 'css', label: 'CSS', ext: 'css', architectural: false },
-]
+// Every language the table marks as scaffoldable, in its order (which is also
+// languageForExt's first-match order). A table entry joins this list — and
+// LanguageId — when Planning gets templates for it.
+export const LANGUAGES: LanguageDef[] = LANGUAGE_TABLE.flatMap((l) =>
+  l.planning ? [{ id: l.id as LanguageId, label: l.label, ext: l.extensions[0], architectural: l.planning.architectural }] : [],
+)
 
-// The Add Node popup's language dropdown — a deliberately short list for now.
-// LANGUAGES itself stays complete (canvas emit targets and extension detection
-// read it), so a typed extension like "cart.py" still resolves.
-export const ADD_NODE_LANGUAGES: LanguageId[] = ['react', 'typescript', 'html', 'css', 'rust']
+// The Add Node popup's language dropdown: every language Planning scaffolds,
+// except jQuery (a flavor of JavaScript, reachable by typing "cart.js").
+export const ADD_NODE_LANGUAGES: LanguageId[] = LANGUAGES.map((l) => l.id).filter((id) => id !== 'jquery')
 
 // Architecture-free role list for the Add Node popup: every role is always
 // offered, and the links are the union of what MVVM/MVC/MVP imply (a View

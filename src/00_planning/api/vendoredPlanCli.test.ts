@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import * as backend from '../../../tools/sleipnir-backend.mjs'
 import * as vendor from '../../../tools/agentSkills/vendor/plan.mjs'
-import { extractPlanDocRegion, SOURCE_PATH, VENDOR_PATH } from '../../../tools/syncPlanDoc.mjs'
+import { extractLanguagesRegion, extractPlanDocRegion, LANGUAGES_PATH, SOURCE_PATH, VENDOR_PATH } from '../../../tools/syncPlanDoc.mjs'
 
 // tools/agentSkills/vendor/plan.mjs is copied into every project as
 // .sleipnir/plan.mjs and committed, so a teammate without Sleipnir can still
@@ -155,6 +155,13 @@ describe('vendored plan CLI matches the backend', () => {
     ).toBe(extractPlanDocRegion(readFileSync(SOURCE_PATH, 'utf8')))
   })
 
+  it('carries a byte-identical copy of the language table', () => {
+    expect(
+      extractLanguagesRegion(readFileSync(VENDOR_PATH, 'utf8')),
+      'vendor/plan.mjs is out of date — run `node tools/syncPlanDoc.mjs`',
+    ).toBe(extractLanguagesRegion(readFileSync(LANGUAGES_PATH, 'utf8')))
+  })
+
   const readDoc = (root: string, planId: string) => {
     const p = join(root, '.planning', planId.replace(/^plan\//, ''), 'plan.md')
     return existsSync(p) ? readFileSync(p, 'utf8').replace(/-\d{13}/g, '-<TS>') : null
@@ -260,5 +267,140 @@ describe('vendored plan CLI matches the backend', () => {
     writeBoth('src/main.rs', '')
     expect(vendor.detectProjectIn(vendorRoot)).toEqual(backend.detectProject())
     expect(backend.detectProject()).toMatchObject({ primary: 'rust', languages: ['rust', 'typescript'], conventions: { srcDir: 'src' } })
+  })
+
+  it('records the same progress report: status, activity log and plan.md', () => {
+    const { plan: bPlan } = backend.createPlan('Report', [], undefined, undefined, undefined, false, 2)
+    const { node: b1 } = backend.createPlanNode(bPlan.id, 'First', 'One', undefined)
+    backend.addPlanNodes(bPlan.id, [b1.id])
+    const { node: b2 } = backend.createPlanNode(bPlan.id, 'Second', 'Two', undefined)
+    backend.addPlanNodes(bPlan.id, [b2.id])
+    backend.setStepStatus(b1.id, 'in_progress', { agent: 'claude' })
+    backend.setStepStatus(b1.id, 'completed', { note: '  Built   the first one ', agent: 'claude' })
+    backend.setStepStatus(b2.id, 'In progress', { agent: 'claude' })
+
+    const vPlan = vendor.createPlan(vendorRoot, 'Report', { expectedSteps: 2 })
+    const v1 = vendor.createPlanNode(vendorRoot, vPlan.id, 'First', 'One', undefined)
+    vendor.pullIntoNamedPlanIfExists(vendorRoot, vPlan.id, v1.id)
+    const v2 = vendor.createPlanNode(vendorRoot, vPlan.id, 'Second', 'Two', undefined)
+    vendor.pullIntoNamedPlanIfExists(vendorRoot, vPlan.id, v2.id)
+    vendor.setStepStatus(vendorRoot, v1.id, 'in_progress', { agent: 'claude' })
+    vendor.setStepStatus(vendorRoot, v1.id, 'completed', { note: '  Built   the first one ', agent: 'claude' })
+    vendor.setStepStatus(vendorRoot, v2.id, 'In progress', { agent: 'claude' })
+
+    compare('stages.json')
+    compare('notes.json')
+    expect(activityOf(vendorRoot, vPlan.id)).toEqual(activityOf(backendRoot, bPlan.id))
+    expect(activityOf(backendRoot, bPlan.id).events).toHaveLength(3)
+    expect(readDoc(vendorRoot, vPlan.id)).toBe(readDoc(backendRoot, bPlan.id))
+
+    const doc = readDoc(backendRoot, bPlan.id)!
+    expect(doc).toContain('**Status:** Done — Built the first one')
+    expect(doc).toContain('**Status:** In progress\n')
+    expect(vendor.listSteps(vendorRoot, vPlan.id)[0].steps.map((s) => [s.label, s.status, s.note])).toEqual([
+      ['First', 'completed', 'Built the first one'],
+      ['Second', 'in_progress', undefined],
+    ])
+  })
+
+  it('refuses a report on something that is not a step, the same way', () => {
+    const { plan: bPlan } = backend.createPlan('Refuse', [], undefined, undefined, undefined, false, 1)
+    const { node: b1 } = backend.createPlanNode(bPlan.id, 'Only', 'One', undefined)
+    const vPlan = vendor.createPlan(vendorRoot, 'Refuse', {})
+    const v1 = vendor.createPlanNode(vendorRoot, vPlan.id, 'Only', 'One', undefined)
+    expect(() => backend.setStepStatus('plan/nope', 'completed')).toThrow('No step with id "plan/nope"')
+    expect(() => vendor.setStepStatus(vendorRoot, 'plan/nope', 'completed')).toThrow('No step with id "plan/nope"')
+    expect(() => backend.setStepStatus(b1.id, 'shipped')).toThrow(/Unknown status "shipped"/)
+    expect(() => vendor.setStepStatus(vendorRoot, v1.id, 'shipped')).toThrow(/Unknown status "shipped"/)
+  })
+
+  // A step's report carries its own times; everything else must match.
+  const activityOf = (root: string, planId: string) =>
+    JSON.parse(
+      readFileSync(join(root, '.planning', planId.replace(/^plan\//, ''), 'activity.json'), 'utf8').replace(/-\d{13}/g, '-<TS>'),
+      (key, value) => (key === 'at' || key === 'since' ? '<TS>' : value),
+    )
+
+  it('records the same files changed between a step starting and completing', () => {
+    writeBoth('src/app.ts', 'export {}\n')
+    writeBoth('src/old.ts', 'export {}\n')
+    const { plan: bPlan } = backend.createPlan('Changes', [], undefined, undefined, undefined, false, 1)
+    const { node: b1 } = backend.createPlanNode(bPlan.id, 'Do it', 'Change things', undefined)
+    backend.addPlanNodes(bPlan.id, [b1.id])
+    const vPlan = vendor.createPlan(vendorRoot, 'Changes', { expectedSteps: 1 })
+    const v1 = vendor.createPlanNode(vendorRoot, vPlan.id, 'Do it', 'Change things', undefined)
+    vendor.pullIntoNamedPlanIfExists(vendorRoot, vPlan.id, v1.id)
+
+    backend.setStepStatus(b1.id, 'in_progress', { agent: 'claude' })
+    vendor.setStepStatus(vendorRoot, v1.id, 'in_progress', { agent: 'claude' })
+    // The work: one file created, one changed, one deleted.
+    writeBoth('src/new.ts', 'export const n = 1\n')
+    writeBoth('src/app.ts', 'export const app = true\n')
+    for (const root of [backendRoot, vendorRoot]) rmSync(join(root, 'src/old.ts'))
+    backend.setStepStatus(b1.id, 'completed', { agent: 'claude' })
+    vendor.setStepStatus(vendorRoot, v1.id, 'completed', { agent: 'claude' })
+
+    expect(activityOf(vendorRoot, vPlan.id)).toEqual(activityOf(backendRoot, bPlan.id))
+    const done = activityOf(backendRoot, bPlan.id).events.at(-1)
+    expect(done.changes).toEqual([
+      { path: 'src/app.ts', change: 'modified' },
+      { path: 'src/new.ts', change: 'added' },
+      { path: 'src/old.ts', change: 'deleted' },
+    ])
+    expect(done.since).toBe('<TS>')
+  })
+
+  it('lets a step started in Sleipnir be completed from the terminal', () => {
+    writeBoth('src/app.ts', 'export {}\n')
+    const { plan } = backend.createPlan('Handoff', [], undefined, undefined, undefined, false, 1)
+    const { node: step } = backend.createPlanNode(plan.id, 'Do it', 'Change things', undefined)
+    backend.addPlanNodes(plan.id, [step.id])
+    backend.setStepStatus(step.id, 'in_progress', { agent: 'Sleipnir · model' })
+    writeFileSync(join(backendRoot, 'src/app.ts'), 'export const changed = 1\n')
+    vendor.setStepStatus(backendRoot, step.id, 'completed', { agent: 'claude', note: 'Finished it' })
+    expect(activityOf(backendRoot, plan.id).events.at(-1).changes).toEqual([{ path: 'src/app.ts', change: 'modified' }])
+  })
+
+  it('logs a status set from the card as a report by you', () => {
+    const { plan } = backend.createPlan('Toggle', [], undefined, undefined, undefined, false, 1)
+    const { node: step } = backend.createPlanNode(plan.id, 'Do it', 'Change things', undefined)
+    backend.addPlanNodes(plan.id, [step.id])
+    backend.setNodeStage(step.id, 'in_progress')
+    expect(activityOf(backendRoot, plan.id).events).toEqual([{ at: '<TS>', stepId: step.id.replace(/-\d{13}/g, '-<TS>'), status: 'in_progress', agent: 'you' }])
+    expect(backend.getNodeStages().stages[step.id]).toBe('in_progress')
+  })
+
+  it('marks the files a step changed done when it completes, the same way', () => {
+    writeBoth('src/app.ts', 'export {}\n')
+    const { plan: bPlan } = backend.createPlan('Done files', [], undefined, undefined, undefined, false, 1)
+    const { node: b1 } = backend.createPlanNode(bPlan.id, 'Do it', 'Change things', undefined)
+    backend.addPlanNodes(bPlan.id, [b1.id])
+    const vPlan = vendor.createPlan(vendorRoot, 'Done files', { expectedSteps: 1 })
+    const v1 = vendor.createPlanNode(vendorRoot, vPlan.id, 'Do it', 'Change things', undefined)
+    vendor.pullIntoNamedPlanIfExists(vendorRoot, vPlan.id, v1.id)
+    backend.setStepStatus(b1.id, 'in_progress')
+    vendor.setStepStatus(vendorRoot, v1.id, 'in_progress')
+    writeBoth('src/app.ts', 'export const changed = true\n')
+    backend.setStepStatus(b1.id, 'completed')
+    vendor.setStepStatus(vendorRoot, v1.id, 'completed')
+    compare('stages.json')
+    expect(backend.getNodeStages().stages['file:src/app.ts']).toBe('completed')
+  })
+
+  it('settles a committed file: done or in progress, but no longer changed, is cleared', () => {
+    writeBoth('src/a.ts', '')
+    writeBoth('src/b.ts', '')
+    writeBoth('src/new/c.ts', '')
+    backend.setNodeStage('file:src/a.ts', 'completed')
+    backend.setNodeStage('file:src/b.ts', 'in_progress')
+    backend.setNodeStage('file:src/new/c.ts', 'in_progress')
+    backend.setNodeStage('file:src/later.ts', 'pending')
+    // git sees b.ts changed and the new folder; a.ts was committed.
+    expect(backend.settleCommittedStages(['src/b.ts', 'src/new'])).toEqual({ cleared: 1 })
+    expect(backend.getNodeStages().stages).toEqual({
+      'file:src/b.ts': 'in_progress',
+      'file:src/new/c.ts': 'in_progress',
+      'file:src/later.ts': 'pending',
+    })
   })
 })

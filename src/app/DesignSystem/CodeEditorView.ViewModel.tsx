@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { lintGutter, diagnosticCount } from '@codemirror/lint'
-import { languageForPath, isRunnablePath } from './codeEditorLanguages'
+import { loadLanguageForPath, isRunnablePath } from './codeEditorLanguages'
 import { tacticalEditorTheme, tacticalCodeHighlighting } from './codeEditorTheme'
 import { writeFile as writeSrcFile, runScript, type RunResult } from '../../00_planning/api/sleipnirApi'
-import { getTypeScriptLspClient, lspLanguageIdForPath, uriForPath, goToDefinitionOnModClick, modHoverDefinitionLink, lspHoverTooltips, type LspRoot } from './lspClient'
+import { getLspClientForPath, lspLanguageIdForPath, serverNoticeForPath, subscribeServerNotices, uriForPath, goToDefinitionOnModClick, modHoverDefinitionLink, lspHoverTooltips, type LspRoot, type ServerNotice } from './lspClient'
 import { graphLinkExtension } from './graphLinkExtension'
 import type { GraphNode } from '../../00_planning/graph/types'
 import { promoteFileStage } from '../../00_planning/useFileStages'
@@ -178,7 +178,7 @@ export function useCodeEditorViewModel({
     const lspExtension =
       lspLanguageId && target
         ? [
-            getTypeScriptLspClient(target.root).plugin(uriForPath(target.root, target.relPath), lspLanguageId),
+            getLspClientForPath(target.root, target.relPath).plugin(uriForPath(target.root, target.relPath), lspLanguageId),
             goToDefinitionOnModClick,
             modHoverDefinitionLink,
             lspHoverTooltips,
@@ -194,11 +194,15 @@ export function useCodeEditorViewModel({
         ? [graphLinkExtension({ getGraphNodes, fromPath: path, onResolved: (target) => onLinkResolved?.(path, target) })]
         : []
 
+    // The grammar arrives a moment later the first time a language is opened
+    // (see codeEditorLanguages' on-demand loading) and swaps in here.
+    const language = new Compartment()
+
     const state = EditorState.create({
       doc: value,
       extensions: [
         basicSetup,
-        ...languageForPath(path),
+        language.of([]),
         ...lspExtension,
         ...graphLink,
         lintGutter(),
@@ -229,6 +233,10 @@ export function useCodeEditorViewModel({
 
     const view = new EditorView({ state, parent: container })
     viewRef.current = view
+    let open = true
+    loadLanguageForPath(path).then((support) => {
+      if (open && support.length) view.dispatch({ effects: language.reconfigure(support) })
+    })
     lastSyncedValue.current = value
     setDirty(startDirty ?? false)
     setStatus('idle')
@@ -236,6 +244,7 @@ export function useCodeEditorViewModel({
     setProblemCount(0)
 
     return () => {
+      open = false
       if (autoSaveTimer.current) {
         clearTimeout(autoSaveTimer.current)
         autoSaveTimer.current = null
@@ -288,5 +297,13 @@ export function useCodeEditorViewModel({
     revealedRef.current = key
   }, [value, revealLine, path])
 
-  return { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run, problemCount }
+  // When this file's language server isn't installed: the install command, in
+  // place of the go-to-definition and diagnostics it would have given.
+  const [serverNotice, setServerNotice] = useState<ServerNotice | null>(() => serverNoticeForPath(path))
+  useEffect(() => {
+    setServerNotice(serverNoticeForPath(path))
+    return subscribeServerNotices(() => setServerNotice(serverNoticeForPath(path)))
+  }, [path])
+
+  return { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run, problemCount, serverNotice }
 }

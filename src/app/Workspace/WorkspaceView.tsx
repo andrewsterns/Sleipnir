@@ -11,23 +11,11 @@ import { setNodeStatus, setNodeBorrows, createWorkspaceDir, createWorkspaceFile,
 import { adapterForPath } from '../../00_planning/graph/importAdapters'
 import { loadPathAliases } from '../../00_planning/graph/importAdapters/pathAliases'
 import { usePlanNodeLinks } from '../../00_planning/usePlanNodeLinks'
+import { refreshStages } from '../../00_planning/stagesStore'
 import type { GraphNode } from '../../00_planning/graph/types'
+import { TextField } from '../UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
-
-// Name-entry fields, styled to match the Search box (variant="surface"): a
-// bg-2 surface with a border-1 hairline, the shared control radius, and 10px
-// mono — theme-aware tokens, so they read correctly in light mode too.
-const FIELD_STYLE: React.CSSProperties = {
-  background: 'var(--bg-2)',
-  border: '1px solid var(--border-1)',
-  borderRadius: 'var(--radius-control)',
-  color: 'var(--text-1)',
-  fontSize: 10,
-  padding: '6px 10px',
-  outline: 'none',
-  ...MONO,
-}
 
 // Electron-only, same feature-detection convention as App.tsx's
 // electronDialogsAvailable — a plain browser dev tab has no native folder
@@ -72,7 +60,7 @@ function AddFolderButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <Frame flow="horizontal" align="center" gap={4}>
-      <input
+      <TextField size="md"
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -82,7 +70,7 @@ function AddFolderButton({ onCreated }: { onCreated: () => void }) {
         }}
         onBlur={() => { if (!name) reset() }}
         placeholder="folder name"
-        style={{ ...FIELD_STYLE, width: 120 }}
+        style={{ width: 120 }}
       />
       {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
     </Frame>
@@ -121,7 +109,7 @@ function AddFileButton({ onCreated }: { onCreated: () => void }) {
 
   return (
     <Frame flow="horizontal" align="center" gap={4}>
-      <input
+      <TextField size="md"
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -131,7 +119,7 @@ function AddFileButton({ onCreated }: { onCreated: () => void }) {
         }}
         onBlur={() => { if (!name) reset() }}
         placeholder="file name"
-        style={{ ...FIELD_STYLE, width: 120 }}
+        style={{ width: 120 }}
       />
       {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
     </Frame>
@@ -191,9 +179,11 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
 
   // Marks the originating plan-step node done once its staged content is
   // actually saved to disk — same approval-gate semantics the old Component
-  // Library override flow used.
+  // Library override flow used. The backend completes its status with it.
   const handleOverrideSaved = (planNodeId: string) => {
-    setNodeStatus(planNodeId, 'done').catch(() => {})
+    setNodeStatus(planNodeId, 'done')
+      .then(() => refreshStages())
+      .catch(() => {})
     onOverrideSaved?.(planNodeId)
   }
 
@@ -265,7 +255,7 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
         {workspaceAvailable && (
           showClone ? (
             <Frame flow="vertical" align="center" gap={8} style={{ width: 340 }}>
-              <input
+              <TextField size="md"
                 autoFocus
                 value={cloneUrl}
                 onChange={(e) => setCloneUrl(e.target.value)}
@@ -275,7 +265,7 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
                 }}
                 placeholder="https://github.com/user/repo.git"
                 disabled={cloning}
-                style={{ ...FIELD_STYLE, width: '100%' }}
+                style={{ width: '100%' }}
               />
               <Frame flow="horizontal" align="center" gap={8}>
                 <Button variant="ghost" size="sm" onClick={() => setShowClone(false)} disabled={cloning}>Cancel</Button>

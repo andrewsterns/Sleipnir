@@ -5,18 +5,32 @@
 // symbol, and the import that links to it can never drift out of agreement.
 
 import { LANGUAGES, type LanguageId, type NodeRole } from './architectures'
+import { extensionMap, LANGUAGES as LANGUAGE_TABLE } from '../../../tools/agentSkills/vendor/languages.mjs'
+
+// Every extension of every scaffoldable language — .mjs and .cjs too, not just
+// the one scaffolds write — mapped first-match like the planning CLI does.
+const PLANNING_EXTENSIONS = extensionMap(LANGUAGE_TABLE.filter((l) => l.planning))
 
 export function toPascalCase(label: string): string {
   const words = label.trim().split(/[^a-zA-Z0-9]+/).filter(Boolean)
   return words.map((w) => w[0].toUpperCase() + w.slice(1)).join('') || 'Unnamed'
 }
 
-// camelCase (lower first letter) form — the file-name base for every language.
+// camelCase (lower first letter) form — the file-name base for the JS family.
 // Derived from the Pascal form so multi-word labels ("cool pineapple" ->
 // "coolPineapple") stay consistent with the PascalCase type/symbol names.
 export function toCamelCase(label: string): string {
   const pascal = toPascalCase(label)
   return pascal[0].toLowerCase() + pascal.slice(1)
+}
+
+// snake_case form — the file-name base for C, Rust, Python and Go ("cool
+// pineapple view" -> "cool_pineapple_view"), from the camel form so word
+// boundaries agree with the symbol names.
+export function toSnakeCase(label: string): string {
+  return toCamelCase(label)
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase()
 }
 
 // PascalCase suffix appended after the name for each role — keeps the
@@ -35,13 +49,14 @@ export function extForLanguage(language: LanguageId): string {
   return LANGUAGES.find((l) => l.id === language)?.ext ?? 'txt'
 }
 
-// Reverse of extForLanguage: the language whose file extension is `ext` (a
-// leading dot is tolerated, case-insensitive), or null when nothing matches.
-// First match in LANGUAGES wins, so the shared-extension families resolve to
-// their canonical member — `js` → javascript (not jquery), `tsx` → react.
+// Reverse of extForLanguage: the language whose file extensions include `ext`
+// (a leading dot is tolerated, case-insensitive), or null when nothing matches.
+// First match in the language table wins, so the shared-extension families
+// resolve to their canonical member — `js` → javascript (not jquery), `tsx` →
+// react, `mjs` → javascript.
 export function languageForExt(ext: string): LanguageId | null {
   const e = ext.toLowerCase().replace(/^\./, '')
-  return LANGUAGES.find((l) => l.ext === e)?.id ?? null
+  return (PLANNING_EXTENSIONS[e] as LanguageId | undefined) ?? null
 }
 
 // Splits a user-typed node/file name into its base and the language its
@@ -66,10 +81,28 @@ export function splitLabelExtension(label: string): { base: string; language: La
   return { base, language }
 }
 
-// `<camelName><Role>.<ext>` — e.g. pineappleView.rs, pineappleViewModel.tsx,
-// pineapple.html (node role → no suffix).
-export function scaffoldFileName(language: LanguageId, role: NodeRole, label: string): string {
-  return `${toCamelCase(label)}${ROLE_SUFFIX[role]}.${extForLanguage(language)}`
+// `<name><Role>.<ext>` in the language's own file-naming convention (the
+// language table's `naming`): pineappleViewModel.tsx, pineapple_view_model.rs,
+// PineappleViewModel.java — Java requires its file to be named after its class,
+// and Rust and Python import modules by snake_case name. `header` picks a C or
+// C++ header's extension (.h / .hpp) over the source's.
+export function scaffoldFileName(language: LanguageId, role: NodeRole, label: string, { header = false }: { header?: boolean } = {}): string {
+  const camel = `${toCamelCase(label)}${ROLE_SUFFIX[role]}`
+  const naming = LANGUAGE_TABLE.find((l) => l.id === language)?.naming ?? 'camel'
+  const base = naming === 'snake' ? toSnakeCase(camel) : naming === 'pascal' ? camel[0].toUpperCase() + camel.slice(1) : camel
+  const ext = header ? (headerExtFor(language) ?? extForLanguage(language)) : extForLanguage(language)
+  return `${base}.${ext}`
+}
+
+/** Whether `path` is a header of `language` (sensor.h in C, engine.hpp in C++). */
+export function isHeaderPath(language: LanguageId, path: string): boolean {
+  const ext = path.match(/\.([A-Za-z0-9]+)$/)?.[1]?.toLowerCase() ?? ''
+  return !!LANGUAGE_TABLE.find((l) => l.id === language)?.headerExtensions?.includes(ext)
+}
+
+/** A C-family language's header extension (.h for C, .hpp for C++); null for languages without headers. */
+export function headerExtFor(language: LanguageId): string | null {
+  return LANGUAGE_TABLE.find((l) => l.id === language)?.headerExtensions?.[0] ?? null
 }
 
 // The symbol a rust/python/go file declares and exposes for import:

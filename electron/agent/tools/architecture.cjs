@@ -22,7 +22,7 @@ const analyzeArchitecture = {
   kind: 'read',
   description:
     "Map the open project's imports and report its architecture health: file and import counts, import loops (runtime only), imports pointing up the layers (a util importing a component), pages imported as libraries, heavy packages on the first load, hubs (most imported), files doing too much, barrels, misplaced and unused files, and hotspots (changed often, and big or widely imported). " +
-    'Works for TypeScript/JavaScript, Python, Go and Rust. Each finding names files with their fan-in/fan-out. Start every /optimize here, then read only the files the findings point at. ' +
+    'Works for TypeScript/JavaScript, Python, Go, Rust, C, C++, Java, Kotlin, Swift and C#. Each finding names files with their fan-in/fan-out. Start every /optimize here, then read only the files the findings point at. ' +
     'Set feature to scope the report to one feature ("right click menu", "checkout"): it lists the files that make it up, so you read those instead of searching. Set scope to a folder to list only its files (counts still include importers from anywhere).',
   inputSchema: {
     type: 'object',

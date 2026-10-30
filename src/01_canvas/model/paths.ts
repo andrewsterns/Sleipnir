@@ -135,8 +135,19 @@ export function parentDir(path: string): string {
 }
 
 /**
+ * The folder a board's components live in by default: the board's name,
+ * camelCased (`Checkout flow` → `checkoutFlow`), so `.components` reads as one
+ * folder per board. Never starts with a dot, so it can't collide with the
+ * app's own storage (`.components/.boards`).
+ */
+export function boardFolderName(boardName: string): string {
+  return toCamelCase(boardName) || 'board'
+}
+
+/**
  * Where a component named `name` lands by default: its own folder beneath the
- * root, holding one same-named file.
+ * root — inside its board's folder when `board` is given — holding one
+ * same-named file: `.components/<board>/<name>/<name>.tsx`.
  *
  * The single source of truth for that shape. Both the automatic write on
  * promote and the Create Component modal's preview call this, so the path the
@@ -144,8 +155,47 @@ export function parentDir(path: string): string {
  *
  * @throws PathEscapeError for a name that slugs to nothing.
  */
-export function deriveComponentPath(root: string, name: string): string {
-  return resolveComponentPath(root, `${toCamelCase(name)}/${componentFileName(name)}`)
+export function deriveComponentPath(root: string, name: string, board?: string): string {
+  return resolveComponentPath(root, `${derivedFolder(name, board)}/${componentFileName(name)}`)
+}
+
+/** The folder deriveComponentPath puts `name` in, relative to the root. */
+function derivedFolder(name: string, board?: string): string {
+  return board ? `${board}/${toCamelCase(name)}` : toCamelCase(name)
+}
+
+/**
+ * The file a component named `name` gets when filed under `folder` (relative
+ * to the root, or already rooted) — or, with `folder` blank, the derived
+ * default. The one rule behind every FOLDER field, so the properties panel and
+ * the rename/move dialog can't disagree about where a file lands.
+ */
+export function componentPathIn(
+  root: string,
+  name: string,
+  folder: string,
+  board?: string,
+): { path: string | null; error: string | null } {
+  try {
+    const dir = folder.trim().replace(/\/+$/, '')
+    const path = dir ? resolveComponentPath(root, `${dir}/${componentFileName(name)}`) : deriveComponentPath(root, name, board)
+    return { path, error: null }
+  } catch (e) {
+    return { path: null, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/**
+ * The folder field's starting value for a component already at `filePath`:
+ * blank while it sits in the folder its name derives (so a rename moves the
+ * folder with it), its real folder once someone has filed it elsewhere.
+ */
+export function folderFieldSeed(root: string, name: string, filePath: string | undefined, board?: string): string {
+  if (!filePath) return ''
+  const actual = relativeToRoot(root, parentDir(filePath))
+  // Either default counts as "never filed by hand": the board's folder, or the
+  // flat one components got before boards had folders.
+  return actual === derivedFolder(name, board) || actual === toCamelCase(name) ? '' : actual
 }
 
 /**
@@ -161,12 +211,12 @@ export function deriveComponentPath(root: string, name: string): string {
  * files present on disk but absent from the board are caught by the caller's
  * retry on a rejected write, not here.
  */
-export function deconflictComponentPath(root: string, name: string, taken: Iterable<string>): string {
+export function deconflictComponentPath(root: string, name: string, taken: Iterable<string>, board?: string): string {
   const used = new Set(taken)
-  const base = deriveComponentPath(root, name)
+  const base = deriveComponentPath(root, name, board)
   if (!used.has(base)) return base
 
-  const slug = toCamelCase(name)
+  const slug = derivedFolder(name, board)
   const fileName = componentFileName(name)
   for (let n = 2; ; n += 1) {
     const candidate = resolveComponentPath(root, `${slug}-${n}/${fileName}`)

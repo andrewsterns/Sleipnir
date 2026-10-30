@@ -450,6 +450,25 @@ function sleipnirApiPlugin() {
           return
         }
 
+        if (url.pathname === '/api/sleipnir/settle-committed-stages' && req.method === 'POST') {
+          try {
+            const { dirtyPaths } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...backend.settleCommittedStages(Array.isArray(dirtyPaths) ? dirtyPaths.map(String) : []) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/plan-activity' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, ...backend.getPlanActivity(url.searchParams.get('planId') ?? '') })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
         if (url.pathname === '/api/sleipnir/node-stages' && req.method === 'GET') {
           try {
             sendJson(res, 200, { success: true, ...backend.getNodeStages() })
@@ -875,6 +894,12 @@ export default defineConfig({
     sleipnirApiPlugin(),
     sleipnirBootLoaderPlugin(),
   ],
+  // The 3D viewport is lazy-loaded, so Vite would otherwise first meet
+  // three.js when someone opens a board in 3D — re-optimize mid-session, and
+  // 504 the in-flight import ("Outdated Optimize Dep"). Bundled up front instead.
+  optimizeDeps: {
+    include: ['three', '@react-three/fiber', '@react-three/drei'],
+  },
   server: {
     // Dedicated to this "Copy" checkout so it never collides with a sibling
     // Sleipnir folder's dev server (fixed ports, both default to 5173/7071).
@@ -896,7 +921,12 @@ export default defineConfig({
       // module graph. When the project open in the dev app is this repo
       // itself, a pasted image landing in .components/assets/ full-reloaded the
       // page, so the paste looked like it did nothing.
-      ignored: ['**/.nx/**', '**/src/00_planning/graph/preview-config.json', '**/.components/**', '**/.canvas/**'],
+      //
+      // .planning/ likewise: the open project's plans, read through the backend
+      // and followed by electron/planningWatcher.cjs, never imported. With this
+      // repo open in the dev app, every status toggle and every progress report
+      // an agent made full-reloaded the page instead of updating the graph.
+      ignored: ['**/.nx/**', '**/src/00_planning/graph/preview-config.json', '**/.components/**', '**/.canvas/**', '**/.planning/**'],
     },
   },
   test: {

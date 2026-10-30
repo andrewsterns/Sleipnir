@@ -28,6 +28,7 @@
 // be answerable in every emitter.
 
 import type { LanguageId } from '../../00_planning/graph/architectures'
+import type { Placement3D, SolidSpec } from '../scene3d/sceneTypes'
 
 export type CanvasDocId = string
 export type NodeId = string
@@ -381,6 +382,15 @@ export interface CanvasNodeBase {
    * code. Consumed — removed — as soon as the board is open.
    */
   request?: { focus?: boolean; component?: { name?: string; format?: 'svg' } }
+  /**
+   * Where this layer's plane sits in 3D (see scene3d/sceneTypes.ts). Absent: a
+   * top-level layer stands on the front plane where the board shows it, and a
+   * child lies flat in its parent's plane. Only the 3D view reads it — the 2D
+   * board always shows a layer straight-on in its own plane.
+   */
+  space?: Placement3D
+  /** Turns this layer's outline into a solid in 3D — extruded, revolved or swept. */
+  solid?: SolidSpec
 }
 
 export interface CanvasFrameNode extends CanvasNodeBase {

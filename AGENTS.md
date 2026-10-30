@@ -1,4 +1,4 @@
-<!-- BEGIN SLEIPNIR v4 — generated, edits inside are overwritten -->
+<!-- BEGIN SLEIPNIR v5 — generated, edits inside are overwritten -->
 ## Planning with Sleipnir
 
 This project's plans live in `.planning/` and render as a live graph in Sleipnir.
@@ -22,8 +22,9 @@ Use the bundled CLI instead. It needs Node and nothing else — no install step,
         [--file <path>:<role>[:<language>]]... [--edits <path1,path2>] [--after <stepId|none>]
 
 `detect-project` prints the project's languages (`primary`, `languages`), any it can
-see but can't scaffold (`unsupported`), and layout hints (`conventions.srcDir`). Plan
-in that language and that layout.
+see but can't scaffold yet (`unsupported`), and layout hints (`conventions.srcDir`,
+`includeDir`, and `sourceDirs` per language, e.g. `src/main/java`). Plan in that
+language and that layout — in a mixed repo, each folder in its own language.
 
 `create-plan` prints the new plan's id. Pass it as `--plan-id` to every `create-node`
 so the steps land on that plan's own tab. Steps also always land in Sleipnir's shared
@@ -51,9 +52,12 @@ a path that already exists (those go in `--edits`).
   Name sibling files of one feature `<name><Role>` (`cartView.tsx`, `cartViewModel.tsx`)
   and Sleipnir links them the way the architecture implies: a View imports its
   ViewModel/Controller/Presenter, a ViewModel imports its Interface.
-- Language comes from the extension (`.tsx` react, `.ts` typescript, `.rs` rust,
-  `.py` python, `.go` go, `.js` javascript, `.html`, `.css`), else the detected
+- Language comes from the extension (`.tsx` react, `.ts` typescript, `.js` javascript, `.py` python, `.rs` rust, `.go` go, `.html` html, `.css` css, `.c` c, `.cpp` cpp, `.java` java, `.kt` kotlin, `.swift` swift, `.cs` csharp), else the detected
   primary language.
+- In C and C++ a role is a header plus a source: plan both (`sensor_view.h` and
+  `sensor_view.c`, same role); the source includes its header. An Interface is the
+  header alone. File names follow the language: snake_case for C, C++, Rust, Python
+  and Go, PascalCase for Java, Kotlin, Swift and C#, camelCase for the JS family.
 
 A planned file is a **placeholder**: nothing is written to disk. When a human approves
 the step in Sleipnir, Sleipnir generates the files and wires their imports.
@@ -61,11 +65,34 @@ the step in Sleipnir, Sleipnir generates the files and wires their imports.
 `--edits a,b` lists EXISTING files the step will change, so they are highlighted in
 the architecture view.
 
+### Reporting progress
+
+When you carry out a plan — yours or one already in `.planning/` — keep it as your
+working todo list, so the plan shows what you are actually doing. Sleipnir's graph
+shows each step's status live, and the human watches it to follow your work:
+
+    node .sleipnir/plan.mjs list-steps --root . [--plan-id <id>]
+    node .sleipnir/plan.mjs set-status --root . --step <stepId> --status in_progress
+    node .sleipnir/plan.mjs set-status --root . --step <stepId> --status testing
+    node .sleipnir/plan.mjs set-status --root . --step <stepId> --status completed --note "What you did, in one line"
+
+A step is `pending`, `in_progress`, `testing` or `completed` — your own todo list's
+states, plus testing; Sleipnir shows them as Proposed, In progress, Testing and Done.
+Set one step `in_progress` when you start it, only one at a time, `testing` while you
+run its tests, and `completed` the moment it is done, not in a batch at the end. `--note` is one line of what you did; it shows
+on the step's card and in plan.md. `list-steps` prints every step's id and status,
+to pick up where a plan left off.
+
+Sleipnir records every file created, changed or deleted between a step going
+`in_progress` and `completed`, and shows them on the step with their diffs. So mark
+a step `in_progress` **before** you touch its files, and complete it before you start
+the next — otherwise its changes land on the wrong step.
+
 ### plan.md
 
-Every plan gets `.planning/<plan>/plan.md`, one section per step, regenerated as steps
-are written. Anything written under the title, or between a step's `/step-meta` and
-`/step` markers, is kept.
+Every plan gets `.planning/<plan>/plan.md`, one section per step with its status,
+regenerated as steps are written and reported on. Anything written under the title,
+or between a step's `/step-meta` and `/step` markers, is kept.
 
 ### Proposing a file with its full content (legacy)
 
@@ -143,9 +170,10 @@ renders as a named tab with nothing in it.
 | --- | --- |
 | `plans.json` | Named plan tabs. `nodeIds` only ever *references* ids in `notes.json`. |
 | `notes.json` | The real node content — drafts, scaffolds, plan steps, planned files. |
-| `stages.json` | Per-node sprint stage tags (`proposed`, `in-progress`, …). |
+| `stages.json` | Per-node status: `pending`, `in_progress`, `testing` or `completed`. |
 | `archive.json` | Archived/hidden node ids. |
 | `<plan>/plan.md` | A plan's readable document, generated from `notes.json`. |
+| `<plan>/activity.json` | What agents reported on the plan's steps: notes, and the files each step changed. |
 
 ## Designing on the Sleipnir Canvas
 
@@ -179,7 +207,7 @@ colors, and write real copy.
 
 `/optimize` improves the project's structure, or one feature's speed, from
 measurements rather than guesses. The bundled analyzer maps every import (TypeScript,
-JavaScript, Python, Go, Rust) with nothing but Node:
+JavaScript, Python, Go, Rust, C, C++, Java, Kotlin, Swift, C#) with nothing but Node:
 
     node .sleipnir/analyze.mjs report  --root . [--feature "<words>"] [--scope <dir>] [--goal "<text>"]
     node .sleipnir/analyze.mjs file    --root . <path>       # importers, imports, blast radius

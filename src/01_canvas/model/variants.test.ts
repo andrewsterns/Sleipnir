@@ -4,6 +4,7 @@ import {
   cloneTree,
   createComponentFromFrame,
   deleteComponent,
+  detachInstance,
   findComponent,
   instancesOf,
   removeVariant,
@@ -255,6 +256,33 @@ describe('deleteComponent', () => {
     expect(findComponent(next, promoted.component.id)).toBeNull()
     expect(instancesOf(next, promoted.component.id)).toHaveLength(0)
     expect(next.nodes).toHaveLength(0)
+  })
+})
+
+describe('detachInstance', () => {
+  it('turns one instance into a frame copy in place, leaving the component and other instances alone', () => {
+    const { doc, frame } = boardWithFrame()
+    const { doc: promoted, component, instanceId } = promote(doc, frame)
+    // A second instance of the same component.
+    const first = findNode(promoted, instanceId)!
+    const twin = { ...first, id: 'instance-twin', rect: { ...first.rect, x: 400 } }
+    const withTwin = insertNode(promoted, twin, null)
+
+    const next = detachInstance(withTwin, instanceId)
+    const detached = findNode(next, instanceId) as CanvasFrameNode
+    expect(detached.kind).toBe('frame')
+    expect(detached.rect).toEqual(first.rect)
+    expect(detached.children.map((c) => c.name)).toEqual(['Title'])
+    // A copy: fresh child ids, so editing it can't reach into the component.
+    const componentChildIds = component.variants[0].root.children.map((c) => c.id)
+    expect(detached.children.some((c) => componentChildIds.includes(c.id))).toBe(false)
+    expect(findComponent(next, component.id)).toBeTruthy()
+    expect(isInstanceNode(findNode(next, 'instance-twin')!)).toBe(true)
+  })
+
+  it('leaves the doc untouched for something that is not an instance', () => {
+    const { doc, frame } = boardWithFrame()
+    expect(detachInstance(doc, frame.id)).toBe(doc)
   })
 })
 

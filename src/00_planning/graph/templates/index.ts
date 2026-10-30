@@ -1,20 +1,31 @@
 import type { LanguageId, NodeRole } from '../architectures'
 import { jsExportName, scaffoldFileName, toPascalCase, typeExportName } from '../naming'
+import { hasCompanionHeader, NATIVE_LANGUAGES, renderNative, type NativeLanguage } from './nativeTemplates'
 
 // Pure string builders — no fs access, called client-side by
 // AddNodeModal.ViewModel before scaffoldNodes ever sees the content.
 // Deliberately minimal: a header + the right per-language declaration shape,
 // not deep feature-complete scaffolding.
 //
-// One uniform naming rule across every language (see graph/naming.ts): the
-// file is `<camelName><Role>.<ext>` and the primary declared symbol is what
-// the import adapters reference back — so file name, declaration, and any
-// auto-generated import that links siblings always agree. HTML/CSS are the
-// exception: architecture-less single files (role is always 'node').
+// One naming rule per language (see graph/naming.ts): the file is
+// `<name><Role>.<ext>` in the language's own case convention, and the primary
+// declared symbol is what the import adapters reference back — so file name,
+// declaration, and any auto-generated import that links siblings always agree.
+// HTML/CSS are the exception: architecture-less single files (role is always
+// 'node'). C and C++ roles come as a header plus a source (nativeTemplates.ts).
 
 export interface RenderedFile {
   fileName: string
   content: string
+  /** C and C++: the header that goes with this source, written beside it. */
+  companion?: RenderedFile
+}
+
+export interface TemplateOptions {
+  /** C and C++: render the role's header rather than its source. */
+  header?: boolean
+  /** The folder the file will live in, when known — Java/Kotlin packages and C# namespaces come from it. */
+  folder?: string
 }
 
 // ── JS/TS family (react/typescript/javascript/jquery) ──────────────────────
@@ -128,12 +139,34 @@ function renderContent(language: LanguageId, role: NodeRole, label: string): str
       return renderHtml(label)
     case 'css':
       return renderCss(label)
+    case 'c':
+    case 'cpp':
+    case 'java':
+    case 'kotlin':
+    case 'swift':
+    case 'csharp':
+      // Rendered by renderTemplate through nativeTemplates, which needs the
+      // file's header/path context this signature doesn't carry.
+      return renderNative(language, { role, label, headerFile: scaffoldFileName(language, role, label, { header: true }), header: false })
   }
 }
 
-export function renderTemplate(language: LanguageId, role: NodeRole, label: string): RenderedFile {
-  return {
-    fileName: scaffoldFileName(language, role, label),
-    content: renderContent(language, role, label),
+const isNative = (language: LanguageId): language is NativeLanguage => (NATIVE_LANGUAGES as LanguageId[]).includes(language)
+
+export function renderTemplate(language: LanguageId, role: NodeRole, label: string, { header = false, folder }: TemplateOptions = {}): RenderedFile {
+  if (!isNative(language)) {
+    return { fileName: scaffoldFileName(language, role, label), content: renderContent(language, role, label) }
   }
+  // A C/C++ interface is all header; any other role is a source unless its
+  // header is asked for, and a source brings its header along.
+  const asHeader = header || ((language === 'c' || language === 'cpp') && role === 'interface')
+  const headerFile = scaffoldFileName(language, role, label, { header: true })
+  const file: RenderedFile = {
+    fileName: scaffoldFileName(language, role, label, { header: asHeader }),
+    content: renderNative(language, { role, label, headerFile, folder, header: asHeader }),
+  }
+  if (!asHeader && hasCompanionHeader(language, role)) {
+    file.companion = { fileName: headerFile, content: renderNative(language, { role, label, headerFile, folder, header: true }) }
+  }
+  return file
 }

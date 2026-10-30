@@ -88,6 +88,14 @@ function scriptTargets(dir, rel, root) {
     }))
 }
 
+function firstWithExt(dir, exts) {
+  try {
+    return fs.readdirSync(dir).find((n) => exts.some((e) => n.endsWith(e))) ?? null
+  } catch {
+    return null
+  }
+}
+
 function otherTargets(dir, rel) {
   const targets = []
   const add = (key, label, kind, command, args, detail) =>
@@ -102,6 +110,38 @@ function otherTargets(dir, rel) {
   }
   if (exists(path.join(dir, 'go.mod'))) add('go', 'go run .', 'app', 'go', ['run', '.'], 'Go module')
   if (exists(path.join(dir, 'Cargo.toml'))) add('cargo', 'cargo run', 'app', 'cargo', ['run'], 'Rust crate')
+
+  // C and C++: configure, then build, into build/ — the folder the Validation
+  // view's ctest reads. A Makefile or meson.build gets its own build commands.
+  if (exists(path.join(dir, 'CMakeLists.txt'))) {
+    add('cmake-configure', 'cmake configure', 'task', 'cmake', ['-S', '.', '-B', 'build'], 'CMake: generate build/')
+    add('cmake-build', 'cmake build', 'task', 'cmake', ['--build', 'build'], 'CMake: compile into build/')
+  }
+  if (exists(path.join(dir, 'Makefile'))) add('make', 'make', 'task', 'make', [], 'Makefile')
+  if (exists(path.join(dir, 'meson.build'))) {
+    add('meson-setup', 'meson setup', 'task', 'meson', ['setup', 'build'], 'Meson: configure build/')
+    add('meson-compile', 'meson compile', 'task', 'meson', ['compile', '-C', 'build'], 'Meson: compile')
+  }
+
+  // Java and Kotlin: the project's Gradle wrapper when it has one.
+  if (exists(path.join(dir, 'build.gradle')) || exists(path.join(dir, 'build.gradle.kts'))) {
+    const wrapper = process.platform === 'win32' ? 'gradlew.bat' : './gradlew'
+    const gradle = exists(path.join(dir, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew')) ? wrapper : 'gradle'
+    add('gradle-run', 'gradle run', 'app', gradle, ['run'], 'Gradle application')
+    add('gradle-build', 'gradle build', 'task', gradle, ['build'], 'Gradle build')
+  } else if (exists(path.join(dir, 'pom.xml'))) {
+    add('maven-package', 'mvn package', 'task', 'mvn', ['package'], 'Maven build')
+  }
+
+  // Swift packages and .NET projects run and build through their own CLIs.
+  if (exists(path.join(dir, 'Package.swift'))) {
+    add('swift-run', 'swift run', 'app', 'swift', ['run'], 'Swift package')
+    add('swift-build', 'swift build', 'task', 'swift', ['build'], 'Swift build')
+  }
+  if (firstWithExt(dir, ['.csproj', '.sln'])) {
+    add('dotnet-run', 'dotnet run', 'app', 'dotnet', ['run'], '.NET project')
+    add('dotnet-build', 'dotnet build', 'task', 'dotnet', ['build'], '.NET build')
+  }
   // A folder with its own package.json builds its HTML through that, so its
   // index.html is a template, not something to serve raw.
   if (exists(path.join(dir, 'index.html')) && !exists(path.join(dir, 'package.json'))) {

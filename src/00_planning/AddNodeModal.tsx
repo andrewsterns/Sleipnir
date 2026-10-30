@@ -8,6 +8,7 @@ import { Dropdown } from '../app/UIKit/Dropdown/Dropdown'
 import { ADD_NODE_LANGUAGES, LANGUAGES, ROLE_OPTIONS, type LanguageId } from './graph/architectures'
 import { useAddNodeViewModel, resolveDraft, draftFileNames, roleCount, type AddNodeModalProps } from './AddNodeModal.ViewModel'
 import { fuzzyScore } from '../utils/fuzzyMatch'
+import { TextField } from '../app/UIKit/Field/TextField'
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
@@ -50,14 +51,14 @@ function TargetFolderField({
   return (
     <Frame flow="vertical" gap={4}>
       <Text variant="xs" weight="black" color="text-2">Target Folder</Text>
-      <input
+      <TextField size="lg"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         placeholder={effectiveFolder}
         disabled={disabled}
-        style={INPUT_STYLE}
+       
       />
       {focused && results.length > 0 && (
         <Frame flow="vertical" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-1' }} clipContent>
@@ -95,16 +96,6 @@ const CHIP_BUTTON: React.CSSProperties = {
   border: 'none',
   cursor: 'pointer',
   fontFamily: 'var(--font-mono)',
-}
-
-const INPUT_STYLE: React.CSSProperties = {
-  background: 'var(--bg-2)',
-  border: '1px solid var(--border-2)',
-  borderRadius: 'var(--radius-control)',
-  color: 'var(--text-1)',
-  fontSize: 12,
-  padding: '7px 9px',
-  ...MONO,
 }
 
 // The one Planning node-creation modal: any number of name rows ("+ Create
@@ -168,7 +159,7 @@ export function AddNodeModal(props: AddNodeModalProps) {
                   >
                     {/* Name (a typed extension overrides the dropdown) · language · × */}
                     <Frame flow="horizontal" align="center" gap={6}>
-                      <input
+                      <TextField size="lg"
                         autoFocus={i === vm.drafts.length - 1}
                         value={d.name}
                         onChange={(e) => vm.updateDraft(d.id, { name: e.target.value })}
@@ -176,7 +167,7 @@ export function AddNodeModal(props: AddNodeModalProps) {
                         onBlur={() => vm.normalizeName(d.id)}
                         placeholder="Name or Name.tsx"
                         disabled={vm.submitting}
-                        style={{ ...INPUT_STYLE, flex: 1, minWidth: 0 }}
+                        style={{ flex: 1, minWidth: 0 }}
                       />
                       <Frame w={120} shrink={0}>
                         <Dropdown

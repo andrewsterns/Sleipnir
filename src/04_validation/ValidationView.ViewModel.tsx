@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { isValidationAvailable, type ValidationResults } from './iValidationView'
+import { isValidationAvailable, type ValidationResults, type ValidationRunner } from './iValidationView'
 
 export function useValidationViewModel() {
   const [running, setRunning] = useState(false)
@@ -10,6 +10,20 @@ export function useValidationViewModel() {
   const [timedOut, setTimedOut] = useState(false)
   const [hasRun, setHasRun] = useState(false)
   const available = isValidationAvailable()
+  // The project's test runners (Vitest, cargo test, pytest, ctest, …); the
+  // first is the default, and the picker shows when there's more than one.
+  const [runners, setRunners] = useState<ValidationRunner[]>([])
+  const [runnerId, setRunnerId] = useState<string | null>(null)
+  const refreshRunners = () => {
+    window.validationAPI
+      ?.runners()
+      .then((list) => {
+        setRunners(list)
+        setRunnerId((current) => (current && list.some((r) => r.id === current) ? current : (list[0]?.id ?? null)))
+      })
+      .catch(() => setRunners([]))
+  }
+  useEffect(refreshRunners, [])
 
   // One session for the component's lifetime — same idea as AgentChat's own
   // sessionIdRef (see AgentChat.ViewModel.tsx).
@@ -44,7 +58,7 @@ export function useValidationViewModel() {
     setRunning(true)
     setOutput('')
     setResults(null)
-    api.run(sessionIdRef.current)
+    api.run(sessionIdRef.current, runnerId ?? undefined)
   }
 
   const stop = () => {
@@ -52,5 +66,5 @@ export function useValidationViewModel() {
     setRunning(false)
   }
 
-  return { running, output, results, rawOnFailure, exitCode, timedOut, hasRun, runTests, stop, available }
+  return { running, output, results, rawOnFailure, exitCode, timedOut, hasRun, runTests, stop, available, runners, runnerId, setRunnerId, refreshRunners }
 }

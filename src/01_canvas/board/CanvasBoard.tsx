@@ -12,7 +12,8 @@
 // somewhere off the frame it claimed to select. See model/layout.ts.
 
 import type { OrientedBox } from '../model/rotation'
-import { findParent } from '../model/doc'
+import { findNode, findParent } from '../model/doc'
+import { TextEditOverlay } from './TextEditOverlay'
 import { Frame } from '../../app/UIKit/Frame/Frame'
 import { toScreenPoint, type Camera } from '../hooks/panZoomMath'
 import { findComponent, resolveVariant } from '../model/variants'
@@ -22,7 +23,8 @@ import type { LinkedComponents } from '../hooks/useLinkedComponents'
 import { CanvasToolbar } from './CanvasToolbar'
 import { ComponentLabel } from './ComponentLabel'
 import { FrameLabel } from './FrameLabel'
-import { isFrameNode, isInstanceNode, type CanvasDoc, type CanvasRect, type NodeId } from '../model/types'
+import { PlaneGuides } from './PlaneGuides'
+import { isFrameNode, isInstanceNode, isTextNode, type CanvasDoc, type CanvasRect, type NodeId } from '../model/types'
 import type { Guide } from '../model/align'
 import { useSyncExternalStore } from 'react'
 import { ROOT_DROP_TARGET, type CanvasTool, type PenDraft, type ResizeHandle, type ValueStore } from '../CanvasView.ViewModel'
@@ -136,6 +138,8 @@ export interface CanvasBoardProps {
   onDoubleClick: (e: React.MouseEvent) => void
   /** Alignment guides for the live drag, in board space. */
   guides: Guide[]
+  /** Construction lines from the other 3D planes onto the selected layer's (see scene3d/sketchPlane.ts). */
+  planeGuides?: Guide[]
   /** Frame the current drag or draw would drop into; ROOT_DROP_TARGET = the board. */
   dropTargetId: NodeId | null
   /**
@@ -154,6 +158,10 @@ export interface CanvasBoardProps {
   onSelectInstanceVariant: (instanceId: NodeId, variantId: string) => void
   onTriggerNextVariant: (instanceId: NodeId) => void
   onOpenComponent: (componentId: string) => void
+  /** The text layer being typed into on the board, if any — see TextEditOverlay. */
+  editingTextId?: NodeId | null
+  onTextChange?: (id: NodeId, text: string) => void
+  onEndTextEdit?: () => void
 }
 
 export function CanvasBoard({
@@ -186,6 +194,7 @@ export function CanvasBoard({
   onStartMove,
   onDoubleClick,
   guides,
+  planeGuides,
   dropTargetId,
   dropIndicator,
   hoverId,
@@ -195,7 +204,12 @@ export function CanvasBoard({
   onSelectInstanceVariant,
   onTriggerNextVariant,
   onOpenComponent,
+  editingTextId = null,
+  onTextChange,
+  onEndTextEdit,
 }: CanvasBoardProps) {
+  const editingText = editingTextId ? findNode(doc, editingTextId) : null
+  const editingTextRect = editingText && isTextNode(editingText) ? rectOf(editingText.id) : null
   /** Board rect → screen box. The single place board space becomes pixels. */
   const toScreenBox = (rect: CanvasRect) => {
     const topLeft = toScreenPoint(camera, rect.x, rect.y)
@@ -293,6 +307,14 @@ export function CanvasBoard({
             linked={linked}
           />
         ))}
+        {editingText && isTextNode(editingText) && editingTextRect && (
+          <TextEditOverlay
+            node={editingText}
+            rect={editingTextRect}
+            onChange={(text) => onTextChange?.(editingText.id, text)}
+            onDone={() => onEndTextEdit?.()}
+          />
+        )}
       </div>
 
       {/* ── Screen-space chrome ── */}
@@ -412,6 +434,8 @@ export function CanvasBoard({
             }}
           />
         )}
+
+        {planeGuides && planeGuides.length > 0 && <PlaneGuides guides={planeGuides} camera={camera} />}
 
         {/* Alignment guides, drawn in screen space so they stay hairline-thin. */}
         {guides.map((guide, i) => {

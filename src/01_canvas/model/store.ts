@@ -31,7 +31,7 @@ import {
 import { collectImports } from '../emit/react'
 import { spliceImports } from '../emit/region'
 import type { FileTreeNode } from '../../00_planning/api/PlatformAPI'
-import { DEFAULT_COMPONENT_ROOT, LEGACY_COMPONENT_ROOT, normalizeRelPath, parentDir } from './paths'
+import { DEFAULT_COMPONENT_ROOT, LEGACY_COMPONENT_ROOT, isContained, normalizeRelPath, parentDir } from './paths'
 import { movedComponents, reconcileDeletedPath, relinkAfterMove } from './relink'
 import { isStagedPath, sentinelComponentId } from './stagedFiles'
 import { CANVAS_SCHEMA_VERSION, type CanvasDoc, type CanvasDocId, type CanvasDocSummary } from './types'
@@ -222,12 +222,20 @@ export async function deleteDoc(id: string): Promise<void> {
  * removal or rename that the human actually asked for.
  */
 export async function pruneEmptyFolder(folder: string): Promise<void> {
-  if (!folder) return
-  try {
-    const { tree } = await listWorkspaceDir(folder)
-    if (tree.length === 0) await deleteWorkspacePath(folder)
-  } catch {
-    // Listing or removing failed — leave the folder; nothing depends on it.
+  // Walks up: a component's folder sits inside its board's folder, and the
+  // board folder empties along with its last component. Stops at the
+  // component root itself, which always stays.
+  let current = normalizeRelPath(folder)
+  while (current && current !== DEFAULT_COMPONENT_ROOT && isContained(DEFAULT_COMPONENT_ROOT, current)) {
+    try {
+      const { tree } = await listWorkspaceDir(current)
+      if (tree.length > 0) return
+      await deleteWorkspacePath(current)
+    } catch {
+      // Listing or removing failed — leave the folder; nothing depends on it.
+      return
+    }
+    current = parentDir(current)
   }
 }
 

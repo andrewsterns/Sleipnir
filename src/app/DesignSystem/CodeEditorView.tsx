@@ -52,7 +52,7 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
   { path, value, readOnly, onSaved, suppressAutoSave, writeFile, scope, repoRelativeRoot, workspaceRoot, revealLine, onImportsChanged, getGraphNodes, onLinkResolved },
   ref,
 ) {
-  const { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run, problemCount } =
+  const { containerRef, dirty, status, errorMessage, save, runnable, running, runResult, run, problemCount, serverNotice } =
     useCodeEditorViewModel({ path, value, readOnly, suppressAutoSave, startDirty: suppressAutoSave, writeFile, scope, repoRelativeRoot, workspaceRoot, revealLine, onImportsChanged, getGraphNodes, onLinkResolved })
 
   const handleSave = async () => {
@@ -76,6 +76,12 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
         >
           {status === 'error' && errorMessage && (
             <span style={{ fontSize: 9, color: '#e07a7a', maxWidth: 240, ...MONO }}>{errorMessage}</span>
+          )}
+          {/* No language server installed for this file: say how to get one. */}
+          {serverNotice && (
+            <span title={serverNotice.message} style={{ fontSize: 9, color: 'var(--text-3)', maxWidth: 320, ...MONO }}>
+              No {serverNotice.command} — {serverNotice.install}
+            </span>
           )}
           {suppressAutoSave && dirty ? (
             <span

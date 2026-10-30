@@ -61,6 +61,9 @@ export type IconName =
   | 'layout-columns'
   | 'canvas'
   | 'component'
+  | 'component-off'
+  | 'variant-add'
+  | 'file-sync'
   | 'shape-rectangle'
   | 'shape-ellipse'
   | 'shape-triangle'
@@ -112,6 +115,29 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 24 }) => {
           <path d="M15 12L18 15L21 12L18 9L15 12Z" />
           <path d="M9 6L12 9L15 6L12 3L9 6Z" />
           <path d="M9 18L12 21L15 18L12 15L9 18Z" />
+        </>;
+      // Two arrows chasing round — write the canvas's state into the file.
+      case 'file-sync':
+        return <>
+          <path d="M20 11A8 8 0 0 0 6.3 6.3L4 8.5" />
+          <path d="M4 4V8.5H8.5" />
+          <path d="M4 13A8 8 0 0 0 17.7 17.7L20 15.5" />
+          <path d="M20 20V15.5H15.5" />
+        </>;
+      // A diamond with a plus — add a variant to a component.
+      case 'variant-add':
+        return <>
+          <path d="M12 3L21 12L12 21L3 12L12 3Z" />
+          <path d="M12 8.5V15.5M8.5 12H15.5" />
+        </>;
+      // The component mark struck through — detach / flatten back to a frame.
+      case 'component-off':
+        return <>
+          <path d="M3 12L6 15L9 12L6 9L3 12Z" />
+          <path d="M15 12L18 15L21 12L18 9L15 12Z" />
+          <path d="M9 6L12 9L15 6L12 3L9 6Z" />
+          <path d="M9 18L12 21L15 18L12 15L9 18Z" />
+          <path d="M4 20L20 4" />
         </>;
       // Panel layout — two stacked regions beside one tall region. Used for the
       // Canvas nav-rail entry; the 'frame' icon above is the frame TOOL.

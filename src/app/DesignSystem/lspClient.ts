@@ -3,6 +3,7 @@ import { Text, StateField, StateEffect, type TransactionSpec, type ChangeSet } f
 import { EditorView, Decoration, type DecorationSet } from '@codemirror/view'
 import { readRepoFile, readWorkspaceFile } from '../../00_planning/api/sleipnirApi'
 import { getLspFileOpener } from './lspFileOpener'
+import { languageForPath as tableLanguageForPath, languageById } from '../../../tools/agentSkills/vendor/languages.mjs'
 
 // Must match tools/lsp-proxy.mjs's FAKE_ROOT_URI exactly — the proxy
 // rewrites this to the real absolute repo path server-side, since the
@@ -19,9 +20,65 @@ const LSP_LANGUAGE_ID: Record<string, string> = {
   cjs: 'javascript',
 }
 
+// The LSP languageId each server expects in didOpen, for the languages that
+// get their own server (see tools/languageServers.mjs) rather than tsserver.
+const NATIVE_LSP_ID: Record<string, string> = {
+  c: 'c',
+  cpp: 'cpp',
+  rust: 'rust',
+  go: 'go',
+  python: 'python',
+  java: 'java',
+  kotlin: 'kotlin',
+  swift: 'swift',
+  csharp: 'csharp',
+}
+
 export function lspLanguageIdForPath(srcRelativePath: string): string | null {
   const ext = srcRelativePath.split('.').pop()?.toLowerCase() ?? ''
-  return LSP_LANGUAGE_ID[ext] ?? null
+  if (LSP_LANGUAGE_ID[ext]) return LSP_LANGUAGE_ID[ext]
+  const lang = tableLanguageForPath(srcRelativePath)
+  return lang?.server ? (NATIVE_LSP_ID[lang.id] ?? null) : null
+}
+
+/** The table language whose own server handles this file, or null for the JS family (tsserver) and plain files. */
+export function nativeServerLanguageForPath(path: string): string | null {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  if (LSP_LANGUAGE_ID[ext]) return null
+  const lang = tableLanguageForPath(path)
+  return lang?.server && NATIVE_LSP_ID[lang.id] ? lang.id : null
+}
+
+// ── Missing servers ─────────────────────────────────────────────────────────
+// A language whose server isn't installed: the proxy says so with a
+// `sleipnir/serverMissing` notification (see tools/lsp-proxy.mjs) and hangs
+// up. Editors of that language show the install command instead of silently
+// lacking go-to-definition and diagnostics.
+
+export interface ServerNotice {
+  languageId: string
+  command: string | null
+  install: string | null
+  message: string
+}
+
+const serverNotices = new Map<string, ServerNotice>()
+const noticeListeners = new Set<() => void>()
+
+/** Why `path` has no code intelligence, when its language server is missing. */
+export function serverNoticeForPath(path: string): ServerNotice | null {
+  const lang = nativeServerLanguageForPath(path)
+  return lang ? (serverNotices.get(serverCommandOf(lang)) ?? null) : null
+}
+
+export function subscribeServerNotices(listener: () => void): () => void {
+  noticeListeners.add(listener)
+  return () => noticeListeners.delete(listener)
+}
+
+// Languages sharing a server share its notice (C and C++ both need clangd).
+function serverCommandOf(languageId: string): string {
+  return languageById(languageId)?.server?.command ?? languageId
 }
 
 // Which language-server "project" an editor should attach to: Sleipnir's own
@@ -427,7 +484,7 @@ export const modHoverDefinitionLink = [
 // different root (see getTypeScriptLspClient below) would leak the old
 // WebSocket connection, and on the proxy side, its bound tsserver-stdout
 // listener along with it.
-function createWebSocketTransport(url: string): { transport: Transport; close: () => void } {
+function createWebSocketTransport(url: string, onServerMissing?: (notice: ServerNotice) => void): { transport: Transport; close: () => void } {
   const socket = new WebSocket(url)
   const handlers = new Set<(value: string) => void>()
   const pending: string[] = []
@@ -438,7 +495,20 @@ function createWebSocketTransport(url: string): { transport: Transport; close: (
     for (const message of pending.splice(0)) socket.send(message)
   })
   socket.addEventListener('message', (e) => {
-    for (const handler of handlers) handler(String(e.data))
+    const data = String(e.data)
+    // The proxy's own word, not the server's — never handed to the LSP client.
+    if (onServerMissing && data.includes('"sleipnir/serverMissing"')) {
+      try {
+        const msg = JSON.parse(data)
+        if (msg.method === 'sleipnir/serverMissing') {
+          onServerMissing(msg.params as ServerNotice)
+          return
+        }
+      } catch {
+        // Not ours after all; pass it on.
+      }
+    }
+    for (const handler of handlers) handler(data)
   })
 
   return {
@@ -487,6 +557,51 @@ function createClientFor(root: LspRoot): ClientSlot {
 // whichever pane's editor mounted second.
 let selfSlot: ClientSlot | null = null
 let externalSlot: ClientSlot | null = null
+
+// Every other language: one client per root and server (C and C++ share
+// clangd), connected with ?language= so the proxy starts the right server.
+// External roots other than the current one are dropped, like externalSlot.
+const nativeSlots = new Map<string, ClientSlot>()
+
+function createNativeClientFor(root: LspRoot, languageId: string, key: string): ClientSlot {
+  const scheme = schemeFor(root)
+  const command = serverCommandOf(languageId)
+  const { transport, close } = createWebSocketTransport(`${LSP_WS_URL}/?language=${encodeURIComponent(languageId)}`, (notice) => {
+    serverNotices.set(command, notice)
+    // A dead connection mustn't be reused: the next file of this language
+    // tries again, so installing the server and reopening the file is enough.
+    nativeSlots.delete(key)
+    for (const listener of noticeListeners) listener()
+  })
+  const client = new LSPClient({
+    rootUri: scheme.rootUri,
+    extensions: languageServerExtensions(),
+    workspace: (c) => new SleipnirWorkspace(c, scheme.pathForUri, scheme.readFile),
+  })
+  client.connect(transport)
+  return { client, close, root }
+}
+
+/** The client for a file: tsserver for the JS family, the language's own server for anything else. */
+export function getLspClientForPath(root: LspRoot, path: string): LSPClient {
+  const languageId = nativeServerLanguageForPath(path)
+  if (!languageId) return getTypeScriptLspClient(root)
+  for (const [key, slot] of nativeSlots) {
+    if (slot.root.kind === 'external' && !sameRoot(slot.root, root)) {
+      slot.client.disconnect()
+      slot.close()
+      nativeSlots.delete(key)
+    }
+  }
+  const key = `${root.kind === 'self' ? 'self' : root.root}|${serverCommandOf(languageId)}`
+  let slot = nativeSlots.get(key)
+  if (!slot) {
+    serverNotices.delete(serverCommandOf(languageId))
+    slot = createNativeClientFor(root, languageId, key)
+    nativeSlots.set(key, slot)
+  }
+  return slot.client
+}
 
 export function getTypeScriptLspClient(root: LspRoot): LSPClient {
   if (root.kind === 'self') {

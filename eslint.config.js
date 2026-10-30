@@ -43,11 +43,14 @@ export default tseslint.config(
       // effects, padding, w/h, ...) instead of the raw style={{}} escape hatch.
       // Only object literals are flagged; forwarding a style prop (style={style})
       // is allowed plumbing.
+      // The UIKit Field components (TextField, TextArea, SelectField) aren't
+      // Frames: their look is fixed, and style={{}} on them only ever carries
+      // layout (flex, width) — so they're exempt.
       'no-restricted-syntax': [
         'warn',
         {
           selector:
-            "JSXOpeningElement[name.name=/^[A-Z]/] > JSXAttribute[name.name='style'] > JSXExpressionContainer > ObjectExpression",
+            "JSXOpeningElement[name.name=/^(?!(TextField|TextArea|SelectField)$)[A-Z]/] > JSXAttribute[name.name='style'] > JSXExpressionContainer > ObjectExpression",
           message:
             'Prefer Frame props (fill, stroke, radius, effects, padding, w/h, ...) over style={{}}. If no prop covers this, extend Frame — or disable this line with a justification.',
         },

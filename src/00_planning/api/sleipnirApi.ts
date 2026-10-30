@@ -197,6 +197,14 @@ export async function planNodesUnderPath(path: string, isDir: boolean): Promise<
   )
 }
 
+export function settleCommittedStages(...args: Parameters<PlatformAPI['settleCommittedStages']>) {
+  return getPlatformAPI().settleCommittedStages(...args)
+}
+
+export function getPlanActivity(...args: Parameters<PlatformAPI['getPlanActivity']>) {
+  return getPlatformAPI().getPlanActivity(...args)
+}
+
 export function getNodeStages(...args: Parameters<PlatformAPI['getNodeStages']>) {
   return getPlatformAPI().getNodeStages(...args)
 }

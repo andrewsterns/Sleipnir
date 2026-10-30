@@ -36,11 +36,14 @@ export function roleOf(path) {
   const lower = p.toLowerCase()
   const name = p.slice(p.lastIndexOf('/') + 1)
   const base = name.replace(/\.[^.]+$/, '')
-  if (/(^|\/)(__tests__|tests?|spec|e2e)\//.test(lower) || /\.(test|spec|bench)\.[^.]+$/.test(lower) || /_test\.go$/.test(lower) || /(^|\/)test_[^/]+\.py$/.test(lower)) return 'test'
+  if (/(^|\/)(__tests__|tests?|spec|e2e)\//.test(lower) || /\.(test|spec|bench)\.[^.]+$/.test(lower) || /_test\.(go|c|cc|cpp)$/.test(lower) || /(^|\/)test_[^/]+\.(py|c|cpp)$/.test(lower) || /Tests?\.(java|kt|swift|cs)$/.test(name)) return 'test'
   if (/\.config\.[^.]+$/.test(lower) || /(^|\/)(setup|conftest)\.[^.]+$/.test(lower) || /^(tsconfig|vite|vitest|eslint|webpack|rollup|babel|jest|tailwind|postcss)/.test(name.toLowerCase())) return 'config'
+  // C and C++ headers declare; their sources implement.
+  if (/\.(h|hh|hpp|hxx)$/.test(lower)) return 'types'
   if (/\.d\.[mc]?ts$/.test(lower) || /(^|\/)types?(\.|\/)/.test(lower) || /(^|\/)(interfaces?|models?\/types)\//.test(lower) || /^i[A-Z]\w*\.[jt]sx?$/.test(name)) return 'types'
   // The app's own start file: main/index at the project root or directly in src/.
   if (/^(src\/)?(main|index)\.(tsx?|jsx?|mjs|cjs)$/.test(lower)) return 'entry'
+  if (/(^|\/)(main\.(c|cc|cpp|cxx|swift)|Program\.cs|(Main|Application)\.(java|kt))$/.test(p)) return 'entry'
   if (/(^|\/)(main\.(go|rs|py)|lib\.rs|__main__\.py|app\.py|manage\.py|wsgi\.py|asgi\.py)$/.test(lower) || /(^|\/)cmd\/[^/]+\/main\.go$/.test(lower) || /^electron\/(main|preload)\.c?js$/.test(lower)) return 'entry'
   // The app shell and route tables sit above every page.
   if (/^(src\/)?App\.(tsx|jsx|vue|svelte)$/.test(p) || /(^|\/)(router|routes)\.[jt]sx?$/.test(p)) return 'entry'
@@ -49,8 +52,8 @@ export function roleOf(path) {
   if (/(^|\/)(pages|routes|screens)\//.test(lower) && /\.(tsx|jsx|vue|svelte)$/.test(lower)) return 'page'
   if (/(^|\/)app\/(.+\/)?page\.(tsx|jsx)$/.test(lower)) return 'page'
   if (/(Page|Screen)$/.test(base) && /\.(tsx|jsx|vue|svelte)$/.test(lower)) return 'page'
-  if (/(ViewModel|Controller|Presenter|Handler|Resolver)$/.test(base) || /^use[A-Z]/.test(base) || /(^|\/)(hooks?|controllers?|handlers?|viewmodels?|resolvers?)\//.test(lower)) return 'logic'
-  if (/(^|\/)(api|services?|db|database|repositor(y|ies)|stores?|state|models?|data|dal|clients?)\//.test(lower) || /(Store|Service|Repository|Client|Api|Model|Slice)$/.test(base)) return 'data'
+  if (/(ViewModel|Controller|Presenter|Handler|Resolver)$/.test(base) || /_(view_model|controller|presenter|handler|resolver)$/.test(base) || /^use[A-Z]/.test(base) || /(^|\/)(hooks?|controllers?|handlers?|viewmodels?|resolvers?)\//.test(lower)) return 'logic'
+  if (/(^|\/)(api|services?|db|database|repositor(y|ies)|stores?|state|models?|data|dal|clients?)\//.test(lower) || /(Store|Service|Repository|Client|Api|Model|Slice)$/.test(base) || /_(store|service|repository|client|api|model)$/.test(base)) return 'data'
   if (/(^|\/)(utils?|lib|libs|helpers?|shared|common|core|internal\/pkg)\//.test(lower) || /(utils?|helpers?)$/i.test(base)) return 'util'
   // Components are JSX/SFC files; a plain .ts beside them is a helper.
   if (/\.(tsx|jsx|vue|svelte)$/.test(lower)) return 'component'

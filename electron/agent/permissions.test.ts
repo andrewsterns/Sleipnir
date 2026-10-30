@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 const require = createRequire(import.meta.url)
 const { decide, isOffered, canRemember, ruleKeyFor, normalizeMode } = require('./permissions.cjs')
 
-type Kind = 'read' | 'edit' | 'exec' | 'external'
+type Kind = 'read' | 'report' | 'edit' | 'exec' | 'external'
 const tool = (kind: Kind, extra: Record<string, unknown> = {}) => ({ name: `t_${kind}`, kind, ...extra })
 
 describe('decide', () => {
@@ -13,6 +13,13 @@ describe('decide', () => {
     for (const mode of ['ask', 'acceptEdits', 'plan', 'auto', 'headless']) {
       expect(decide({ mode, tool: tool('read') })).toBe('allow')
     }
+  })
+
+  it('never makes an agent wait to report its progress', () => {
+    for (const mode of ['ask', 'acceptEdits', 'plan', 'auto', 'headless']) {
+      expect(decide({ mode, tool: tool('report') })).toBe('allow')
+    }
+    expect(canRemember(tool('report'))).toBe(false)
   })
 
   it('asks before any change in ask mode', () => {

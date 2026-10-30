@@ -1,29 +1,19 @@
 import type { GraphNode, NodeStage } from './types'
+import type { Tone } from './nodeTone'
 
-// The sprint-ticket "stage" a node can be tagged with from the detail card —
-// an axis independent of `kind` (built/proposed) and of the AI plan-step
-// `status` (draft/approved/done). Persisted per node id in an overlay store
-// (see backend getNodeStages/setNodeStage) so it works for *every* node,
+// The status a node can be tagged with from the detail card — or by an agent
+// reporting its progress — an axis independent of `kind` (built/proposed) and of
+// a plan step's approval record (`status`). Persisted per node id in an overlay
+// store (see backend getNodeStages/setNodeStage) so it works for *every* node,
 // including the build-generated ones that aren't editable in notes.json.
 //
-// Each stage owns a full graph look — color plus a stroke style (solid fill /
-// solid outline / dashed / dotted) — so a node's state reads at a glance even
-// zoomed out. When no stage is set a node falls back to its `kind` visual
-// (built = solid grey dot, proposed = dashed grey ring), unchanged from before
-// this feature.
+// A status is drawn as its tone (graph/nodeTone.ts): a blue dashed ring when
+// proposed, a blue ring in progress, a white dot when done. On the graph, git
+// has the last word: a file with nothing uncommitted is drawn committed.
 export interface StageConfig {
   id: NodeStage
   label: string
-  /** Stroke (and fill, when `fill: 'solid'`) color. */
-  color: string
-  /** 'solid' fills the circle; 'none' draws an outline-only ring in `color`. */
-  fill: 'solid' | 'none'
-  /** SVG strokeDasharray for the outline — undefined = an unbroken solid line. Ignored when `fill: 'solid'`. */
-  dash?: string
-  /** Outline width in graph units. Ignored when `fill: 'solid'`. */
-  strokeWidth: number
-  /** Draws a small solid dot inside the outline ring. */
-  centerDot?: boolean
+  tone: Tone
 }
 
 // Dash patterns are written against this normalized circumference (SVG
@@ -31,19 +21,19 @@ export interface StageConfig {
 // or list-row glyph alike.
 export const STAGE_PATH_LENGTH = 12
 
-// The whole lifecycle, in the order the card's toggle renders it:
-//   Proposed    — created in a plan, or started in a frame/Workspace (the default)
-//   In Progress — code has been saved into it (automatic; see promoteFileStages)
-//   In Review   — being checked/tested, set by hand or by an AI review
-//   Done        — parked until reopened or deleted
-// 'completed' keeps its id so existing stages.json files stay valid.
+// The whole lifecycle, in the order the card's toggle renders it. The ids are
+// the three states an agent keeps its todo list in (see stepStatus.ts); the
+// labels are what a person calls them:
+//   Proposed    — drafted in a plan, waiting to be worked (the default)
+//   In progress — being worked: an agent said so, a human approved it, or code
+//                 was saved into it (automatic; see promoteFileStages)
+//   Testing     — written, its tests running
+//   Done        — finished, until reopened; committing it settles it
 export const NODE_STAGES: StageConfig[] = [
-  // All in the theme's ink; the shape alone carries the stage:
-  // three dashes → solid ring → ring with a center dot → filled dot.
-  { id: 'proposed',    label: 'Proposed',    color: 'var(--text-1)', fill: 'none',  dash: '3 1',     strokeWidth: 1.5 },
-  { id: 'in-progress', label: 'In Progress', color: 'var(--text-1)', fill: 'none',  dash: undefined, strokeWidth: 1.5 },
-  { id: 'in-review',   label: 'In Review',   color: 'var(--text-1)', fill: 'none',  dash: undefined, strokeWidth: 1.5, centerDot: true },
-  { id: 'completed',   label: 'Done',        color: 'var(--text-1)', fill: 'solid', dash: undefined, strokeWidth: 0 },
+  { id: 'pending', label: 'Proposed', tone: 'proposed' },
+  { id: 'in_progress', label: 'In progress', tone: 'in_progress' },
+  { id: 'testing', label: 'Testing', tone: 'testing' },
+  { id: 'completed', label: 'Done', tone: 'done' },
 ]
 
 const STAGE_BY_ID = new Map(NODE_STAGES.map((s) => [s.id, s]))

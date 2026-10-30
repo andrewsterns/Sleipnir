@@ -86,6 +86,9 @@
   --radius-3: 2px;
   --radius-4: 4px;
   --radius-control: 0.7rem;
+  /* Text fields, number fields and dropdown triggers — a touch squarer than
+     buttons (radius-control). One knob for every field in the app. */
+  --radius-field: 0.5rem;
 
   /* ── Shadows — soft cool shadows read against a light ground ─────────── */
   --shadow-1:             0 4px 24px rgba(20, 30, 50, 0.12);
@@ -108,6 +111,12 @@
   --graph-warn:          #a36400;              /* Health lens: an import up the layers */
   --graph-heat:          #256abf;              /* Health lens: heat glow — one hue; how hot is its strength */
   --graph-heat-blend:    multiply;             /* glows deepen into ink on the light ground */
+  /* Status tones (see graph/nodeTone.ts): committed work steps back, work in flight stands out. */
+  --graph-proposed:      rgba(47, 111, 224, 0.9);   /* a plan step or planned file, not started */
+  --graph-in-progress:   rgba(47, 111, 224, 0.65);  /* being worked; uncommitted changes */
+  --graph-testing:       rgba(214, 92, 0, 0.95);    /* written, its tests running */
+  --graph-done:          rgba(20, 22, 26, 0.75);    /* finished, not yet committed */
+  --graph-committed:     rgba(20, 22, 26, 0.4);     /* nothing uncommitted */
 
   /* ── Selectable item states — inverted from tactical ─────────────────────
      Dark ink on the light ground; ground text (light) on filled states. */

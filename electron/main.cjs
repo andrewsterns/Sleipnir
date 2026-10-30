@@ -529,6 +529,8 @@ function registerIpcHandlers() {
   ws('sleipnir:updatePlannedFilePath', (b, _e, nodeId, plannedPath) => b.updatePlannedFilePath(nodeId, plannedPath))
   ws('sleipnir:updateNote', (b, _e, id, patch) => b.updateNote(id, patch))
   ws('sleipnir:deleteNote', (b, _e, id) => b.deleteNote(id))
+  ws('sleipnir:getPlanActivity', (b, _e, planId) => b.getPlanActivity(planId))
+  ws('sleipnir:settleCommittedStages', (b, _e, dirtyPaths) => b.settleCommittedStages(Array.isArray(dirtyPaths) ? dirtyPaths.map(String) : []))
   ws('sleipnir:getNodeStages', (b) => b.getNodeStages())
   ws('sleipnir:setNodeStage', (b, _e, id, stage) => b.setNodeStage(id, stage))
   ws('sleipnir:setDefaultNodeStages', (b, _e, ids, stage) => b.setDefaultNodeStages(ids, stage))
@@ -616,11 +618,12 @@ function registerIpcHandlers() {
   ipcMain.handle('chat:applyChangeSet', (event, id, paths) => chat.applyChangeSet(event.sender.id, id, paths))
   ipcMain.handle('chat:undoChangeSet', (event, id) => chat.undoChangeSet(event.sender.id, id))
 
-  // Validation — runs the open Workspace's own `vitest run --reporter=json`
-  // via commandRunner (see validation.cjs). Same fire-and-forget + push-events
+  // Validation — runs the open Workspace's tests with whichever runner it uses
+  // (see validation.cjs / testRunners.cjs). Same fire-and-forget + push-events
   // shape as preview:start/preview:stop above.
-  ipcMain.on('validation:run', (event, sessionId) => {
-    validation.run(event.sender, sessionId, rootForSender(event.sender))
+  ipcMain.handle('validation:runners', (event) => validation.runners(rootForSender(event.sender)))
+  ipcMain.on('validation:run', (event, sessionId, runnerId) => {
+    validation.run(event.sender, sessionId, rootForSender(event.sender), runnerId)
   })
   ipcMain.on('validation:stop', (_e, sessionId) => validation.stop(sessionId))
 

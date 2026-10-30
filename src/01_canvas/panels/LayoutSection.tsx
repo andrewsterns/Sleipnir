@@ -15,6 +15,7 @@ import type { AlignMode, DistributeMode } from '../model/align'
 import { MAX_PATTERN } from '../model/pathPattern'
 import type { Align, AlongPath, CanvasNode, CanvasStyle, Flow, Justify, Padding } from '../model/types'
 import { Label, MONO, NumberField, Section } from './inspectorKit'
+import { Checkbox } from '../../app/UIKit/Checkbox/Checkbox'
 
 type StyleChange = (patch: Partial<CanvasStyle>, gesture?: string) => void
 
@@ -471,7 +472,7 @@ function AlongPathFields({
       {/* Pattern: the first layer repeated along the path (model/pathPattern.ts). */}
       <Frame flow="horizontal" gap={6} w="fill" align="end">
         <label style={{ ...check, paddingBottom: 5 }}>
-          <input type="checkbox" checked={alongPath.repeat !== undefined} onChange={(e) => set({ repeat: e.target.checked ? 8 : undefined })} />
+          <Checkbox checked={alongPath.repeat !== undefined} onChange={(checked) => set({ repeat: checked ? 8 : undefined })} />
           REPEAT FIRST LAYER
         </label>
         {alongPath.repeat !== undefined && (
@@ -485,10 +486,9 @@ function AlongPathFields({
               onChange={(n) => set({ repeat: Math.round(n) }, 'path:repeat')}
             />
             <label style={{ ...check, paddingBottom: 5 }}>
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={alongPath.repeat === 'fill'}
-                onChange={(e) => set({ repeat: e.target.checked ? 'fill' : 8, ...(e.target.checked ? { spacing: 'gap' } : {}) })}
+                onChange={(checked) => set({ repeat: checked ? 'fill' : 8, ...(checked ? { spacing: 'gap' } : {}) })}
               />
               FILL PATH
             </label>
@@ -498,7 +498,7 @@ function AlongPathFields({
       <Frame flow="horizontal" gap={6} w="fill" align="center">
         <NumberField label="OFFSET" value={alongPath.offset ?? 0} onChange={(n) => set({ offset: n || undefined }, 'path:offset')} />
         <label style={check}>
-          <input type="checkbox" checked={!!alongPath.orient} onChange={(e) => set({ orient: e.target.checked || undefined })} />
+          <Checkbox checked={!!alongPath.orient} onChange={(checked) => set({ orient: checked || undefined })} />
           ROTATE TO PATH
         </label>
       </Frame>
