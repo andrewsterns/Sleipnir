@@ -2112,7 +2112,10 @@ function gitIgnoredPaths(root) {
 // project and step — so it never shows up in git or the planning watcher. The
 // vendored CLI keeps them in the same place, so a step started by one (the
 // in-app agent) can be completed by the other (a terminal agent).
-function baselineFile(root, stepId) {
+const snapshotHash = (text) => crypto.createHash('sha1').update(text).digest('hex').slice(0, 16)
+
+// One project's snapshot folder. Exported so tests can clear theirs.
+export function stepSnapshotDir(root) {
   let real = root
   try {
     real = fs.realpathSync.native(root)
@@ -2120,8 +2123,11 @@ function baselineFile(root, stepId) {
     // keep the path as given
   }
   if (process.platform === 'win32') real = real.toLowerCase()
-  const hash = (text) => crypto.createHash('sha1').update(text).digest('hex').slice(0, 16)
-  return path.join(os.tmpdir(), 'sleipnir-baselines', hash(real), `${hash(stepId)}.json`)
+  return path.join(os.tmpdir(), 'sleipnir-baselines', snapshotHash(real))
+}
+
+function baselineFile(root, stepId) {
+  return path.join(stepSnapshotDir(root), `${snapshotHash(stepId)}.json`)
 }
 
 function readBaseline(root, stepId) {

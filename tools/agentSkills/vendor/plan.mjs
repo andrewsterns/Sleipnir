@@ -1167,15 +1167,24 @@ function dropBaseline(root, stepId) {
   fs.rmSync(baselineFile(root, stepId), { force: true })
 }
 
-// Every plan (or one) with its steps in order, each with its status and the
-// latest note reported on it — what an agent reads to pick up where it left off.
+// Every plan (or one) with its steps in order, each with its status, the latest
+// note reported on it and how many files it changed (every path its completions
+// recorded) — what an agent reads to pick up where it left off.
 export function listSteps(root, planId) {
   const data = readNotes(root)
   const stages = readStages(root)
   const plans = readPlans(root).filter((p) => !planId || p.id === planId)
   if (planId && plans.length === 0) throw new Error(`No plan with id "${planId}"`)
   return plans.map((plan) => {
-    const notes = latestStepNotes(readActivity(root, plan.id).events)
+    const { events } = readActivity(root, plan.id)
+    const notes = latestStepNotes(events)
+    const changed = new Map()
+    for (const e of events) {
+      if (!e.changes) continue
+      const paths = changed.get(e.stepId) ?? new Set()
+      for (const c of e.changes) paths.add(c.path)
+      changed.set(e.stepId, paths)
+    }
     return {
       id: plan.id,
       label: plan.label,
@@ -1185,6 +1194,7 @@ export function listSteps(root, planId) {
         label: step.label,
         status: stages[step.id] ?? 'pending',
         ...(notes[step.id] ? { note: notes[step.id] } : {}),
+        ...(changed.has(step.id) ? { changed: changed.get(step.id).size } : {}),
       })),
     }
   })

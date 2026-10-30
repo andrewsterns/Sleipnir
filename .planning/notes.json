@@ -3733,6 +3733,35 @@
         "src/00_planning/PlanningView.tsx",
         "src/00_planning/PlanningView.ViewModel.tsx"
       ]
+    },
+    {
+      "id": "plan/status-walkthrough-1793378561835/tests-clean-up-their-step-snapshots-1793378561932",
+      "label": "Tests clean up their step snapshots",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Step snapshots live in the OS temp folder, and the planning tests leave theirs behind for every temp project they create. Remove each test project's snapshot folder when the test finishes.",
+      "status": "draft",
+      "planId": "plan/status-walkthrough-1793378561835",
+      "order": 1,
+      "editsPaths": [
+        "src/00_planning/api/vendoredPlanCli.test.ts",
+        "src/00_planning/graph/stepStatus.test.ts"
+      ]
+    },
+    {
+      "id": "plan/status-walkthrough-1793378561835/list-steps-shows-what-each-finished-step-changed-1793378562043",
+      "label": "list-steps shows what each finished step changed",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "list-steps prints, for a finished step, how many files it changed, so an agent picking up a plan sees what each step touched without opening the activity log.",
+      "status": "draft",
+      "planId": "plan/status-walkthrough-1793378561835",
+      "order": 2,
+      "editsPaths": [
+        "tools/agentSkills/vendor/plan.mjs"
+      ]
     }
   ],
   "edges": [
@@ -5009,6 +5038,11 @@
     {
       "source": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
       "target": "plan/planning-as-agent-diagnostics-1793301952427/planning-organized-around-the-agent-1793301953116",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/status-walkthrough-1793378561835/tests-clean-up-their-step-snapshots-1793378561932",
+      "target": "plan/status-walkthrough-1793378561835/list-steps-shows-what-each-finished-step-changed-1793378562043",
       "kind": "sequence"
     }
   ]

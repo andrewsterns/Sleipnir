@@ -333,5 +333,16 @@
     "expectedSteps": 7,
     "createdAt": 1793301952427,
     "docPath": ".planning/planning-as-agent-diagnostics-1793301952427/plan.md"
+  },
+  {
+    "id": "plan/status-walkthrough-1793378561835",
+    "label": "Status walkthrough",
+    "nodeIds": [
+      "plan/status-walkthrough-1793378561835/tests-clean-up-their-step-snapshots-1793378561932",
+      "plan/status-walkthrough-1793378561835/list-steps-shows-what-each-finished-step-changed-1793378562043"
+    ],
+    "expectedSteps": 2,
+    "createdAt": 1793378561835,
+    "docPath": ".planning/status-walkthrough-1793378561835/plan.md"
   }
 ]

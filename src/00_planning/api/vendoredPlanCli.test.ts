@@ -27,6 +27,9 @@ describe('vendored plan CLI matches the backend', () => {
   })
 
   afterEach(() => {
+    // Steps these tests start leave a snapshot in the OS temp folder; clear it
+    // while the project still exists to find it by.
+    for (const root of [backendRoot, vendorRoot]) rmSync(backend.stepSnapshotDir(root), { recursive: true, force: true })
     rmSync(backendRoot, { recursive: true, force: true })
     rmSync(vendorRoot, { recursive: true, force: true })
     backend.setWorkspaceRoot(null)
@@ -348,6 +351,8 @@ describe('vendored plan CLI matches the backend', () => {
       { path: 'src/old.ts', change: 'deleted' },
     ])
     expect(done.since).toBe('<TS>')
+    // list-steps says how many files the finished step changed.
+    expect(vendor.listSteps(vendorRoot, vPlan.id)[0].steps[0]).toMatchObject({ status: 'completed', changed: 3 })
   })
 
   it('lets a step started in Sleipnir be completed from the terminal', () => {

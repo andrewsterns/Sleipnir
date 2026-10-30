@@ -9,6 +9,7 @@ import {
   setNodeStage,
   setNodeStatus,
   approvePlanNodes,
+  stepSnapshotDir,
 } from '../../../tools/sleipnir-backend.mjs'
 import { LEGACY_STEP_STATUS, STEP_STATUSES, toStepStatus } from './stepStatus'
 import * as planDoc from '../../../tools/planDoc.mjs'
@@ -56,6 +57,7 @@ describe('stages.json migration (backend)', () => {
   })
 
   afterEach(() => {
+    rmSync(stepSnapshotDir(root), { recursive: true, force: true })
     rmSync(root, { recursive: true, force: true })
     setWorkspaceRoot(null)
   })
@@ -108,6 +110,7 @@ describe('approval moves the status (backend)', () => {
   })
 
   afterEach(() => {
+    rmSync(stepSnapshotDir(root), { recursive: true, force: true })
     rmSync(root, { recursive: true, force: true })
     setWorkspaceRoot(null)
   })
