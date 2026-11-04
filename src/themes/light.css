@@ -1,0 +1,135 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Sleipnir Light — the light-mode sibling of tactical.
+
+   Structurally identical to `.theme-tactical` (same Helvetica UI face, same
+   radii, same chamfer scale, same token *names*) so every component that
+   reads these tokens renders correctly. Only the palette inverts: a white
+   ground with near-black ink, and the white-spectrum status ramp becomes a
+   dark-spectrum one (near-black = maximum contrast).
+
+   Every custom property tactical.css defines is redefined here — leaving any
+   out would let it fall through to whatever ancestor theme is active. Keep the
+   two files in lockstep: add a token to one, add it to the other.
+   ───────────────────────────────────────────────────────────────────────── */
+.theme-light {
+  color-scheme: light;
+
+  /* ── Backgrounds (base → elevated) ───────────────────────────────────────
+     bg-1 is the base app chrome, bg-2 the elevated panel/card surface, bg-3
+     the interaction highlight. On light, "highlight" reads as a slightly
+     darker gray rather than tactical's lighter-is-raised. */
+  --bg-1: #ffffff;             /* base app ground — white */
+  --bg-2: #f5f5f7;             /* raised panels / fields / cards */
+  --bg-3: #e8e8ed;             /* hover / pressed — a touch darker for contrast */
+
+  /* ── Text (ink-primary) ──────────────────────────────────────────────── */
+  --text-1: #1d1d1f;           /* near-black, neutral */
+  --text-2: #56565b;           /* secondary grey */
+  --text-3: #6e6e73;           /* tertiary / dim labels (kept ≥4.5:1) */
+
+  /* ── Borders ─────────────────────────────────────────────────────────── */
+  --border-1: rgba(0, 0, 0, 0.09);
+  --border-2: rgba(0, 0, 0, 0.18);
+
+  /* ── Button/Frame variant surfaces ────────────────────────────────────────
+     Mirror of tactical's translucent-wash approach, but dark-on-light: a
+     subtle ink wash for primary/secondary, with primary-2/secondary-2 being
+     the *text* colour (dark). accent forces white text in VARIANT_CLASSES, so
+     accent-1 must be a dark solid for that white to read. */
+  --primary-1:   #1d1d1f;
+  --primary-2:   #ffffff;
+  --primary-3:   transparent;
+  --secondary-1: rgba(0, 0, 0, 0.05);
+  --secondary-2: #1d1d1f;
+  --secondary-3: transparent;
+  --accent-1:    #1d1d1f;
+
+  /* ── Status accent palette — dark spectrum (mirrors tactical's white one) ─ */
+  --scan:           #2f3a44;           /* operational / nominal: dark slate */
+  --scan-dim:       rgba(47,58,68,0.10);
+  --scan-mid:       rgba(47,58,68,0.22);
+  --warn:           #4a5560;           /* degraded: medium slate */
+  --warn-dim:       rgba(74,85,96,0.08);
+  --warn-mid:       rgba(74,85,96,0.18);
+  --critical:       #0a0c0f;           /* critical: near-black (maximum contrast) */
+  --critical-dim:   rgba(10,12,15,0.08);
+  --critical-mid:   rgba(10,12,15,0.20);
+  --track:          #38434e;           /* tracking: dark grey-blue */
+  --track-dim:      rgba(56,67,78,0.10);
+  --nominal:        #5a6570;
+  --nominal-dim:    rgba(90,101,112,0.10);
+  --caution:        #525c66;           /* caution: muted slate */
+
+  /* ── Gradient stroke presets — dark only ─────────────────────────────── */
+  --stroke-default:  135deg, rgba(20,22,26,0.24), rgba(20,22,26,0.03);
+  --stroke-scan:     135deg, rgba(47,58,68,0.30), rgba(47,58,68,0.03);
+  --stroke-warn:     135deg, rgba(20,22,26,0.18), rgba(20,22,26,0.03);
+  --stroke-critical: 135deg, rgba(10,12,15,0.40), rgba(10,12,15,0.03);
+  --stroke-track:    135deg, rgba(56,67,78,0.28), rgba(56,67,78,0.03);
+  --stroke-dim:      135deg, rgba(20,22,26,0.10), rgba(20,22,26,0.02);
+
+  /* ── Chamfer size tokens (numeric px) — identical structure ──────────── */
+  --chamfer-xs: 3;
+  --chamfer-sm: 6;
+  --chamfer-md: 10;
+  --chamfer-lg: 16;
+
+  /* ── Typography — identical to tactical ───────────────────────────────── */
+  --font-ui:      'Sleipnir Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-body:    var(--font-ui);
+  --font-display: var(--font-ui);
+  --font-mono:    ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Sometype Mono', monospace;
+
+  /* ── Radius — identical to tactical ──────────────────────────────────── */
+  --radius-1: 4px;
+  --radius-2: 6px;
+  --radius-3: 8px;
+  --radius-4: 8px;
+  --radius-control: 8px;
+  --radius-field: 8px;
+  --radius-float: 12px;
+
+  /* ── Shadows — soft cool shadows read against a light ground ─────────── */
+  --shadow-1:             0 12px 32px -8px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-glow-scan:     0 0 16px rgba(47, 58, 68, 0.10);
+  --shadow-glow-warn:     0 0 16px rgba(20, 22, 26, 0.08);
+  --shadow-glow-critical: 0 0 20px rgba(10, 12, 15, 0.14);
+  --shadow-glow-track:    0 0 16px rgba(56, 67, 78, 0.10);
+
+  /* ── Planning graph (GraphCanvas) — inverted from tactical ───────────────
+     Dark-ink nodes/edges on the light ground, and a dark label pill with
+     light ink. Edge alphas run higher than tactical's because dark ink at low
+     opacity reads far fainter on a light surface than white does on dark, so
+     the same 0.20 head would nearly vanish. Emphasis ladder mirrors tactical:
+     selected = highest contrast (darkest), neighbour mid, base lightest. */
+  --graph-node:          #14161a;              /* node dot — the theme's ink; full strength at rest (see GraphCanvas's opacity ladder) */
+  --graph-node-new:      #2f6fe0;              /* a node created since the project opened, until clicked */
+  --graph-ring:          #14161a;              /* selection ring */
+  --graph-edge:          #9a9ea6;              /* edge line + arrowhead — light grey — lines sit back under nodes and labels */
+  --graph-danger:        #c2255c;              /* Health lens: a file or link in an import loop */
+  --graph-warn:          #a36400;              /* Health lens: an import up the layers */
+  --graph-heat:          #256abf;              /* Health lens: heat glow — one hue; how hot is its strength */
+  --graph-heat-blend:    multiply;             /* glows deepen into ink on the light ground */
+
+  /* ── Selectable item states — inverted from tactical ─────────────────────
+     Dark ink on the light ground; ground text (light) on filled states. */
+  --item-ink:    29, 29, 31;
+  --item-ground: #ffffff;
+
+  /* ── Code editor syntax palette — restrained grey/black/blue ──────────────
+     Mirror of tactical's --code-* tokens, but deliberately quieter for the
+     light ground: structural syntax (keywords, elements, types) reads blue,
+     content (functions, numbers, variables via --text-1) reads near-black,
+     and strings/attributes sit in a muted slate so the whole editor stays
+     grey/black/blue. Red is reserved exclusively for invalid tokens (and the
+     lint underline), so the only red a reader sees means "error". */
+  --code-keyword:   #1750a3;           /* blue — import/const/return/etc. */
+  --code-string:    #4a5560;           /* muted slate — string content */
+  --code-number:    #1a1c20;           /* near-black — numeric/atom literals */
+  --code-tag:       #1750a3;           /* blue — <element> names read structural */
+  --code-attribute: #5a7391;           /* steel-blue — props, distinct from tags */
+  --code-type:      #1750a3;           /* blue — type / class / namespace */
+  --code-function:  #14161a;           /* near-black — function names */
+  --code-property:  #3a5f86;           /* slate-blue — object property names */
+  --code-invalid:   #c62828;           /* red — the sole error colour */
+}

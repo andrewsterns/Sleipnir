@@ -1,4 +1,4 @@
-import type { GraphNode } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../planning/graph/types'
 
 /** Permission modes a person can pick in the chat — see electron/agent/permissions.cjs. */
 export type AgentMode = 'ask' | 'acceptEdits' | 'plan' | 'auto'

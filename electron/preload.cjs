@@ -1,5 +1,5 @@
 // Exposes window.electronAPI to the renderer — the exact PlatformAPI shape
-// (see src/00_planning/api/PlatformAPI.ts), just routed through IPC instead
+// (see src/platform/PlatformAPI.ts), just routed through IPC instead
 // of fetch(). contextIsolation stays on; nothing but these typed calls
 // crosses the bridge.
 const { contextBridge, ipcRenderer } = require('electron')
@@ -46,6 +46,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateNote: (id, patch) => ipcRenderer.invoke('sleipnir:updateNote', id, patch),
   deleteNote: (id) => ipcRenderer.invoke('sleipnir:deleteNote', id),
   getPlanActivity: (planId) => ipcRenderer.invoke('sleipnir:getPlanActivity', planId),
+  commentOnStep: (stepId, text) => ipcRenderer.invoke('sleipnir:commentOnStep', stepId, text),
+  describePlan: (planId, text) => ipcRenderer.invoke('sleipnir:describePlan', planId, text),
+  steerStep: (stepId, path, steer) => ipcRenderer.invoke('sleipnir:steerStep', stepId, path, steer),
+  getAgentTrail: (since) => ipcRenderer.invoke('sleipnir:getAgentTrail', since),
+  applyTrailStatuses: () => ipcRenderer.invoke('sleipnir:applyTrailStatuses'),
+  getSkills: () => ipcRenderer.invoke('sleipnir:getSkills'),
+  getSkillText: (id) => ipcRenderer.invoke('sleipnir:getSkillText', id),
+  saveSkillText: (id, text) => ipcRenderer.invoke('sleipnir:saveSkillText', id, text),
+  createSkill: (spec) => ipcRenderer.invoke('sleipnir:createSkill', spec),
   settleCommittedStages: (dirtyPaths) => ipcRenderer.invoke('sleipnir:settleCommittedStages', dirtyPaths),
   getNodeStages: () => ipcRenderer.invoke('sleipnir:getNodeStages'),
   setNodeStage: (id, stage) => ipcRenderer.invoke('sleipnir:setNodeStage', id, stage),
@@ -241,6 +250,11 @@ contextBridge.exposeInMainWorld('planningWatchAPI', {
     const listener = (_event, info) => callback(info)
     ipcRenderer.on('planning:changed', listener)
     return () => ipcRenderer.removeListener('planning:changed', listener)
+  },
+  onWorkspaceEdited: (callback) => {
+    const listener = (_event, info) => callback(info)
+    ipcRenderer.on('workspace:edited', listener)
+    return () => ipcRenderer.removeListener('workspace:edited', listener)
   },
 })
 

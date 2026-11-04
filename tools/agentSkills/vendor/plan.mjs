@@ -13,7 +13,7 @@
 // `.planning/notes.json`, `.planning/stages.json` and each plan's `plan.md` and
 // `activity.json`, because importing the
 // backend would drag in workspace scanning, graph generation and git. Two
-// guards stop drift (src/00_planning/api/vendoredPlanCli.test.ts):
+// guards stop drift (src/platform/vendoredPlanCli.test.ts):
 //   - the PLANDOC region below is a byte-identical copy of tools/planDoc.mjs
 //     (re-sync with `node tools/syncPlanDoc.mjs`)
 //   - this file and the real backend are run against the same inputs and must
@@ -467,7 +467,7 @@ export function planActivityPath(planId) {
 // The one status a step carries: the three states AI agents already keep their
 // own todo lists in (Claude Code, Codex, Gemini), plus testing — the work is
 // written and its tests are running. Stored per node id in
-// .planning/stages.json. src/00_planning/graph/stepStatus.ts is the renderer's
+// .planning/stages.json. src/planning/graph/stepStatus.ts is the renderer's
 // copy of this map; a test holds the two together.
 export const STEP_STATUSES = ['pending', 'in_progress', 'testing', 'completed']
 // What a person calls them (Sleipnir's labels, and plan.md's).
@@ -591,9 +591,91 @@ export function attachChanges(event, baseline, current) {
     return event
   }
   const { changes, more } = diffSnapshots(baseline.files, current)
+  // Files the step had already touched when its snapshot was taken (a step
+  // started by its first edit, seen just after it happened) count as changed.
+  for (const p of baseline.touched ?? []) {
+    if (current[p] && !changes.some((c) => c.path === p)) changes.push({ path: p, change: 'modified' })
+  }
+  changes.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
   event.changes = changes
   if (more) event.moreChanges = more
   return event
+}
+
+// --- statuses from the trail -------------------------------------------------
+// Agents' tool calls (the trail — see vendor/trail.mjs) already say most of
+// what a status report would, so Sleipnir can set statuses itself and agents
+// needn't spend turns on it:
+//   in progress  the first edit to one of a step's files (planned or listed)
+//   testing      a test command, while the agent is on that step
+//   in progress  tests that fail, or another edit to the step (fixing)
+//   done         tests passed, and then the agent moved to another step's
+//                files or stopped
+// A file two unfinished steps share is left alone unless exactly one of them
+// is in progress: then the agent's own report says which. A report made by an
+// agent or a person at or after a trail line always wins over inferring from it
+// (`reportedAt`: step id -> the time of its latest such report). Returns the
+// moves in order; the first move of a step into progress carries the file that
+// triggered it (`touched`), already changed by the time anyone sees it.
+export function inferStepStatuses({ entries, steps, filesOf, stages = {}, reportedAt = {} }) {
+  const status = { ...stages }
+  const owners = new Map()
+  for (const s of steps) for (const p of filesOf(s)) owners.set(p, [...(owners.get(p) ?? []), s.id])
+  const onStep = {} // agent -> the step it last edited
+  const passed = {} // step id -> its tests passed since its last edit
+  const moves = []
+  const move = (stepId, next, entry, extra = {}) => {
+    if (status[stepId] === next || (reportedAt[stepId] ?? 0) >= entry.at) return
+    status[stepId] = next
+    moves.push({ stepId, status: next, at: entry.at, ...extra })
+  }
+  const stepFor = (path) => {
+    const open = (owners.get(path) ?? []).filter((id) => status[id] !== 'completed')
+    if (open.length <= 1) return open[0]
+    const active = open.filter((id) => status[id] === 'in_progress' || status[id] === 'testing')
+    return active.length === 1 ? active[0] : undefined
+  }
+  for (const e of entries) {
+    const agent = e.agent ?? '?'
+    const current = onStep[agent]
+    if (e.kind === 'edit') {
+      for (const p of e.paths ?? []) {
+        const id = stepFor(p)
+        if (!id) continue
+        if (current && current !== id && passed[current]) move(current, 'completed', e)
+        const starting = !status[id] || status[id] === 'pending'
+        delete passed[id]
+        move(id, 'in_progress', e, starting ? { touched: [p] } : {})
+        onStep[agent] = id
+      }
+    } else if (e.kind === 'test') {
+      if (current && (status[current] === 'in_progress' || status[current] === 'testing')) move(current, 'testing', e)
+    } else if (e.kind === 'tested') {
+      if (!current || status[current] !== 'testing') continue
+      if (e.ok === true) passed[current] = true
+      if (e.ok === false) move(current, 'in_progress', e)
+    } else if (e.kind === 'idle') {
+      if (current && passed[current]) move(current, 'completed', e)
+      delete onStep[agent]
+    }
+  }
+  return moves
+}
+
+// A comment on a step — from a person on its card, or an agent answering one.
+// Logged in the same activity events as status reports (with `comment` instead
+// of `status`), so it reaches every reader the reports do: plan.md, list-steps,
+// the step's card.
+export function addStepComment({ nodes, events, stepId, text, agent, at }) {
+  const step = nodes.find((n) => n.id === stepId)
+  if (!step) throw new Error(`No step with id "${stepId}"`)
+  if (step.type !== 'plan-step') throw new Error(`"${stepId}" is not a plan step`)
+  const comment = typeof text === 'string' ? text.trim() : ''
+  if (!comment) throw new Error('A comment needs some text')
+  const who = typeof agent === 'string' ? agent.trim() : ''
+  const event = { at, stepId, comment, ...(who ? { agent: who } : {}) }
+  events.push(event)
+  return { step, event }
 }
 
 // The latest note reported for each step, from a plan's activity events.
@@ -603,7 +685,62 @@ export function latestStepNotes(events) {
   return notes
 }
 
-// Plain-data mirrors of src/00_planning/graph/architectures.ts (ROLE_OPTIONS'
+// Who set each step's current status (the latest status report's agent).
+export function latestStatusBy(events) {
+  const by = {}
+  for (const e of events ?? []) if (e?.stepId && e.status) by[e.stepId] = e.agent
+  return by
+}
+
+// Each step's comments, oldest first.
+export function stepComments(events) {
+  const comments = {}
+  for (const e of events ?? []) {
+    if (!e?.stepId || !e.comment) continue
+    ;(comments[e.stepId] ??= []).push({ at: e.at, by: e.agent, text: e.comment })
+  }
+  return comments
+}
+
+// plan.md shows a step's most recent comments; list-steps the same.
+export const SHOWN_COMMENTS = 5
+
+// Steering a step: a person marks a file 'focus' (work here) or 'avoid' (don't
+// touch this) for it, or clears the mark — logged like comments, so the agent
+// working the step reads it in list-steps and plan.md.
+export const STEER_MARKS = ['focus', 'avoid', 'clear']
+export function addStepSteer({ nodes, events, stepId, path, steer, agent, at }) {
+  const step = nodes.find((n) => n.id === stepId)
+  if (!step) throw new Error(`No step with id "${stepId}"`)
+  if (step.type !== 'plan-step') throw new Error(`"${stepId}" is not a plan step`)
+  if (!STEER_MARKS.includes(steer)) throw new Error(`Unknown mark "${steer}" — expected focus, avoid or clear`)
+  const file = typeof path === 'string' ? path.trim() : ''
+  if (!file) throw new Error('A mark needs a file')
+  const who = typeof agent === 'string' ? agent.trim() : ''
+  const event = { at, stepId, steer, path: file, ...(who ? { agent: who } : {}) }
+  events.push(event)
+  return { step, event }
+}
+
+// Each step's focus and avoid files now, from its marks in order.
+export function stepSteering(events) {
+  const marks = {}
+  for (const e of events ?? []) {
+    if (!e?.stepId || !e.steer || !e.path) continue
+    const m = (marks[e.stepId] ??= new Map())
+    if (e.steer === 'clear') m.delete(e.path)
+    else m.set(e.path, e.steer)
+  }
+  const out = {}
+  for (const [stepId, m] of Object.entries(marks)) {
+    const focus = [...m].filter(([, v]) => v === 'focus').map(([p]) => p)
+    const avoid = [...m].filter(([, v]) => v === 'avoid').map(([p]) => p)
+    if (focus.length || avoid.length) out[stepId] = { focus, avoid }
+  }
+  return out
+}
+
+// Plain-data mirrors of src/planning/graph/architectures.ts (ROLE_OPTIONS'
 // linksTo) and naming.ts (ROLE_SUFFIX). A test asserts they stay equal.
 export const PLANNED_ROLES = ['node', 'view', 'view-model', 'interface', 'controller', 'presenter']
 export const ROLE_LINKS = {
@@ -752,8 +889,14 @@ export function addPlanStep(data, { planId, node, after, files = [], edits = [] 
 // step's managed part (heading, status, description, files, edits) is
 // rewritten; whatever sits between that step's "/step-meta" and "/step" markers
 // — and the intro under the title — is kept. `statuses` is stages.json and
-// `notes` each step's latest reported note (see latestStepNotes).
-export function renderPlanDoc({ plan, steps, plannedFiles, existing, statuses = {}, notes = {} }) {
+// `events` the plan's activity log: each step's latest note, who set its status
+// when a person did, and its recent comments come from there, so what someone
+// says on a step's card is in the document agents read.
+export function renderPlanDoc({ plan, steps, plannedFiles, existing, statuses = {}, events = [] }) {
+  const notes = latestStepNotes(events)
+  const statusBy = latestStatusBy(events)
+  const comments = stepComments(events)
+  const steering = stepSteering(events)
   let intro = '\n'
   const bodies = new Map()
   if (existing) {
@@ -767,6 +910,7 @@ export function renderPlanDoc({ plan, steps, plannedFiles, existing, statuses = 
   let out =
     '<!-- sleipnir:plan — generated from .planning/notes.json. Write freely under the title and between a step\'s /step-meta and /step markers; everything else is regenerated. -->\n' +
     `# ${plan.label}\n` +
+    (plan.description ? `\n${plan.description}\n` : '') +
     '<!-- /plan-meta -->\n' +
     intro +
     '<!-- steps -->\n'
@@ -774,7 +918,17 @@ export function renderPlanDoc({ plan, steps, plannedFiles, existing, statuses = 
   steps.forEach((step, i) => {
     const files = plannedFiles.filter((f) => f.stepId === step.id)
     const status = STEP_STATUS_LABELS[toStepStatus(statuses[step.id]) ?? 'pending']
-    let meta = `**Status:** ${status}${notes[step.id] ? ` — ${notes[step.id]}` : ''}\n\n`
+    const setByPerson = statusBy[step.id] === 'you' ? ' (set by you)' : ''
+    let meta = `**Status:** ${status}${setByPerson}${notes[step.id] ? ` — ${notes[step.id]}` : ''}\n\n`
+    const steer = steering[step.id]
+    if (steer?.focus.length) meta += `**Focus on:** ${steer.focus.map((p) => `\`${p}\``).join(', ')}\n\n`
+    if (steer?.avoid.length) meta += `**Don't touch:** ${steer.avoid.map((p) => `\`${p}\``).join(', ')}\n\n`
+    const said = (comments[step.id] ?? []).slice(-SHOWN_COMMENTS)
+    if (said.length) {
+      meta += '**Comments**\n'
+      for (const c of said) meta += `- ${c.by ?? 'someone'}: ${c.text.replace(/\s+/g, ' ')}\n`
+      meta += '\n'
+    }
     if (step.description) meta += `${step.description}\n`
     if (files.length) {
       meta += '\n**Files**\n'
@@ -963,19 +1117,20 @@ function writePlanDoc(root, plan, data, stages) {
     plannedFiles: data.nodes.filter((n) => n.type === 'planned-file' && n.planId === plan.id),
     existing,
     statuses: stages,
-    notes: latestStepNotes(readActivity(root, plan.id).events),
+    events: readActivity(root, plan.id).events,
   })
   if (text !== existing) writeFileAtomic(docAbs, text)
 }
 
 // --- core ------------------------------------------------------------------
 
-export function createPlan(root, label, { temporary, expectedSteps } = {}) {
+export function createPlan(root, label, { temporary, expectedSteps, description } = {}) {
   if (!label || !label.trim()) throw new Error('Label is required')
   const slug = slugify(label)
   const plan = {
     id: `plan/${slug || 'plan'}-${Date.now()}`,
     label: label.trim(),
+    ...(typeof description === 'string' && description.trim() ? { description: description.trim() } : {}),
     nodeIds: [],
     ...(temporary ? { temporary: true } : {}),
     ...(Number.isInteger(expectedSteps) && expectedSteps > 0 ? { expectedSteps } : {}),
@@ -1063,6 +1218,20 @@ export function pullIntoNamedPlanIfExists(root, planId, nodeId) {
   writePlans(root, plans)
 }
 
+// What a plan is for, in a sentence or two: shown above its steps in Sleipnir
+// and under its title in plan.md.
+export function describePlan(root, planId, text) {
+  const plans = readPlans(root)
+  const plan = plans.find((p) => p.id === planId)
+  if (!plan) throw new Error(`No plan with id "${planId}"`)
+  const description = String(text ?? '').trim()
+  if (description) plan.description = description
+  else delete plan.description
+  writePlans(root, plans)
+  if (plan.docPath) writePlanDoc(root, plan, readNotes(root), readStages(root))
+  return plan
+}
+
 // An agent reporting progress on a step, as the backend's setStepStatus: the
 // status lands in stages.json, the report (and its note) in the plan's
 // activity.json, and plan.md is regenerated to show it.
@@ -1092,6 +1261,21 @@ export function setStepStatus(root, stepId, status, { note, agent, at = Date.now
     writeActivity(root, planId, activity)
     const plan = readPlans(root).find((p) => p.id === planId)
     if (plan?.docPath) writePlanDoc(root, plan, data, stages)
+  }
+  return result
+}
+
+// A comment on a step, as the backend's commentOnStep: into the activity log,
+// and plan.md regenerated to show it.
+export function commentOnStep(root, stepId, text, { agent, at = Date.now() } = {}) {
+  const data = readNotes(root)
+  const planId = data.nodes.find((n) => n.id === stepId)?.planId
+  const activity = planId ? readActivity(root, planId) : { events: [] }
+  const result = addStepComment({ nodes: data.nodes, events: activity.events, stepId, text, agent, at })
+  if (planId) {
+    writeActivity(root, planId, activity)
+    const plan = readPlans(root).find((p) => p.id === planId)
+    if (plan?.docPath) writePlanDoc(root, plan, data, readStages(root))
   }
   return result
 }
@@ -1178,6 +1362,9 @@ export function listSteps(root, planId) {
   return plans.map((plan) => {
     const { events } = readActivity(root, plan.id)
     const notes = latestStepNotes(events)
+    const statusBy = latestStatusBy(events)
+    const comments = stepComments(events)
+    const steering = stepSteering(events)
     const changed = new Map()
     for (const e of events) {
       if (!e.changes) continue
@@ -1193,7 +1380,13 @@ export function listSteps(root, planId) {
         order: step.order,
         label: step.label,
         status: stages[step.id] ?? 'pending',
+        // A person who moved the step: the agent should know it wasn't itself.
+        ...(statusBy[step.id] === 'you' ? { statusSetBy: 'you' } : {}),
         ...(notes[step.id] ? { note: notes[step.id] } : {}),
+        ...(comments[step.id] ? { comments: comments[step.id].slice(-SHOWN_COMMENTS).map((c) => ({ by: c.by ?? 'someone', text: c.text })) } : {}),
+        // Files a person asked the agent to work in, or to leave alone.
+        ...(steering[step.id]?.focus.length ? { focus: steering[step.id].focus } : {}),
+        ...(steering[step.id]?.avoid.length ? { avoid: steering[step.id].avoid } : {}),
         ...(changed.has(step.id) ? { changed: changed.get(step.id).size } : {}),
       })),
     }
@@ -1224,13 +1417,15 @@ export function detectProjectIn(root) {
 const HELP = `Sleipnir Planning CLI (vendored — needs only Node)
 
   node .sleipnir/plan.mjs detect-project --root <path>
-  node .sleipnir/plan.mjs create-plan --root <path> --label "My plan" [--temporary] [--total-steps N]
+  node .sleipnir/plan.mjs create-plan --root <path> --label "My plan" [--description "What it's for"] [--temporary] [--total-steps N]
+  node .sleipnir/plan.mjs describe-plan --root <path> --plan-id <id> --text "What it's for"
   node .sleipnir/plan.mjs create-node --root <path> --plan-id <id> --label "Step" \\
       --description "..." [--after <stepId|none>] [--parent-id <nodeId>] \\
       [--file <path>:<role>[:<language>]]... [--edits <path1,path2>]
   node .sleipnir/plan.mjs set-status --root <path> --step <stepId> \\
       --status <pending|in_progress|testing|completed> [--note "what you did"] [--agent <name>]
   node .sleipnir/plan.mjs list-steps --root <path> [--plan-id <id>]
+  node .sleipnir/plan.mjs comment --root <path> --step <stepId> --text "..." [--agent <name>]
   node .sleipnir/plan.mjs propose-file --root <path> --plan-id <id> --label "Step" \\
       --description "..." --file-path <workspace-relative-path> \\
       --content-file <path|-> [--parent-id <nodeId>] [--links <nodeId1,nodeId2>]
@@ -1255,7 +1450,9 @@ set-status reports your progress on a step, so the plan shows what you are
 actually doing: in_progress when you start it (one step at a time), testing while
 its tests run, completed the moment it is done, with --note saying in one line what you did. Sleipnir's graph
 shows it live, and records which files changed between the two. list-steps
-prints each plan's steps with their ids and statuses.
+prints each plan's steps with their ids, statuses, notes and recent comments —
+read a step there before you work it: people comment on steps and move them
+from Sleipnir. comment adds yours (answer theirs there).
 
 Each plan also gets .planning/<plan>/plan.md, regenerated as steps are written.
 Notes written under the title, or between a step's /step-meta and /step
@@ -1336,7 +1533,10 @@ function main() {
   }
 
   const root = resolveRoot(args)
-  const out = (value) => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`)
+  // Compact, and only what the agent needs next: everything printed here is
+  // read back into its context, on every call.
+  const out = (value) => process.stdout.write(`${JSON.stringify(value)}\n`)
+  const stepSummary = (node) => ({ id: node.id, order: node.order, label: node.label })
 
   try {
     if (command === 'detect-project') {
@@ -1348,6 +1548,7 @@ function main() {
       out(createPlan(root, requireOpt(args, 'label'), {
         temporary: !!args.temporary,
         expectedSteps: parseIntOpt(args, 'total-steps'),
+        description: typeof args.description === 'string' ? args.description : undefined,
       }))
       return
     }
@@ -1369,7 +1570,7 @@ function main() {
         },
       )
       pullIntoNamedPlanIfExists(root, planId, node.id)
-      out(node)
+      out(stepSummary(node))
       return
     }
 
@@ -1385,6 +1586,20 @@ function main() {
         ...(result.event.note ? { note: result.event.note } : {}),
         ...(result.event.changes ? { changed: result.event.changes.length + (result.event.moreChanges ?? 0) } : {}),
       })
+      return
+    }
+
+    if (command === 'describe-plan') {
+      const plan = describePlan(root, requireOpt(args, 'plan-id'), requireOpt(args, 'text'))
+      out({ id: plan.id, description: plan.description ?? '' })
+      return
+    }
+
+    if (command === 'comment') {
+      const { step, event } = commentOnStep(root, requireOpt(args, 'step'), requireOpt(args, 'text'), {
+        agent: typeof args.agent === 'string' ? args.agent : undefined,
+      })
+      out({ id: step.id, comment: event.comment })
       return
     }
 
@@ -1409,7 +1624,7 @@ function main() {
         typeof args.links === 'string' ? args.links.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
       )
       pullIntoNamedPlanIfExists(root, planId, node.id)
-      out(node)
+      out(stepSummary(node))
       return
     }
   } catch (err) {

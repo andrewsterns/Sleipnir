@@ -26,30 +26,28 @@ const FRAME_VARIANT: Record<string, 'primary' | 'secondary' | 'none'> = {
 }
 
 const VARIANT_EXTRAS: Record<string, Partial<FrameProps>> = {
-  outline: { textColor: 'var(--text-1)', hoverFill: 'bg-2', stroke: { color: 'border-1' } },
-  // ghost carries no inline colour/hover — it wears the shared `.srow` list-row
-  // language instead (see VARIANT_CLASS): 80% ink at rest, an inset ink outline
-  // + full-ink text on hover, no background wash. Keeps quiet buttons reading
-  // exactly like ListRows and graph node labels.
-  ghost:   {},
+  outline: { textColor: 'var(--text-1)', hoverFill: 'bg-3', stroke: { color: 'border-2' } },
+  // ghost: no fill at rest, a soft ink wash on hover (see VARIANT_CLASS).
+  ghost:   { textColor: 'var(--text-2)' },
 }
 
-// Class-based extras, for variants that reuse a shared stylesheet language
-// rather than Frame's inline hover props (item-states.css `.srow`).
+// Class-based extras, for variants whose hover lives in a stylesheet rather
+// than Frame's inline hover props (index.css `.btn-*`).
 const VARIANT_CLASS: Record<string, string | undefined> = {
-  ghost: 'srow',
+  primary:   'btn-primary',
+  secondary: 'btn-secondary',
+  ghost:     'btn-ghost',
 }
 
 const SIZE_PADDING = {
-  sm: { x: 10, y: 5 },
-  md: { x: 12, y: 7 },
-  lg: { x: 16, y: 9 },
+  sm: { x: 12, y: 6 },
+  md: { x: 14, y: 8 },
+  lg: { x: 18, y: 10 },
 } as const
 
-// Match the list-row type scale (ListRow renders 12px mono @ 0.02em) — a step
-// down from the old uppercase button sizing, so buttons sit in the same
+// The list-row type scale (ListRow renders 13px) — buttons sit in the same
 // typographic rhythm as every list in the app.
-const SIZE_TEXT_PX = { sm: 12, md: 13, lg: 15 } as const
+const SIZE_TEXT_PX = { sm: 12.5, md: 13, lg: 15 } as const
 
 export const Button = React.forwardRef<HTMLElement, ButtonProps>((
   {
@@ -66,11 +64,9 @@ export const Button = React.forwardRef<HTMLElement, ButtonProps>((
     flow            = 'horizontal',
     align           = 'center',
     justify         = 'center',
-    // Buttons read pill-ish at --radius-control (0.7rem) because they're short;
-    // the squarer --radius-4 matches the IconButtons that sit beside them (and
-    // the search row) instead of over-rounding.
-    radius          = 'var(--radius-4)',
-    transition      = 'all',
+    // One corner for every control: buttons, fields, search and IconButtons.
+    radius          = 'var(--radius-control)',
+    transition      = 'colors',
     focusRing       = true,
     activeScale     = 0.98,
     disabledOpacity      = true,
@@ -110,9 +106,8 @@ export const Button = React.forwardRef<HTMLElement, ButtonProps>((
     )}
     <Text
       size={SIZE_TEXT_PX[size]}
-      mono
       weight="medium"
-      tracking="0.02em"
+      tracking="-0.005em"
       leading="none"
     >
       {children}

@@ -7,18 +7,18 @@ import { Card } from '../UIKit/Card/Card'
 import { Search } from '../UIKit/Search/Search'
 import { ListRow } from '../UIKit/ListRow/ListRow'
 import { Icon } from '../UIKit/Icon/Icon'
-import type { FileTreeNode } from '../../00_planning/api/PlatformAPI'
-import { AddNodesSection } from '../../00_planning/AddNodesSection'
+import type { FileTreeNode } from '../../platform/PlatformAPI'
+import { AddNodesSection } from '../../planning/AddNodesSection'
 import { useNewWorkspacePlanViewModel, type NewWorkspacePlanModalProps } from './NewWorkspacePlanModal.ViewModel'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 8,
-  letterSpacing: '0.1em',
+  fontSize: 9,
+  letterSpacing: '0.04em',
   color: 'var(--text-3)',
-  ...MONO,
+  ...UI_FONT,
 }
 
 type PlanTreeVM = ReturnType<typeof useNewWorkspacePlanViewModel>
@@ -47,7 +47,7 @@ function PlanTreeRow({ node, depth, vm }: { node: FileTreeNode; depth: number; v
                 onChange={() => vm.toggleDir(node.path)}
                 stopPropagation
               />
-              <span style={{ opacity: 0.7, width: 8, display: 'inline-block', flexShrink: 0, fontSize: 9 }}>
+              <span style={{ opacity: 0.7, width: 8, display: 'inline-block', flexShrink: 0, fontSize: 10 }}>
                 {expanded ? '▾' : '▸'}
               </span>
             </>
@@ -110,12 +110,12 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
           <Card flow="vertical" gap={14} padding={20} relative w={480} maxH="80vh" scroll="y">
-            <span style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
-              ADD PLAN FROM WORKSPACE
+            <span style={{ fontSize: 12, letterSpacing: '0.04em', color: 'var(--text-1)', fontWeight: 600, ...UI_FONT }}>
+              Add plan from workspace
             </span>
 
             <Frame flow="vertical" gap={6}>
-              <span style={{ fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-3)', ...MONO }}>NAME</span>
+              <span style={{ fontSize: 9, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>Name</span>
               <TextField size="lg"
                 autoFocus
                 value={vm.label}
@@ -125,11 +125,11 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
             </Frame>
 
             {vm.loading ? (
-              <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>Reading Workspace…</span>
+              <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>Reading Workspace…</span>
             ) : (
               <>
                 {/* Text search + a single wide filter dropdown covering both
-                    ASSET TYPE (naming-convention) and FILE TYPE (extension)
+                    Asset type (naming-convention) and file type (extension)
                     facets — the same shared Search control used everywhere
                     else, built-in `filters` prop rather than a hand-rolled
                     chip row, so this reads and behaves identically to every
@@ -159,7 +159,7 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
                       disabled={vm.filesSelectableCount === 0}
                       stopPropagation
                     />
-                    <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-2)', ...MONO }}>Select all files</span>
+                    <span style={{ fontSize: 10, letterSpacing: '0.03em', color: 'var(--text-2)', ...UI_FONT }}>Select all files</span>
                   </div>
                   <div
                     onClick={vm.toggleAllDirs}
@@ -172,15 +172,15 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
                       disabled={vm.dirsSelectableCount === 0}
                       stopPropagation
                     />
-                    <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--text-2)', ...MONO }}>Select all dirs</span>
+                    <span style={{ fontSize: 10, letterSpacing: '0.03em', color: 'var(--text-2)', ...UI_FONT }}>Select all dirs</span>
                   </div>
                 </Frame>
 
                 <Frame flow="vertical" gap={6}>
-                  <span style={SECTION_LABEL}>WORKSPACE</span>
+                  <span style={SECTION_LABEL}>Workspace</span>
                   <Frame flow="vertical" gap={2} maxH={280} scroll="y">
                     {vm.tree.length === 0 ? (
-                      <span style={{ fontSize: 10, color: 'var(--text-3)', padding: '4px 2px', ...MONO }}>No files match</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '4px 2px', ...UI_FONT }}>No files match</span>
                     ) : (
                       vm.tree.map((node) => <PlanTreeRow key={node.path} node={node} depth={0} vm={vm} />)
                     )}
@@ -200,7 +200,7 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
                   suggestionsFor={vm.suggestionsFor}
                 />
 
-                <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>
                   {vm.selectedCount} of {vm.totalCount} file{vm.totalCount === 1 ? '' : 's'} selected
                   {vm.selectedCount === 0 && ' — nothing to add yet'}
                 </span>
@@ -208,7 +208,7 @@ export function NewWorkspacePlanModal(props: NewWorkspacePlanModalProps) {
             )}
 
             {vm.error && (
-              <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{vm.error}</span>
+              <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{vm.error}</span>
             )}
 
             <Frame flow="horizontal" gap={8} justify="end">

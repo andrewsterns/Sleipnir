@@ -32,7 +32,7 @@ const OPTIMIZE_COMMAND = [
 // Plans are the agent's working todo list, and Sleipnir's Planning graph is how
 // the human watches it work — so the status on each step is the agent's own.
 const PLAN_PROGRESS =
-  "When you carry out a plan (steps you or another agent created with create_plan_node), keep it current with update_plan_step: set a step in_progress when you start it, only one at a time, testing while you run its tests, and completed the moment it is done, with a one-line note of what you did. Sleipnir records the files that change while a step is in progress, so start the step before you edit its files and finish it before the next. Don't batch updates at the end; the human watches the plan to see what you are doing."
+  "When you carry out a plan (steps you or another agent created with create_plan_node), read the step in its plan.md first (.planning/<plan>/plan.md: people's comments and status changes on it are there). Sleipnir sets a step in progress when you edit its files and testing when you run tests, from your tool calls; when a step is done, mark it completed with update_plan_step and a one-line note of what you did. Use update_plan_step for anything else only to name your step when steps share files, or to correct one."
 
 function build({ mode, workspaceRoot }) {
   return [

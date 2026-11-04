@@ -14,7 +14,8 @@ const permissionStore = require('./agent/permissionStore.cjs')
 const agentSettings = require('./agent/agentSettingsStore.cjs')
 const systemPrompt = require('./agent/systemPrompt.cjs')
 const changeSets = require('./agent/changeSets.cjs')
-const { buildNameMap } = require('./agent/schemaAdapters.cjs')
+const { buildNameMap } = require('./chatProviders/schemaAdapters.cjs')
+const agentTrail = require('./agentTrail.cjs')
 
 // sessionId -> { controller, wcId, cancelHooks }. One entry per in-flight
 // message; removed once it settles or is cancelled. cancelHooks stop work a
@@ -95,6 +96,9 @@ async function runToolCall(call, byName, base) {
       return { error: `${tool.name} is not allowed in ${mode} mode.` }
     }
 
+    // Onto the agent trail, so the Planning graph shows where it's working.
+    void agentTrail.recordToolCall({ root: workspaceRoot, toolName: tool.name, input, agent: base.agent })
+
     const prepared = tool.prepare ? await tool.prepare(input, ctx) : undefined
     if (prepared?.card) ctx.update(prepared.card)
 
@@ -115,6 +119,7 @@ async function runToolCall(call, byName, base) {
     }
 
     const result = await tool.execute(input, ctx, { prepared, decision })
+    void agentTrail.recordToolResult({ root: workspaceRoot, toolName: tool.name, input, result, agent: base.agent })
     ctx.update({ status: 'done' })
     return result ?? { ok: true }
   } catch (err) {
@@ -140,6 +145,7 @@ async function sendMessage(sender, sessionId, history, userMessage, workspaceRoo
     const { provider, model } = await providers.resolveActive()
     // Who's working, for the progress an agent reports on a plan (update_plan_step).
     base.agent = `Sleipnir · ${model}`
+    void agentTrail.recordPrompt({ root: workspaceRoot, prompt: userMessage, agent: base.agent })
     const { tools, byName } = await registry.toolsFor({ mode, workspaceRoot, wcId: sender.id })
     // Tools go over the wire under provider-safe names (MCP tool names can be
     // anything); calls come back under those names and are mapped home here.
@@ -192,6 +198,7 @@ async function sendMessage(sender, sessionId, history, userMessage, workspaceRoo
     if (controller.signal.aborted) send(sender, 'chat:done', sessionId, finalText)
     else send(sender, 'chat:error', sessionId, errorMessage(err))
   } finally {
+    void agentTrail.recordIdle({ root: workspaceRoot, agent: base.agent })
     if (requests.get(sessionId) === request) requests.delete(sessionId)
   }
 }

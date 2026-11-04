@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/04_validation/setup.ts'],
+    setupFiles: ['./src/validation/setup.ts'],
     exclude: ['node_modules/**', '.claude/**', 'release/**'],
   },
 })

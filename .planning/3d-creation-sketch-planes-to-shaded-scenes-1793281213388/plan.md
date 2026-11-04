@@ -6,7 +6,7 @@
 
 ## 1. 3D scene model: placements, solids and storage
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/3d-scene-model-placements-solids-and-storage-1793281213438 -->
-**Status:** Done — Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)
+**Status:** Proposed — Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)
 
 The data underneath everything else. Every layer can carry a 3D placement (position, rotation as a quaternion, scale), and a frame can be a sketch plane: XY (front), XZ (top), YZ (side), or any of those rotated about any axis, its 2D contents living on that plane. New layer kinds: a 3D component (a group of solids, lights and cameras placed in space, built on the board like any frame) and a solid (an outline plus its modifier stack, or an edited mesh). Units are meters with Y up, the glTF convention, so export needs no guessing. Heavy mesh data lives in binary assets (.components/assets/*.glb) referenced from the board, so board JSON stays small and diffable. Schema bump with an idempotent migration; undo covers every 3D edit.
 
@@ -25,7 +25,7 @@ The data underneath everything else. Every layer can carry a 3D placement (posit
 
 ## 2. The 3D viewport and the 2D/3D toggle
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/the-3d-viewport-and-the-2d-3d-toggle-1793281213504 -->
-**Status:** Done — Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)
+**Status:** Proposed — Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)
 
 A three.js viewport on the board (React Three Fiber, already a dependency, loaded on demand so it never touches the first load), WebGPU where available and WebGL otherwise. One toggle swaps the board between 2D and 3D: 2D is the orthographic straight-on view of the plane being edited, 3D orbits the same scene, so nothing is converted going back and forth. Front, Top, Side and Perspective views, a grid and axis gizmo, move/rotate/scale handles, frame-selection shared with the layers panel, and every 2D layer drawn as a flat mesh through the geometry kernel (shape.ts, mesh.ts) so a flat design looks identical in both views.
 
@@ -46,7 +46,10 @@ A three.js viewport on the board (React Three Fiber, already a dependency, loade
 
 ## 3. Sketch planes: frames on XY, XZ, YZ or any angle
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568 -->
-**Status:** Done — Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)
+**Status:** Proposed — Backfilled: checked in the code (scene3d types and placement, lazy R3F viewport with 2D/3D toggle, Front/Top/Side planes)
+
+**Comments**
+- claude: Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.
 
 Put any frame on a plane from the inspector (Front, Top, Side, or a custom rotation and offset) and it stands in the 3D scene at that orientation. Editing a plane opens it straight-on in 2D, with the board tools unchanged: the SVG and frame tools become the sketch tools. Cross-plane guides make orthographic sketching work: points drawn on Front project as guide lines onto Top and Side (shared X, Y or Z), so the three views of one object line up like blueprint views. Reference images can be pinned to a plane at real size.
 
@@ -67,6 +70,9 @@ Put any frame on a plane from the inspector (Front, Top, Side, or a custom rotat
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236 -->
 **Status:** Proposed
 
+**Comments**
+- claude: Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.
+
 Select only some points of any shape and move, rotate or scale them on their own, about a pivot you can place (their center by default, or any point, anchor or layer). Works on every vector, and on frames and components through their outline: a frame or component edited by points becomes a path that keeps its fills, strokes and children. Box, lasso, shift and loop selection of points; rotation and scale handles around the selection; numeric rotate in the inspector. For components, an instance can be rotated or have points moved as its own override, without touching the main component or its other instances. The same selection model (points, then edges and faces) carries straight into 3D edit mode and the sculpt brushes.
 
 **Files**
@@ -85,6 +91,9 @@ Select only some points of any shape and move, rotate or scale them on their own
 ## 5. Solids from one sketch: extrude, revolve, sweep, loft
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693 -->
 **Status:** Proposed — Partly done: extrude, revolve and sweep work; loft, bevel and taper are not built
+
+**Comments**
+- claude: Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.
 
 An outline on a plane becomes a solid through a modifier: extrude (depth, bevel size and segments, taper), revolve (axis, angle, steps: vases, wheels, bottles), sweep (along a guide path, reusing pathGuide: pipes, rails, ribbons) and loft (through two or more profiles on parallel planes: fuselages, bottles with varying section). How points map to polygons is explicit and shown: each sketch anchor is a vertex of the profile, curves are split at the flattening tolerance, and the polygon count is profile vertices x the segments the modifier adds (extrude depth segments, revolve steps, sweep samples). Loft needs matching point counts, so profiles are resampled to the same count with their anchors kept. A live polygon and triangle count sits in the inspector. The sketch stays the source: edit it and the solid rebuilds.
 
@@ -105,6 +114,9 @@ An outline on a plane becomes a solid through a modifier: extrude (depth, bevel 
 ## 6. Solids from Top, Front and Side sketches, and booleans
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825 -->
 **Status:** Proposed
+
+**Comments**
+- claude: Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.
 
 Three orthographic silhouettes become one solid by carving: extrude the Front sketch through the depth, the Side across the width, the Top down the height, and intersect the three (the visual hull). Booleans (union, subtract, intersect) between any solids use three-bvh-csg. What views alone cannot tell is stated in the UI, not hidden: a hollow no silhouette shows (a bowl, a cup interior), and curvature between views (three circles carve a Steinmetz solid, not a sphere). The fixes are built in: add section sketches on more planes and loft through them, subtract a carved cavity, or refine in edit mode and sculpting.
 
@@ -139,6 +151,9 @@ Apply a modifier stack to get a mesh you can edit by hand: a half-edge mesh with
 ## 8. Edit mode: vertices, edges, faces
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066 -->
 **Status:** Proposed
+
+**Comments**
+- claude: Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.
 
 Polygon modelling on the editable mesh: select vertices, edges or faces (click, box, loop and ring selection), move, rotate and scale them with the gizmo, extrude and inset faces, bevel edges and vertices, loop cut, knife, merge, bridge edge loops, fill holes, and mirror with symmetry across an axis. Every operation is one undo step through the canvas undo stack, and works in the orthographic views as well as perspective.
 

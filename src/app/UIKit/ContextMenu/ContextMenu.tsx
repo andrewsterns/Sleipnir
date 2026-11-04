@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom'
 import { Frame } from '../Frame/Frame'
 import { Icon, type IconName } from '../Icon/Icon'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 export interface ContextMenuItem {
   label: string
@@ -31,9 +31,9 @@ export interface ContextMenuProps {
   anchorEl: HTMLElement | null
 }
 
-const MENU_W = 150
-const SUBMENU_W = 168
-const ROW_H = 30
+const MENU_W = 176
+const SUBMENU_W = 184
+const ROW_H = 28
 
 // A single selectable row — shared by the top-level menu and every submenu
 // flyout so they stay pixel-identical. A row with `children` renders as a
@@ -81,25 +81,25 @@ function MenuRow({
       // The open parent's fill matches the hover colour, so a row that opens a
       // second dropdown reads exactly like a plain hovered row.
       fill={isOpen ? { solid: 'bg-3' } : undefined}
-      radius={0}
-      padding={{ x: 10, y: 6 }}
+      radius="var(--radius-2)"
+      padding={{ x: 8, y: 5 }}
       cursor={item.disabled ? 'default' : 'pointer'}
       gap={8}
       textColor={item.disabled ? 'var(--text-3)' : item.destructive ? '#e07a7a' : 'var(--text-2)'}
-      style={{ textAlign: 'left', fontSize: 11, letterSpacing: '0.02em', opacity: item.disabled ? 0.5 : 1, ...MONO }}
+      style={{ textAlign: 'left', fontSize: 12.5, opacity: item.disabled ? 0.5 : 1, ...UI_FONT }}
     >
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         {item.icon && <Icon name={item.icon} size={13} />}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
       </span>
-      {hasChildren && <span style={{ opacity: 0.7, flexShrink: 0 }}>▸</span>}
+      {hasChildren && <span style={{ display: "inline-flex", transform: "rotate(-90deg)", flexShrink: 0 }}><Icon name="chevron-down" size={12} /></span>}
     </Frame>
   )
 }
 
 // A minimal right-click menu, styled to match LeftRailingView's own
 // hand-rolled sort-order popup rather than the Dropdown/Text component
-// system — this is meant to sit inside that same dark, MONO-styled file
+// system — this is meant to sit inside that same dark, UI_FONT-styled file
 // tree. Unlike Dropdown, it anchors at a raw {x,y} viewport point (wherever
 // the click landed) instead of a trigger element's bounding rect.
 export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose, anchorEl }) => {
@@ -180,22 +180,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose, 
         z={1000}
         flow="vertical"
         gap={0}
-        padding={0}
+        padding={4}
         w={MENU_W}
         onMouseDown={(e) => e.stopPropagation()}
         onContextMenu={(e) => e.preventDefault()}
         fill={{ solid: 'bg-2' }}
-        stroke={{ color: 'var(--border-2)' }}
-        radius="var(--radius-control)"
-        // Clip so each item's now-square, full-width hover fill respects the
-        // panel's own rounded outer corners instead of poking past them.
+        stroke={{ color: 'var(--border-1)' }}
+        radius="var(--radius-float)"
         clipContent
-        style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }}
+        style={{ boxShadow: 'var(--shadow-1)' }}
       >
         {items.map((item, i) => (
           <React.Fragment key={i}>
             {item.separator && i > 0 && (
-              <div style={{ height: 1, margin: '2px 4px', background: 'rgba(var(--item-ink, 255,255,255), 0.08)' }} />
+              <div style={{ height: 1, margin: '4px 8px', background: 'var(--border-1)' }} />
             )}
             <MenuRow
               item={item}
@@ -223,17 +221,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose, 
           z={1001}
           flow="vertical"
           gap={0}
-          padding={0}
+          padding={4}
           w={SUBMENU_W}
           onMouseEnter={cancelClose}
           onMouseLeave={scheduleClose}
           onMouseDown={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
           fill={{ solid: 'bg-2' }}
-          stroke={{ color: 'var(--border-2)' }}
-          radius="var(--radius-control)"
+          stroke={{ color: 'var(--border-1)' }}
+          radius="var(--radius-float)"
           scroll="y"
-          style={{ maxHeight: 260, boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }}
+          style={{ maxHeight: 260, boxShadow: 'var(--shadow-1)' }}
         >
           {openItem.children.map((child, ci) => (
             <MenuRow

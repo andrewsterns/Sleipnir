@@ -3,7 +3,7 @@
 // language table (tools/agentSkills/vendor/languages.mjs) it reads, into the
 // vendored project CLI (tools/agentSkills/vendor/plan.mjs), byte for byte. The
 // vendored CLI may only use node: builtins, so it can't import either — it
-// carries these copies instead, and src/00_planning/api/vendoredPlanCli.test.ts
+// carries these copies instead, and src/platform/vendoredPlanCli.test.ts
 // fails when they differ. Run after editing either source:
 //
 //   node tools/syncPlanDoc.mjs

@@ -1,0 +1,54 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Selectable-item states — the one hover/selection language shared by every
+   list row (Planning, Workspace/Research files, Git) and the graph node
+   labels. Drive a row by adding `srow` plus, optionally, `is-selected` or
+   `is-connected`; hover is handled here.
+
+   Colours come from the active theme (see tactical.css / light.css):
+     --item-ink    an "R, G, B" triple, so it composes at any alpha
+     --item-ground the ink's opposite — text colour on filled states
+
+   The ladder:
+     idle       → no fill,           82% ink text
+     hover      → 6% ink wash,      100% ink text
+     connected  → faint ink outline, 100% ink text   (graph neighbours)
+     selected   → 12% ink wash,     100% ink text
+
+   Rows are soft rounded pills, like a macOS sidebar: hover and selection are
+   quiet grey washes of the theme's ink rather than outlines or inverted fills.
+   The connected outline is drawn with `outline` (never `border`) at
+   `outline-offset: -1px`, so it can never shift layout.
+
+   Rows carry explicitly-coloured children, so `srow` sets `color` AND the
+   primary label must use `color: inherit` (or currentColor) to flip on the
+   selected fill — otherwise a near-white label stays invisible on a white
+   selection. Fallbacks keep the tactical look if a theme omits the tokens.
+   ───────────────────────────────────────────────────────────────────────── */
+.srow {
+  color: rgba(var(--item-ink, 255, 255, 255), 0.82);
+  background-color: transparent;
+  border-radius: var(--radius-2, 6px);
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition: background-color 120ms ease, color 120ms ease, outline-color 120ms ease;
+}
+.srow:hover {
+  background-color: rgba(var(--item-ink, 255, 255, 255), 0.06);
+  color: rgb(var(--item-ink, 255, 255, 255));
+}
+.srow.is-connected {
+  outline-color: rgba(var(--item-ink, 255, 255, 255), 0.28);
+  color: rgb(var(--item-ink, 255, 255, 255));
+}
+.srow.is-selected,
+.srow.is-selected:hover {
+  background-color: rgba(var(--item-ink, 255, 255, 255), 0.12);
+  color: rgb(var(--item-ink, 255, 255, 255));
+  outline-color: transparent;
+}
+
+/* A row's hover actions (ListRow's trailing slot) never grow past the row:
+   IconButton's 28px hit box is clamped to the row height, glyph still centred. */
+.srow-trailing > * {
+  max-height: 100%;
+}

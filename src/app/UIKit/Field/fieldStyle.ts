@@ -17,16 +17,16 @@ export type FieldSize = 'sm' | 'md' | 'lg'
 
 const SIZE: Record<FieldSize, React.CSSProperties> = {
   // Dense panels: the properties inspector, paint rows.
-  sm: { fontSize: 10, padding: '4px 6px' },
+  sm: { fontSize: 11.5, padding: '4px 7px' },
   // Side panels and inline rows: file trees, Git, the run picker.
-  md: { fontSize: 11, padding: '5px 8px' },
+  md: { fontSize: 12.5, padding: '6px 10px' },
   // Dialogs and settings pages.
-  lg: { fontSize: 12, padding: '7px 9px' },
+  lg: { fontSize: 13, padding: '8px 11px' },
 }
 
 export function fieldStyle(size: FieldSize = 'md'): React.CSSProperties {
   return {
-    fontFamily: 'var(--font-mono)',
+    fontFamily: 'var(--font-ui)',
     background: 'var(--bg-2)',
     border: '1px solid var(--border-1)',
     borderRadius: 'var(--radius-field)',

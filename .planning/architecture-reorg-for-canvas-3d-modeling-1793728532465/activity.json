@@ -1,0 +1,4273 @@
+{
+  "events": [
+    {
+      "at": 1793728907173,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/show-the-whole-architecture-in-the-graph-1793728553135",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793729012364,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/show-the-whole-architecture-in-the-graph-1793728553135",
+      "status": "completed",
+      "note": "Cap 300 -> 1500 and spare budget goes to most-connected files; Sleipnir's 753 listed files now all draw (was 300 max, 0 with no focus)",
+      "since": 1793728907173,
+      "changes": [
+        {
+          "path": "src/00_planning/graph/architectureScope.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/architectureView.test.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793729012553,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/stop-boot-from-waiting-on-every-view-chunk-1793728553388",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793729127228,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/stop-boot-from-waiting-on-every-view-chunk-1793728553388",
+      "status": "completed",
+      "note": "Boot no longer waits on view chunks (6 chunks, ~1.1MB -> 0); they warm one per idle moment; firstLoadBudget.test.ts keeps three/codemirror/xterm off the entry",
+      "since": 1793729012553,
+      "changes": [
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/firstLoadBudget.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/app/lazyViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/main.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793729127405,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/remove-research-analytics-and-the-empty-components-area-1793728553637",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793736063459,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/remove-research-analytics-and-the-empty-components-area-1793728553637",
+      "status": "completed",
+      "note": "Deleted 01_research, 05_analytics, empty 02_components, PortfolioStory and the Research Notes map (dead folders 3 -> 0); Canvas Docs pane kept as 01_canvas/panels/DocsPane.tsx",
+      "since": 1793729127405,
+      "changes": [
+        {
+          "path": "src/00_planning/PortfolioStory.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/PlatformAPI.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/combine.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/generated/research.json",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/generated/validation.json",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/proposed-nodes.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/types.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/iCanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/store.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/DocsPane.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/panels/iDocsPane.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/01_research/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/ResearchView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/analytics/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/demographics/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/iResearchView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/personas/E3_Patriot_Fire_Control_Operator.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/personas/E5_Cyber_Network_Defender.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/personas/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/proposals/IBCS_Research_Proposal_Revised.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_research/test-documentation/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/05_analytics/AnalyticsView.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/05_analytics/AnalyticsView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/05_analytics/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/UIKit/Search/iSearch.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "tools/backend/planningStore.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "tools/generate-graph.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "tools/sleipnir-backend.mjs",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793736063673,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/move-the-platform-api-out-of-planning-1793728553852",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793736266075,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/move-the-platform-api-out-of-planning-1793728553852",
+      "status": "completed",
+      "note": "00_planning/api -> src/platform; 66 files re-pointed, imports into planning/api from other features 46 -> 0 (platform keeps type-only imports of graph/types)",
+      "since": 1793736063673,
+      "changes": [
+        {
+          "path": ".sleipnir/plan.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "ARCHITECTURE.md",
+          "change": "modified"
+        },
+        {
+          "path": "electron/main.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/preload.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/ActivityPanel.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/AddNodeModal.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/ApproveStepModal.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/HealthPanel.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/MissingPlanningFiles.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/api/PlatformAPI.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/agentScaffoldingOptIn.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/electronApi.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/iPlanningWatch.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/pathSafety.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/plannedFiles.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/planningPaths.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/planningPortability.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/sleipnirApi.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/vendoredPlanCli.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/webApi.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/api/workspaceWalkIgnore.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/gitChangesStore.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/combine.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/healthLens.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/healthLens.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/resolveAssetPlan.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/resolveAssetPlan.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/workspaceScanCache.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/skills/NewSkillModal.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/skills/SkillCard.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/stagesStore.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/useAgentTrail.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/useFileStages.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/useFileStages.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/usePlanActivity.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/usePlanNodeLinks.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/usePlanningHealth.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/useStatusReconciler.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/board/useWorkspaceImages.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/hooks/useCanvasBoards.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/reconcileMove.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/stagingTsconfig.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/store.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/ComponentPathField.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/DocsPane.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/CommitGraphView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/ConstellationView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/README.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/SourceControlView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/SourceControlView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/StashDropModal.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/commitGraphLayout.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/CommandPalette/CommandPalette.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/CodeEditorView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/FolderBrowserView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/FolderBrowserView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/LeftRailingView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/lspClient.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/ProblemsDock/ProblemsDock.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/SettingsView/SettingsView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/TitleBar/TitleBar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/NewWorkspacePlanModal.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/NewWorkspacePlanModal.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/WorkspaceView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/WorkspaceView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/iWorkspaceView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/platform/PlatformAPI.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/agentScaffoldingOptIn.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/electronApi.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/iPlanningWatch.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/pathSafety.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/plannedFiles.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/planningPaths.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/planningPortability.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/sleipnirApi.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/vendoredPlanCli.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/webApi.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/workspaceWalkIgnore.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "tools/agentSkills/vendor/plan.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "tools/backend/planSteps.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "tools/planDoc.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "tools/syncPlanDoc.mjs",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793736266213,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rename-small-numbered-folders-1793728554129",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793736402635,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rename-small-numbered-folders-1793728554129",
+      "status": "completed",
+      "note": "themes, keybindings, validation, source-control (numbered folders 6 -> 2); 59 files moved, imports and docs re-pointed",
+      "since": 1793736266213,
+      "changes": [
+        {
+          "path": ".agent/Architecture.md",
+          "change": "modified"
+        },
+        {
+          "path": ".agent/RULES.md",
+          "change": "modified"
+        },
+        {
+          "path": "AGENT.md",
+          "change": "modified"
+        },
+        {
+          "path": "ARCHITECTURE.md",
+          "change": "modified"
+        },
+        {
+          "path": "README.md",
+          "change": "modified"
+        },
+        {
+          "path": "index.html",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_keybindings/KeybindingsController.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_keybindings/index.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/ActivityPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PLAN_TEMPLATE.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/GraphCanvas.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/generated/validation.json",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/assetRefs.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/proposed-nodes.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_themes/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/ThemeController.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/ThemeProvider.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/colors/colors.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/dark.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-bottom-center.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-bottom-left.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-bottom-right.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-center-middle.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-right-middle-1.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-right-middle.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-top-center.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-top-left.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/column-icon-align-box-top-right.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-center-bottom.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-center-middle.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-center-top.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-left-bottom.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-left-middle.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-left-top.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-right-bottom.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-right-middle.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/row-icon-align-box-right-top.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-click.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-components.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-frame.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-git-merge.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-node-add.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-node.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-player-play.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default-icons/tabler-icon-research.svg",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/default.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/fonts/fonts.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/houseplant.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/index.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/item-states.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/light.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_themes/tactical.css",
+          "change": "deleted"
+        },
+        {
+          "path": "src/04_validation/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/04_validation/ValidationView.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/04_validation/ValidationView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/04_validation/iValidationView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/04_validation/setup.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/CommitGraphView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/ConstellationView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/DiffView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/DiscardFileModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/SourceControlView.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/SourceControlView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/StashDropModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/commitGraphLayout.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/diffFiles.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/diffHighlight.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/diffHighlight.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/parseDiffHunks.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/06_source_control/parseDiffHunks.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/AgentChat/ToolActivityRow.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/CommandPalette/CommandPalette.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/WidgetShell.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/NavRail/NavRail.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/SettingsView/SettingsView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/lazyViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/shellLayout.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/shortcuts.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/keybindings/KeybindingsController.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/keybindings/index.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/CommitGraphView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/ConstellationView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/DiffView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/DiscardFileModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/README.md",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/SourceControlView.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/SourceControlView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/StashDropModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/commitGraphLayout.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/diffFiles.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/diffHighlight.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/diffHighlight.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/parseDiffHunks.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/source-control/parseDiffHunks.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/README.md",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/ThemeController.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/ThemeProvider.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/colors/colors.css",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/dark.css",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-bottom-center.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-bottom-left.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-bottom-right.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-center-middle.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-right-middle-1.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-right-middle.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-top-center.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-top-left.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/column-icon-align-box-top-right.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-center-bottom.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-center-middle.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-center-top.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-left-bottom.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-left-middle.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-left-top.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-right-bottom.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-right-middle.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/row-icon-align-box-right-top.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-click.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-components.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-frame.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-git-merge.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-node-add.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-node.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-player-play.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default-icons/tabler-icon-research.svg",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/default.css",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/fonts/fonts.css",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/houseplant.css",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/index.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/item-states.css",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/light.css",
+          "change": "added"
+        },
+        {
+          "path": "src/themes/tactical.css",
+          "change": "added"
+        },
+        {
+          "path": "src/validation/README.md",
+          "change": "added"
+        },
+        {
+          "path": "src/validation/ValidationView.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/validation/ValidationView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/validation/iValidationView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/validation/setup.ts",
+          "change": "added"
+        },
+        {
+          "path": "tools/generate-graph.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "vite.config.ts",
+          "change": "modified"
+        },
+        {
+          "path": "vitest.config.ts",
+          "change": "modified"
+        },
+        {
+          "path": "website/styles.css",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793736402768,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rename-planning-and-canvas-folders-1793728554348",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793736565294,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rename-planning-and-canvas-folders-1793728554348",
+      "status": "completed",
+      "note": "00_planning -> planning, 01_canvas -> canvas (237 files); numbered folders in src 2 -> 0, 1166 tests pass",
+      "since": 1793736402768,
+      "changes": [
+        {
+          "path": ".agent/Architecture.md",
+          "change": "modified"
+        },
+        {
+          "path": ".agent/README.md",
+          "change": "modified"
+        },
+        {
+          "path": ".agent/RULES.md",
+          "change": "modified"
+        },
+        {
+          "path": ".impeccable/config.json",
+          "change": "modified"
+        },
+        {
+          "path": ".sleipnir/plan.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "AGENT.md",
+          "change": "modified"
+        },
+        {
+          "path": "ARCHITECTURE.md",
+          "change": "modified"
+        },
+        {
+          "path": "README.md",
+          "change": "modified"
+        },
+        {
+          "path": "electron/main.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/planningWatcher.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/ActivityPanel.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/ActivityPanel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/AddNodeModal.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/AddNodeModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/AddNodesSection.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/ApproveStepModal.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/ApproveStepModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/DeleteNodeModal.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/DeleteNodeModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/DeletePlanModal.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/DeletePlanModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/DismissWelcomeModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/HealthPanel.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/HealthPanel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/LensControls.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/MissingPlanningFiles.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/PLAN_TEMPLATE.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/PlanBuildStatusBar.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.test.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/PlanningView.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/TrailInsightsPanel.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/TrailInsightsPanel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/activityLog.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/activityLog.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/archive/README.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/gitChangesStore.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/FocusBox.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/GraphCanvas.test.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/GraphCanvas.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/StatusGlyph.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/agentTrail.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/agentTrail.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/architectureScope.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/architectureView.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/architectures.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/archive.json",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/combine.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/composePlanView.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/d3-force-3d.d.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/generated/test.json",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/generated/validation.json",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/healthLens.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/healthLens.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/assetRefs.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/assetRefs.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/cAdapter.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/configRefs.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/configRefs.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/detectEdges.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/goAdapter.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/index.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/jvmAdapter.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/nativeAdapters.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/pathAliases.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/pathAliases.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/pythonAdapter.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/rustAdapter.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/tsxAdapter.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/tsxAdapter.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/importAdapters/types.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/layout.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/layout.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/naming.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/nodeTone.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/nodeTone.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/notes.json",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/pinnedViews.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/pinnedViews.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/plans.json",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/preview-config.json",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/proposed-nodes.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/resolveAssetPlan.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/resolveAssetPlan.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/resolvePlan.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/scaffoldPlan.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/scaffoldPlan.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/skillGraph.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/skillGraph.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/stages.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/stages.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/steering.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/steering.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/stepStatus.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/stepStatus.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/templates/index.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/templates/nativeTemplates.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/templates/nativeTemplates.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/trailInsights.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/trailInsights.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/types.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/workspaceScanCache.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/roadmaps/001-theme-houseplant.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/skills/NewSkillModal.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/skills/NewSkillModal.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/skills/SkillCard.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/skills/SkillCard.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.test.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/stagesStore.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/useAgentTrail.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/useFileStages.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/useFileStages.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/useGraphForces.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/usePlanActivity.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/usePlanNodeLinks.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/usePlanningHealth.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/useStatusReconciler.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.test.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/LANGUAGES.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/LAYOUT.md",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasBoard.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasNodeView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasToolbar.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/ComponentLabel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/FrameLabel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/PlaneGuides.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/ProjectedSolid.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/TextEditOverlay.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/svgElements.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/board/useWorkspaceImages.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/react.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/react.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/region.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/region.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/shared.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/svg.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/svg.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/emit/targets.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/geometry/body.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/geometry/body.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/geometry/geometry.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/geometry/mesh.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/geometry/modifiers.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/geometry/modifiers.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/geometry/shape.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/hooks/panZoomMath.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/hooks/panZoomMath.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/hooks/useCanvasBoards.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/hooks/useLinkedComponents.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/hooks/useMeasuredRects.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/hooks/usePanZoom.test.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/hooks/usePanZoom.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/iCanvasView.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/align.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/align.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/clipboard.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/clipboard.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/clipboardImage.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/clipboardImage.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/colorMath.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/colorMath.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/componentTree.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/componentTree.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/cssValue.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/doc.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/doc.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/geometry.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/hierarchy.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/imageSizing.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/imageSizing.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/layout.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/layout.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/objects.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/objects.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/paint.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/paint.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/pathFlow.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/pathFlow.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/pathGuide.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/pathPattern.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/pathPattern.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/paths.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/paths.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/reconcileMove.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/relink.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/relink.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/rotation.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/rotation.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/stagedFiles.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/stagedFiles.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/stagingTsconfig.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/stagingTsconfig.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/store.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/store.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/toCss.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/toCss.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/types.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/undo.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/undo.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/variants.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/variants.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/vector.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/vector.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/vectorEdit.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/model/vectorEdit.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/CanvasInspector.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/CanvasLayersPanel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/ColorPicker.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/ComponentPathField.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/CreateBar.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/DocsPane.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/LayoutSection.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/LinkedComponentSection.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/PaintSections.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/PlaneSection.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/SolidSection.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/iDocsPane.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/inspectorKit.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/planeGroups.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/panels/planeGroups.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/placement.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/placement.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeEdit.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeEdit.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeRefs.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeRefs.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/sceneMeshes.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/sceneTypes.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/scene3d/sketchPlane.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/useBoardTabs.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/useCanvasComponentPaths.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/viewport/TransformGizmo.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3DBoundary.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/viewport/cameraViews.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/viewport/viewport.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/01_canvas/viewport/viewportControls.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/AgentChat/AgentChat.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/AgentChat/iAgentChat.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/AgentDock/AgentDock.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/CodeEditorView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/CodeEditorView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/DeletePathModal.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/LeftRailingView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/graphLinkExtension.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/iFolderBrowserView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/ProblemsDock/ProblemsDock.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/UIKit/Icon/Icon.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/NewWorkspacePlanModal.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/NewWorkspacePlanModal.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/WorkspaceView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/iWorkspaceView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/lazyViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/LANGUAGES.md",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/CanvasNodeView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/CanvasToolbar.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/ComponentLabel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/FrameLabel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/PlaneGuides.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/ProjectedSolid.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/TextEditOverlay.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/svgElements.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/board/useWorkspaceImages.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/react.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/react.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/region.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/region.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/shared.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/svg.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/svg.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/emit/targets.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/geometry/body.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/geometry/body.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/geometry/geometry.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/geometry/mesh.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/geometry/modifiers.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/geometry/modifiers.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/geometry/shape.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/panZoomMath.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/panZoomMath.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasBoards.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useLinkedComponents.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useMeasuredRects.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/usePanZoom.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/usePanZoom.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/iCanvasView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/align.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/align.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/clipboard.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/clipboard.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/clipboardImage.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/clipboardImage.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/colorMath.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/colorMath.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/componentTree.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/componentTree.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/cssValue.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/doc.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/doc.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/geometry.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/hierarchy.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/imageSizing.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/imageSizing.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/layout.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/layout.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/objects.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/objects.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/paint.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/paint.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/pathFlow.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/pathFlow.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/pathGuide.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/pathPattern.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/pathPattern.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/paths.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/paths.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/reconcileMove.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/relink.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/relink.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/rotation.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/rotation.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/stagedFiles.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/stagedFiles.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/stagingTsconfig.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/stagingTsconfig.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/store.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/store.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/toCss.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/toCss.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/types.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/undo.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/undo.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/variants.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/variants.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/vector.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/vector.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/vectorEdit.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/vectorEdit.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/ColorPicker.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/ComponentPathField.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/CreateBar.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/DocsPane.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/LayoutSection.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/LinkedComponentSection.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/PaintSections.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/PlaneSection.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/SolidSection.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/iDocsPane.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/inspectorKit.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/frontView.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/frontView.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/placement.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/placement.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/planeEdit.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/planeEdit.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/planeRefs.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/planeRefs.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/sceneMeshes.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/sceneTypes.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/scene3d/sketchPlane.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/useBoardTabs.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/useCanvasComponentPaths.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/viewport/TransformGizmo.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3D.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3D.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3DBoundary.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/viewport/cameraViews.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/viewport/viewport.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/viewport/viewportControls.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/index.css",
+          "change": "modified"
+        },
+        {
+          "path": "src/main.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/planning/ActivityPanel.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/ActivityPanel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/AddNodeModal.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/AddNodeModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/AddNodesSection.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/ApproveStepModal.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/ApproveStepModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/DeleteNodeModal.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/DeleteNodeModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/DeletePlanModal.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/DeletePlanModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/DismissWelcomeModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/HealthPanel.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/HealthPanel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/LensControls.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/MissingPlanningFiles.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/PLAN_TEMPLATE.md",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/PlanBuildStatusBar.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/PlanStepsList.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/PlanStepsList.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/PlanStepsList.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/PlanningView.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/PlanningView.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/README.md",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/TrailInsightsPanel.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/TrailInsightsPanel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/activityLog.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/activityLog.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/archive/README.md",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/gitChangesStore.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/FocusBox.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/GraphCanvas.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/GraphCanvas.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/StatusGlyph.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/agentTrail.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/agentTrail.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/architectureScope.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/architectureView.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/architectures.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/archive.json",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/combine.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/composePlanView.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/d3-force-3d.d.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/generated/test.json",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/generated/validation.json",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/healthLens.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/healthLens.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/assetRefs.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/assetRefs.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/cAdapter.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/configRefs.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/configRefs.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/detectEdges.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/goAdapter.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/index.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/jvmAdapter.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/nativeAdapters.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/pathAliases.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/pathAliases.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/pythonAdapter.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/rustAdapter.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/tsxAdapter.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/tsxAdapter.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/importAdapters/types.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/layout.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/layout.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/naming.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/nodeTone.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/nodeTone.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/notes.json",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/pinnedViews.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/pinnedViews.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/plans.json",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/preview-config.json",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/proposed-nodes.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/resolveAssetPlan.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/resolveAssetPlan.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/resolvePlan.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/scaffoldPlan.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/scaffoldPlan.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/skillGraph.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/skillGraph.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/stages.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/stages.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/steering.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/steering.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/stepStatus.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/stepStatus.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/templates/index.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/templates/nativeTemplates.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/templates/nativeTemplates.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/trailInsights.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/trailInsights.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/types.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/workspaceScanCache.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/roadmaps/001-theme-houseplant.md",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/skills/NewSkillModal.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/skills/NewSkillModal.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/skills/SkillCard.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/skills/SkillCard.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/skills/SkillsList.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/skills/SkillsList.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/skills/SkillsList.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/stagesStore.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/useAgentTrail.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/useFileStages.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/useFileStages.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/useGraphForces.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/usePlanActivity.ts",
+          "change": "added"
+        }
+      ],
+      "moreChanges": 21
+    },
+    {
+      "at": 1793736565418,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-3d-modeling-into-its-own-feature-1793728554536",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793736607286,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-3d-modeling-into-its-own-feature-1793728554536",
+      "status": "pending"
+    },
+    {
+      "at": 1793736607373,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-3d-modeling-into-its-own-feature-1793728554536",
+      "comment": "Paused before moving anything: the 3D code is part of the canvas document, not beside it. model/types.ts, objects.ts and doc.ts import scene3d (Placement3D, SolidSpec, frontView), and board/ and panels/ draw and edit solids — 11 canvas files import scene3d, and scene3d imports canvas/model 30+ times. Moving scene3d/geometry/viewport to src/modeling as-is would create a canvas <-> modeling folder cycle (0 -> 1). three.js is already only in viewport/ and loads lazily. Options: (A) lift canvas/model into a shared src/document that both canvas (2D board) and modeling (3D) use, then move the 3D folders; (B) group them under canvas/modeling/ inside the same feature. Needs a decision."
+    },
+    {
+      "at": 1793736665743,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rewrite-the-architecture-docs-for-the-new-layout-1793728554953",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793736968427,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rewrite-the-architecture-docs-for-the-new-layout-1793728554953",
+      "status": "completed",
+      "note": "ARCHITECTURE.md (feature folders + load rules), README, AGENT.md, .agent/*, folder READMEs rewritten; stale pipeline mentions in docs ~45 -> 0; dropped now-unused utils/useFilteredList.ts",
+      "since": 1793736665743,
+      "changes": [
+        {
+          "path": ".agent/Architecture.md",
+          "change": "modified"
+        },
+        {
+          "path": ".agent/README.md",
+          "change": "modified"
+        },
+        {
+          "path": ".agent/RULES.md",
+          "change": "modified"
+        },
+        {
+          "path": "AGENT.md",
+          "change": "modified"
+        },
+        {
+          "path": "ARCHITECTURE.md",
+          "change": "modified"
+        },
+        {
+          "path": "README.md",
+          "change": "modified"
+        },
+        {
+          "path": "package.json",
+          "change": "modified"
+        },
+        {
+          "path": "src/planning/README.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/source-control/README.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/utils/useFilteredList.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/validation/README.md",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793737318458,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-3d-modeling-into-its-own-feature-1793728554536",
+      "comment": "Going with option A (user, 2026-11-03): src/document first (new step before this one), then this step moves scene3d, geometry and viewport to src/modeling, importing only document. Target: modeling -> canvas imports 0."
+    },
+    {
+      "at": 1793737318698,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/lift-the-document-model-into-src-document-1793737318384",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793737609764,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/lift-the-document-model-into-src-document-1793737318384",
+      "status": "completed",
+      "note": "53 files to src/document (incl. sceneTypes, frontView, placement), board IO to canvas/io; document imports from canvas/3D 3 -> 0 (only planning's language table remains)",
+      "since": 1793737318698,
+      "changes": [
+        {
+          "path": ".impeccable/config.json",
+          "change": "modified"
+        },
+        {
+          "path": "electron/main.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/planningWatcher.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/LeftRailingView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Workspace/iWorkspaceView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.geometry.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LANGUAGES.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasNodeView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/ComponentLabel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/PlaneGuides.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/ProjectedSolid.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/TextEditOverlay.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/svgElements.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/useWorkspaceImages.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/emit/react.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/emit/react.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/emit/region.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/emit/shared.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/emit/svg.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/emit/svg.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/emit/targets.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/geometry/body.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/geometry/body.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/geometry/geometry.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/geometry/modifiers.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/geometry/shape.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasBoards.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useLinkedComponents.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useMeasuredRects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/iCanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/io/clipboard.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/clipboard.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/clipboardImage.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/clipboardImage.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/parseObjects.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/reconcileMove.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/stagedFiles.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/stagedFiles.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/stagingTsconfig.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/stagingTsconfig.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/store.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/io/store.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/model/align.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/align.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/clipboard.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/clipboard.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/clipboardImage.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/clipboardImage.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/colorMath.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/colorMath.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/componentTree.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/componentTree.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/cssValue.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/doc.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/doc.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/geometry.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/hierarchy.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/imageSizing.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/imageSizing.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/layout.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/layout.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/objects.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/objects.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/paint.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/paint.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/pathFlow.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/pathFlow.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/pathGuide.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/pathPattern.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/pathPattern.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/paths.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/paths.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/reconcileMove.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/relink.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/relink.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/rotation.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/rotation.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/stagedFiles.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/stagedFiles.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/stagingTsconfig.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/stagingTsconfig.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/store.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/store.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/toCss.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/toCss.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/types.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/undo.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/undo.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/variants.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/variants.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/vector.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/vector.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/vectorEdit.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/model/vectorEdit.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/ColorPicker.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/ComponentPathField.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CreateBar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/LayoutSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/LinkedComponentSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/PaintSections.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/frontView.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/frontView.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/placement.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/placement.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/planeEdit.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/planeEdit.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/planeRefs.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/planeRefs.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/sceneMeshes.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/sceneTypes.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/sketchPlane.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/useBoardTabs.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/useCanvasComponentPaths.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/viewport/TransformGizmo.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/viewport/cameraViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/viewport/viewport.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/viewport/viewportControls.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/align.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/align.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/colorMath.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/colorMath.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/componentTree.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/componentTree.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/cssValue.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/doc.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/doc.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/frontView.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/hierarchy.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/imageSizing.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/imageSizing.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/layout.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/layout.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/paint.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/paint.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/pathFlow.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/pathFlow.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/pathGuide.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/pathPattern.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/pathPattern.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/paths.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/paths.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/placement.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/placement.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/relink.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/relink.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/rotation.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/rotation.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/sceneTypes.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/toCss.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/toCss.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/types.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/undo.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/undo.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/variants.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/variants.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/vector.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/vector.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/vectorEdit.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/vectorEdit.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/platform/electronApi.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793737609875,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-3d-modeling-into-its-own-feature-1793728554536",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793804318258,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-3d-modeling-into-its-own-feature-1793728554536",
+      "status": "completed",
+      "note": "scene3d, geometry, viewport -> src/modeling (21 files); modeling imports only document + utils (modeling -> canvas 0, canvas -> modeling one-way); shared CLICK_DRAG_THRESHOLD in utils/pointer.ts",
+      "since": 1793737609875,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/ProjectedSolid.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/geometry/body.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/geometry/body.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/geometry/geometry.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/geometry/mesh.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/geometry/modifiers.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/geometry/modifiers.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/geometry/shape.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/hooks/panZoomMath.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasBoards.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/usePanZoom.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/scene3d/frontView.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/planeEdit.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/planeEdit.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/planeRefs.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/planeRefs.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/sceneMeshes.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/scene3d/sketchPlane.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/viewport/TransformGizmo.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3D.ViewModel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3D.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/viewport/Viewport3DBoundary.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/viewport/cameraViews.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/viewport/viewport.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/viewport/viewportControls.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/modeling/geometry/body.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/geometry/body.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/geometry/geometry.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/geometry/mesh.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/geometry/modifiers.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/geometry/modifiers.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/geometry/shape.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/frontView.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/planeEdit.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/planeEdit.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/planeRefs.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/planeRefs.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/sceneMeshes.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/sketchPlane.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/TransformGizmo.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3DBoundary.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/cameraViews.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/viewport.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/viewportControls.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/planning/graph/GraphCanvas.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/utils/pointer.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793804318385,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-the-canvas-view-model-by-mode-1793728554721",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793806076288,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-the-canvas-view-model-by-mode-1793728554721",
+      "status": "completed",
+      "note": "CanvasView.ViewModel 3716 -> 878 lines: 7 hooks (pointer, path editing, layer commands, components, clipboard, 3D tools, shortcuts) + boardEditing.ts; fan-out 36 -> 33 (target 12 not met), fan-in 5 -> 1",
+      "since": 1793804318385,
+      "changes": [
+        {
+          "path": ".agent/Architecture.md",
+          "change": "modified"
+        },
+        {
+          "path": ".agent/RULES.md",
+          "change": "modified"
+        },
+        {
+          "path": "AGENT.md",
+          "change": "modified"
+        },
+        {
+          "path": "ARCHITECTURE.md",
+          "change": "modified"
+        },
+        {
+          "path": "README.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.geometry.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasToolbar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/boardEditing.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/boardEditing.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useBoardPointer.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasClipboard.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasShortcuts.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useComponentEditing.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useLayerCommands.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/usePathEditing.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/pathPattern.test.ts",
+          "change": "modified"
+        }
+      ]
+    }
+  ]
+}

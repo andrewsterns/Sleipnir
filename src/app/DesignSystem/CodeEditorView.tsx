@@ -1,9 +1,9 @@
 import React, { forwardRef, useImperativeHandle } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { useCodeEditorViewModel } from './CodeEditorView.ViewModel'
-import type { GraphNode } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../planning/graph/types'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 export interface CodeEditorViewProps {
   /** Path relative to whatever root `scope` implies — used for language detection and as the save target. Not always "from src/": see `scope`'s doc comment. */
@@ -75,30 +75,30 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
           style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
         >
           {status === 'error' && errorMessage && (
-            <span style={{ fontSize: 9, color: '#e07a7a', maxWidth: 240, ...MONO }}>{errorMessage}</span>
+            <span style={{ fontSize: 10, color: '#e07a7a', maxWidth: 240, ...UI_FONT }}>{errorMessage}</span>
           )}
           {/* No language server installed for this file: say how to get one. */}
           {serverNotice && (
-            <span title={serverNotice.message} style={{ fontSize: 9, color: 'var(--text-3)', maxWidth: 320, ...MONO }}>
+            <span title={serverNotice.message} style={{ fontSize: 10, color: 'var(--text-3)', maxWidth: 320, ...UI_FONT }}>
               No {serverNotice.command} — {serverNotice.install}
             </span>
           )}
           {suppressAutoSave && dirty ? (
             <span
               style={{
-                fontSize: 9,
-                letterSpacing: '0.08em',
+                fontSize: 10,
+                letterSpacing: '0.04em',
                 color: '#e0a040',
                 border: '1px solid rgba(224,160,64,0.4)',
                 padding: '2px 6px',
-                ...MONO,
+                ...UI_FONT,
               }}
             >
-              AI-GENERATED — UNSAVED
+              AI-generated — unsaved
             </span>
           ) : (
-            <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
-              {status === 'saving' ? 'SAVING…' : dirty ? 'UNSAVED' : status === 'saved' ? 'SAVED' : ''}
+            <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+              {status === 'saving' ? 'Saving…' : dirty ? 'Unsaved' : status === 'saved' ? 'Saved' : ''}
             </span>
           )}
           {runnable && (
@@ -110,15 +110,15 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
                 background: running ? 'transparent' : 'rgba(var(--item-ink, 255,255,255), 0.10)',
                 border: '1px solid var(--border-2)',
                 color: 'var(--text-1)',
-                fontSize: 9,
-                letterSpacing: '0.08em',
+                fontSize: 10,
+                letterSpacing: '0.04em',
                 padding: '4px 10px',
                 cursor: running ? 'default' : 'pointer',
                 opacity: running ? 0.5 : 1,
-                ...MONO,
+                ...UI_FONT,
               }}
             >
-              {running ? 'RUNNING…' : 'RUN'}
+              {running ? 'Running…' : 'Run'}
             </button>
           )}
         </Frame>
@@ -134,8 +134,8 @@ export const CodeEditorView = forwardRef<CodeEditorHandle, CodeEditorViewProps>(
           fill={{ solid: 'rgba(0,0,0,0.35)' }}
           padding={8}
         >
-          <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
-            EXIT CODE: {runResult.exitCode ?? 'none'}
+          <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+            Exit code: {runResult.exitCode ?? 'none'}
           </span>
           {runResult.stdout && (
             <pre style={{ fontSize: 11, color: 'var(--text-1)', whiteSpace: 'pre-wrap', margin: '4px 0 0' }}>

@@ -6,7 +6,7 @@ import { useAgentChatViewModel } from './AgentChat.ViewModel'
 import { ToolActivityRow } from './ToolActivityRow'
 import { AGENT_MODE_HINT, AGENT_MODE_LABEL, type AgentChatProps, type AgentMode } from './iAgentChat'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 /** A reply that pauses this long mid-stream is thinking again (writing a tool call, usually). */
 const QUIET_MS = 1500
 /** Past this with no word from the provider, say so — it may be stuck. */
@@ -24,9 +24,9 @@ function ensureCursorCSS() {
 ensureCursorCSS()
 
 const ROLE_LABEL: Record<string, string> = {
-  user: 'YOU',
+  user: 'You',
   assistant: 'AI',
-  system: 'SYSTEM',
+  system: 'System',
 }
 
 const ROLE_COLOR: Record<string, string> = {
@@ -53,8 +53,8 @@ const EMPTY_HINT: Record<AgentMode, string> = {
 function SetupCard({ onConnectModels }: { onConnectModels?: () => void }) {
   return (
     <Frame flow="vertical" gap={8} padding={12} fill={{ solid: 'bg-0' }} stroke={{ color: 'var(--border-1)' }} style={{ maxWidth: 520 }}>
-      <span style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text-1)', ...MONO }}>CONNECT A MODEL TO START</span>
-      <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
+      <span style={{ fontSize: 11, letterSpacing: '0.04em', color: 'var(--text-1)', ...UI_FONT }}>Connect a model to start</span>
+      <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.6, ...UI_FONT }}>
         Paste an API key for Claude, ChatGPT or Gemini — each provider’s “Get key” button takes you straight to its key page.
         Or run a model on this computer with Ollama, free and offline.
       </span>
@@ -66,14 +66,14 @@ function SetupCard({ onConnectModels }: { onConnectModels?: () => void }) {
             background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
             border: '1px solid var(--border-2)',
             color: 'var(--text-1)',
-            fontSize: 9,
-            letterSpacing: '0.08em',
+            fontSize: 10,
+            letterSpacing: '0.04em',
             padding: '5px 10px',
             cursor: 'pointer',
-            ...MONO,
+            ...UI_FONT,
           }}
         >
-          CONNECT MODELS
+          Connect models
         </button>
       )}
     </Frame>
@@ -124,8 +124,8 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
   if (!available) {
     return (
       <Frame flow="vertical" h="fill" w="fill" align="center" justify="center" fill={{ solid: 'bg-1' }} padding={20}>
-        <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', textAlign: 'center', ...MONO }}>
-          AI CHAT IS DESKTOP-ONLY — RUN THE ELECTRON APP
+        <span style={{ fontSize: 11, letterSpacing: '0.04em', color: 'var(--text-3)', textAlign: 'center', ...UI_FONT }}>
+          AI chat is desktop-only — run the electron app
         </span>
       </Frame>
     )
@@ -151,7 +151,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
           (needsSetup ? (
             <SetupCard onConnectModels={onConnectModels} />
           ) : (
-            <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>{EMPTY_HINT[mode]}</span>
+            <span style={{ fontSize: 11, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>{EMPTY_HINT[mode]}</span>
           ))}
         {messages.map((m, i) => {
           // Consecutive tool rows sit under one AI label rather than repeating it.
@@ -160,7 +160,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
           return (
             <div key={m.tool?.callId ?? i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {!continuesAssistant && (
-                <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR[m.role], opacity: 0.7, ...MONO }}>
+                <span style={{ fontSize: 10, letterSpacing: '0.04em', color: ROLE_COLOR[m.role], opacity: 0.7, ...UI_FONT }}>
                   {ROLE_LABEL[m.role]}
                 </span>
               )}
@@ -174,7 +174,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
                     color: m.role === 'system' ? 'var(--text-3)' : 'var(--text-1)',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
-                    ...MONO,
+                    ...UI_FONT,
                   }}
                 >
                   {m.content}
@@ -191,13 +191,13 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
         {thinking && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {!textStreaming && (
-              <span style={{ fontSize: 9, letterSpacing: '0.1em', color: ROLE_COLOR.assistant, opacity: 0.7, ...MONO }}>
+              <span style={{ fontSize: 10, letterSpacing: '0.04em', color: ROLE_COLOR.assistant, opacity: 0.7, ...UI_FONT }}>
                 {ROLE_LABEL.assistant}
               </span>
             )}
             <SleipnirLoader size={32} />
             {stalledSeconds > 0 && (
-              <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>
+              <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>
                 No response for {stalledSeconds}s — still waiting. STOP cancels this turn.
               </span>
             )}
@@ -213,10 +213,10 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
               key={c.name}
               type="button"
               onClick={() => setInput(`${c.name} `)}
-              style={{ display: 'flex', gap: 10, alignItems: 'baseline', textAlign: 'left', background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', ...MONO }}
+              style={{ display: 'flex', gap: 10, alignItems: 'baseline', textAlign: 'left', background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', ...UI_FONT }}
             >
               <span style={{ fontSize: 11, color: 'var(--text-1)' }}>{c.name}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{c.hint}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{c.hint}</span>
             </button>
           ))}
         </Frame>
@@ -239,16 +239,16 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
             background: 'transparent',
             border: `1px solid ${mode === 'ask' ? 'var(--border-2)' : MODE_COLOR[mode]}`,
             color: MODE_COLOR[mode],
-            fontSize: 9,
-            letterSpacing: '0.08em',
+            fontSize: 10,
+            letterSpacing: '0.04em',
             padding: '4px 8px',
             cursor: 'pointer',
             whiteSpace: 'nowrap',
             flexShrink: 0,
-            ...MONO,
+            ...UI_FONT,
           }}
         >
-          {AGENT_MODE_LABEL[mode].toUpperCase()}
+          {AGENT_MODE_LABEL[mode]}
         </button>
         <input
           value={input}
@@ -264,7 +264,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
             outline: 'none',
             fontSize: 12,
             color: 'var(--text-1)',
-            ...MONO,
+            ...UI_FONT,
           }}
         />
         {streaming ? (
@@ -275,14 +275,14 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
               background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
               border: '1px solid var(--border-2)',
               color: 'var(--text-1)',
-              fontSize: 9,
-              letterSpacing: '0.08em',
+              fontSize: 10,
+              letterSpacing: '0.04em',
               padding: '4px 10px',
               cursor: 'pointer',
-              ...MONO,
+              ...UI_FONT,
             }}
           >
-            STOP
+            Stop
           </button>
         ) : (
           <button
@@ -292,15 +292,15 @@ export const AgentChat: React.FC<AgentChatProps> = ({ onPlanNodeCreated, needsSe
               background: input.trim() ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
               border: '1px solid var(--border-2)',
               color: 'var(--text-1)',
-              fontSize: 9,
-              letterSpacing: '0.08em',
+              fontSize: 10,
+              letterSpacing: '0.04em',
               padding: '4px 10px',
               cursor: input.trim() ? 'pointer' : 'default',
               opacity: input.trim() ? 1 : 0.5,
-              ...MONO,
+              ...UI_FONT,
             }}
           >
-            SEND
+            Send
           </button>
         )}
       </Frame>

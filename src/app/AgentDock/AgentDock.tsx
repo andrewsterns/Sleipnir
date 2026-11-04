@@ -5,10 +5,10 @@ import { AgentChat } from '../AgentChat/AgentChat'
 import { ApiKeySettings } from '../AgentChat/ApiKeySettings'
 import { ModelPicker } from '../AgentChat/ModelPicker'
 import { useAiSettings } from '../AgentChat/useAiSettings'
-import type { GraphNode } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../planning/graph/types'
 import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 interface AgentDockProps {
   /** Controlled from App.tsx so only one of Terminal/AgentDock's full-width bottom panels is ever open at once. */
@@ -62,7 +62,7 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
             shrink={0}
           >
             <Frame flow="horizontal" align="center" gap={10} minW={0}>
-              <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>AI CHAT</span>
+              <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>AI chat</span>
               {window.settingsAPI && <ModelPicker ai={ai} onConnect={() => setSettingsOpen(true)} />}
             </Frame>
             <Frame flow="horizontal" align="center" gap={12} style={{ position: 'relative' }}>
@@ -87,7 +87,7 @@ export const AgentDock: React.FC<AgentDockProps> = ({ open, onOpenChange, onPlan
               <button
                 onClick={() => onOpenChange(false)}
                 title="Close"
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13, ...MONO }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13, ...UI_FONT }}
               >
                 ×
               </button>

@@ -1,16 +1,17 @@
 import React from 'react'
 import { Frame } from '../Frame/Frame'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 const LABEL_STYLE: React.CSSProperties = {
   fontSize: 11,
-  letterSpacing: '0.12em',
-  color: 'var(--text-2)',
+  fontWeight: 600,
+  letterSpacing: '0.04em',
+  color: 'var(--text-3)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  ...MONO,
+  ...UI_FONT,
 }
 
 export interface SidebarHeaderProps {

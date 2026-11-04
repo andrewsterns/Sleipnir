@@ -5,7 +5,7 @@ import { IconButton } from '../UIKit/IconButton/IconButton'
 import type { WorkspaceTabStripProps } from './iWorkspaceTabStrip'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 // Lists every open "page" regardless of kind — the generalized version of
 // what OpenEditorsView used to render just for opened files. Rendered inside
@@ -85,7 +85,7 @@ export const WorkspaceTabStrip: React.FC<WorkspaceTabStripProps> = ({ tabs, acti
               <span
                 title={onRename && active ? 'Double-click to rename' : undefined}
                 onDoubleClick={onRename && active ? () => setRenaming({ id: tab.id, draft: tab.label }) : undefined}
-                style={{ fontSize: 12, letterSpacing: '0.02em', color: active ? 'var(--text-1)' : 'var(--text-3)', ...MONO }}
+                style={{ fontSize: 12, letterSpacing: '0.02em', color: active ? 'var(--text-1)' : 'var(--text-3)', ...UI_FONT }}
               >
                 {tab.label}
               </span>

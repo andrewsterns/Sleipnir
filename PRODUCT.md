@@ -10,7 +10,7 @@ UI/product engineers and designers building and maintaining component
 libraries, prototypes, and planning graphs for their own products — using
 Sleipnir as their daily desktop workbench, often for long focused sessions
 (browsing file trees, editing components, running an AI agent, reviewing
-diffs). They're technical, comfortable with mono-spaced/IDE-like UI, and
+diffs). They're technical, comfortable with dense IDE-like UI, and
 move fast between many small panels (file tree, editor, graph, terminal,
 git) rather than reading long-form content.
 
@@ -26,11 +26,11 @@ tracker, a diagram tool, a terminal, and Git, unified in one shell).
 
 ## Brand Personality
 
-Tactical / precision instrument. Dense, high-contrast, mono-spaced, HUD-like
-— an engineer's cockpit built for long focused sessions, not a consumer
-SaaS onboarding flow. Confident and utilitarian, never playful or
-skeuomorphic. Every panel earns its density; nothing is decorative for its
-own sake.
+Quiet precision instrument, at the finish level of Apple and Google's own
+tools. Minimalist, neutral black and white, set in Helvetica — built for
+long focused sessions, not a consumer SaaS onboarding flow. Confident and
+calm, never playful or skeuomorphic. Every panel earns its density; nothing
+is decorative for its own sake.
 
 ## Anti-references
 
@@ -38,8 +38,9 @@ Not: friendly consumer SaaS (soft rounded cards, pastel palettes, cheerful
 copy), not marketing-site patterns (hero sections, eyebrows, gradient
 text — irrelevant here since there's no landing surface), not skeuomorphic
 or glassy. Small, cramped click targets and inconsistent type scale are
-current rough edges to fix, not the intended aesthetic — "tactical/dense"
-means information-dense and precise, not illegible or hard to click.
+never the intended aesthetic — "dense" means information-dense and
+precise, not illegible or hard to click. No HUD costume either: no
+monospace for UI chrome, no ALL-CAPS labels, no wide letter-spacing.
 
 ## Design Principles
 
@@ -48,9 +49,9 @@ means information-dense and precise, not illegible or hard to click.
 - Consistency over novelty: one Frame/Icon/theme-token system, reused
   everywhere, so muscle memory transfers between panels.
 - Dense does not mean cramped: text and click targets stay comfortably
-  legible/selectable even in a tactical-dark, mono-spaced language.
-- Dark, high-contrast, mono-spaced by default — the "tactical" theme is the
-  house style, not one option among equals.
+  legible and selectable.
+- Neutral dark by default, with a matching light theme; Helvetica for all
+  UI, sentence case everywhere, mono only where code is shown.
 
 ## Accessibility & Inclusion
 

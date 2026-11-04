@@ -2,7 +2,7 @@
   "name": "sleipnir",
   "private": true,
   "version": "0.1.0",
-  "description": "A tactical desktop workbench for research-driven UI design with a built-in AI coding agent.",
+  "description": "A canvas and 3D modeling workbench for vibe coding, with AI agents and git built in.",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Andrew Sterns",
   "repository": {

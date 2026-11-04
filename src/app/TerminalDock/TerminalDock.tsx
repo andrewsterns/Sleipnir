@@ -5,7 +5,7 @@ import { Terminal } from '../lazyViews'
 import { isTerminalAvailable } from '../Terminal/iTerminal'
 import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 interface TerminalDockProps {
   /** Controlled from App.tsx so only one of Terminal/AgentDock's full-width bottom panels is ever open at once. */
@@ -122,13 +122,13 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
                     }}
                   >
                     <Icon name="terminal" size={11} />
-                    <span style={{ fontSize: 10, color: active ? 'var(--text-1)' : 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}>
+                    <span style={{ fontSize: 11, color: active ? 'var(--text-1)' : 'var(--text-3)', whiteSpace: 'nowrap', ...UI_FONT }}>
                       Terminal {i + 1}
                     </span>
                     <button
                       onClick={(e) => { e.stopPropagation(); closeTerminal(id) }}
                       title="Close terminal"
-                      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0, ...MONO }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0, ...UI_FONT }}
                     >
                       ×
                     </button>
@@ -139,7 +139,7 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
                 <button
                   onClick={addTerminal}
                   title="New terminal"
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '4px 12px', flexShrink: 0, ...MONO }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '4px 12px', flexShrink: 0, ...UI_FONT }}
                 >
                   +
                 </button>
@@ -148,7 +148,7 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
             <button
               onClick={() => onOpenChange(false)}
               title="Close panel"
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13, padding: '6px 12px', flexShrink: 0, ...MONO }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 13, padding: '6px 12px', flexShrink: 0, ...UI_FONT }}
             >
               ×
             </button>
@@ -172,8 +172,8 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
               ))
             ) : (
               <Frame flow="vertical" align="center" justify="center" h="fill">
-                <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-3)', ...MONO }}>
-                  TERMINAL IS DESKTOP-ONLY — RUN THE ELECTRON APP
+                <span style={{ fontSize: 11, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+                  Terminal is desktop-only — run the electron app
                 </span>
               </Frame>
             )}

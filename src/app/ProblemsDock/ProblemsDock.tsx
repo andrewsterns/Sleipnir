@@ -3,10 +3,10 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { IconButton } from '../UIKit/IconButton/IconButton'
 import type { FolderBrowserHandle } from '../DesignSystem/iFolderBrowserView'
 import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
-import type { MissingPlanningRef } from '../../00_planning/api/PlatformAPI'
-import { MissingPlanningFiles, type MissingPlanningActions } from '../../00_planning/MissingPlanningFiles'
+import type { MissingPlanningRef } from '../../platform/PlatformAPI'
+import { MissingPlanningFiles, type MissingPlanningActions } from '../../planning/MissingPlanningFiles'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 const POLL_MS = 2000
 
 interface ProblemRow {
@@ -132,8 +132,8 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({
             stroke={{ bottom: { color: 'border-1' } }}
             shrink={0}
           >
-            <span style={{ fontSize: 11, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-              PROBLEMS{total > 0 ? ` (${total})` : ''}
+            <span style={{ fontSize: 11, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+              Problems{total > 0 ? ` (${total})` : ''}
             </span>
             <IconButton
               onClick={() => onOpenChange(false)}
@@ -148,8 +148,8 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({
             {planningActions && <MissingPlanningFiles missing={missingPlanning} {...planningActions} />}
             {rows.length === 0 && missingPlanning.length === 0 ? (
               <Frame flow="vertical" align="center" justify="center" h="fill">
-                <span style={{ fontSize: 12, color: 'var(--text-3)', letterSpacing: '0.08em', ...MONO }}>
-                  NO PROBLEMS
+                <span style={{ fontSize: 12, color: 'var(--text-3)', letterSpacing: '0.04em', ...UI_FONT }}>
+                  No problems
                 </span>
               </Frame>
             ) : (
@@ -169,11 +169,11 @@ export const ProblemsDock: React.FC<ProblemsDockProps> = ({
                   cursor="pointer"
                   padding={{ x: 14, y: 8 }}
                   textColor="var(--text-1)"
-                  style={{ textAlign: 'left', fontSize: 12, ...MONO }}
+                  style={{ textAlign: 'left', fontSize: 12, ...UI_FONT }}
                 >
                   <span>
-                    <span style={{ color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.06em', marginRight: 8 }}>
-                      {categoryLabel(row.categoryId).toUpperCase()}
+                    <span style={{ color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.03em', marginRight: 8 }}>
+                      {categoryLabel(row.categoryId)}
                     </span>
                     {row.path}
                   </span>

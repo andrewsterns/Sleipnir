@@ -1,0 +1,107 @@
+{
+  "events": [
+    {
+      "at": 1793656430099,
+      "stepId": "plan/one-panel-on-the-left-1793656409715/details-in-the-left-panel-1793656409905",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793656462558,
+      "stepId": "plan/one-panel-on-the-left-1793656409715/details-in-the-left-panel-1793656409905",
+      "status": "completed",
+      "note": "Node card, effort insights and skill card open at the top of a 320px left panel with a close button; right panel removed",
+      "since": 1793656430099,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793656462696,
+      "stepId": "plan/one-panel-on-the-left-1793656409715/health-on-the-left-1793656410009",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793656514205,
+      "stepId": "plan/one-panel-on-the-left-1793656409715/skills-listed-on-the-left-1793656410128",
+      "status": "in_progress",
+      "agent": "auto"
+    },
+    {
+      "at": 1793656743344,
+      "stepId": "plan/one-panel-on-the-left-1793656409715/health-on-the-left-1793656410009",
+      "status": "completed",
+      "note": "Health report fills the left panel on the Health view",
+      "since": 1793656462696,
+      "changes": [
+        {
+          "path": "src/00_planning/HealthPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/GraphCanvas.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.ViewModel.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/00_themes/light.css",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_themes/tactical.css",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793656743467,
+      "stepId": "plan/one-panel-on-the-left-1793656409715/skills-listed-on-the-left-1793656410128",
+      "status": "completed",
+      "note": "Skills view lists instruction files with token cost, then skills that open in place to their card (SkillsList)",
+      "since": 1793656514205,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/GraphCanvas.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/skills/SkillsList.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_themes/light.css",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_themes/tactical.css",
+          "change": "modified"
+        }
+      ]
+    }
+  ]
+}

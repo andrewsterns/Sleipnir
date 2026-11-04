@@ -24,15 +24,15 @@ import {
   addPlanAssets,
   type FileTreeNode,
   type ArchiveEntry,
-} from '../../00_planning/api/sleipnirApi'
-import type { GraphMapId, GraphNode, NodeStage, SavedPlan } from '../../00_planning/graph/types'
-import { useFileStages } from '../../00_planning/useFileStages'
-import type { PlanNodeLink } from '../../00_planning/usePlanNodeLinks'
-import { StatusGlyph } from '../../00_planning/graph/StatusGlyph'
-import { NODE_STAGES } from '../../00_planning/graph/stages'
+} from '../../platform/sleipnirApi'
+import type { GraphMapId, GraphNode, NodeStage, SavedPlan } from '../../planning/graph/types'
+import { useFileStages } from '../../planning/useFileStages'
+import type { PlanNodeLink } from '../../planning/usePlanNodeLinks'
+import { StatusGlyph } from '../../planning/graph/StatusGlyph'
+import { NODE_STAGES } from '../../planning/graph/stages'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 interface LeftRailingProps {
   tree: FileTreeNode[]
@@ -97,7 +97,7 @@ interface LeftRailingProps {
    * This is what makes Canvas's `.canvas` staging tier work: dragging a
    * component's file out of `.canvas` into real source IS the promotion, and
    * the board reattaches itself to the new path instead of silently forking
-   * (see 01_canvas/model/relink.ts). Awaited before `onChanged`, so the tree
+   * (see document/relink.ts). Awaited before `onChanged`, so the tree
    * repaints once, after the reconciliation, rather than flashing an
    * intermediate state.
    */
@@ -333,7 +333,7 @@ function InlineCreateForm({
         placeholder={placeholder}
        
       />
-      {error && <span style={{ fontSize: 11, color: '#e07a7a', ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -630,10 +630,10 @@ function ConfirmPop({
         border: '1px solid var(--border-2)',
         boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
         color: 'var(--text-1)',
-        fontSize: 10,
+        fontSize: 11,
         letterSpacing: '0.02em',
         whiteSpace: 'nowrap',
-        fontFamily: 'var(--font-mono)',
+        fontFamily: 'var(--font-ui)',
       }}
     >
       <span style={{ color: '#7ec98f', fontWeight: 700 }}>✓</span>
@@ -852,7 +852,7 @@ export const LeftRailing = ({
     <ScrollWindow axis="y" flow="vertical" gap={0} minH={0} w={width} shrink={0} padding={{ y: 16 }}>
       <Frame ref={searchContainerRef} padding={{ x: 8, bottom: 10 }}>
         <SidebarHeader
-        label={(rootLabel ?? rootPath).toUpperCase()}
+        label={(rootLabel ?? rootPath)}
         searchOpen={searchOpen || !!query}
         actions={
         <Frame flow="horizontal" align="center" gap={2} shrink={0}>
@@ -955,8 +955,8 @@ export const LeftRailing = ({
 
       {supportsArchive && !readOnly && archivedEntries.length > 0 && (
         <Frame flow="vertical" gap={0} padding={{ top: 12 }}>
-          <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-3)', padding: '0 8px 4px', ...MONO }}>
-            ARCHIVED ({archivedEntries.length})
+          <span style={{ fontSize: 11, letterSpacing: '0.04em', color: 'var(--text-3)', padding: '0 8px 4px', ...UI_FONT }}>
+            Archived ({archivedEntries.length})
           </span>
           {archivedEntries.map((entry) => (
             <Frame
@@ -983,7 +983,7 @@ export const LeftRailing = ({
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                ...MONO,
+                ...UI_FONT,
               }}
             >
               {entry.label}

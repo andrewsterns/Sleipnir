@@ -12,7 +12,7 @@ import {
   setLastVisit,
   type FileTreeNode,
   type ArchiveEntry,
-} from '../../00_planning/api/sleipnirApi'
+} from '../../platform/sleipnirApi'
 import type { FolderBrowserViewProps, PaneId, PaneState } from './iFolderBrowserView'
 
 // Same recursive archived-subtree filter DesignLibrary.view.tsx/

@@ -1,0 +1,60 @@
+{
+  "events": [
+    {
+      "at": 1793657268274,
+      "stepId": "plan/overlays-and-a-clearer-picker-1793657261784/a-picker-that-says-what-it-holds-1793657261873",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793657307513,
+      "stepId": "plan/overlays-and-a-clearer-picker-1793657261784/a-picker-that-says-what-it-holds-1793657261873",
+      "status": "completed",
+      "note": "Closed field reads ARCHITECTURE · SKILLS · CHATS; sections VIEWS and CHATS & PLANS",
+      "since": 1793657268274,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/WorkspaceTabStrip/TabPicker.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793657307635,
+      "stepId": "plan/overlays-and-a-clearer-picker-1793657261784/health-is-an-overlay-1793657261985",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793657620212,
+      "stepId": "plan/overlays-and-a-clearer-picker-1793657261784/health-is-an-overlay-1793657261985",
+      "status": "completed",
+      "note": "Health left the pinned views; HEALTH | EFFORT overlay pair laid over Architecture or a plan, off on Skills",
+      "since": 1793657307635,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanningView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/pinnedViews.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/pinnedViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/WorkspaceTabStrip/TabPicker.tsx",
+          "change": "modified"
+        }
+      ]
+    }
+  ]
+}

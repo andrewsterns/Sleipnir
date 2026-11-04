@@ -1,8 +1,9 @@
 import React from 'react'
 import { Frame, type FrameProps } from '../Frame/Frame'
 import { Icon, type IconName } from '../Icon/Icon'
+import { cn } from '../../../utils/cn'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 export interface IconButtonProps extends Omit<FrameProps, 'children' | 'variant'> {
   /** Renders this icon centered in the button. */
@@ -24,8 +25,8 @@ export interface IconButtonProps extends Omit<FrameProps, 'children' | 'variant'
 // remember to wire up itself. The hover cue is a colour swap, not a fill box:
 // the glyph brightens to `hoverTextColor` (defaults to full ink) on hover,
 // with no background — so a dense list of ⋯ / trash actions stays quiet until
-// reached. Pass `hoverFill` explicitly to opt a specific button back into a
-// filled hover. Built on Frame's own CSS :hover rules, not JS hover state.
+// reached, then sits on a soft rounded ink wash (`.icon-btn` in index.css).
+// Built on CSS :hover rules, not JS hover state.
 export const IconButton = React.forwardRef<HTMLElement, IconButtonProps>((
   {
     icon,
@@ -35,11 +36,12 @@ export const IconButton = React.forwardRef<HTMLElement, IconButtonProps>((
     title,
     hoverFill,
     hoverTextColor = 'var(--text-1)',
-    radius = 4,
-    textColor = 'var(--text-1)',
+    radius = 'var(--radius-2)',
+    textColor = 'var(--text-2)',
     transition = 'colors',
     focusRing = true,
-    activeScale = 0.95,
+    activeScale = 0.96,
+    className,
     disabledOpacity = true,
     disabledPointerEvents = true,
     as = 'button',
@@ -73,9 +75,10 @@ export const IconButton = React.forwardRef<HTMLElement, IconButtonProps>((
     disabledOpacity={disabledOpacity}
     disabledPointerEvents={disabledPointerEvents}
     cursor={cursor}
+    className={cn('icon-btn', className)}
     {...frameProps}
   >
-    {icon ? <Icon name={icon} size={iconSize} /> : <span style={{ fontSize: iconSize, lineHeight: 1, ...MONO }}>{glyph}</span>}
+    {icon ? <Icon name={icon} size={iconSize} /> : <span style={{ fontSize: iconSize, lineHeight: 1, ...UI_FONT }}>{glyph}</span>}
   </Frame>
 ))
 

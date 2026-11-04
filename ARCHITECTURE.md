@@ -1,10 +1,11 @@
 # Sleipnir Architecture
 
-Sleipnir is an Electron + React (Vite) desktop application built around two
-ideas held together at once: a **research-driven numbered pipeline** for
-building UI (research → planning → components → prototypes → validation →
-analytics), and a **built-in AI coding agent** that participates in that same
-pipeline as a tool-using collaborator, never as an unsupervised code-writer.
+Sleipnir is an Electron + React (Vite) desktop application for designing and
+building software in one place: a **Canvas** for 2D boards and 3D modeling
+(with lighting and rendering to come) whose designs become real code, a
+**Planning** graph of the project's architecture and plans, and **git**
+built in — with AI agents working through all three as tool-using
+collaborators, never as unsupervised code-writers.
 
 This document is the technical map. For setup and day-to-day commands, see
 [README.md](README.md). For AI-agent operating rules, see [`.agent/RULES.md`](.agent/RULES.md).
@@ -13,15 +14,15 @@ This document is the technical map. For setup and day-to-day commands, see
 
 Sleipnir runs as an Electron desktop app or as a plain browser tab against the
 Vite dev server, and almost every feature behaves identically in both. This
-works because all real logic — filesystem access, the planning graph, the
-refactor engine, and Git — lives in **framework-agnostic Node modules under
+works because all real logic — filesystem access, the planning graph, and
+Git — lives in **framework-agnostic Node modules under
 `tools/`**, imported by *both* transports:
 
 ```
  React renderer (src/)
         |
         v
- PlatformAPI  (src/00_planning/api/PlatformAPI.ts — one typed interface)
+ PlatformAPI  (src/platform/PlatformAPI.ts — one typed interface)
         |
    getPlatformAPI() picks electronApi if window.electronAPI exists, else webApi
         |
@@ -39,7 +40,7 @@ refactor engine, and Git — lives in **framework-agnostic Node modules under
                      |
                      v
           tools/sleipnir-backend.mjs
-   (+ refactor-engine.mjs, git-control.mjs)
+   (+ tools/backend/*.mjs, git-control.mjs)
                      |
                      v
         filesystem (src/, repo root) + git CLI
@@ -69,20 +70,41 @@ given root (`src/` for component-scoped calls, the repo root for
 `listRepoDir`/`readRepoFile`/etc.) — the single containment mechanism
 protecting the filesystem API from both transports.
 
-## 2. The numbered pipeline
+## 2. Feature folders
 
-| Dir | Role | Notes |
-| --- | --- | --- |
-| `src/00_planning/` | Roadmaps and the planning graph | The only place implementation work is authorized to start from. (§5–§6 previously described a library/widget registry layer here — it was designed but never implemented; see the note at the top of §5.) |
-| `src/01_research/` | Docs-only research graph (personas, proposals, demographics, analytics writeups) | Any `.md` dropped here becomes a graph node automatically — no registration step |
-| `src/02_components/` | The **default** component library | `00_themes/ → 01_atoms/ → 02_molecules/ → 03_organisms/ → 04_templates/`; one of potentially many registered libraries (§5) |
-| `src/03_prototypes/` | The **default** prototype library | Experimental sandboxes, built only from components in a registered component library |
-| `src/04_validation/` | Test/validation logic | Vitest specs + `setup.ts` (wired in `vite.config.ts`'s `test.setupFiles`) |
-| `src/05_analytics/` | Results of validation/test sessions | Feeds back into `01_research` to close the loop |
-| `src/06_source_control/` | Git status/diff/stage/commit/branch/push/pull UI | Outside the 00–05 sequence — a standalone utility reachable from its own nav-rail entry, host-agnostic (works against whatever remote the repo has) |
+`src/` is organised by feature, named for what it is. There are no numbered
+stage folders: the old research → analytics pipeline is gone, and a feature's
+place in the nav rail is set in `App.tsx`'s `NAV_ITEMS`, not by its folder.
 
-Two directories sit outside this table because they aren't pipeline stages:
-`src/app/` (the application shell, §4) and `tools/` (the shared backend, §1).
+| Dir | Role |
+| --- | --- |
+| `src/planning/` | The Planning graph: plan tabs, the architecture and Health views, agent trail, skills. `graph/` holds the graph model, layout and import adapters |
+| `src/document/` | The scene document both the 2D canvas and 3D modeling edit: layers, components and variants, paint, vector paths, layout, undo, and each layer's 3D placement (`sceneTypes`, `placement`, `frontView`). Pure functions, no React; imports no feature |
+| `src/canvas/` | The Canvas editor: boards (`board/`), panels, code emit (`emit/`), board files and clipboard (`io/`), and the editor's hooks (`hooks/` — pointer gestures, path editing, layer commands, components, clipboard, shortcuts, 3D tools). `CanvasView.ViewModel.tsx` wires those hooks together |
+| `src/modeling/` | 3D modeling: `scene3d/` (sketch planes, plane editing, meshes), `geometry/` (solids, modifiers) and `viewport/` (the three.js viewport, lazy-loaded). Imports only `document/` and `utils/`; lighting and rendering go here next |
+| `src/source-control/` | Git status/diff/stage/commit/branch/push/pull UI, backed by `tools/git-control.mjs` |
+| `src/validation/` | The Validation view, plus `setup.ts` (Vitest's `test.setupFiles`) |
+| `src/platform/` | The one transport-neutral API every feature uses (`PlatformAPI`, `sleipnirApi`, the Electron and web implementations — §1). Also holds the backend's integration tests |
+| `src/app/` | The application shell and UI kit (§4) |
+| `src/themes/`, `src/keybindings/` | App-wide theme tokens/controller and keyboard shortcuts |
+| `src/utils/` | Small shared helpers (`cn`, `fuzzyMatch`) |
+
+Features import `platform/`, `document/`, `app/UIKit/` and `utils/`; they
+should not import each other's internals. The one allowed direction between
+features is canvas → modeling (the editor hosts the 3D tools); modeling never
+imports canvas. (`platform/` itself imports only *types* from
+`planning/graph/types.ts`, for the shapes its API returns.)
+
+### Load rules
+
+The first paint parses only what `src/main.tsx` reaches through static
+imports: the shell and Planning. Every other view is its own chunk
+(`src/app/lazyViews.ts`), warmed one per idle moment after launch — the boot
+screen never waits on them. The heaviest packages — three.js and
+`@react-three/*`, CodeMirror, xterm — must stay behind a dynamic `import()`;
+`src/app/firstLoadBudget.test.ts` fails if one of them reaches the first load.
+The 3D viewport is a further lazy chunk inside Canvas, loaded only when a
+board opens it.
 
 ## 3. Directory reference
 
@@ -91,33 +113,30 @@ electron/
   main.cjs, preload.cjs        Electron main process + contextBridge
   terminal.cjs, chat.cjs       node-pty sessions; AI chat orchestration
   apiKeyStore.cjs              Encrypted BYOK key storage
-  chatProviders/
-    anthropic.cjs, ollama.cjs  Per-provider chat adapters
+  chatProviders/               Per-provider chat adapters (Anthropic, OpenAI, Gemini, Ollama)
 tools/
   sleipnir-backend.mjs         Shared filesystem/graph backend (both transports)
-  refactor-engine.mjs          Architecture (folder-layout) migration engine
+  backend/                     The backend's parts (paths, planning store, plan steps, step reports)
   git-control.mjs              git CLI wrapper (status/diff/stage/commit/branches/push/pull)
-  generate-graph.mjs           Walks each library, emits graph/generated/*.json
-  generate-mvvm.mjs            CLI scaffolder for View/ViewModel/interface triplets
-  codemod-lint.mjs             Static check: a ViewModel/Controller/Presenter importing its own View
+  generate-graph.mjs           Emits planning/graph/generated/*.json (the Validation doc map)
+  agentSkills/                 The skills and plan CLI installed into projects (.sleipnir/, .claude/, ...)
   lsp-proxy.mjs                Bridges the in-app CodeMirror LSP client to typescript-language-server
-  generate-icon.mjs            One-off: build/icon.svg -> .ico/.png (electron-builder assets)
 src/
-  00_planning/ ... 06_source_control/   The pipeline (see §2)
-  app/                          Sleipnir's own application shell (see §4)
-  utils/                        cn.ts (classnames), useFilteredList.ts
+  planning/ canvas/ modeling/ source-control/ validation/   Features (see §2)
+  document/                     The shared scene document (2D + 3D)
+  platform/                     The transport-neutral API (§1)
+  app/                          Application shell + UIKit (see §4)
+  themes/ keybindings/ utils/   App-wide support
 docker/
   Dockerfile.dev, Dockerfile.prod
 ```
 
-## 4. `src/app/` — the application shell (vs. `src/02_components`)
+## 4. `src/app/` — the application shell
 
-`src/02_components` is the reusable, app-agnostic design-system component
-library — `Frame`, `Icon`, `Button`, `Panel`, `Tabs`, and so on — the same
-primitives every other library, prototype, and shell component is built from.
+`src/app/UIKit/` holds the primitives every view is built from — `Frame`,
+`Icon`, `Button`, `IconButton`, `Field`, `Dropdown`, `Search`, and so on.
 
-`src/app/` is Sleipnir's *own* chrome, built from those primitives but not
-itself a reusable library:
+The rest of `src/app/` is Sleipnir's own chrome, built from those primitives:
 
 | Folder | Role |
 | --- | --- |
@@ -125,37 +144,30 @@ itself a reusable library:
 | `TitleBar/` | Custom window chrome (File/Edit/View/Window menu, drag regions) |
 | `AgentChat/` + `AgentDock/` | The AI chat panel and its floating dock wrapper |
 | `Terminal/` + `TerminalDock/` | The xterm.js terminal and its dock wrapper |
-| `RefactorPanel/` | Preview/apply UI for the refactor engine (§8) |
-| `OpenEditors/` | Tabbed editor for files opened via the File menu |
-| `PrototypeRail/` | Search/filter navigation for prototypes |
 | `DesignSystem/` | The code-editor/component-browser view **onto** a project — `FolderBrowserView` (file tree + tabs + CodeMirror editor) laid out inside `WidgetShell` (rail + optional preview + code regions). Today only ever instantiated with `scope="workspace"` (fully read/write); its `scope="src"/"repo"` and `readOnly` prop paths exist but have no live caller yet |
 
 `AgentDock` and `TerminalDock` share one bottom-dock slot in `App.tsx` (only
 one open at a time) but each stays mounted-and-hidden rather than unmounting,
 so a chat session or shell survives closing the panel.
 
-MVVM naming is applied loosely here compared to `02_components` (see §9):
-some folders split cleanly into `.view.tsx`/`.ViewModel.tsx`/`i*.tsx` (e.g.
-`Terminal/`), others keep state inline in a single file (e.g. `TitleBar`,
-`AgentDock`). Treat `src/02_components` as the strict MVVM reference.
+MVVM naming is applied loosely here (see §11): some folders split cleanly
+into `.tsx`/`.ViewModel.tsx`/`i*.tsx` (e.g. `Terminal/`), others keep state
+inline in a single file (e.g. `TitleBar`, `AgentDock`).
 
 ## 5–6. Library/widget registry — designed, not built
 
-Earlier drafts of this document (and `src/00_planning/README.md`) described a
+Earlier drafts of this document (and `src/planning/README.md`) described a
 two-layer extensibility system here: a **library registry**
 (`tools/library-registry.mjs`, `graph/libraries.json`) letting users register
-additional component/prototype libraries beyond the seeded `02_components`/
-`03_prototypes`, and a **widget registry** (`tools/widget-registry.mjs`,
+additional component/prototype libraries, and a **widget registry** (`tools/widget-registry.mjs`,
 `graph/widgets.json`, a Widget Store) letting users install read-only folder
 browsers or `'tool'`-kind dashboards (Docker, Nx) as new nav-rail entries.
 
 **None of it exists in code today** — no `LibraryEntry`/`WidgetEntry` types,
 no registry files, no `CreateLibraryModal`/`OpenFolderModal`/`WidgetStore`,
 no `installWidget`/`listWidgets` on `PlatformAPI`. `src/App.tsx`'s
-`NAV_ITEMS` is a hardcoded 4-entry array (`planning`, `research`, `workspace`,
-`source-control`) with no registry-driven extensibility. `02_components` and
-`03_prototypes` are simply the two fixed default libraries; there is no way
-to register a third today. Treat this as a real, from-scratch subsystem to
+`NAV_ITEMS` is a hardcoded array (`planning`, `canvas`, `workspace`,
+`validation`, `source-control`) with no registry-driven extensibility. Treat this as a real, from-scratch subsystem to
 design and build later (see `ROADMAP.md` Phase 3), not a small gap to patch.
 `FolderBrowserView`'s `scope`/`readOnly` props (§4) are the one piece of live
 plumbing that a future "read-only browser" widget kind could build on.
@@ -165,14 +177,17 @@ plumbing that a future "read-only browser" widget kind could build on.
 `GraphNode` (`{id, label, kind: 'built' | 'proposed', map, filePath?, type?, description?, status?, planId?}`)
 and `GraphEdge` (`{source, target, kind: 'borrows' | 'plan-step'}`) are the
 graph's two primitives; `GraphMapId` is keyed to a registered library or a
-fixed doc map (`research`, `validation`, `todo`, `claude`, `open`).
+fixed map (`welcome`, `validation`, `todo`, `claude`, `open`).
 
-**Generation:** `tools/generate-graph.mjs` walks source directories under
-`src/`, extracts import/export specifiers by regex to build `borrows` edges,
-infers a `type` from path segments (atom / molecule / organism / template /
-page / theme / prototype / other), and emits one JSON file per map to
-`src/00_planning/graph/generated/`. Run it directly with
-`npm run generate:graph`.
+**Architecture view:** a plan tab's architecture is the open project's real
+import graph — `graph/workspaceScanCache.ts` scans every file once (cached,
+refreshed per changed file) and `graph/architectureScope.ts` draws it whole up
+to 1500 files. Past that it keeps the files near the plan, fills the rest of
+the budget with the most-connected files, and folds only the remainder into
+folder nodes.
+
+**Generation:** `tools/generate-graph.mjs` emits the Validation doc map to
+`src/planning/graph/generated/`. Run it directly with `npm run generate:graph`.
 
 **Assembly:** `combine.ts`'s `getGraphForMap()` loads the generated JSON via
 `import.meta.glob('./generated/*.json', { eager: true })` (build-time,
@@ -189,10 +204,9 @@ and runs a `d3-force-3d` simulation; `GraphCanvas.tsx` drives it via
 highlighting, and a dashed/hollow style for `proposed` vs. solid `built`
 nodes.
 
-**Roadmaps** (`src/00_planning/roadmaps/*.md`, following
-`PLAN_TEMPLATE.md`) are separate, human/AI-authored prose documents — Context
-citing `01_research/`, Component Design citing `02_components/`, Execution
-Targets, and a checklist Task Roadmap. They are not parsed into graph nodes;
+**Roadmaps** (`src/planning/roadmaps/*.md`, following
+`PLAN_TEMPLATE.md`) are separate, human/AI-authored prose documents — Context,
+Component Design, Execution Targets, and a checklist Task Roadmap. They are not parsed into graph nodes;
 they're intent, not data. Completed roadmaps move to `archive/` (read-only).
 
 ## 8. The AI agent
@@ -229,28 +243,15 @@ This human-in-the-loop gate on `generate_code` is the load-bearing safety
 property of the whole agent design — every other tool only ever registers
 metadata (a plan node, a library entry), never file contents.
 
-## 9. The refactor engine
+## 9. The refactor engine (removed)
 
-"Architecture" here means one of four **folder layouts** for a component
-library, defined in `tools/refactor-engine.mjs`'s `LAYOUT`:
-- **Atomic** — tier folders only (`01_atoms/`, `02_molecules/`, ...)
-- **MVVM** — `Views/`, `ViewModels/`, `Interfaces/`
-- **MVC** — `Views/`, `Controllers/`, `Models/`
-- **MVP** — `Views/`, `Presenters/`, `Models/`
-
-`previewRefactor(architecture, libraryId)` computes a move/rewrite plan
-read-only (`buildPlan`), plus static-analysis `violations` from
-`codemod-lint.mjs` (a ViewModel/Controller/Presenter importing its own View).
-`applyRefactor` executes that exact plan: it **refuses if the git working
-tree is dirty**, then `fs.renameSync`s files and rewrites relative import
-specifiers by exact character offset, prunes empty directories, and updates
-the library's registry entry. It never renames files or symbols — only
-relocates them. `src/app/RefactorPanel/` is the UI: stats, a bucketed
-dot-preview (`MiniArchitectureGraph.tsx`), a moves list, and Apply/Cancel.
+The folder-layout refactor engine (`tools/refactor-engine.mjs`, Atomic/MVVM/
+MVC/MVP migrations) and its `RefactorPanel` UI were removed in `09c56de`. The
+`/optimize` analyzer (`.sleipnir/analyze.mjs`) is what measures structure now.
 
 ## 10. Source control panel
 
-`src/06_source_control/SourceControlView.tsx` (+ `.ViewModel.tsx`) is a full
+`src/source-control/SourceControlView.tsx` (+ `.ViewModel.tsx`) is a full
 Git UI — status, staged/unstaged diffs, stage/unstage, commit, branch list and
 branch-tree view, checkout, create branch, push/pull/fetch — backed by
 `tools/git-control.mjs`, which shells out to the system `git` binary (`execFile`,
@@ -260,22 +261,16 @@ whatever remote the current repo actually has.
 
 ## 11. Conventions
 
-- **MVVM naming** — `.view.tsx` (UI/layout), `.viewModel.ts`/`.ViewModel.tsx`
-  (a React hook holding logic/state), `i*.tsx` (prop/type interfaces). Strictly
-  followed in `src/02_components`; looser and inconsistently-cased in
-  `src/app` (see §4) — several shell components keep state inline rather than
-  splitting out a ViewModel, and ViewModel-suffix casing varies
-  (`Terminal.ViewModel.tsx` vs. `RefactorPanelViewModel.tsx`). Follow the
-  stricter convention for anything that will be reused as a component-library
-  export; the app-shell convention is looser by precedent, not by rule.
-- **Roadmap-first** — no implementation begins without a roadmap in
-  `src/00_planning/roadmaps/`, citing research and citing the components it
-  touches.
-- **Component-sourced UI** — everything in `src/03_prototypes` (and any
-  registered prototype library) is built from a registered component
-  library's exports, not ad hoc markup.
-- **`01_research` is docs-only** — no runnable code; a dropped `.md` file
-  becomes a graph node automatically, no registration step.
+- **Named feature folders** — a new area of the product (e.g. rendering) gets
+  a named folder under `src/` or inside the feature it belongs to; never a
+  numbered prefix.
+- **MVVM naming** — `Name.tsx` (UI/layout), `Name.ViewModel.tsx` (a React
+  hook holding logic/state), `iName.tsx` (prop/type interfaces). Several shell
+  components keep state inline rather than splitting out a ViewModel; split
+  one out once the logic outgrows the layout.
+- **Plan-first** — larger work starts as a plan in the Planning graph
+  (`/plan`), so each step is reviewable and records the files it changed.
+- **Heavy packages stay lazy** — see §2's load rules.
 
 ## 12. Build & packaging
 

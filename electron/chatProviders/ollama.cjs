@@ -3,7 +3,7 @@
 // Tool-calling support and reliability depend entirely on the local model;
 // expect it to be flakier than anthropic.cjs for structured multi-step
 // tool use (see that module's comment).
-const { normalizeToolSchema } = require('../agent/schemaAdapters.cjs')
+const { normalizeToolSchema } = require('./schemaAdapters.cjs')
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434'
 const MODEL = process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b'

@@ -22,7 +22,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, GRAPH_CORE, LANGUAGES_LIB } from './registry.mjs'
+import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, GRAPH_CORE, LANGUAGES_LIB, TRAIL_CLI, TRAIL_FILE } from './registry.mjs'
 import { emitAll } from './emitters/index.mjs'
 import { mergeBlock } from './managedBlock.mjs'
 
@@ -34,19 +34,40 @@ const VENDOR_CANVAS_CLI = path.join(path.dirname(fileURLToPath(import.meta.url))
 const VENDOR_ANALYZE_CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'analyze.mjs')
 const VENDOR_GRAPH_CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'graphCore.mjs')
 const VENDOR_LANGUAGES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'languages.mjs')
+const VENDOR_TRAIL = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'trail.mjs')
 
 const STATE_FILE = '.sleipnir/scaffold.json'
 
 // Every file the scaffolder is responsible for, with its desired content.
 // Exported so electron/main.cjs's blank-window check and the git-exclude writer
 // can both ask "what paths does Sleipnir own here?" without rendering twice.
-export function scaffoldFiles() {
-  const files = emitAll(SKILLS)
+// A project can change a built-in skill: its own instructions in
+// `.sleipnir/skills/<id>.md` replace the built-in's for every agent, and every
+// scaffold run renders them, so an update never overwrites the change.
+export const OVERRIDES_DIR = '.sleipnir/skills'
+export function overrideFile(id) {
+  return `${OVERRIDES_DIR}/${id}.md`
+}
+export function skillsFor(root) {
+  if (!root) return SKILLS
+  return SKILLS.map((skill) => {
+    try {
+      const text = fs.readFileSync(path.join(root, overrideFile(skill.id)), 'utf8')
+      return text.trim() ? { ...skill, command: text.replace(/\r\n/g, '\n').trimEnd(), overridden: true } : skill
+    } catch {
+      return skill
+    }
+  })
+}
+
+export function scaffoldFiles(root) {
+  const files = emitAll(skillsFor(root))
   files.push({ path: PLAN_CLI, content: readVendoredCli(), managed: false })
   files.push({ path: CANVAS_CLI, content: fs.readFileSync(VENDOR_CANVAS_CLI, 'utf8'), managed: false })
   files.push({ path: ANALYZE_CLI, content: fs.readFileSync(VENDOR_ANALYZE_CLI, 'utf8'), managed: false })
   files.push({ path: GRAPH_CORE, content: fs.readFileSync(VENDOR_GRAPH_CORE, 'utf8'), managed: false })
   files.push({ path: LANGUAGES_LIB, content: fs.readFileSync(VENDOR_LANGUAGES, 'utf8'), managed: false })
+  files.push({ path: TRAIL_CLI, content: fs.readFileSync(VENDOR_TRAIL, 'utf8'), managed: false })
   return files
 }
 
@@ -107,8 +128,15 @@ function isOwnedBySleipnir(relPath, existing) {
 export function planScaffold(root) {
   const writes = []
   const skipped = []
+  // An overridden built-in's command may no longer mention a Sleipnir CLI, so
+  // it's recognized as Sleipnir's by the override standing behind it.
+  const overridden = new Set(
+    emitAll(skillsFor(root).filter((s) => s.overridden))
+      .filter((f) => !f.managed)
+      .map((f) => f.path),
+  )
 
-  for (const file of scaffoldFiles()) {
+  for (const file of scaffoldFiles(root)) {
     const abs = path.join(root, file.path)
     let existing = null
     try {
@@ -124,7 +152,7 @@ export function planScaffold(root) {
       continue
     }
 
-    if (existing !== null && !file.managed && !isOwnedBySleipnir(file.path, existing)) {
+    if (existing !== null && !file.managed && !isOwnedBySleipnir(file.path, existing) && !overridden.has(file.path)) {
       skipped.push({ path: file.path, reason: 'a file Sleipnir did not write already exists here — left as is' })
       continue
     }
@@ -145,11 +173,12 @@ export function planScaffold(root) {
 
 // The main entry point, called when a project is opened. `commit: false` keeps
 // the scaffolding out of git via .git/info/exclude instead of .gitignore.
-export function ensureAgentScaffolding(root, { commit = true } = {}) {
+export function ensureAgentScaffolding(root, { commit = true, trail = true } = {}) {
   if (!root) return { written: [], skipped: [], excluded: [] }
 
   const { writes, skipped } = planScaffold(root)
   const written = []
+  if (trail && ensureTrailHook(root)) written.push(TRAIL_SETTINGS)
 
   for (const write of writes) {
     try {
@@ -172,8 +201,57 @@ export function ensureAgentScaffolding(root, { commit = true } = {}) {
   // skipped), never an input to any decision, and it carries a timestamp. Commit
   // it and every teammate who opens the project rewrites it, for nothing but
   // diff noise.
-  const excluded = excludeFromGit(root, commit ? [STATE_FILE] : ownedScaffoldPaths())
+  // The trail is this machine's live view of its agents, never shared.
+  const excluded = excludeFromGit(root, [...(commit ? [STATE_FILE] : ownedScaffoldPaths()), TRAIL_FILE])
   return { written, skipped, excluded }
+}
+
+// --- the agent-trail hook ------------------------------------------------------
+//
+// Registered in `.claude/settings.local.json` — this machine's own Claude Code
+// settings, which Claude Code keeps out of git — so watching is a per-person
+// choice and never runs a script on a teammate's machine. Merged, never
+// replaced: any other settings and hooks there stay as they are, and ours are
+// recognized by the script they run.
+
+export const TRAIL_SETTINGS = '.claude/settings.local.json'
+const TRAIL_COMMAND = `node ${TRAIL_CLI}`
+const TRAIL_EVENTS = [
+  ['PreToolUse', '*'],
+  // Only to learn whether a test run passed (statuses from the trail).
+  ['PostToolUse', 'Bash'],
+  ['UserPromptSubmit', undefined],
+  ['SessionStart', undefined],
+  ['Stop', undefined],
+]
+
+// Whether the hook had to be added (or the file written). Never throws.
+export function ensureTrailHook(root) {
+  const abs = path.join(root, TRAIL_SETTINGS)
+  let settings = {}
+  try {
+    if (fs.existsSync(abs)) settings = JSON.parse(fs.readFileSync(abs, 'utf8'))
+  } catch {
+    return false // a settings file we can't read is the human's to fix, not ours to replace
+  }
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return false
+  const hooks = (settings.hooks ??= {})
+  let changed = false
+  for (const [event, matcher] of TRAIL_EVENTS) {
+    const groups = (hooks[event] ??= [])
+    const present = groups.some((g) => (g?.hooks ?? []).some((h) => typeof h?.command === 'string' && h.command.includes(TRAIL_CLI)))
+    if (present) continue
+    groups.push({ ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: TRAIL_COMMAND }] })
+    changed = true
+  }
+  if (!changed) return false
+  try {
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, `${JSON.stringify(settings, null, 2)}\n`)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function writeState(root, skipped) {

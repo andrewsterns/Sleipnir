@@ -7,7 +7,7 @@ import { CUSTOM_TARGET_ID, type Runner } from './useRunner'
 import type { RunTarget } from './iRun'
 import { phaseColor, targetLabel } from './runLabels'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 const RESCAN_VALUE = '__rescan__'
 
 const KIND_LABEL: Record<RunTarget['kind'], string> = { web: 'web', app: 'app', task: 'task', static: 'site' }
@@ -31,11 +31,11 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel }) => {
   const options: DropdownOption[] = run.targets.map((t) => ({
     value: t.id,
     label: `${t.label}  · ${KIND_LABEL[t.kind]}`,
-    group: t.dir ? `${t.dir.toUpperCase()}/` : 'PROJECT',
+    group: t.dir ? `${t.dir}/` : 'Project',
   }))
   options.push(
-    { value: CUSTOM_TARGET_ID, label: run.custom ? `Custom: ${run.custom}` : 'Custom command…', group: 'MORE' },
-    { value: RESCAN_VALUE, label: 'Rescan project', group: 'MORE' },
+    { value: CUSTOM_TARGET_ID, label: run.custom ? `Custom: ${run.custom}` : 'Custom command…', group: 'More' },
+    { value: RESCAN_VALUE, label: 'Rescan project', group: 'More' },
   )
 
   const change = (value: string | string[]) => {
@@ -93,16 +93,16 @@ export const RunControl: React.FC<RunControlProps> = ({ run, onShowPanel }) => {
                 gap: 6,
                 padding: '0 6px',
                 height: 20,
-                fontSize: 10,
+                fontSize: 11,
                 color: 'var(--text-2)',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                ...MONO,
+                ...UI_FONT,
               }}
             >
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: phaseColor(run.status.phase), flexShrink: 0 }} />
               <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{targetLabel(run.selected, run)}</span>
-              <span style={{ fontSize: 8, color: 'var(--text-3)' }}>▼</span>
+              <span style={{ fontSize: 9, color: 'var(--text-3)' }}>▼</span>
             </span>
           }
         />

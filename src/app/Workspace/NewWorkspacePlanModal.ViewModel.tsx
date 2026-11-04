@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listWorkspaceDir, readWorkspaceFile, createPlan, addNote } from '../../00_planning/api/sleipnirApi'
-import type { FileTreeNode } from '../../00_planning/api/PlatformAPI'
-import type { NodeStage, SavedPlan } from '../../00_planning/graph/types'
+import { listWorkspaceDir, readWorkspaceFile, createPlan, addNote } from '../../platform/sleipnirApi'
+import type { FileTreeNode } from '../../platform/PlatformAPI'
+import type { NodeStage, SavedPlan } from '../../planning/graph/types'
 import type { SearchFilterOption } from '../UIKit/Search/iSearch'
-import { detectEdgesForPaths } from '../../00_planning/graph/importAdapters/detectEdges'
+import { detectEdgesForPaths } from '../../planning/graph/importAdapters/detectEdges'
 import { fuzzyScore } from '../../utils/fuzzyMatch'
-import { setStage as setStageStore } from '../../00_planning/stagesStore'
+import { setStage as setStageStore } from '../../planning/stagesStore'
 
 export interface NewWorkspacePlanModalProps {
   onClose: () => void
@@ -182,8 +182,8 @@ export function useNewWorkspacePlanViewModel({ onClose, onCreated, initialLabel 
   // read as two clusters rather than one undifferentiated list.
   const filterOptions: SearchFilterOption[] = useMemo(
     () => [
-      ...suffixOptions.map((o) => ({ id: `asset:${o.suffix}`, label: `${o.suffix} (${o.count})`, group: 'ASSET TYPE' })),
-      ...extOptions.map((o) => ({ id: `ext:${o.ext}`, label: `${o.ext} (${o.count})`, group: 'FILE TYPE' })),
+      ...suffixOptions.map((o) => ({ id: `asset:${o.suffix}`, label: `${o.suffix} (${o.count})`, group: 'Asset type' })),
+      ...extOptions.map((o) => ({ id: `ext:${o.ext}`, label: `${o.ext} (${o.count})`, group: 'File type' })),
     ],
     [suffixOptions, extOptions],
   )

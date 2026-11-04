@@ -51,12 +51,13 @@ export interface ListRowProps {
 }
 
 // Shared so every list reads at the same height/rhythm.
-export const LIST_ROW_MIN_H = 22
+export const LIST_ROW_MIN_H = 26
 const ROW_GAP = 6
 // Horizontal breathing room, both sides. Callers already fold an 8px base
 // gutter into `indent`, so the left only needs the difference on top of it
 // (a depth-0 row then lands at LIST_ROW_PAD_X); the right uses it directly.
 const LIST_ROW_PAD_X = 14
+const LIST_ROW_INSET = 6
 
 export const ListRow: React.FC<ListRowProps> = ({
   selected,
@@ -111,12 +112,14 @@ export const ListRow: React.FC<ListRowProps> = ({
         flexShrink: 0,
         overflow: 'hidden',
         boxSizing: 'border-box',
-        paddingLeft: indent + (LIST_ROW_PAD_X - 8),
-        paddingRight: LIST_ROW_PAD_X,
+        // Inset from the panel edge so the rounded hover/selection pill has
+        // room to breathe; padding gives the inset back so labels don't move.
+        marginInline: LIST_ROW_INSET,
+        paddingLeft: indent + (LIST_ROW_PAD_X - 8) - LIST_ROW_INSET,
+        paddingRight: LIST_ROW_PAD_X - LIST_ROW_INSET,
         cursor: onClick ? 'pointer' : undefined,
-        fontSize: 11,
-        letterSpacing: '0.02em',
-        fontFamily: 'var(--font-mono)',
+        fontSize: 13,
+        fontFamily: 'var(--font-ui)',
         ...style,
       }}
     >

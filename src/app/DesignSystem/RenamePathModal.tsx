@@ -5,7 +5,7 @@ import { Button } from '../UIKit/Button/Button'
 import { Card } from '../UIKit/Card/Card'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 export interface RenamePathModalProps {
   name: string
@@ -72,8 +72,8 @@ export function RenamePathModal({ name, isDir, rename, title, onClose, onRenamed
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
           <Card flow="vertical" gap={14} padding={20} relative w={420}>
-            <span style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--text-1)', fontWeight: 600, ...MONO }}>
-              {title ?? `RENAME ${isDir ? 'FOLDER' : 'FILE'}`}
+            <span style={{ fontSize: 12, letterSpacing: '0.04em', color: 'var(--text-1)', fontWeight: 600, ...UI_FONT }}>
+              {title ?? `Rename ${isDir ? 'folder' : 'file'}`}
             </span>
 
             <TextField size="lg"
@@ -87,7 +87,7 @@ export function RenamePathModal({ name, isDir, rename, title, onClose, onRenamed
               disabled={submitting}
             />
 
-            {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
+            {error && <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
 
             <Frame flow="horizontal" gap={8} justify="end" wrap="wrap">
               <Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>

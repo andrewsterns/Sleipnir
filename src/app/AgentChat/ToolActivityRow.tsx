@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
-import { DiffView } from '../../06_source_control/DiffView'
+import { DiffView } from '../../source-control/DiffView'
 import type { ChangeSet, ToolActivity, ToolDecision } from './iAgentChat'
 import { Checkbox } from '../UIKit/Checkbox/Checkbox'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
+const CODE_FONT: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
 
 const STATUS_GLYPH: Record<ToolActivity['status'], string> = {
   running: '◌',
@@ -37,7 +38,7 @@ interface ToolActivityRowProps {
   onReapply: (callId: string, changeSetId: string) => void
 }
 
-const smallText: React.CSSProperties = { fontSize: 10, color: 'var(--text-2)', ...MONO }
+const smallText: React.CSSProperties = { fontSize: 11, color: 'var(--text-2)', ...UI_FONT }
 
 function ChangeSetFiles({
   changeSet,
@@ -76,7 +77,7 @@ function ChangeSetFiles({
                 color: 'var(--text-1)',
                 fontSize: 11,
                 wordBreak: 'break-all',
-                ...MONO,
+                ...UI_FONT,
               }}
             >
               {open === f.path ? '▾' : '▸'} {f.path}
@@ -132,10 +133,10 @@ export function ToolActivityRow({ tool, onDecide, onUndo, onReapply }: ToolActiv
       stroke={{ color: awaiting ? 'rgba(224,160,64,0.6)' : 'var(--border-1)' }}
     >
       <Frame flow="horizontal" align="center" gap={8}>
-        <span style={{ width: 12, textAlign: 'center', color: STATUS_COLOR[tool.status], fontSize: 11, ...MONO }}>
+        <span style={{ width: 12, textAlign: 'center', color: STATUS_COLOR[tool.status], fontSize: 11, ...UI_FONT }}>
           {STATUS_GLYPH[tool.status]}
         </span>
-        <span style={{ fontSize: 11, color: 'var(--text-1)', ...MONO }}>{tool.name}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-1)', ...UI_FONT }}>{tool.name}</span>
         <span
           style={{
             fontSize: 11,
@@ -145,7 +146,7 @@ export function ToolActivityRow({ tool, onDecide, onUndo, onReapply }: ToolActiv
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            ...MONO,
+            ...CODE_FONT,
           }}
           title={tool.summary}
         >
@@ -154,15 +155,15 @@ export function ToolActivityRow({ tool, onDecide, onUndo, onReapply }: ToolActiv
         {hasDetail && !awaiting && (
           <button
             onClick={() => setExpanded((v) => !v)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 9, ...MONO }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 10, ...UI_FONT }}
           >
-            {expanded ? 'HIDE' : 'DETAILS'}
+            {expanded ? 'Hide' : 'Details'}
           </button>
         )}
       </Frame>
 
       {awaiting && (
-        <span style={{ fontSize: 10, letterSpacing: '0.08em', color: '#e0a040', ...MONO }}>{APPROVAL_TITLE[tool.kind]}</span>
+        <span style={{ fontSize: 11, letterSpacing: '0.04em', color: '#e0a040', ...UI_FONT }}>{APPROVAL_TITLE[tool.kind]}</span>
       )}
 
       {showDetail && tool.inputPreview && !changeSet && tool.name !== 'run_command' && (

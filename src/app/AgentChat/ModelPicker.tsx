@@ -4,7 +4,7 @@ import type { DropdownOption } from '../UIKit/Dropdown/iDropdown'
 import { modelRef } from './iApiKeySettings'
 import type { useAiSettings } from './useAiSettings'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 const CONNECT_VALUE = '__connect__'
 
@@ -22,7 +22,7 @@ export function ModelPicker({ ai, onConnect }: ModelPickerProps) {
 
   const options: DropdownOption[] = []
   for (const g of ai.groups ?? []) {
-    const group = g.error ? `${g.label.toUpperCase()} (LIST UNAVAILABLE)` : g.label.toUpperCase()
+    const group = g.error ? `${g.label} (list unavailable)` : g.label
     for (const m of g.models) {
       options.push({ value: modelRef(g.provider, m.id), label: m.recommended ? `${m.label} ★` : m.label, group })
     }
@@ -31,7 +31,7 @@ export function ModelPicker({ ai, onConnect }: ModelPickerProps) {
     options.push({
       value: CONNECT_VALUE,
       label: ai.anyCloudConnected ? 'Connect another provider…' : 'Connect Claude, ChatGPT or Gemini…',
-      group: 'MORE',
+      group: 'More',
     })
   }
 
@@ -57,22 +57,22 @@ export function ModelPicker({ ai, onConnect }: ModelPickerProps) {
           <span
             title={ai.active?.fallback ? 'Your chosen model’s provider isn’t connected — using this one instead.' : 'Model used by the AI chat'}
             style={{
-              fontSize: 9,
-              letterSpacing: '0.06em',
+              fontSize: 10,
+              letterSpacing: '0.03em',
               color: ai.active?.fallback ? '#e0a040' : 'var(--text-2)',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               maxWidth: 280,
-              ...MONO,
+              ...UI_FONT,
             }}
           >
             {label} ▾
           </span>
         }
       />
-      {error && <span style={{ fontSize: 9, color: '#e07a7a', ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 10, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
     </span>
   )
 }

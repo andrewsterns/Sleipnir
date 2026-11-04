@@ -50,7 +50,7 @@ export const SelectField = React.forwardRef<HTMLSelectElement, SelectFieldProps>
 /** The small caps label above a field. */
 export function FieldLabel({ children, style, ...rest }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span {...rest} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-3)', letterSpacing: '0.08em', ...style }}>
+    <span {...rest} style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.04em', ...style }}>
       {children}
     </span>
   )

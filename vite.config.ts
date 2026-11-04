@@ -460,6 +460,93 @@ function sleipnirApiPlugin() {
           return
         }
 
+        if (url.pathname === '/api/sleipnir/skill-text' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, ...backend.getSkillText(url.searchParams.get('id') ?? '') })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/skill-text' && req.method === 'POST') {
+          try {
+            const { id, text } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...backend.saveSkillText(String(id ?? ''), String(text ?? '')) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/skill' && req.method === 'POST') {
+          try {
+            const spec = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...backend.createSkill({ name: spec.name, description: spec.description, instructions: spec.instructions, agents: spec.agents }) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/skills' && req.method === 'GET') {
+          try {
+            sendJson(res, 200, { success: true, ...backend.getSkills() })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/trail-statuses' && req.method === 'POST') {
+          try {
+            sendJson(res, 200, { success: true, ...backend.applyTrailStatuses() })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/agent-trail' && req.method === 'GET') {
+          try {
+            const since = Number(url.searchParams.get('since') ?? 0) || 0
+            sendJson(res, 200, { success: true, ...backend.getAgentTrail({ since }) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/plan-description' && req.method === 'POST') {
+          try {
+            const { planId, text } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...backend.describePlan(String(planId ?? ''), String(text ?? '')) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/step-steer' && req.method === 'POST') {
+          try {
+            const { stepId, path: filePath, steer } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...backend.steerStep(String(stepId ?? ''), String(filePath ?? ''), String(steer ?? '')) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
+        if (url.pathname === '/api/sleipnir/step-comment' && req.method === 'POST') {
+          try {
+            const { stepId, text } = await readJsonBody(req)
+            sendJson(res, 200, { success: true, ...backend.commentOnStep(String(stepId ?? ''), String(text ?? ''), { agent: 'you' }) })
+          } catch (e) {
+            sendJson(res, 400, { success: false, error: e instanceof Error ? e.message : String(e) })
+          }
+          return
+        }
+
         if (url.pathname === '/api/sleipnir/plan-activity' && req.method === 'GET') {
           try {
             sendJson(res, 200, { success: true, ...backend.getPlanActivity(url.searchParams.get('planId') ?? '') })
@@ -926,13 +1013,13 @@ export default defineConfig({
       // and followed by electron/planningWatcher.cjs, never imported. With this
       // repo open in the dev app, every status toggle and every progress report
       // an agent made full-reloaded the page instead of updating the graph.
-      ignored: ['**/.nx/**', '**/src/00_planning/graph/preview-config.json', '**/.components/**', '**/.canvas/**', '**/.planning/**'],
+      ignored: ['**/.nx/**', '**/src/planning/graph/preview-config.json', '**/.components/**', '**/.canvas/**', '**/.planning/**'],
     },
   },
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/04_validation/setup.ts'],
+    setupFiles: ['./src/validation/setup.ts'],
     exclude: ['node_modules/**', '.claude/**'],
     server: {
       deps: {

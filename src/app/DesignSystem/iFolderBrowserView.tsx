@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { IconName } from '../UIKit/Icon/Icon'
-import type { GraphMapId, GraphNode, SavedPlan } from '../../00_planning/graph/types'
-import type { PlanNodeLink } from '../../00_planning/usePlanNodeLinks'
+import type { GraphMapId, GraphNode, SavedPlan } from '../../planning/graph/types'
+import type { PlanNodeLink } from '../../planning/usePlanNodeLinks'
 
 /** One open tab within a single FolderBrowserView instance — local to that instance, never shared across categories. */
 export interface BrowserTab {

@@ -24,6 +24,61 @@ body {
   min-width: 320px;
   background: black;
   color-scheme: dark;
+  font-family: var(--font-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1;
+}
+
+/* Browser surfaces in the theme's own ink: selection, caret, focus, scrollbars. */
+::selection {
+  background: rgba(var(--item-ink, 255, 255, 255), 0.22);
+}
+input, textarea {
+  caret-color: var(--text-1);
+}
+:focus-visible {
+  outline: 2px solid rgba(var(--item-ink, 255, 255, 255), 0.55);
+  outline-offset: 1px;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--item-ink, 255, 255, 255), 0.16);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--item-ink, 255, 255, 255), 0.3);
+}
+
+/* UIKit Button variants (Button.tsx VARIANT_CLASS) — hover and press states. */
+.btn-primary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--primary-1) 86%, var(--primary-2)) !important;
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: rgba(var(--item-ink, 255, 255, 255), 0.13) !important;
+}
+.btn-ghost {
+  background-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: rgba(var(--item-ink, 255, 255, 255), 0.07) !important;
+  color: var(--text-1) !important;
+}
+
+/* UIKit IconButton — glyph brightens onto a soft rounded wash. */
+.icon-btn:hover:not(:disabled) {
+  background-color: rgba(var(--item-ink, 255, 255, 255), 0.08);
+  color: var(--text-1) !important;
 }
 
 .scroll-window--no-scrollbar {
@@ -36,7 +91,7 @@ body {
 }
 
 /* The properties panel's number fields scrub by dragging (see
-   01_canvas/panels/useScrub.ts), so the spinners only crowd the value. */
+   canvas/panels/useScrub.ts), so the spinners only crowd the value. */
 .scrub-field::-webkit-inner-spin-button,
 .scrub-field::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -51,11 +106,16 @@ body {
 /* Every typed field (UIKit/Field: TextField, TextArea, SelectField, NumberField,
    and the Dropdown trigger) — one focus, disabled and placeholder treatment. */
 .ui-field {
-  transition: border-color 90ms ease;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.ui-field:hover {
+  border-color: var(--border-2) !important;
 }
 .ui-field:focus,
 .ui-field:focus-visible {
-  border-color: var(--border-2) !important;
+  outline: none;
+  border-color: rgba(var(--item-ink, 255, 255, 255), 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(var(--item-ink, 255, 255, 255), 0.1);
 }
 .ui-field:disabled {
   opacity: 0.4;
@@ -63,4 +123,48 @@ body {
 }
 .ui-field::placeholder {
   color: var(--text-3);
+}
+
+/* A minimal slider: a 1px track and a small round dot for the thumb, both in
+   neutral ink. Every native colour (Chromium's accent blue on
+   the fill, the thumb and the focus ring) is switched off. The graph's
+   CENTER / REPEL dials. */
+.thin-range {
+  -webkit-appearance: none;
+  appearance: none;
+  accent-color: var(--text-2);
+  height: 12px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  outline: none;
+}
+.thin-range::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--border-2);
+  border: none;
+}
+.thin-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4.5px;
+  border: none;
+  border-radius: 50%;
+  background: var(--text-2);
+  box-shadow: none;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+.thin-range:hover::-webkit-slider-thumb,
+.thin-range:active::-webkit-slider-thumb {
+  background: var(--text-1);
+}
+.thin-range:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+.thin-range:focus,
+.thin-range:focus-visible {
+  outline: none;
+  box-shadow: none;
 }

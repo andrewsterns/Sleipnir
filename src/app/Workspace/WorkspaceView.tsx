@@ -7,15 +7,15 @@ import { useWorkspaceViewModel } from './WorkspaceView.ViewModel'
 import { NewWorkspacePlanModal } from './NewWorkspacePlanModal'
 import type { FolderBrowserHandle } from '../DesignSystem/iFolderBrowserView'
 import type { WorkspaceViewProps } from './iWorkspaceView'
-import { setNodeStatus, setNodeBorrows, createWorkspaceDir, createWorkspaceFile, getNotes, readWorkspaceFile } from '../../00_planning/api/sleipnirApi'
-import { adapterForPath } from '../../00_planning/graph/importAdapters'
-import { loadPathAliases } from '../../00_planning/graph/importAdapters/pathAliases'
-import { usePlanNodeLinks } from '../../00_planning/usePlanNodeLinks'
-import { refreshStages } from '../../00_planning/stagesStore'
-import type { GraphNode } from '../../00_planning/graph/types'
+import { setNodeStatus, setNodeBorrows, createWorkspaceDir, createWorkspaceFile, getNotes, readWorkspaceFile } from '../../platform/sleipnirApi'
+import { adapterForPath } from '../../planning/graph/importAdapters'
+import { loadPathAliases } from '../../planning/graph/importAdapters/pathAliases'
+import { usePlanNodeLinks } from '../../planning/usePlanNodeLinks'
+import { refreshStages } from '../../planning/stagesStore'
+import type { GraphNode } from '../../planning/graph/types'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 // Electron-only, same feature-detection convention as App.tsx's
 // electronDialogsAvailable — a plain browser dev tab has no native folder
@@ -72,7 +72,7 @@ function AddFolderButton({ onCreated }: { onCreated: () => void }) {
         placeholder="folder name"
         style={{ width: 120 }}
       />
-      {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -121,7 +121,7 @@ function AddFileButton({ onCreated }: { onCreated: () => void }) {
         placeholder="file name"
         style={{ width: 120 }}
       />
-      {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -244,7 +244,7 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
   if (!info?.root) {
     return (
       <Frame flow="vertical" grow align="center" justify="center" gap={16}>
-        <span style={{ fontSize: 12, color: 'var(--text-3)', letterSpacing: '0.06em', ...MONO }}>
+        <span style={{ fontSize: 12, color: 'var(--text-3)', letterSpacing: '0.03em', ...UI_FONT }}>
           {workspaceAvailable ? 'No folder open' : 'Workspace requires the desktop app'}
         </span>
         {workspaceAvailable && (
@@ -273,17 +273,17 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
                   {cloning ? 'Cloning…' : 'Clone'}
                 </Button>
               </Frame>
-              <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>You'll pick a destination folder next.</span>
+              <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>You'll pick a destination folder next.</span>
             </Frame>
           ) : (
             <Button variant="ghost" size="sm" onClick={() => setShowClone(true)}>Clone Repository…</Button>
           )
         )}
-        {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
+        {error && <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
         {workspaceAvailable && recentProjects && recentProjects.length > 0 && (
           <Frame flow="vertical" align="center" gap={4} style={{ marginTop: 8 }}>
-            <span style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.08em', ...MONO }}>
-              RECENT PROJECTS
+            <span style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.04em', ...UI_FONT }}>
+              Recent projects
             </span>
             {recentProjects.map((p) => (
               <button
@@ -296,7 +296,7 @@ export const WorkspaceView = forwardRef<FolderBrowserHandle, WorkspaceViewProps>
                   color: 'var(--text-2)',
                   fontSize: 12,
                   padding: '2px 0',
-                  ...MONO,
+                  ...UI_FONT,
                 }}
               >
                 {p.name}

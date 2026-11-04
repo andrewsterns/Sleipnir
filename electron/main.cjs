@@ -432,7 +432,7 @@ async function stopLspProxy() {
   stop()
 }
 
-// Every handler mirrors src/00_planning/api/PlatformAPI.ts exactly — the
+// Every handler mirrors src/platform/PlatformAPI.ts exactly — the
 // renderer (electronApi.ts) never needs to know these are IPC calls instead
 // of fetch() calls.
 function registerIpcHandlers() {
@@ -495,7 +495,7 @@ function registerIpcHandlers() {
   // The Health view (and the in-app agent's analyze_architecture): runs in a
   // worker thread, so a big project's scan never stalls other windows' IPC.
   ws('sleipnir:analyzeWorkspace', (b, _e, opts) => b.analyzeWorkspace(opts))
-  // The canvas's image-paste fallback (see src/01_canvas/model/clipboardImage.ts):
+  // The canvas's image-paste fallback (see src/canvas/io/clipboardImage.ts):
   // a file copied in Explorer/Finder often never reaches the page's paste
   // event, and a bitmap copied from some apps arrives with no file at all.
   // Read the clipboard natively instead → { name, mime, base64 } | null.
@@ -530,6 +530,15 @@ function registerIpcHandlers() {
   ws('sleipnir:updateNote', (b, _e, id, patch) => b.updateNote(id, patch))
   ws('sleipnir:deleteNote', (b, _e, id) => b.deleteNote(id))
   ws('sleipnir:getPlanActivity', (b, _e, planId) => b.getPlanActivity(planId))
+  ws('sleipnir:applyTrailStatuses', (b) => b.applyTrailStatuses())
+  ws('sleipnir:getSkills', (b) => b.getSkills())
+  ws('sleipnir:getSkillText', (b, _e, id) => b.getSkillText(String(id ?? '')))
+  ws('sleipnir:saveSkillText', (b, _e, id, text) => b.saveSkillText(String(id ?? ''), String(text ?? '')))
+  ws('sleipnir:createSkill', (b, _e, spec) => b.createSkill(spec ?? {}))
+  ws('sleipnir:getAgentTrail', (b, _e, since) => b.getAgentTrail({ since: Number(since) || 0 }))
+  ws('sleipnir:describePlan', (b, _e, planId, text) => b.describePlan(String(planId ?? ''), String(text ?? '')))
+  ws('sleipnir:steerStep', (b, _e, stepId, path, steer) => b.steerStep(String(stepId ?? ''), String(path ?? ''), String(steer ?? '')))
+  ws('sleipnir:commentOnStep', (b, _e, stepId, text) => b.commentOnStep(String(stepId ?? ''), String(text ?? ''), { agent: 'you' }))
   ws('sleipnir:settleCommittedStages', (b, _e, dirtyPaths) => b.settleCommittedStages(Array.isArray(dirtyPaths) ? dirtyPaths.map(String) : []))
   ws('sleipnir:getNodeStages', (b) => b.getNodeStages())
   ws('sleipnir:setNodeStage', (b, _e, id, stage) => b.setNodeStage(id, stage))

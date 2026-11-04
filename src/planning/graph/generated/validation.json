@@ -1,0 +1,13 @@
+{
+  "nodes": [
+    {
+      "id": "validation/README.md",
+      "label": "README",
+      "kind": "built",
+      "map": "validation",
+      "filePath": "src/validation/README.md",
+      "type": "doc"
+    }
+  ],
+  "edges": []
+}

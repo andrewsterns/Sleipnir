@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Oxygen+Mono&family=Doto:wght@400;700;900&family=Sometype+Mono:wght@400;500;700&family=Bodoni+Moda:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700;900&display=swap');
+
+@font-face {
+  font-family: 'Avoerock Demo';
+  src: url('/avoerock-demo.regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Helvetica/Helvetica Neue are system fonts and can be used via local() fallback stacks. */
+
+/* ── Sleipnir Sans: Helvetica Neue, mapped weight by weight ─────────────────
+   Locally installed Helvetica Neue families often carry wrong weight metadata
+   (a Windows install of HelveticaNeue-Roman reports itself as weight 500, so
+   plain `font-family: 'Helvetica Neue'` renders body text in Medium). Naming
+   each face by its PostScript name pins every weight to the right file; where
+   none is installed the face is skipped and --font-ui falls through to
+   'Helvetica Neue', Helvetica, Arial. */
+@font-face {
+  font-family: 'Sleipnir Sans';
+  src: local('HelveticaNeue-Light'), local('Helvetica Neue Light');
+  font-weight: 300;
+}
+@font-face {
+  font-family: 'Sleipnir Sans';
+  src: local('HelveticaNeue-Roman'), local('HelveticaNeue'), local('Helvetica Neue'), local('Helvetica');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Sleipnir Sans';
+  src: local('HelveticaNeue-Medium'), local('Helvetica Neue Medium');
+  font-weight: 500;
+}
+@font-face {
+  font-family: 'Sleipnir Sans';
+  src: local('HelveticaNeue-Bold'), local('Helvetica Neue Bold'), local('Helvetica-Bold'), local('Helvetica Bold');
+  font-weight: 600 700;
+}

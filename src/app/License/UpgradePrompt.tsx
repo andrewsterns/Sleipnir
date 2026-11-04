@@ -6,7 +6,7 @@ import { Card } from '../UIKit/Card/Card'
 import { FOUNDER_PRICE, PRO_FEATURES, useLicense, type UpgradeNeeded } from './iLicense'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 /** Key input + Activate, shared by UpgradePrompt and Settings ▸ License. */
 export function LicenseKeyForm({ onActivated }: { onActivated?: () => void }) {
@@ -46,7 +46,7 @@ export function LicenseKeyForm({ onActivated }: { onActivated?: () => void }) {
           {busy ? 'Activating…' : 'Activate'}
         </Button>
       </Frame>
-      {error && <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 10, color: '#e07a7a', lineHeight: 1.5, ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -86,23 +86,23 @@ export function UpgradePrompt() {
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
           <Card flow="vertical" gap={14} padding={20} relative w={460}>
-            <span style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--nominal)', fontWeight: 600, ...MONO }}>
-              SLEIPNIR PRO
+            <span style={{ fontSize: 12, letterSpacing: '0.04em', color: 'var(--nominal)', fontWeight: 600, ...UI_FONT }}>
+              Sleipnir Pro
             </span>
-            <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>{info.message}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.6, ...UI_FONT }}>{info.message}</span>
 
             <Frame flow="vertical" gap={4}>
               {PRO_FEATURES.map((f) => (
                 <span
                   key={f.id}
-                  style={{ fontSize: 9, color: f.id === info.feature ? 'var(--text-1)' : 'var(--text-3)', ...MONO }}
+                  style={{ fontSize: 10, color: f.id === info.feature ? 'var(--text-1)' : 'var(--text-3)', ...UI_FONT }}
                 >
                   ✓ {f.label}
                 </span>
               ))}
             </Frame>
 
-            <span style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.6, ...MONO }}>
+            <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.6, ...UI_FONT }}>
               Founder license: {FOUNDER_PRICE} once, Pro for life, including every update. Already bought one? Paste
               the key from your receipt email.
             </span>

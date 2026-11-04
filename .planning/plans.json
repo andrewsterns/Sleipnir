@@ -344,5 +344,241 @@
     "expectedSteps": 2,
     "createdAt": 1793378561835,
     "docPath": ".planning/status-walkthrough-1793378561835/plan.md"
+  },
+  {
+    "id": "plan/watching-agents-think-1793384229139",
+    "label": "Watching agents think",
+    "nodeIds": [
+      "plan/watching-agents-think-1793384229139/slim-the-always-loaded-instructions-1793384229196",
+      "plan/watching-agents-think-1793384229139/what-people-say-on-a-node-agents-read-1793384229271",
+      "plan/watching-agents-think-1793384229139/the-agent-trail-watch-not-report-1793384229347",
+      "planned/watching-agents-think-1793384229139/tools/agentSkills/vendor/trail.mjs",
+      "plan/watching-agents-think-1793384229139/the-trail-on-the-graph-1793384229471",
+      "planned/watching-agents-think-1793384229139/src/00_planning/graph/agentTrail.ts",
+      "planned/watching-agents-think-1793384229139/src/00_planning/useAgentTrail.ts",
+      "plan/watching-agents-think-1793384229139/measure-tokens-with-and-without-watching-1793384229550"
+    ],
+    "expectedSteps": 5,
+    "createdAt": 1793384229139,
+    "docPath": ".planning/watching-agents-think-1793384229139/plan.md",
+    "description": "Watch agents instead of asking them to report: slimmer instructions, comments they read, a silent trail of every tool call, and that trail drawn on the graph."
+  },
+  {
+    "id": "plan/agent-focus-skills-and-steering-1793628654923",
+    "label": "Agent focus, skills and steering",
+    "nodeIds": [
+      "plan/agent-focus-skills-and-steering-1793628654923/a-corner-box-where-the-agent-is-working-1793628654990",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/graph/FocusBox.tsx",
+      "plan/agent-focus-skills-and-steering-1793628654923/the-trail-sees-skills-and-instructions-1793628655081",
+      "plan/agent-focus-skills-and-steering-1793628654923/every-skill-each-agent-has-1793628655167",
+      "planned/agent-focus-skills-and-steering-1793628654923/tools/skillScan.mjs",
+      "planned/agent-focus-skills-and-steering-1793628654923/tools/skillScan.test.ts",
+      "plan/agent-focus-skills-and-steering-1793628654923/skills-next-to-architecture-1793628655245",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/graph/skillGraph.ts",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/graph/skillGraph.test.ts",
+      "plan/agent-focus-skills-and-steering-1793628654923/edit-and-add-skills-from-the-graph-1793628655330",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/skills/SkillCard.tsx",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/skills/SkillCard.ViewModel.tsx",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/skills/NewSkillModal.tsx",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/skills/NewSkillModal.ViewModel.tsx",
+      "plan/agent-focus-skills-and-steering-1793628654923/where-the-agent-s-effort-went-1793628655412",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/graph/trailInsights.ts",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/graph/trailInsights.test.ts",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/TrailInsightsPanel.tsx",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/TrailInsightsPanel.ViewModel.tsx",
+      "plan/agent-focus-skills-and-steering-1793628654923/steer-the-agent-at-the-moments-that-matter-1793628655516",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/graph/steering.ts",
+      "planned/agent-focus-skills-and-steering-1793628654923/src/00_planning/graph/steering.test.ts",
+      "plan/agent-focus-skills-and-steering-1793628654923/experiment-does-the-map-help-agents-debug-1793628655598",
+      "planned/agent-focus-skills-and-steering-1793628654923/tools/optimizeLab/bench/runBench.mjs",
+      "planned/agent-focus-skills-and-steering-1793628654923/tools/optimizeLab/bench/benchReport.mjs",
+      "plan/agent-focus-skills-and-steering-1793628654923/statuses-from-the-trail-1793628931956"
+    ],
+    "expectedSteps": 8,
+    "createdAt": 1793628654923,
+    "docPath": ".planning/agent-focus-skills-and-steering-1793628654923/plan.md",
+    "description": "See where agents work and how they use their skills, set statuses from what they do, and help them at the moments that matter — without spending their tokens."
+  },
+  {
+    "id": "plan/simpler-graph-and-plan-panel-1793633425011",
+    "label": "Simpler graph and plan panel",
+    "nodeIds": [
+      "plan/simpler-graph-and-plan-panel-1793633425011/one-ink-no-opacity-1793633425095",
+      "plan/simpler-graph-and-plan-panel-1793633425011/the-box-holds-where-the-agent-is-1793633425212",
+      "plan/simpler-graph-and-plan-panel-1793633425011/the-plan-in-the-left-panel-1793633425352"
+    ],
+    "expectedSteps": 3,
+    "createdAt": 1793633425011,
+    "docPath": ".planning/simpler-graph-and-plan-panel-1793633425011/plan.md",
+    "description": "A calmer graph and one place to follow a plan: one ink with status shown by shape, a steady box where the agent works, and the plan read top to bottom in the left panel."
+  },
+  {
+    "id": "plan/plan-panel-as-a-timeline-1793650721914",
+    "label": "Plan panel as a timeline",
+    "description": "The left panel reads a plan like a branch history: steps on one line, each opening and closing in place, read-only apart from status.",
+    "nodeIds": [
+      "plan/plan-panel-as-a-timeline-1793650721914/steps-open-and-close-1793650722038",
+      "plan/plan-panel-as-a-timeline-1793650721914/steps-on-a-timeline-1793650722233",
+      "plan/plan-panel-as-a-timeline-1793650721914/reading-not-commenting-1793650722356"
+    ],
+    "expectedSteps": 3,
+    "createdAt": 1793650721914,
+    "docPath": ".planning/plan-panel-as-a-timeline-1793650721914/plan.md"
+  },
+  {
+    "id": "plan/agent-area-with-a-history-1793652645531",
+    "label": "Agent area with a history",
+    "description": "Planning becomes Agent: a picture of the markdown the agent reads and writes. Architecture, Skills and Health are pinned views that can't be removed; plans are the history below them, newest first. A plan opens on its own, and a spacing slider gives a crowded graph room to breathe.",
+    "nodeIds": [
+      "plan/agent-area-with-a-history-1793652645531/pinned-views-1793652645615",
+      "planned/agent-area-with-a-history-1793652645531/src/00_planning/graph/pinnedViews.ts",
+      "plan/agent-area-with-a-history-1793652645531/the-picker-as-a-history-1793652645750",
+      "plan/agent-area-with-a-history-1793652645531/a-plan-opens-on-its-own-1793652645853",
+      "plan/agent-area-with-a-history-1793652645531/planning-becomes-agent-1793652645977",
+      "plan/agent-area-with-a-history-1793652645531/spacing-slider-1793652646091"
+    ],
+    "expectedSteps": 5,
+    "createdAt": 1793652645531,
+    "docPath": ".planning/agent-area-with-a-history-1793652645531/plan.md"
+  },
+  {
+    "id": "plan/one-panel-on-the-left-1793656409715",
+    "label": "One panel on the left",
+    "description": "Everything the right panel showed moves into the left one, which widens to hold it: a picked node's details, the Health report, the effort insights, and the skills as a list that opens in place. The graph gets the rest of the window.",
+    "nodeIds": [
+      "plan/one-panel-on-the-left-1793656409715/details-in-the-left-panel-1793656409905",
+      "plan/one-panel-on-the-left-1793656409715/health-on-the-left-1793656410009",
+      "plan/one-panel-on-the-left-1793656409715/skills-listed-on-the-left-1793656410128",
+      "planned/one-panel-on-the-left-1793656409715/src/00_planning/skills/SkillsList.tsx"
+    ],
+    "expectedSteps": 3,
+    "createdAt": 1793656409715,
+    "docPath": ".planning/one-panel-on-the-left-1793656409715/plan.md"
+  },
+  {
+    "id": "plan/overlays-and-a-clearer-picker-1793657261784",
+    "label": "Overlays and a clearer picker",
+    "description": "The picker says what's in it — architecture, skills and the chats' plans — and Health joins Effort as an overlay you lay over any file view instead of a view of its own.",
+    "nodeIds": [
+      "plan/overlays-and-a-clearer-picker-1793657261784/a-picker-that-says-what-it-holds-1793657261873",
+      "plan/overlays-and-a-clearer-picker-1793657261784/health-is-an-overlay-1793657261985"
+    ],
+    "expectedSteps": 2,
+    "createdAt": 1793657261784,
+    "docPath": ".planning/overlays-and-a-clearer-picker-1793657261784/plan.md"
+  },
+  {
+    "id": "plan/optimize-first-load-and-the-big-files-1793670666023",
+    "label": "Optimize: first load and the big files",
+    "description": "From the 2026-11-02 architecture report: keep CodeMirror off the first load, then cut the three god/orchestrator files down along their own section seams, move a misplaced file and drop dead ones. The two import cycles are optimizeLab fixtures and are left alone on purpose.",
+    "nodeIds": [
+      "plan/optimize-first-load-and-the-big-files-1793670666023/keep-codemirror-off-the-first-load-1793670682157",
+      "plan/optimize-first-load-and-the-big-files-1793670666023/split-the-backend-along-its-seams-1793670682278",
+      "planned/optimize-first-load-and-the-big-files-1793670666023/tools/backend/agentScaffolding.mjs",
+      "planned/optimize-first-load-and-the-big-files-1793670666023/tools/backend/planSteps.mjs",
+      "planned/optimize-first-load-and-the-big-files-1793670666023/tools/backend/stepReports.mjs",
+      "plan/optimize-first-load-and-the-big-files-1793670666023/pull-boards-pen-and-pointer-out-of-the-canvas-viewmodel-1793670682472",
+      "planned/optimize-first-load-and-the-big-files-1793670666023/src/01_canvas/hooks/useCanvasBoards.ts",
+      "planned/optimize-first-load-and-the-big-files-1793670666023/src/01_canvas/hooks/useCanvasPen.ts",
+      "planned/optimize-first-load-and-the-big-files-1793670666023/src/01_canvas/hooks/useCanvasPointer.ts",
+      "plan/optimize-first-load-and-the-big-files-1793670666023/move-activitylog-next-to-its-users-1793670682662",
+      "plan/optimize-first-load-and-the-big-files-1793670666023/move-schemaadapters-into-chatproviders-1793670682835",
+      "plan/optimize-first-load-and-the-big-files-1793670666023/delete-the-two-dead-source-files-1793670683011"
+    ],
+    "expectedSteps": 6,
+    "createdAt": 1793670666023,
+    "docPath": ".planning/optimize-first-load-and-the-big-files-1793670666023/plan.md"
+  },
+  {
+    "id": "plan/2d-is-the-3d-front-view-1793672642708",
+    "label": "2D is the 3D front view",
+    "description": "One set of camera controls in 2D and 3D (scroll pans up/down, Ctrl+scroll zooms, Space+drag pans, right-drag orbits in 3D, left click selects), and the 2D board becomes exactly what the 3D Front orthographic camera sees: one position for both, rotated planes drawn squashed, solids drawn as their projected faces. Top/Side sketches are edited straight-on in a plane-edit mode.",
+    "nodeIds": [
+      "plan/2d-is-the-3d-front-view-1793672642708/same-camera-controls-in-3d-as-in-2d-1793672666798",
+      "planned/2d-is-the-3d-front-view-1793672642708/src/01_canvas/viewport/viewportControls.ts",
+      "plan/2d-is-the-3d-front-view-1793672642708/one-position-for-2d-and-3d-1793672666940",
+      "plan/2d-is-the-3d-front-view-1793672642708/the-front-view-projection-1793672667179",
+      "planned/2d-is-the-3d-front-view-1793672642708/src/01_canvas/scene3d/frontView.ts",
+      "planned/2d-is-the-3d-front-view-1793672642708/src/01_canvas/scene3d/frontView.test.ts",
+      "plan/2d-is-the-3d-front-view-1793672642708/flat-layers-drawn-as-the-front-view-sees-them-1793672667353",
+      "plan/2d-is-the-3d-front-view-1793672642708/solids-drawn-as-their-projected-faces-1793672667600",
+      "planned/2d-is-the-3d-front-view-1793672642708/src/01_canvas/scene3d/sceneMeshes.ts",
+      "planned/2d-is-the-3d-front-view-1793672642708/src/01_canvas/board/ProjectedSolid.tsx",
+      "plan/2d-is-the-3d-front-view-1793672642708/edit-a-placed-layer-straight-on-1793672667822",
+      "plan/2d-is-the-3d-front-view-1793672642708/retire-the-2d-board-is-always-straight-on-1793672668056",
+      "plan/2d-is-the-3d-front-view-1793672642708/verify-in-the-running-app-1793672668247",
+      "plan/2d-is-the-3d-front-view-1793672642708/pick-a-solid-s-faces-edges-and-points-1793675329916"
+    ],
+    "expectedSteps": 8,
+    "createdAt": 1793672642708,
+    "docPath": ".planning/2d-is-the-3d-front-view-1793672642708/plan.md"
+  },
+  {
+    "id": "plan/sketches-and-objects-1793676967972",
+    "label": "Sketches and Objects",
+    "description": "Make the canvas a sketch-and-part modeler in Onshape/SolidWorks terms with Figma tools: a board holds Sketches (Figma frames on a plane or on a face) and Objects (parts built by a feature list: extrude, revolve, sweep, loft, booleans). Faces, edges and points get stable names that trace back to the sketch points and features that made them, so they can be picked (Blender-style modes and hotkeys) and edited by changing their source. +Sketch / +Object replace the board's create action; 2D keeps Figma's tools, 3D gets Onshape's, in Figma words.",
+    "nodeIds": [
+      "plan/sketches-and-objects-1793676967972/sketches-and-objects-in-the-board-1793677057757",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/model/objects.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/model/objects.test.ts",
+      "plan/sketches-and-objects-1793676967972/bodies-with-named-faces-edges-and-points-1793677057862",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/geometry/body.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/geometry/body.test.ts",
+      "plan/sketches-and-objects-1793676967972/planes-a-sketch-can-sit-on-1793677057969",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/scene3d/planeRefs.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/scene3d/planeRefs.test.ts",
+      "plan/sketches-and-objects-1793676967972/sketch-and-object-in-the-left-panel-1793677058067",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/panels/CreateBar.tsx",
+      "plan/sketches-and-objects-1793676967972/layers-sketches-and-objects-with-their-feature-list-1793677058165",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/panels/FeatureTree.tsx",
+      "plan/sketches-and-objects-1793676967972/sketch-mode-figma-on-the-sketch-s-plane-1793677058267",
+      "plan/sketches-and-objects-1793676967972/sketch-mode-in-3d-the-board-laid-over-the-scene-1793677058374",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/viewport/SketchInScene.tsx",
+      "plan/sketches-and-objects-1793676967972/what-editing-a-face-edge-or-point-changes-1793677066141",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/geometry/editBody.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/geometry/editBody.test.ts",
+      "plan/sketches-and-objects-1793676967972/selection-modes-and-hotkeys-1793677066279",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/viewport/selectionModes.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/viewport/selectionModes.test.ts",
+      "plan/sketches-and-objects-1793676967972/grab-rotate-scale-and-push-pull-1793677066405",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/viewport/modalTransform.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/viewport/modalTransform.test.ts",
+      "plan/sketches-and-objects-1793676967972/3d-tools-and-the-feature-inspector-1793677066558",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/viewport/Toolbar3D.tsx",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/panels/FeatureSection.tsx",
+      "plan/sketches-and-objects-1793676967972/the-front-view-draws-objects-from-their-bodies-1793677066672",
+      "plan/sketches-and-objects-1793676967972/agents-and-files-speak-sketches-and-objects-1793677066788",
+      "plan/sketches-and-objects-1793676967972/verify-in-the-running-app-1793677066924",
+      "plan/sketches-and-objects-1793676967972/what-goes-where-left-panel-toolbox-right-panel-1793726031278",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/LAYOUT.md",
+      "plan/sketches-and-objects-1793676967972/the-toolbox-in-3d-shaping-tools-and-starter-shapes-1793726031365",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/board/toolbox.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/model/starterShapes.ts",
+      "planned/sketches-and-objects-1793676967972/src/01_canvas/model/starterShapes.test.ts"
+    ],
+    "expectedSteps": 14,
+    "createdAt": 1793676967972,
+    "docPath": ".planning/sketches-and-objects-1793676967972/plan.md"
+  },
+  {
+    "id": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465",
+    "label": "Architecture reorg for canvas + 3D modeling",
+    "description": "Show Sleipnir's whole architecture in its own graph, keep startup light as 3D grows, drop the research/analytics pipeline, and replace numbered folders with named feature folders (planning, canvas, modeling, platform).",
+    "nodeIds": [
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/show-the-whole-architecture-in-the-graph-1793728553135",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/stop-boot-from-waiting-on-every-view-chunk-1793728553388",
+      "planned/architecture-reorg-for-canvas-3d-modeling-1793728532465/src/app/firstLoadBudget.test.ts",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/remove-research-analytics-and-the-empty-components-area-1793728553637",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/move-the-platform-api-out-of-planning-1793728553852",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rename-small-numbered-folders-1793728554129",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rename-planning-and-canvas-folders-1793728554348",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-3d-modeling-into-its-own-feature-1793728554536",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/split-the-canvas-view-model-by-mode-1793728554721",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rewrite-the-architecture-docs-for-the-new-layout-1793728554953",
+      "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/lift-the-document-model-into-src-document-1793737318384"
+    ],
+    "expectedSteps": 9,
+    "createdAt": 1793728532465,
+    "docPath": ".planning/architecture-reorg-for-canvas-3d-modeling-1793728532465/plan.md"
   }
 ]

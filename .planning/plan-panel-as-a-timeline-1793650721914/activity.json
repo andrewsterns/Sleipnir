@@ -1,0 +1,112 @@
+{
+  "events": [
+    {
+      "at": 1793650734835,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/steps-open-and-close-1793650722038",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793650737591,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/steps-on-a-timeline-1793650722233",
+      "status": "in_progress",
+      "agent": "auto"
+    },
+    {
+      "at": 1793650791655,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/steps-open-and-close-1793650722038",
+      "status": "completed",
+      "note": "Auto-open fires only when the working or picked step changes; clicking an open step closes it",
+      "since": 1793650734835,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanStepsList.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793650791771,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/steps-on-a-timeline-1793650722233",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793650846372,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/steps-on-a-timeline-1793650722233",
+      "status": "testing",
+      "agent": "auto"
+    },
+    {
+      "at": 1793650890630,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/steps-on-a-timeline-1793650722233",
+      "status": "completed",
+      "note": "Status marks on one line, solid through done and dashed ahead; last activity time per row; history as ticks",
+      "since": 1793650737591,
+      "changes": [
+        {
+          "path": "src/00_planning/ActivityPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793650890783,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/reading-not-commenting-1793650722356",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793650955391,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/reading-not-commenting-1793650722356",
+      "status": "testing",
+      "agent": "auto"
+    },
+    {
+      "at": 1793651360405,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/reading-not-commenting-1793650722356",
+      "status": "in_progress",
+      "agent": "auto"
+    },
+    {
+      "at": 1793651363236,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/reading-not-commenting-1793650722356",
+      "status": "testing",
+      "agent": "auto"
+    },
+    {
+      "at": 1793651498952,
+      "stepId": "plan/plan-panel-as-a-timeline-1793650721914/reading-not-commenting-1793650722356",
+      "status": "completed",
+      "note": "Comment box removed from step activity; changed files show by name; agents still comment via the CLI",
+      "since": 1793650890783,
+      "changes": [
+        {
+          "path": "src/00_planning/ActivityPanel.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/ActivityPanel.tsx",
+          "change": "modified"
+        }
+      ]
+    }
+  ]
+}

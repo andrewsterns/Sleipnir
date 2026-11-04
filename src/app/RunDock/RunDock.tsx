@@ -7,16 +7,16 @@ import { phaseColor, targetLabel } from '../Run/runLabels'
 import type { Runner } from '../Run/useRunner'
 import type { RunPhase } from '../Run/iRun'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 const PHASE_LABEL: Record<RunPhase, string> = {
-  idle: 'STOPPED',
-  installing: 'INSTALLING',
-  starting: 'STARTING',
-  running: 'RUNNING',
-  ready: 'LIVE',
-  exited: 'FINISHED',
-  error: 'FAILED',
+  idle: 'Stopped',
+  installing: 'Installing',
+  starting: 'Starting',
+  running: 'Running',
+  ready: 'Live',
+  exited: 'Finished',
+  error: 'Failed',
 }
 
 type RunView = 'preview' | 'output'
@@ -96,26 +96,26 @@ export const RunDock: React.FC<RunDockProps> = ({ run, open, onOpenChange }) => 
         shrink={0}
       >
         <Frame flow="horizontal" align="center" gap={10} minW={0}>
-          <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>RUN</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.1em', color: phaseColor(phase), ...MONO }}>
+          <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>Run</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10, letterSpacing: '0.04em', color: phaseColor(phase), ...UI_FONT }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: phaseColor(phase) }} />
             {PHASE_LABEL[phase]}
             {phase === 'exited' && run.status.code != null ? ` (${run.status.code})` : ''}
           </span>
-          <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...MONO }}>
+          <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...UI_FONT }}>
             {targetLabel(run.selected, run)}
           </span>
           {url && (
             <button
               onClick={() => run.openExternal(url)}
               title="Open in your browser"
-              style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, color: '#7aa8e0', whiteSpace: 'nowrap', ...MONO }}
+              style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, color: '#7aa8e0', whiteSpace: 'nowrap', ...UI_FONT }}
             >
               {url.replace(/^https?:\/\//, '')} ↗
             </button>
           )}
           {message && (
-            <span title={message} style={{ fontSize: 10, color: phase === 'error' ? '#e07a7a' : 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...MONO }}>
+            <span title={message} style={{ fontSize: 11, color: phase === 'error' ? '#e07a7a' : 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...UI_FONT }}>
               {message}
             </span>
           )}
@@ -133,13 +133,13 @@ export const RunDock: React.FC<RunDockProps> = ({ run, open, onOpenChange }) => 
                     border: 'none',
                     padding: '3px 10px',
                     cursor: 'pointer',
-                    fontSize: 9,
-                    letterSpacing: '0.1em',
+                    fontSize: 10,
+                    letterSpacing: '0.04em',
                     color: view === v ? 'var(--text-1)' : 'var(--text-3)',
-                    ...MONO,
+                    ...UI_FONT,
                   }}
                 >
-                  {v.toUpperCase()}
+                  {v}
                 </button>
               ))}
             </span>
@@ -206,7 +206,7 @@ export const RunDock: React.FC<RunDockProps> = ({ run, open, onOpenChange }) => 
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             display: showPreview ? 'none' : 'block',
-            ...MONO,
+            ...UI_FONT,
           }}
         >
           {run.output || (

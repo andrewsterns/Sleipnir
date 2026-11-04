@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { analyzeGraph, blastRadius, dependenciesOf, featureScope, featureTerms, formatReport } from './graphCore.mjs'
 import { LANGUAGES, languageForPath } from './languages.mjs'
+import { TRAIL_FILE, trailInsights } from './trail.mjs'
 
 // The import syntaxes this scanner reads. A language in the table whose
 // syntax isn't here is left out entirely: listing files it can't read the
@@ -602,6 +603,10 @@ const HELP = `Sleipnir Architecture CLI
   node .sleipnir/analyze.mjs report  --root . [--scope <dir>] [--goal "<text>"] [--feature "<words>"] [--limit N] [--json]
   node .sleipnir/analyze.mjs file    --root . <path>
   node .sleipnir/analyze.mjs feature --root . "<words>"
+  node .sleipnir/analyze.mjs trail   --root . [--since <minutes>]
+
+trail: how agents worked here lately, from Sleipnir's agent trail — files read
+over and over, search streaks, edit-test-fix loops, where the effort went.
 
 report: the project's import graph as numbers — fan-in ("in": files importing it),
 fan-out ("out": files it imports), cycles, upward imports, hubs, hotspots,
@@ -622,6 +627,17 @@ export function main(argv = process.argv.slice(2)) {
       process.stdout.write(args.json ? JSON.stringify({ summary: result.analysis.summary, analysis: result.analysis, feature: result.feature }, null, 2) + '\n' : result.report)
     } else if (command === 'file' && arg) {
       process.stdout.write(JSON.stringify(describeFile(root, arg), null, 2) + '\n')
+    } else if (command === 'trail') {
+      const since = Date.now() - (Number(args.since) || 120) * 60_000
+      let lines = []
+      try {
+        lines = fs.readFileSync(path.join(root, TRAIL_FILE), 'utf8').split('\n').filter(Boolean)
+      } catch {
+        // no trail yet
+      }
+      const entries = lines.flatMap((l) => { try { return [JSON.parse(l)] } catch { return [] } }).filter((e) => e.at >= since)
+      const insights = trailInsights(entries)
+      process.stdout.write(JSON.stringify({ sessions: insights.sessions, findings: insights.findings, effort: insights.effort.slice(0, 15) }) + '\n')
     } else if (command === 'feature' && arg) {
       const scan = scanProject(root)
       process.stdout.write(JSON.stringify(featureScope(scan, arg, { contentHits: contentHits(scan, arg) }), null, 2) + '\n')

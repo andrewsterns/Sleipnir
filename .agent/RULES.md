@@ -1,49 +1,30 @@
-# Sleipnir: Numbered Execution Mandates
+# Sleipnir: Agent Mandates
 
 You are an agent operating in the **Sleipnir** environment — either a human's
 AI assistant working on this repo, or Sleipnir's own built-in chat agent
-(`electron/chat.cjs`) operating through its tools. This workspace follows a
-**Linear Numbered Pipeline (00–05)** to bridge research and "vibe coding."
+(`electron/chat.cjs`) operating through its tools. Sleipnir is a canvas and
+3D modeling workbench for building software, tied directly to AI and git.
 
-## 1. The 00–05 execution pipeline
-- **00_planning:** The "Roadmap Engine" and the planning graph. Roadmaps are
-  **MANDATORY** Markdown (`.md`) instruction sets for any implementation task.
-  Each roadmap must contain:
-  - Citations from `01_research` (Why).
-  - Citations from `02_components` (or whichever component library applies) (How).
-  - Explicit **Execution Targets** (target directories).
-  - A checkable task list.
-- **01_research:** Canonical source of truth for the "Why." Documentation only
-  (`.md`, `.json`). No code. Any `.md` dropped here becomes a graph node
-  automatically — no registration step.
-- **02_components:** The default (and, today, only) Sleipnir component
-  library — there's no registry to add more (see ARCHITECTURE.md §5–6).
-  Tiers: `00_themes/`, `01_atoms/`, `02_molecules/`, `03_organisms/`, `04_templates/`.
-  - All reusable UI elements MUST reside in a registered component library.
-  - MVVM pattern: `.view.tsx`, `.viewModel.ts`, `i*.tsx`. Enforced strictly
-    here; `src/app/` (the application shell) follows it more loosely by
-    precedent — see the root `ARCHITECTURE.md` §4/§11.
-- **03_prototypes:** The default prototype library. Experimental prototypes
-  built from a registered component library and driven by a roadmap in `00_planning`.
-- **04_validation:** Vitest session execution logic and validation.
-- **05_analytics:** Feedback loop. Results from test sessions are committed here.
-- **06_source_control:** Source control UI. Local git status/diff/commit and
-  push/pull/fetch — host-agnostic, works against whatever remote a project
-  actually has. Outside the 00–05 pipeline sequence.
+## 1. Where things live
+`src/` is organised by named feature folders — no numbered stages. See the
+root `ARCHITECTURE.md` §2 for the full table:
+- **planning/** — the Planning graph (plans, architecture and Health views).
+- **document/** — the scene document both editors share (pure, no React).
+- **canvas/** — 2D boards, panels, code emit, and the editor's hooks.
+- **modeling/** — 3D (`scene3d/`, `geometry/`, `viewport/`); never imports canvas.
+- **source-control/** — the git UI. **validation/** — the Validation view.
+- **platform/** — the one API every feature calls (Electron or web transport).
+- **app/** — the shell and its UIKit primitives.
 
 ## 2. Core directives
-- **Roadmap-First:** NO implementation is permitted without a corresponding
-  plan in `src/00_planning/roadmaps/`.
-- **Traceability:** Every prototype MUST reference a roadmap in `00_planning`.
-- **Component library:** All reusable UI elements MUST reside in a registered
-  component library, not ad hoc markup in a prototype.
-- **MVVM pattern:** Follow `.view.tsx` / `.viewModel.ts` / `i*.tsx` separation
-  for non-atomic components in a component library. ViewModels are React
-  hooks colocated with their component.
-- **Two default libraries:** `02_components` and `03_prototypes` are the
-  seeded component/prototype libraries. There is no library registry to
-  register additional ones today — don't assume one exists (see
-  ARCHITECTURE.md §5–6: designed, never implemented).
+- **Plan-first:** larger work starts as a plan in the Planning graph (`/plan`,
+  or `node .sleipnir/plan.mjs`), one reviewable step per change.
+- **Named folders:** new areas (e.g. rendering, lighting) get a named folder;
+  never a numbered prefix.
+- **Heavy packages stay lazy:** three.js, CodeMirror and xterm load behind a
+  dynamic `import()`; `src/app/firstLoadBudget.test.ts` enforces it.
+- **MVVM pattern:** `Name.tsx` / `Name.ViewModel.tsx` / `iName.tsx`.
+  ViewModels are React hooks colocated with their component.
 - **Path containment:** Any filesystem operation must stay under its
   authorized root (`src/` or the repo root) — never construct a path that
   could escape it, matching `tools/sleipnir-backend.mjs`'s `resolveSafe()`
@@ -57,7 +38,7 @@ a human's coding assistant working on the repo:
   `pendingOverride`) and stop there. Do not add a path that writes model
   output straight to the filesystem.
 - **`create_plan_node`** only ever registers metadata (a graph node) — never
-  file contents. (There is no `create_library` tool — see the note above.)
+  file contents.
 - **`run_command` never executes without an explicit human confirmation.**
   It proposes a command (`chat:commandProposed`), then blocks on the
   renderer's decision (`chat:commandDecision`) before running anything via
@@ -67,14 +48,11 @@ a human's coding assistant working on the repo:
   `SLEIPNIR_MODEL_PROVIDER` if set, otherwise Anthropic-if-keyed else Ollama.
 
 ## 4. Workflow for agents
-1. **Analyze:** Check `src/01_research/` for persona/mission context relevant
-   to the task.
-2. **Plan:** Create or update a roadmap in `src/00_planning/roadmaps/`,
-   following `PLAN_TEMPLATE.md`.
-3. **Build:** Use a registered component library (`02_components` by default)
-   to build the feature/vibe in `03_prototypes` (or a registered prototype
-   library).
-4. **Validate:** Add/run tests in `04_validation` and log results to `05_analytics`.
+1. **Measure:** `node .sleipnir/analyze.mjs report --root .` maps every import;
+   read it before restructuring anything.
+2. **Plan:** draft the steps into the Planning graph (`/plan`).
+3. **Build:** one step at a time, marking each in progress and completed.
+4. **Validate:** `npm run test:run` and `npx tsc -b`.
 
 ---
 *This file is the foundational mandate for all AI agents in this workspace —

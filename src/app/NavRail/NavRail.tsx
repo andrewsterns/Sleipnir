@@ -1,9 +1,7 @@
 import React from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
-import { useAppTheme } from '../../00_themes/ThemeController'
-
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+import { useAppTheme } from '../../themes/ThemeController'
 
 export interface NavRailItem {
   id: string
@@ -30,17 +28,17 @@ interface NavRailProps {
   bottomAction?: NavRailBottomAction
 }
 
+// One rail entry: the view's icon on a soft rounded wash when active. The
+// view's name lives in the tooltip, so the rail stays a quiet column of icons.
 function NavRailButton({
   icon,
   title,
-  tag,
   active,
   secondary,
   onClick,
 }: {
   icon: IconName
   title: string
-  tag?: string
   active: boolean
   secondary?: boolean
   onClick: (e: React.MouseEvent) => void
@@ -49,39 +47,32 @@ function NavRailButton({
     <button
       onClick={onClick}
       title={title}
+      aria-current={active ? 'page' : undefined}
+      className={active ? undefined : 'icon-btn'}
       style={{
         position: 'relative',
-        width: '100%',
-        background: active ? 'rgba(var(--item-ink, 255,255,255), 0.06)' : 'transparent',
+        width: 32,
+        height: 32,
+        flexShrink: 0,
+        borderRadius: 'var(--radius-3)',
+        background: active ? 'rgba(var(--item-ink, 255,255,255), 0.12)' : 'transparent',
+        color: active ? 'var(--text-1)' : 'var(--text-3)',
         border: 'none',
         cursor: 'pointer',
-        padding: '7px 0',
+        padding: 0,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        gap: 3,
-        ...MONO,
+        justifyContent: 'center',
+        transition: 'background-color 120ms ease, color 120ms ease',
       }}
     >
-      {active && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 6,
-            bottom: 6,
-            width: 2,
-            background: 'var(--text-1)',
-          }}
-        />
-      )}
       {secondary && (
         <div
           title="Open in split view"
           style={{
             position: 'absolute',
-            right: 6,
-            top: 6,
+            right: 3,
+            top: 3,
             width: 4,
             height: 4,
             borderRadius: '50%',
@@ -89,26 +80,7 @@ function NavRailButton({
           }}
         />
       )}
-      <span
-        style={{
-          color: active ? 'var(--text-1)' : 'var(--text-3)',
-          opacity: active ? 1 : 0.7,
-          display: 'flex',
-        }}
-      >
-        <Icon name={icon} size={15} />
-      </span>
-      {tag && (
-        <span
-          style={{
-            fontSize: 7,
-            letterSpacing: '0.1em',
-            color: active ? 'var(--text-2)' : 'var(--text-3)',
-          }}
-        >
-          {tag}
-        </span>
-      )}
+      <Icon name={icon} size={16} />
     </button>
   )
 }
@@ -126,7 +98,7 @@ export const NavRail: React.FC<NavRailProps> = ({ items, activeId, secondaryId, 
     fill={{ solid: 'bg-1' }}
     stroke={{ right: { color: 'var(--border-1)' } }}
     padding={{ y: 10 }}
-    gap={2}
+    gap={6}
     align="center"
   >
     {items.map((item) => (
@@ -134,7 +106,6 @@ export const NavRail: React.FC<NavRailProps> = ({ items, activeId, secondaryId, 
         key={item.id}
         icon={item.icon}
         title={`${item.title} — Ctrl/Cmd-click to open in split view`}
-        tag={item.tag}
         active={item.id === activeId}
         secondary={item.id === secondaryId}
         onClick={(e) => onSelect(item.id, e)}

@@ -4,7 +4,7 @@
 // which key, what must NOT match — can be stated and tested without mounting the
 // shell.
 
-/** Command id in 00_keybindings, so Settings can show and remap this. */
+/** Command id in keybindings, so Settings can show and remap this. */
 export const TERMINAL_TOGGLE_ID = 'terminal.toggle'
 
 /** VS Code's binding, and the one the physical-key match below is written for. */

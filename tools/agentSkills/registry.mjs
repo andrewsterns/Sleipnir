@@ -29,7 +29,8 @@ import { LANGUAGES } from './vendor/languages.mjs'
 // v3: /frame and /component, and the vendored canvas CLI.
 // v4: /optimize, and the vendored architecture analyzer.
 // v5: the language table, vendored beside the CLIs that read it.
-export const SCAFFOLD_VERSION = 5
+// v6: slim AGENTS.md (references move into their skills), testing status, comments.
+export const SCAFFOLD_VERSION = 6
 
 // Where the vendored CLI lands, relative to the project root. Relative on
 // purpose: the emitted files are committed and cloned by people who have never
@@ -47,6 +48,9 @@ export const ANALYZE_CLI = '.sleipnir/analyze.mjs'
 export const GRAPH_CORE = '.sleipnir/graphCore.mjs'
 // The language table (vendor/languages.mjs) the analyzer imports from beside it.
 export const LANGUAGES_LIB = '.sleipnir/languages.mjs'
+// The agent-trail hook (vendor/trail.mjs) and the file it appends to.
+export const TRAIL_CLI = '.sleipnir/trail.mjs'
+export const TRAIL_FILE = '.planning/trail.jsonl'
 
 // Emitters replace this with their own target's argument placeholder.
 export const ARGS_TOKEN = '{{ARGS}}'
@@ -122,10 +126,8 @@ The rule worth repeating: a plan's \`nodeIds\` must list ids that actually exist
 \`notes.json\` — its steps and their planned files. A plan whose \`nodeIds\` is \`[]\`
 renders as a named tab with nothing in it.`
 
-// Persistent context — rendered into AGENTS.md and pointed at from CLAUDE.md and
-// GEMINI.md. Loaded in every session, so it earns its length by covering the
-// things an agent gets wrong unprompted, and nothing else.
-const PLAN_CONTEXT = `This project's plans live in \`.planning/\` and render as a live graph in Sleipnir.
+// The full planning reference: loaded with /plan, never in every session.
+const PLAN_REFERENCE = `This project's plans live in \`.planning/\` and render as a live graph in Sleipnir.
 Anything written there in the shapes below becomes real nodes and tabs
 automatically — no restart, no refresh — whatever wrote it: Sleipnir's own UI, its
 in-app AI chat, or a terminal agent like you.
@@ -263,7 +265,8 @@ declaring the files it will create or change, placed in the project's real archi
    files it edits.
 3. Create the plan. It prints an id — use that id for every step:
 
-       node ${PLAN_CLI} create-plan --root . --label "<short plan name>" --total-steps <N>
+       node ${PLAN_CLI} create-plan --root . --label "<short plan name>" --total-steps <N> \\
+           --description "<what the plan is for, in a sentence or two>"
 
 4. Create each step in order:
 
@@ -287,7 +290,7 @@ Constraints:
 
 // Canvas design — /frame and /component. One context for both (rendered into
 // AGENTS.md once); each command says what to do now.
-const CANVAS_CONTEXT = `This project has Canvas boards in \`.components/.boards/\`: visual designs that
+const CANVAS_REFERENCE = `This project has Canvas boards in \`.components/.boards/\`: visual designs that
 Sleipnir renders and turns into real code. \`/frame\` and \`/component\` mean "design
 this on the board", not "write source files by hand".
 
@@ -339,7 +342,7 @@ const COMPONENT_COMMAND = `The user wants this built as a component: ${ARGS_TOKE
    yourself.`
 
 // /optimize — architecture and feature performance, measured rather than guessed.
-const OPTIMIZE_CONTEXT = `\`/optimize\` improves the project's structure, or one feature's speed, from
+const OPTIMIZE_REFERENCE = `\`/optimize\` improves the project's structure, or one feature's speed, from
 measurements rather than guesses. The bundled analyzer maps every import (TypeScript,
 JavaScript, Python, Go, Rust, C, C++, Java, Kotlin, Swift, C#) with nothing but Node:
 
@@ -381,20 +384,55 @@ const OPTIMIZE_COMMAND = `The user wants this optimized: ${ARGS_TOKEN}
    with a note naming the number. Stop and say so if a step makes anything worse.
 6. Finish with the before and after numbers.`
 
+// What AGENTS.md carries — loaded into every session of every agent, so it
+// holds only what an agent needs before it knows it's doing Sleipnir work: the
+// commands that keep the plan live, the two rules agents break unprompted, and
+// where the rest lives. Everything else ships in the skill that uses it (the
+// *_REFERENCE texts, appended to each command) or in the CLI's --help, and
+// costs nothing until it's used. About 500 tokens, from about 3,100.
+const PLAN_CONTEXT = `Plans live in \`.planning/\` and show live in Sleipnir's graph. Never hand-edit
+\`.planning/*.json\`: a plan's \`nodeIds\` only references node ids, and hand-written
+plans end up as empty tabs. Use the CLI (Node only, Sleipnir needn't be running):
+
+    node ${PLAN_CLI} list-steps --root . [--plan-id <id>]
+    node ${PLAN_CLI} set-status --root . --step <id> --status in_progress|testing|completed [--note "one line"]
+    node ${PLAN_CLI} comment --root . --step <id> --text "..."
+    node ${PLAN_CLI} create-plan --root . --label "..."   # then create-node; /plan has the details
+    node ${PLAN_CLI} --help
+
+When you work on a plan's step, read it in \`list-steps\` first — people's comments,
+status changes and the files they want you to focus on or avoid are there. Sleipnir sets it in progress when you edit its
+files and testing when you run tests, and records what it changes. When it's done,
+mark it \`completed\` with a one-line note; use \`set-status\` for anything else only
+to name your step when steps share files, or to correct one. To draft a new plan,
+follow \`/plan\`.`
+
+const CANVAS_CONTEXT = `Visual designs live on Canvas boards in \`.components/.boards/\`; Sleipnir turns them
+into code. "Design this" means \`/frame\` (an editable design) or \`/component\` (a
+component Sleipnir writes the code for), built with \`node ${CANVAS_CLI}\`. Never
+hand-edit the board JSON or the code Sleipnir generates from it.`
+
+const OPTIMIZE_CONTEXT = `Before changing a project's structure or chasing a slow feature, measure:
+\`node ${ANALYZE_CLI} report --root . [--feature "<words>"]\` maps every import in a few
+thousand tokens — read it instead of the source tree. \`/optimize\` has the full method.`
+
+// Appended to each skill's own instructions, after a rule.
+const withReference = (command, reference) => `${command}\n\n---\n\n${reference}`
+
 export const SKILLS = [
   {
     id: 'plan',
     description: "Draft an ordered, architecture-aware plan into Sleipnir's Planning graph.",
     argumentHint: '<what to plan>',
     context: PLAN_CONTEXT,
-    command: PLAN_COMMAND,
+    command: withReference(PLAN_COMMAND, PLAN_REFERENCE),
   },
   {
     id: 'frame',
     description: "Design something on Sleipnir's Canvas board as editable frames.",
     argumentHint: '<what to design>',
     context: CANVAS_CONTEXT,
-    command: FRAME_COMMAND,
+    command: withReference(FRAME_COMMAND, CANVAS_REFERENCE),
   },
   {
     id: 'component',
@@ -402,14 +440,14 @@ export const SKILLS = [
     argumentHint: '<what to build>',
     // Shares /frame's context — AGENTS.md carries it once.
     context: '',
-    command: COMPONENT_COMMAND,
+    command: withReference(COMPONENT_COMMAND, CANVAS_REFERENCE),
   },
   {
     id: 'optimize',
     description: "Measure the project's architecture or one feature, and plan the fixes.",
     argumentHint: '[feature or goal]',
     context: OPTIMIZE_CONTEXT,
-    command: OPTIMIZE_COMMAND,
+    command: withReference(OPTIMIZE_COMMAND, OPTIMIZE_REFERENCE),
   },
 ]
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { GraphNode } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../planning/graph/types'
 import type { AgentMode, ChangeSet, ChatMessage, ToolActivity, ToolDecision, ToolUpdate } from './iAgentChat'
 import { AGENT_MODES, isChatAvailable } from './iAgentChat'
 

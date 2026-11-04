@@ -147,3 +147,11 @@ export const EMITTERS = [emitAgentsMd, emitClaude, emitCodex, emitGemini]
 export function emitAll(skills) {
   return EMITTERS.flatMap((emit) => emit(skills))
 }
+
+// One skill's command files, for the agents chosen (claude, codex, gemini) —
+// each agent's own format, exactly as the built-ins are written. No context
+// files: a person's own skill lives in its command alone.
+const BY_AGENT = { claude: emitClaude, codex: emitCodex, gemini: emitGemini }
+export function emitSkillFiles(skill, agents) {
+  return agents.flatMap((agent) => (BY_AGENT[agent]?.([skill]) ?? []).filter((f) => !f.managed && f.path.includes(`/${skill.id}.`)))
+}

@@ -3,7 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { ConnectModels } from './ConnectModels'
 import type { useAiSettings } from './useAiSettings'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 interface ApiKeySettingsProps {
   ai: ReturnType<typeof useAiSettings>
@@ -45,9 +45,9 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ ai, onClose, ali
     <ConnectModels ai={ai} />
     <button
       onClick={onClose}
-      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', fontSize: 9, letterSpacing: '0.08em', cursor: 'pointer', alignSelf: 'flex-start', ...MONO }}
+      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', fontSize: 10, letterSpacing: '0.04em', cursor: 'pointer', alignSelf: 'flex-start', ...UI_FONT }}
     >
-      CLOSE
+      Close
     </button>
   </Frame>
 )

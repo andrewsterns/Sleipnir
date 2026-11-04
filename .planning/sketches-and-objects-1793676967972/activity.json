@@ -1,0 +1,300 @@
+{
+  "events": [
+    {
+      "at": 1793721949755,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketches-and-objects-in-the-board-1793677057757",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793722324226,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketches-and-objects-in-the-board-1793677057757",
+      "status": "testing",
+      "agent": "auto"
+    },
+    {
+      "at": 1793722405021,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketches-and-objects-in-the-board-1793677057757",
+      "status": "in_progress",
+      "agent": "auto"
+    },
+    {
+      "at": 1793722405029,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketches-and-objects-in-the-board-1793677057757",
+      "status": "in_progress",
+      "agent": "auto"
+    },
+    {
+      "at": 1793722535922,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketches-and-objects-in-the-board-1793677057757",
+      "comment": "Done differently in two places: no schema bump (LANGUAGES.md already reserves v2 for the outputs migration), the move is detection-based and idempotent instead; and sketch.plane is typed (PlaneRef) but layers keep space until step 3 switches them. Known gap until step 5/11: duplicating or pasting a layer doesn't copy the feature built on it.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793722536008,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketches-and-objects-in-the-board-1793677057757",
+      "status": "completed",
+      "note": "model/objects.ts: Objects with feature lists, PlaneRef and FaceName types; layer solids migrate on read; readers use solidOf; deleting a sketch prunes its features",
+      "since": 1793721949755,
+      "changes": [
+        {
+          "path": ".components/.boards/canvas-mvtn9lbn-1.json",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/LensControls.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/doc.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/objects.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/model/objects.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/model/store.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/types.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/sceneMeshes.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/cameraViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/viewport.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/index.css",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793722536135,
+      "stepId": "plan/sketches-and-objects-1793676967972/bodies-with-named-faces-edges-and-points-1793677057862",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793723010208,
+      "stepId": "plan/sketches-and-objects-1793676967972/bodies-with-named-faces-edges-and-points-1793677057862",
+      "comment": "Booleans aren't done: subtract and intersect build as added bodies and say so in body.notes; real CSG needs a library (manifold-3d or three-bvh-csg) — worth deciding before step 11's Combine. Lofts likewise noted, not built. The views still draw through sceneMeshes; they switch to bodies in steps 9 (3D picking) and 12 (2D).",
+      "agent": "claude"
+    },
+    {
+      "at": 1793723010278,
+      "stepId": "plan/sketches-and-objects-1793676967972/bodies-with-named-faces-edges-and-points-1793677057862",
+      "status": "completed",
+      "note": "geometry/body.ts: objects evaluate to scene-space bodies with CAD-style named faces (box 6 / cylinder 3), edges (12 / 2) and corners (8 / 0); every builder tags its triangles",
+      "since": 1793722536135,
+      "changes": [
+        {
+          "path": "src/01_canvas/geometry/body.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/geometry/body.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/geometry/mesh.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/geometry/modifiers.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793723380846,
+      "stepId": "plan/sketches-and-objects-1793676967972/planes-a-sketch-can-sit-on-1793677057969",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793724059538,
+      "stepId": "plan/sketches-and-objects-1793676967972/planes-a-sketch-can-sit-on-1793677057969",
+      "comment": "Built as: node.sketch = { plane, at } is the source and space is resolved from it after every edit and on load (resolvePlanes), so every existing reader keeps working. Gizmo or typed position/rotation frees a sketch (plane: custom). Attaching to a face works in the model and tests; its picking UI comes with step 4's 'pick a face'. Not checked in the app this time: the isolated test window closed on its own before I could drive it.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793724059616,
+      "stepId": "plan/sketches-and-objects-1793676967972/planes-a-sketch-can-sit-on-1793677057969",
+      "status": "completed",
+      "note": "scene3d/planeRefs.ts: sketches stand on Front/Top/Right, offset planes or an object's face and follow it; 2D drags slide them along their plane; inspector picks the plane",
+      "since": 1793723380846,
+      "changes": [
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/hooks/useCanvasBoards.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/objects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/types.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/placement.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeEdit.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeRefs.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeRefs.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793726031446,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketch-and-object-in-the-left-panel-1793677058067",
+      "comment": "Changed by 'What goes where' (requested 2026-11-03): the left panel only lists and adds sketches. This step builds + Sketch (Front / Top / Right / a face); the + Object starter shapes and Extrude/Revolve/Sweep/Loft move to the toolbox ('The toolbox in 3D'). Objects appear in the left panel when a tool makes one.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793726031517,
+      "stepId": "plan/sketches-and-objects-1793676967972/3d-tools-and-the-feature-inspector-1793677066558",
+      "comment": "The toolbox half (Toolbar3D, the tool buttons) moved forward to 'The toolbox in 3D: shaping tools and starter shapes'. This step keeps the right-panel half: the feature inspector with live preview and OK/Cancel, and Combine once booleans exist.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793726039912,
+      "stepId": "plan/sketches-and-objects-1793676967972/what-goes-where-left-panel-toolbox-right-panel-1793726031278",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793726070749,
+      "stepId": "plan/sketches-and-objects-1793676967972/what-goes-where-left-panel-toolbox-right-panel-1793726031278",
+      "status": "completed",
+      "note": "src/01_canvas/LAYOUT.md: left panel lists and adds, toolbox shapes (grouped, one registry), right panel edits, view controls apart; Figma/Onshape name map",
+      "since": 1793726039912,
+      "changes": [
+        {
+          "path": "src/01_canvas/LAYOUT.md",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793726071077,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketch-and-object-in-the-left-panel-1793677058067",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793726740163,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketch-and-object-in-the-left-panel-1793677058067",
+      "status": "completed",
+      "note": "+ Sketch under the board picker: Front / Top / Right open a new sketch face on; On a face… picks an object's face in 3D (clicks pass through flat layers); checked in the app",
+      "since": 1793726071077,
+      "changes": [
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/geometry/body.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/CreateBar.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeRefs.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeRefs.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793728355331,
+      "stepId": "plan/sketches-and-objects-1793676967972/layers-sketches-and-objects-with-their-feature-list-1793677058165",
+      "comment": "Started early (requested 2026-11-03): the layers panel now groups top-level layers into Front / Top / Side sections (always shown; offsets file under their base plane), plus 'On faces' and 'Placed freely' when used. Each section has + (new sketch there) and an eye for all of it (panels/planeGroups.ts). Still to do here: the Objects list with its feature tree.",
+      "agent": "claude"
+    }
+  ]
+}

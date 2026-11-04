@@ -78,6 +78,44 @@
           "change": "modified"
         }
       ]
+    },
+    {
+      "at": 1793384229655,
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "status": "pending",
+      "note": "Folded into the plan 'Watching agents think' (the agent trail and its graph layer)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793628663585,
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/skills-the-skill-tree-1793301952885",
+      "comment": "Folded into 'Agent focus, skills and steering' (steps 3 to 5): skill scan, SKILLS view, editing and adding skills.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793628663662,
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/edit-and-add-skills-per-agent-1793301952998",
+      "comment": "Folded into 'Agent focus, skills and steering' (steps 3 to 5): skill scan, SKILLS view, editing and adding skills.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793628663753,
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/planning-organized-around-the-agent-1793301953116",
+      "comment": "Partly covered by 'Agent focus, skills and steering' step 4 (SKILLS mode beside Architecture and Health).",
+      "agent": "claude"
+    },
+    {
+      "at": 1793628669868,
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/live-agent-activity-on-the-graph-1793301952796",
+      "status": "completed",
+      "note": "Built by 'Watching agents think' (agent trail hook, trail on the graph, caption)",
+      "agent": "claude"
+    },
+    {
+      "at": 1793662008364,
+      "stepId": "plan/planning-as-agent-diagnostics-1793301952427/planning-organized-around-the-agent-1793301953116",
+      "status": "in_progress",
+      "agent": "auto"
     }
   ]
 }

@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { LANGUAGES, UI_FRAMEWORKS, extensionMap, languageById, languageForPath } from './languages.mjs'
-import { LANGUAGES as PLANNING_LANGUAGES } from '../../../src/00_planning/graph/architectures'
-import { extForLanguage, languageForExt } from '../../../src/00_planning/graph/naming'
+import { LANGUAGES as PLANNING_LANGUAGES } from '../../../src/planning/graph/architectures'
+import { extForLanguage, languageForExt } from '../../../src/planning/graph/naming'
 import { parseFileSpec, PLANNED_LANGUAGES } from '../../planDoc.mjs'
 
 describe('the language table', () => {

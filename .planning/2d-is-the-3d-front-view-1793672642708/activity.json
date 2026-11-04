@@ -1,0 +1,288 @@
+{
+  "events": [
+    {
+      "at": 1793672700735,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/same-camera-controls-in-3d-as-in-2d-1793672666798",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793673250815,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/same-camera-controls-in-3d-as-in-2d-1793672666798",
+      "status": "completed",
+      "note": "3D now matches 2D: scroll pans, Ctrl/Cmd+scroll zooms at cursor, Space/middle-drag pan, right-drag orbits (Persp only), left click selects; checked in the dev app",
+      "since": 1793672700735,
+      "changes": [
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/viewport.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/viewportControls.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793673380785,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/same-camera-controls-in-3d-as-in-2d-1793672666798",
+      "comment": "Changed per request: a left drag also orbits in 3D (Persp); a left click still selects, Space+left still pans. 2D left-drag unchanged (it moves and marquees layers).",
+      "agent": "claude"
+    },
+    {
+      "at": 1793673394734,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/one-position-for-2d-and-3d-1793672666940",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793673561731,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/one-position-for-2d-and-3d-1793672666940",
+      "status": "completed",
+      "note": "syncPlacements keeps rect.x/y and space.position in step on every edit, board open and outside reload; whichever side changed wins, the file's placement wins on load",
+      "since": 1793673394734,
+      "changes": [
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/hooks/useCanvasBoards.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/placement.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/placement.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793673561856,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/the-front-view-projection-1793672667179",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793673718325,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/the-front-view-projection-1793672667179",
+      "status": "completed",
+      "note": "frontMatrix(placement) in scene3d/frontView.ts; boardMatrixOf uses it for placed top-level layers, children compose through it",
+      "since": 1793673561856,
+      "changes": [
+        {
+          "path": "src/01_canvas/model/doc.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793673718452,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/flat-layers-drawn-as-the-front-view-sees-them-1793672667353",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793674575036,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/flat-layers-drawn-as-the-front-view-sees-them-1793672667353",
+      "status": "completed",
+      "note": "Placed layers draw through matrix(); rings/handles follow the projected quad; hit-test, marquee and measured layout follow the plane; edge-on drawn and picked as a line; resize works in-plane",
+      "since": 1793673718452,
+      "changes": [
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasNodeView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/hooks/useMeasuredRects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/doc.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/rotation.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/placement.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793674575155,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/solids-drawn-as-their-projected-faces-1793672667600",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793675280537,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/solids-drawn-as-their-projected-faces-1793672667600",
+      "status": "completed",
+      "note": "Turned extrudes, revolves and swept tubes draw in 2D as projected, lit faces (scene3d/sceneMeshes + board/ProjectedSolid); matches the 3D Front view in the app; clicks on them select",
+      "since": 1793674575155,
+      "changes": [
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/board/ProjectedSolid.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/model/doc.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/frontView.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/sceneMeshes.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/viewport.test.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793675330035,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/edit-a-placed-layer-straight-on-1793672667822",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793675911181,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/edit-a-placed-layer-straight-on-1793672667822",
+      "status": "completed",
+      "note": "Double-click or Enter opens a placed layer face on (scene3d/planeEdit.ts view + merge), with cross-plane guides and a Done chip; Esc returns; checked in the app",
+      "since": 1793675330035,
+      "changes": [
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/model/doc.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeEdit.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/01_canvas/scene3d/planeEdit.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793675911308,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/retire-the-2d-board-is-always-straight-on-1793672668056",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793675935228,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/retire-the-2d-board-is-always-straight-on-1793672668056",
+      "status": "completed",
+      "note": "Model, inspector, 3D view and guide comments now describe 2D as the Front view with plane edit; guides only draw while a plane is open",
+      "since": 1793675911308,
+      "changes": [
+        {
+          "path": "src/01_canvas/model/types.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/scene3d/sketchPlane.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/viewport/Viewport3D.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793676015366,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/verify-in-the-running-app-1793672668247",
+      "status": "completed",
+      "note": "In the dev app: turned cube shows the same shaded hexagon in 2D and 3D Front; Y-turned panel squashes alike; Top plane is a line; 2D drag moved the panel +0.5 m X / -0.29 m Y in 3D; plane edit opens and closes"
+    },
+    {
+      "at": 1793677078894,
+      "stepId": "plan/2d-is-the-3d-front-view-1793672642708/pick-a-solid-s-faces-edges-and-points-1793675329916",
+      "comment": "Superseded by the 'Sketches and Objects' plan: steps 2 (named faces), 8 (what an edit changes), 9 (select modes) and 10 (G/R/S, push/pull) cover this properly.",
+      "agent": "claude"
+    }
+  ]
+}

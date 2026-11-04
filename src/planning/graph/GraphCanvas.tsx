@@ -1,0 +1,1067 @@
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
+import type { GraphData, GraphNode, NodeStage } from './types'
+import { nodeStageKey, STAGE_PATH_LENGTH } from './stages'
+import { TONES, TONE_STYLE, edgeTone, toneOfStage, type Tone } from './nodeTone'
+import type { TrailView } from './agentTrail'
+import { FocusBox } from './FocusBox'
+import { applyForces, buildForceLayout, DEFAULT_FORCES, setForceOrigin, type GraphForces, linkNode, linkId, nodeRadius, type NodePositions, type SimNode } from './layout'
+import { Icon, type IconName } from '../../app/UIKit/Icon/Icon'
+import { CLICK_DRAG_THRESHOLD } from '../../utils/pointer'
+import { describeNodeHealth, edgeKey, healthRadius, type HealthLens, type NodeHealth } from './healthLens'
+
+const MIN_SCALE = 0.15
+const MAX_SCALE = 4
+
+// Camera easing for selected-node centering: a very soft lerp with a deadzone
+// so tiny node jitter does not shake the viewport. The lerp fraction and the
+// per-frame max-step are both scaled per-flight by how far the camera has to
+// travel (see followParamsForDistance) — a nearby node gets a slow, visible
+// glide; a distant one cruises fast so it doesn't take forever to arrive.
+const CAMERA_FOLLOW_DEADZONE = 2.5
+const CAMERA_FOLLOW_EPSILON = 0.25
+
+// Screen-space distance (px) below which a flight counts as "near" (slowest,
+// most deliberate glide) and above which it counts as "far" (fastest cruise).
+// Distances in between interpolate linearly across the NEAR/FAR pairs below.
+const CAMERA_FOLLOW_NEAR_DISTANCE = 150
+const CAMERA_FOLLOW_FAR_DISTANCE = 1500
+const CAMERA_FOLLOW_NEAR_MAX_STEP = 3
+const CAMERA_FOLLOW_FAR_MAX_STEP = 70
+const CAMERA_FOLLOW_NEAR_LERP = 0.02
+const CAMERA_FOLLOW_FAR_LERP = 0.09
+
+function followParamsForDistance(distance: number): { lerp: number; maxStep: number } {
+  const span = CAMERA_FOLLOW_FAR_DISTANCE - CAMERA_FOLLOW_NEAR_DISTANCE
+  const t = Math.min(1, Math.max(0, (distance - CAMERA_FOLLOW_NEAR_DISTANCE) / span))
+  return {
+    lerp: CAMERA_FOLLOW_NEAR_LERP + t * (CAMERA_FOLLOW_FAR_LERP - CAMERA_FOLLOW_NEAR_LERP),
+    maxStep: CAMERA_FOLLOW_NEAR_MAX_STEP + t * (CAMERA_FOLLOW_FAR_MAX_STEP - CAMERA_FOLLOW_NEAR_MAX_STEP),
+  }
+}
+
+// Nodes render at a 3-4px radius, too small to click comfortably — pad the
+// actual hit target well beyond the visible circle.
+const NODE_HIT_PADDING = 12
+
+// How far short of the target node's own edge an arrowhead's tip stops —
+// purely cosmetic breathing room so the arrow doesn't visually merge into
+// the node's stroke.
+const ARROW_GAP = 7
+
+// Matching breathing room on the source end — the line begins this far
+// outside the source node's own radius instead of at its center, so it never
+// visually touches the node it leaves from.
+const SOURCE_GAP = 7
+
+// The plan overlay color — sequence arrows, step order badges and planned-file
+// placeholders. Themes may define --graph-plan; the fallback reads on both.
+// One ink for every mark on every graph — white on the dark themes, black on
+// light (--graph-node) — at full strength. State is shape, never color or fade.
+const INK = 'var(--graph-node, #ffffff)'
+const PLAN_COLOR = INK
+// Every link and arrowhead: a quiet grey (--graph-edge — light grey on the
+// light theme, dark grey on the dark one), so lines read as the background
+// they are and the nodes and labels sit clearly on top.
+const EDGE = 'var(--graph-edge, #4a4c53)'
+// The board itself. Labels, hollow rings and small text are backed with it,
+// so a line passing under them disappears instead of striking through.
+const GRAPH_BG = 'var(--graph-bg, var(--bg-1))'
+// A halo in the board colour behind small text, for the same reason.
+const TEXT_HALO: React.CSSProperties = { stroke: GRAPH_BG, strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }
+
+// The Health lens's two warnings (see graph/healthLens.ts): red for an import
+// loop, amber for an import pointing up the layers.
+const DANGER_COLOR = INK
+const WARN_COLOR = INK
+
+
+// The agent trail (graph/agentTrail.ts) as one corner box (FocusBox.tsx) on the
+// node the agent is on now, and on a step being tested.
+// The box's gap around a node's dot.
+const FOCUS_PAD = 6
+const TRAIL_LINE_COLOR = INK
+
+// Under the Health lens the healthy links step back so the loops and upward
+// imports are what the eye lands on.
+const HEALTHY_EDGE_OPACITY_UNDER_LENS = 1
+// An unused file under the lens: still there to click, visibly not load-bearing.
+const UNUSED_NODE_OPACITY = 1
+// Under the lens a selected file's neighbours show their counts too — unless
+// there are more of them than this, when the labels would only pile up.
+const MAX_NEIGHBOR_COUNT_LABELS = 12
+
+// At rest every node and line is drawn in its tone (graph/nodeTone.ts), whose
+// color carries its own strength: committed work steps back, work in flight
+// stands out. Selecting a node keeps it, its neighbours and the links between
+// them as they are (its own links thicken a little) and pushes everything else
+// back, so the selection is what the eye lands on.
+const REST_OPACITY = 1
+const FOCUS_OPACITY = 1
+const DIMMED_NODE_OPACITY = 1
+const DIMMED_EDGE_OPACITY = 1
+
+// d3's own default alphaMin: below it the layout counts as settled.
+const ALPHA_MIN = 0.001
+
+// Simulation steps per animation frame while the layout is moving. Two keeps
+// the settle time the graph has always had (it used to get one step from this
+// loop and a second from d3's internal timer, which restart() also started).
+const TICKS_PER_FRAME = 2
+
+// How hard a topology change reheats the layout. A first build starts hot; a
+// rebuild that only adds a few nodes to a settled graph — a file scaffolded,
+// a step streamed in by the AI — warms it just enough for the newcomers to
+// find their place (they're already seeded beside their neighbours, see
+// layout.ts), instead of re-shaking every node on screen.
+function reheatAlpha(carriedCount: number, addedCount: number): number {
+  if (carriedCount === 0) return 1
+  const total = carriedCount + addedCount
+  return Math.min(1, 0.2 + 1.6 * (addedCount / total))
+}
+
+// A node's on-screen radius: its layout size, grown by its importers under the
+// Health lens (see healthRadius). Link ends are pulled back by this, so they
+// still stop just short of a hub's bigger circle.
+function drawnRadius(node: SimNode, health: HealthLens | NodeHealth | null | undefined): number {
+  const h = health && 'nodes' in health ? health.nodes.get(node.id) : health
+  return h ? healthRadius(nodeRadius(node), h.fanIn) : nodeRadius(node)
+}
+
+// The file extension a node's path ends in (".tsx", ".rs", …), or "" for a
+// note with no backing file — appended to the label (dimmer) so a node reads
+// as the actual file it represents at a glance. Exported so PlanningView's
+// NODES list appends the exact same suffix, keeping graph + list names in sync.
+export function fileExtLabel(filePath?: string): string {
+  const m = filePath?.match(/\.([A-Za-z0-9]+)$/)
+  return m ? `.${m[1]}` : ''
+}
+
+// Which icon represents a node in the NODES list + graph label. A code file
+// (.tsx/.rs/.py/…) gets the generic file icon; a markdown note or a file-less
+// idea node keeps the planning node glyph — its connection-line variant
+// ('plan-node') when it has links, the plain ring ('plan-node-plain') when it
+// doesn't. Deliberately no folder icon: a node is never a folder. Exported so
+// PlanningView's NODES list and the graph label draw the same mark.
+export function nodeIconName(node: Pick<GraphNode, 'filePath'>, linked: boolean): IconName {
+  const ext = node.filePath?.match(/\.([A-Za-z0-9]+)$/)?.[1]?.toLowerCase()
+  if (ext && ext !== 'md') return 'file'
+  return linked ? 'plan-node' : 'plan-node-plain'
+}
+
+// The name shown for a node in the plan (graph label, NODES list, detail card,
+// link lists) — always WITHOUT its file extension, since every call site
+// appends fileExtLabel's badge right after (see the `${nodeDisplayLabel(node)}
+// ${ext}` sites below); returning it here too would double it up on screen
+// ("HelveticaNeueLight.ttf" + ".ttf").
+//
+// A scaffolded node (an architectural role + backing file, created via
+// Planning's Add Node) shows its file's base name instead of the stored
+// label, so a View, ViewModel, and Interface that share one base label read
+// distinctly ("cartView", "cartViewModel", "cartInterface") and match the
+// files on disk. `role` is present ONLY on those scaffolded nodes (see
+// GraphNode.role) — the stored `label` deliberately stays the base name
+// there (the import adapters re-derive each file's symbol from it via
+// jsExportName/typeExportName, which append the role suffix themselves), so
+// showing `label` directly would drop the role suffix, not double it.
+//
+// Everything else — notes, plan-steps, generated nodes, and workspace-asset
+// nodes pulled in via "Add Assets" (resolveAssetPlan.ts, which sets `label`
+// to the file's raw basename, extension included) — falls through to
+// `label`, stripped of a trailing extension if it has one.
+export function nodeDisplayLabel(node: Pick<GraphNode, 'label' | 'role' | 'filePath'>): string {
+  if (node.role && node.filePath) {
+    const base = node.filePath.split('/').pop() ?? node.filePath
+    return base.replace(/\.[^./]+$/, '')
+  }
+  return node.filePath ? node.label.replace(/\.[^./]+$/, '') : node.label
+}
+
+export interface GraphCanvasProps {
+  data: GraphData
+  selectedId: string | null
+  onSelectNode: (id: string) => void
+  /**
+   * Bump (e.g. `s => s + 1`) to explicitly center the camera on `selectedId`
+   * right now — e.g. the NODES list's single-click (see PlanningView's
+   * selectNodeRow). Selecting a node from *within* the graph itself (a plain
+   * single-click, or the pointerdown that starts a drag) never auto-centers —
+   * only this signal and a node's own double-click (below) do — so clicking
+   * or dragging a node in the graph never fights the camera.
+   */
+  centerSignal?: number
+  /** Per-node sprint stage overlay ({ [nodeId]: stage }) — decides whether a planned file still draws as a placeholder (see graph/stages.ts). Passed separately from `data` on purpose: folding it in would rebuild the force layout on every tag change. Omit/empty = every node renders by its `kind` as before. */
+  stages?: Record<string, NodeStage>
+  /** Workspace-relative paths `.planning/` points at that no longer exist (see usePlanningHealth). A node backed by one is drawn with a dashed danger ring instead of its stage. */
+  missingPaths?: Set<string>
+  /** Node ids that belong to the active plan (see graph/composePlanView.ts). When non-empty, those nodes and the links between them stay at full strength and everything else is dimmed. Passed separately from `data` for the same reason as `stages`: it never changes the layout. */
+  overlay?: Set<string>
+  /** The Health lens (see graph/healthLens.ts): nodes sized by fan-in, import loops red, upward imports amber, unused files faded. Separate from `data` like `overlay` — toggling it never rebuilds the layout. Omit for the plain view. */
+  health?: HealthLens | null
+  /** The live agent trail (graph/agentTrail.ts): corner boxes where agents read, edit and test, and the path they took. Separate from `data` — it changes many times a second and never moves the layout. */
+  trail?: TrailView
+  /** Each node's tone — its status combined with git (graph/nodeTone.ts). A node missing from it is toned by its status alone. Separate from `data` for the same reason as `stages`. Not drawn under the Health lens, which has its own emphasis. */
+  tones?: ReadonlyMap<string, Tone>
+  /** The center and repel dials (graph/layout.ts applyForces). Changing them re-settles the running layout instead of rebuilding it. */
+  forces?: GraphForces
+}
+
+export const GraphCanvas: React.FC<GraphCanvasProps> = ({ data, selectedId, onSelectNode, centerSignal, stages, missingPaths, overlay, health, tones, trail, forces = DEFAULT_FORCES }) => {
+  const overlayActive = !!overlay && overlay.size > 0
+  // Read by the tick loop, which outlives any one render.
+  const healthRef = useRef(health)
+  healthRef.current = health
+  const containerRef = useRef<HTMLDivElement>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
+  const viewportRef = useRef<SVGGElement>(null)
+  const nodeGroupRefs = useRef<Map<string, SVGGElement>>(new Map())
+  const heatRefs = useRef<Map<string, SVGCircleElement>>(new Map())
+  const edgeRefs = useRef<Map<number, SVGLineElement>>(new Map())
+
+  const view = useRef({ x: 0, y: 0, k: 1 })
+  const pan = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null)
+  const drag = useRef<{ id: string } | null>(null)
+  const followNodeIdRef = useRef<string | null>(null)
+  // Set once per flight (when a new node is selected — see the effect below),
+  // not recomputed every frame, so the speed reflects the distance at the
+  // moment of selection rather than easing as the camera gets closer.
+  const followParamsRef = useRef<{ lerp: number; maxStep: number }>({
+    lerp: CAMERA_FOLLOW_NEAR_LERP,
+    maxStep: CAMERA_FOLLOW_NEAR_MAX_STEP,
+  })
+
+  // Hover only drives the node-label fill (see the item-state ladder below);
+  // it's plain React state because enter/leave fire on boundary crossings, not
+  // per-frame — positions still stream through refs in the tick loop, so a
+  // hover re-render never disturbs the running simulation.
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+
+  const selectedIdRef = useRef(selectedId)
+  selectedIdRef.current = selectedId
+
+  // Live node positions, kept current by the tick loop (see render()). Seeded
+  // back into every rebuild so a `data` change carries positions over instead
+  // of scattering to a fresh circle — the basis for the no-reheat path below.
+  const positionsRef = useRef<NodePositions>(new Map())
+
+  // Upstream re-fetches hand over a fresh `data` object on every planning-file
+  // change (each editor autosave used to be one), usually with nothing in it
+  // changed. Keying the layout on the content rather than the object identity
+  // means an identical refetch keeps the running simulation and re-renders
+  // nothing.
+  const dataKey = useMemo(() => JSON.stringify(data), [data])
+  const stableDataRef = useRef({ key: dataKey, data })
+  if (stableDataRef.current.key !== dataKey) stableDataRef.current = { key: dataKey, data }
+  const stableData = stableDataRef.current.data
+
+  // The forces a rebuild starts from are whatever the dials say now; moving a
+  // dial re-settles the running simulation (below) rather than rebuilding it.
+  const forcesRef = useRef(forces)
+  const { simNodes, simLinks, simulation, neighbors, carriedCount, addedCount } = useMemo(
+    () => buildForceLayout(stableData, positionsRef.current, forcesRef.current),
+    [stableData],
+  )
+  const nodeById = useMemo(() => new Map(simNodes.map((n) => [n.id, n])), [simNodes])
+
+  // What the force layout actually depends on: the set of nodes and the
+  // *undirected* set of structural edges. A direction flip reverses an edge but
+  // leaves this key identical, as does any pure metadata edit (label, status)
+  // or a plan reorder (sequence edges aren't simulated — see layout.ts) — the
+  // signal for whether a rebuild needs to reheat gravity or can render cooled.
+  const topologyKey = useMemo(() => {
+    const nodeKey = stableData.nodes.map((n) => n.id).sort().join(',')
+    const edgeKey = stableData.edges
+      .filter((e) => e.kind !== 'sequence')
+      .map((e) => (e.source < e.target ? `${e.source}~${e.target}` : `${e.target}~${e.source}`))
+      .sort()
+      .join(',')
+    return `${nodeKey}|${edgeKey}`
+  }, [stableData])
+  const prevTopologyRef = useRef<string | null>(null)
+  const sizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 })
+
+  // Starts the tick loop if it has stopped (set by the tick-loop effect below).
+  // The simulation is only ever stepped by that loop — never by d3's own
+  // timer — so anything that wants the layout moving goes through kick().
+  const startLoopRef = useRef<() => void>(() => {})
+  const kick = (alpha: number) => {
+    simulation.alpha(Math.max(simulation.alpha(), alpha))
+    startLoopRef.current()
+  }
+
+  // Center the simulation on the container, and decide whether this rebuild
+  // reheats gravity. Only a real topology change (a node/edge added or removed)
+  // or an actual container resize reheats — an addition only as much as its
+  // size warrants (see reheatAlpha); a same-topology rebuild — an
+  // edge-direction flip, a metadata edit — keeps every node's carried-over
+  // position and cools the fresh simulation to a stop, so the one-shot render
+  // in the tick loop just redraws the changed edge in place.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    // A hidden canvas (its category switched away — App keeps it mounted
+    // under display:none) measures 0×0; centering on that would pull the
+    // whole layout to the corner while nobody's looking.
+    if (rect.width > 0 && rect.height > 0) setForceOrigin(simulation, rect.width / 2, rect.height / 2)
+    const sizeChanged = sizeRef.current.w !== rect.width || sizeRef.current.h !== rect.height
+    sizeRef.current = { w: rect.width, h: rect.height }
+
+    if (prevTopologyRef.current !== topologyKey) {
+      prevTopologyRef.current = topologyKey
+      simulation.alpha(reheatAlpha(carriedCount, addedCount))
+    } else if (sizeChanged) {
+      simulation.alpha(0.3)
+    } else {
+      // A freshly built simulation defaults to alpha 1 — cool it so the tick
+      // loop renders one frame at the seeded positions and then stops.
+      simulation.alpha(0)
+    }
+
+    const observer = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect()
+      // ResizeObserver fires once on observe(); skip that no-op so it can't
+      // sneak in a reheat right after a no-reheat rebuild.
+      if (r.width === sizeRef.current.w && r.height === sizeRef.current.h) return
+      sizeRef.current = { w: r.width, h: r.height }
+      // Just hidden: the tick loop sees the 0×0 size and parks itself, with
+      // whatever heat the layout had kept for when it's shown again.
+      if (r.width === 0 || r.height === 0) return
+      setForceOrigin(simulation, r.width / 2, r.height / 2)
+      kick(0.3)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+    // kick only reads refs and `simulation`, already a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulation, topologyKey, carriedCount, addedCount])
+
+  // The center and repel dials: the layout's forces follow them and it reheats,
+  // so the nodes drift apart, or gather in, from where they are.
+  useEffect(() => {
+    if (forcesRef.current.center === forces.center && forcesRef.current.repel === forces.repel) return
+    forcesRef.current = forces
+    applyForces(simulation, forces)
+    kick(0.5)
+    // kick only reads refs and `simulation`, already a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forces.center, forces.repel, simulation])
+
+  // Tick loop: stop once the layout has cooled, resume on drag/reheat (via
+  // kick → startLoopRef). Not keyed on the selection: a click never needs the
+  // simulation stepped, and anything that does move it kicks the loop itself.
+  useEffect(() => {
+    let raf = 0
+    let running = true
+
+    const render = () => {
+      const positions = positionsRef.current
+      for (const node of simNodes) {
+        const g = nodeGroupRefs.current.get(node.id)
+        if (g) g.setAttribute('transform', `translate(${node.x ?? 0}, ${node.y ?? 0})`)
+        const glow = heatRefs.current.get(node.id)
+        if (glow) {
+          glow.setAttribute('cx', String(node.x ?? 0))
+          glow.setAttribute('cy', String(node.y ?? 0))
+        }
+        // Snapshot the live position so the next rebuild can seed from it —
+        // updated in place, since this runs for every node every frame.
+        const p = positions.get(node.id)
+        if (p) {
+          p.x = node.x ?? 0
+          p.y = node.y ?? 0
+          p.vx = node.vx ?? 0
+          p.vy = node.vy ?? 0
+        } else {
+          positions.set(node.id, { x: node.x ?? 0, y: node.y ?? 0, vx: node.vx ?? 0, vy: node.vy ?? 0 })
+        }
+      }
+      simLinks.forEach((edge, i) => {
+        const line = edgeRefs.current.get(i)
+        if (!line) return
+        const s = linkNode(edge.source, simNodes)
+        const t = linkNode(edge.target, simNodes)
+        if (s && t) {
+          const sx = s.x ?? 0
+          const sy = s.y ?? 0
+          const tx = t.x ?? 0
+          const ty = t.y ?? 0
+          // Pull the endpoint back off the target node's own radius so the
+          // arrowhead marker (see the <marker> def below) renders just
+          // outside the circle instead of vanishing underneath it — nodes
+          // paint on top of edges, so a marker placed at the raw center
+          // would be fully hidden.
+          const dx = tx - sx
+          const dy = ty - sy
+          const dist = Math.hypot(dx, dy) || 1
+          const ux = dx / dist
+          const uy = dy / dist
+          // Both endpoints sit just outside their node's radius — the tail off
+          // the source (SOURCE_GAP) and the head off the target (ARROW_GAP).
+          const startPull = drawnRadius(s, healthRef.current) + SOURCE_GAP
+          const endPull = drawnRadius(t, healthRef.current) + ARROW_GAP
+          const bx = sx + ux * startPull
+          const by = sy + uy * startPull
+          const ex = tx - ux * endPull
+          const ey = ty - uy * endPull
+          line.setAttribute('x1', String(bx))
+          line.setAttribute('y1', String(by))
+          line.setAttribute('x2', String(ex))
+          line.setAttribute('y2', String(ey))
+        }
+      })
+    }
+
+    const tick = () => {
+      raf = 0
+      if (!running) return
+      // Hidden (see the size effect above): no frames, no physics. Planning
+      // stays mounted behind Workspace, and simulating a graph nobody can see
+      // was costing frames while typing in the editor. Showing it again fires
+      // the ResizeObserver, which kicks the loop back on.
+      if (sizeRef.current.w === 0 || sizeRef.current.h === 0) return
+      if (simulation.alpha() > ALPHA_MIN || drag.current) {
+        for (let i = 0; i < TICKS_PER_FRAME; i++) simulation.tick()
+      }
+      render()
+      // Smoothly follow the selected node toward viewport center, while still
+      // letting force-sim "gravity" animate the graph underneath.
+      if (!pan.current && !drag.current && followNodeIdRef.current) {
+        const target = nodeById.get(followNodeIdRef.current)
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (target && rect) {
+          const tx = rect.width / 2 - (target.x ?? 0) * view.current.k
+          const ty = rect.height / 2 - (target.y ?? 0) * view.current.k
+          const dx = tx - view.current.x
+          const dy = ty - view.current.y
+
+          // Close enough — the camera has arrived. One-shot: stop following so
+          // the node stays put and the canvas can be panned freely from here,
+          // instead of the node springing back to center on every drag.
+          if (Math.abs(dx) < CAMERA_FOLLOW_DEADZONE && Math.abs(dy) < CAMERA_FOLLOW_DEADZONE) {
+            followNodeIdRef.current = null
+            return
+          }
+
+          const { lerp, maxStep } = followParamsRef.current
+          let stepX = dx * lerp
+          let stepY = dy * lerp
+          const stepMag = Math.hypot(stepX, stepY)
+          if (stepMag > maxStep) {
+            const s = maxStep / stepMag
+            stepX *= s
+            stepY *= s
+          }
+
+          view.current = {
+            ...view.current,
+            x: view.current.x + stepX,
+            y: view.current.y + stepY,
+          }
+          if (Math.abs(dx) < CAMERA_FOLLOW_EPSILON && Math.abs(dy) < CAMERA_FOLLOW_EPSILON) {
+            view.current = { ...view.current, x: tx, y: ty }
+          }
+          applyTransform()
+        }
+      }
+      if (simulation.alpha() > ALPHA_MIN || drag.current || followNodeIdRef.current) {
+        raf = requestAnimationFrame(tick)
+      }
+    }
+
+    startLoopRef.current = () => {
+      if (running && !raf) raf = requestAnimationFrame(tick)
+    }
+    render()
+    raf = requestAnimationFrame(tick)
+
+    return () => {
+      running = false
+      cancelAnimationFrame(raf)
+      startLoopRef.current = () => {}
+    }
+  }, [simNodes, simLinks, simulation, nodeById])
+
+  // The lens resizes nodes without moving them: redraw one frame so every
+  // link's ends sit back on the new circles.
+  useEffect(() => {
+    startLoopRef.current()
+  }, [health])
+
+  const applyTransform = () => {
+    const g = viewportRef.current
+    if (g) g.setAttribute('transform', `translate(${view.current.x}, ${view.current.y}) scale(${view.current.k})`)
+  }
+
+  const wake = () => kick(0.3)
+
+  // One-shot center-on-demand: snaps the camera to a node id, never called
+  // automatically just because the selection changed (see centerSignal's doc
+  // comment). Mirrored into a ref every render (same pattern as
+  // selectedIdRef) rather than memoized, so both the centerSignal effect
+  // below and a node's own onDoubleClick handler always call the freshest
+  // version — closing directly over `simNodes`/`wake` would go stale the
+  // moment `data` changes and rebuilds the simulation. The tick loop clears
+  // followNodeIdRef the instant the camera arrives, and starting a
+  // background pan cancels it too — so after the initial snap you can drag
+  // the canvas around freely without the node springing back to the middle.
+  const centerOnNodeRef = useRef<(id: string) => void>(() => {})
+  centerOnNodeRef.current = (id: string) => {
+    followNodeIdRef.current = id
+    // Distance from where the camera is right now to the target node — "how
+    // far away" it is from the current view, in screen px — sets this
+    // flight's speed (see followParamsForDistance): far = fast, near = slow.
+    const target = nodeById.get(id)
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (target && rect) {
+      const tx = rect.width / 2 - (target.x ?? 0) * view.current.k
+      const ty = rect.height / 2 - (target.y ?? 0) * view.current.k
+      const distance = Math.hypot(tx - view.current.x, ty - view.current.y)
+      followParamsRef.current = followParamsForDistance(distance)
+    }
+    wake()
+  }
+
+  // Fires centerOnNodeRef only when centerSignal actually bumps (the NODES
+  // list's single-click, see PlanningView's selectNodeRow) — not on every
+  // selectedId/data change, which is what makes a plain click in the graph
+  // itself select without moving the camera.
+  const prevCenterSignalRef = useRef(centerSignal)
+  useEffect(() => {
+    if (centerSignal === prevCenterSignalRef.current) return
+    prevCenterSignalRef.current = centerSignal
+    if (selectedIdRef.current) centerOnNodeRef.current(selectedIdRef.current)
+  }, [centerSignal])
+
+  const toGraphPoint = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return { x: 0, y: 0 }
+    const { x, y, k } = view.current
+    return {
+      x: (clientX - rect.left - x) / k,
+      y: (clientY - rect.top - y) / k,
+    }
+  }
+
+  const handleWheel = (e: WheelEvent) => {
+    e.preventDefault()
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const { x, y, k } = view.current
+    const nextK = Math.min(MAX_SCALE, Math.max(MIN_SCALE, k * (e.deltaY < 0 ? 1.1 : 0.9)))
+    const px = e.clientX - rect.left
+    const py = e.clientY - rect.top
+    view.current = {
+      k: nextK,
+      x: px - ((px - x) / k) * nextK,
+      y: py - ((py - y) / k) * nextK,
+    }
+    applyTransform()
+    if (followNodeIdRef.current) wake()
+  }
+
+  // Zooming the graph must not also scroll or zoom the page, and a React
+  // onWheel can't stop that: React listens to wheel passively, so its
+  // preventDefault() is ignored (and logged as an error on every tick). A
+  // native non-passive listener can. The ref keeps it on the latest handler.
+  const handleWheelRef = useRef(handleWheel)
+  handleWheelRef.current = handleWheel
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const listener = (e: WheelEvent) => handleWheelRef.current(e)
+    svg.addEventListener('wheel', listener, { passive: false })
+    return () => svg.removeEventListener('wheel', listener)
+  }, [])
+
+  const handleBackgroundPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.target !== svgRef.current) return
+    // Taking manual control of the camera — cancel any in-progress center-on-
+    // select so panning the canvas never yanks the selected node back to the
+    // middle.
+    followNodeIdRef.current = null
+    // Deselecting happens on pointer-up (see handlePointerUp), once we know
+    // this was a plain click and not the start of a pan-drag — otherwise
+    // panning away from a selected node would close its card mid-drag.
+    pan.current = { startX: e.clientX, startY: e.clientY, originX: view.current.x, originY: view.current.y, moved: false }
+    ;(e.target as Element).setPointerCapture(e.pointerId)
+  }
+
+  const handleNodePointerDown = (id: string) => (e: React.PointerEvent) => {
+    e.stopPropagation()
+    onSelectNode(id)
+    // Note: no wake() here — selecting a node (a plain click) must never
+    // reheat the simulation, or every click would jostle the whole layout.
+    // Physics only wakes once an actual drag move happens, below.
+    drag.current = { id }
+    ;(e.target as Element).setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (drag.current) {
+      // Reheat only now, on the first confirmed drag movement — so other
+      // nodes' collide/charge forces react to the node being dragged, but a
+      // click that never moves the pointer leaves the layout untouched.
+      wake()
+      const node = nodeById.get(drag.current.id)
+      if (node) {
+        const p = toGraphPoint(e.clientX, e.clientY)
+        node.fx = p.x
+        node.fy = p.y
+      }
+      return
+    }
+    if (pan.current) {
+      const dx = e.clientX - pan.current.startX
+      const dy = e.clientY - pan.current.startY
+      if (!pan.current.moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) pan.current.moved = true
+      view.current = {
+        ...view.current,
+        x: pan.current.originX + dx,
+        y: pan.current.originY + dy,
+      }
+      applyTransform()
+    }
+  }
+
+  const handlePointerUp = () => {
+    if (drag.current) {
+      const node = nodeById.get(drag.current.id)
+      if (node) {
+        node.fx = null
+        node.fy = null
+      }
+      drag.current = null
+    }
+    if (pan.current) {
+      // Only a real click (no movement) deselects — a pan-drag leaves the
+      // current selection (and its card) locked in place. A pan never resumes
+      // camera-follow (it was cleared on pan start), so the view stays exactly
+      // where you dragged it.
+      if (!pan.current.moved) onSelectNode('')
+      pan.current = null
+    }
+  }
+
+  const hasSelection = selectedId != null && selectedId !== ''
+  const isHighlighted = (id: string) => id === selectedId || (neighbors.get(selectedId ?? '')?.has(id) ?? false)
+
+  // One object for the canvas's lifetime, so the memoized node and edge views
+  // below only re-render when their own props change — hovering a node
+  // re-renders that node (and the one it left), not every node and line on
+  // screen. Each method reads the latest closure through a ref.
+  const latestRef = useRef({ handleNodePointerDown, centerOnNodeRef, onSelectNode })
+  latestRef.current = { handleNodePointerDown, centerOnNodeRef, onSelectNode }
+  const handlers = useMemo<GraphViewHandlers>(
+    () => ({
+      registerNode: (id, el) => {
+        if (el) nodeGroupRefs.current.set(id, el)
+        else nodeGroupRefs.current.delete(id)
+      },
+      registerEdge: (i, el) => {
+        if (el) edgeRefs.current.set(i, el)
+        else edgeRefs.current.delete(i)
+      },
+      nodePointerDown: (id, e) => latestRef.current.handleNodePointerDown(id)(e),
+      nodeDoubleClick: (id) => latestRef.current.centerOnNodeRef.current(id),
+      nodeEnter: (id) => setHoveredId(id),
+      nodeLeave: (id) => setHoveredId((h) => (h === id ? null : h)),
+    }),
+    [],
+  )
+
+  // A node's tone: the one worked out with git, else its status alone.
+  const toneOf = (id: string): Tone => {
+    const known = tones?.get(id)
+    if (known) return known
+    const node = nodeById.get(id)
+    return toneOfStage(node ? stages?.[nodeStageKey(node)] : undefined)
+  }
+
+  return (
+    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+      <svg
+        ref={svgRef}
+        width="100%"
+        height="100%"
+        onPointerDown={handleBackgroundPointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        style={{ cursor: 'grab', touchAction: 'none' }}
+      >
+        <g ref={viewportRef}>
+          <defs>
+            {/* One shared arrowhead for every edge — orient="auto-start-reverse"
+                rotates it to match each line's own direction automatically, so
+                it tracks the tick loop's live x1/y1/x2/y2 updates above with no
+                extra JS. opacity/color on the referencing <line> itself applies
+                to its marker too (per the SVG spec), so highlighted/dimmed
+                edges don't need per-marker logic.
+
+                markerUnits="userSpaceOnUse" decouples the head's size from the
+                stroke width (default "strokeWidth" would tie a 1px stroke to a
+                near-invisible ~3px head, and make selected 1.5px edges' heads
+                jump in size) — so it stays a fixed, node-scaled size (~4.5 graph
+                units) that scales with zoom via the parent viewport transform.
+                An open (stroked, unfilled) chevron rather than a solid triangle,
+                so it reads as a lightweight line-arrowhead. */}
+            <marker id="graph-edge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.5" markerHeight="4.5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+              <path d="M2,1 L9,5 L2,9" fill="none" style={{ stroke: EDGE }} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
+            {/* The same heads in each tone: a marker can't take its line's
+                color, so every tone gets its own. Import links carry the open
+                chevron at their source end; a plan's step-to-step links a solid
+                head at their end — the arrow points to the next step. */}
+            {TONES.map((tone) => (
+              <marker key={`edge-${tone}`} id={`graph-edge-arrow-${tone}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.5" markerHeight="4.5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M2,1 L9,5 L2,9" fill="none" style={{ stroke: EDGE }} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />
+              </marker>
+            ))}
+            {TONES.map((tone) => (
+              <marker key={`seq-${tone}`} id={`graph-seq-arrow-${tone}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto">
+                <path d="M1,1 L9,5 L1,9 Z" style={{ fill: EDGE }} />
+              </marker>
+            ))}
+            {/* The Health lens's colored links keep a matching arrowhead. */}
+            {([['cycle', DANGER_COLOR], ['upward', WARN_COLOR]] as const).map(([kind, color]) => (
+              <marker key={kind} id={`graph-edge-arrow-${kind}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M2,1 L9,5 L2,9" fill="none" style={{ stroke: color }} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+              </marker>
+            ))}
+          </defs>
+          {/* The heat map, under everything else. Positioned by the tick loop
+              like the nodes (heatRefs); never takes the pointer. */}
+          {simLinks.map((edge, i) => {
+            const sourceId = linkId(edge.source)
+            const targetId = linkId(edge.target)
+            const isSelectedEdge = hasSelection && isHighlighted(sourceId) && isHighlighted(targetId)
+            const key = edgeKey(sourceId, targetId)
+            const edgeHealth = !health ? undefined : health.cycleEdges.has(key) ? 'cycle' : health.upwardEdges.has(key) ? 'upward' : 'ok'
+            return (
+              <GraphEdgeView
+                key={`${sourceId}->${targetId}:${edge.kind}:${i}`}
+                index={i}
+                sequence={edge.kind === 'sequence'}
+                tone={edgeTone(toneOf(sourceId), toneOf(targetId))}
+                selected={isSelectedEdge}
+                dimmed={hasSelection && !isSelectedEdge}
+                inPlan={overlayActive && overlay!.has(sourceId) && overlay!.has(targetId)}
+                health={edgeHealth}
+                handlers={handlers}
+              />
+            )
+          })}
+          {trail && trail.path.length > 1 && (
+            <polyline
+              points={trail.path
+                .map((id) => nodeById.get(id))
+                .filter((n): n is NonNullable<typeof n> => !!n)
+                .map((n) => `${n.x ?? 0},${n.y ?? 0}`)
+                .join(' ')}
+              fill="none"
+              style={{ stroke: TRAIL_LINE_COLOR }}
+              strokeWidth={1.5}
+              strokeLinejoin="round"
+              strokeDasharray="2 3"
+              vectorEffect="non-scaling-stroke"
+              pointerEvents="none"
+              markerEnd="url(#graph-seq-arrow-done)"
+            />
+          )}
+          {simNodes.map((node) => {
+            const isSelected = node.id === selectedId
+            const isNeighbor = hasSelection && !!neighbors.get(selectedId!)?.has(node.id)
+            const nodeHealth = health?.nodes.get(node.id)
+            // A file's counts: under the pointer, selected, or a neighbour of
+            // a selection small enough to label them all. (Hubs read by size.)
+            const showCounts =
+              !!nodeHealth &&
+              (isSelected || node.id === hoveredId || (isNeighbor && (neighbors.get(selectedId!)?.size ?? 0) <= MAX_NEIGHBOR_COUNT_LABELS))
+            return (
+              <GraphNodeView
+                key={node.id}
+                node={node}
+                selected={isSelected}
+                neighbor={isNeighbor}
+                dimmed={hasSelection && !isSelected && !isNeighbor}
+                hovered={node.id === hoveredId}
+                linked={(neighbors.get(node.id)?.size ?? 0) > 0}
+                tone={toneOf(node.id)}
+                missing={!!node.filePath && !node.proposedFile && !node.planned && !!missingPaths?.has(node.filePath)}
+                health={nodeHealth}
+                showCounts={showCounts}
+                handlers={handlers}
+              />
+            )
+          })}
+          {/* Where agents are: a corner box around each node on the trail
+              (the one it's on now blinks), and around any plan step being
+              tested. Drawn over the nodes, redrawn on the trail's own tick, so
+              it follows a moving layout a beat behind without slowing it. */}
+          <g pointerEvents="none">
+            {simNodes.map((node) => {
+              const mark = trail?.marks.get(node.id)
+              const testing = !health && node.type === 'plan-step' && toneOf(node.id) === 'testing'
+              if (!mark?.current && !testing) return null
+              return (
+                <FocusBox
+                  key={node.id}
+                  x={node.x ?? 0}
+                  y={node.y ?? 0}
+                  half={drawnRadius(node, health) + FOCUS_PAD}
+                />
+              )
+            })}
+          </g>
+        </g>
+      </svg>
+    </div>
+  )
+}
+
+interface GraphViewHandlers {
+  registerNode: (id: string, el: SVGGElement | null) => void
+  registerEdge: (index: number, el: SVGLineElement | null) => void
+  nodePointerDown: (id: string, e: React.PointerEvent) => void
+  nodeDoubleClick: (id: string) => void
+  nodeEnter: (id: string) => void
+  nodeLeave: (id: string) => void
+}
+
+interface GraphEdgeViewProps {
+  /** Position in simLinks — the tick loop finds this line's element by it. */
+  index: number
+  sequence: boolean
+  /** The more active tone of its two ends (graph/nodeTone.ts's edgeTone). */
+  tone: Tone
+  selected: boolean
+  dimmed: boolean
+  inPlan: boolean
+  /** Under the Health lens: whether this link closes an import loop, points up the layers, or is fine. Undefined with the lens off. */
+  health?: 'cycle' | 'upward' | 'ok'
+  handlers: GraphViewHandlers
+}
+
+// One link. Its endpoints are never props: the tick loop writes x1/y1/x2/y2
+// straight onto the element every frame, so this only re-renders when the
+// link's highlight state changes.
+const GraphEdgeView = memo(function GraphEdgeView({ index, sequence, tone, selected, dimmed, inPlan, health, handlers }: GraphEdgeViewProps) {
+  const ref = (el: SVGLineElement | null) => handlers.registerEdge(index, el)
+  // A plan's work order: an arrow toward the next step, in its tone — dashed
+  // while what it leads to is still proposed.
+  if (sequence) {
+    return (
+      <line
+        ref={ref}
+        style={{ stroke: EDGE }}
+        strokeWidth={selected ? 1.5 : 1}
+        strokeDasharray={tone === 'proposed' ? '5 4' : undefined}
+        vectorEffect="non-scaling-stroke"
+        opacity={REST_OPACITY}
+        markerEnd={`url(#graph-seq-arrow-${tone})`}
+      />
+    )
+  }
+  // Under the Health lens a problem link wears its color (red loop, dashed
+  // amber upward import) at full strength, and healthy ones step back.
+  if (health === 'cycle' || health === 'upward') {
+    return (
+      <line
+        ref={ref}
+        // A loop is a heavy line, an upward import a dashed one — no color.
+        style={{ stroke: INK }}
+        strokeWidth={health === 'cycle' ? (selected ? 3 : 2.5) : selected ? 2 : 1.5}
+        strokeDasharray={health === 'upward' ? '4 3' : undefined}
+        vectorEffect="non-scaling-stroke"
+        opacity={dimmed ? DIMMED_EDGE_OPACITY * 2 : FOCUS_OPACITY}
+        markerStart={`url(#graph-edge-arrow-${health})`}
+      />
+    )
+  }
+  // Under the Health lens a healthy link is plain ink, stepped back; anywhere
+  // else a link wears its tone (dashed while proposed). A link inside the plan
+  // (both ends belong to it) is a little heavier.
+  const underLens = health === 'ok'
+  return (
+    <line
+      ref={ref}
+      // Theme tokens (themes/*.css), applied through `style` so var()
+      // always resolves. `opacity` applies to the arrowhead marker too.
+      style={{ stroke: EDGE }}
+      strokeWidth={selected || inPlan ? 1.5 : 1}
+      strokeDasharray={!underLens && tone === 'proposed' ? '5 4' : undefined}
+      // Screen pixels, not graph units: zoomed out, a 1-unit line shrank
+      // below a pixel and anti-aliased away. Now it's always one real pixel.
+      vectorEffect="non-scaling-stroke"
+      opacity={dimmed ? DIMMED_EDGE_OPACITY : selected ? FOCUS_OPACITY : underLens ? HEALTHY_EDGE_OPACITY_UNDER_LENS : REST_OPACITY}
+      // Edges run importer → imported, but the arrow shows the import flowing
+      // *into* the importer, so the head sits at the source end
+      // (auto-start-reverse points it back toward the source).
+      markerStart={underLens ? 'url(#graph-edge-arrow)' : `url(#graph-edge-arrow-${tone})`}
+    />
+  )
+})
+
+interface GraphNodeViewProps {
+  /** Identity is stable for a layout's lifetime; its x/y are written by the tick loop, never rendered from here. */
+  node: SimNode
+  selected: boolean
+  neighbor: boolean
+  dimmed: boolean
+  hovered: boolean
+  /** Has at least one link — picks the label's node glyph (see nodeIconName). */
+  linked: boolean
+  tone: Tone
+  missing: boolean
+  /** This file's numbers under the Health lens; undefined with the lens off, or for a node that isn't a scanned file (a step, a folder). */
+  health?: NodeHealth
+  /** Draw the "in N · out M" line under the dot (lens only). */
+  showCounts: boolean
+  handlers: GraphViewHandlers
+}
+
+
+// One node: its dot, stage shape and label chip. Positioned by the tick loop
+// through the registered <g> (see GraphCanvas's render()).
+const GraphNodeView = memo(function GraphNodeView({
+  node,
+  selected: isSelected,
+  neighbor: isNeighbor,
+  dimmed,
+  hovered: isHovered,
+  linked,
+  tone,
+  missing: isMissing,
+  health,
+  showCounts,
+  handlers,
+}: GraphNodeViewProps) {
+  // Under the Health lens every node is the theme's ink — the lens has its own
+  // emphasis; anywhere else a node wears its tone.
+  const toneStyle = TONE_STYLE[tone]
+  const color = INK
+  // Node-label chip follows the shared item-state ladder (the same one list
+  // rows use, see item-states.css): selected = solid ink fill; hover (the
+  // hovered node only) and a selected node's neighbours (connected) = an ink
+  // outline with no fill (white on the dark theme, near-black on light); idle
+  // = bare. Adjacency outlines are deliberately a *selection* affordance, not
+  // a hover one — you click a node to see what it links to, hovering just
+  // highlights the one node under the pointer. Text is ground-coloured on the
+  // selected fill, full ink on an outline state, 80% ink when idle.
+  const isOutlined = !isSelected && (isHovered || isNeighbor)
+  // Opaque, in the board colour: a line running under a label is hidden by it
+  // rather than striking through the text.
+  const labelBg = GRAPH_BG
+  const labelStroke = isSelected || isOutlined ? INK : 'none'
+  const labelText = INK
+  const radius = drawnRadius(node, health)
+  const ext = fileExtLabel(node.filePath)
+  const label = `${nodeDisplayLabel(node)}${ext}`
+  const labelY = -(radius + 13)
+  const labelHeight = 12
+  // Monospace estimate is enough for an unreadability guard here.
+  const labelWidth = Math.max(18, label.length * 5.6)
+  // Leading type icon in the label: a file icon for code-backed nodes, the
+  // node glyph otherwise (matches the NODES list). Content is laid out
+  // left-aligned [icon][gap][text] and centred as a whole.
+  const labelIconName = nodeIconName(node, linked)
+  const labelIconSize = 10
+  const labelIconGap = 3
+  const contentWidth = labelIconSize + labelIconGap + labelWidth
+  const contentLeft = -(contentWidth / 2)
+  // A planned file that isn't on disk yet: its tone is proposed (a dashed blue
+  // ring), and it says so on hover.
+  const isPlannedPlaceholder = !!node.planned && tone === 'proposed'
+  // Exceptions to the tone, both warnings rather than decoration: a node whose
+  // backing file is gone (`missing`) gets a red ring — the file moved or was
+  // deleted outside Sleipnir, and opening it would only fail — and under the
+  // Health lens an unused file is a hollow dashed ring. (Loops and heat are
+  // the glow underneath, so every other dot under the lens stays plain ink.)
+  const healthShape = isMissing || !health ? null : health.unused ? 'unused' : 'plain'
+  const ring = isMissing || healthShape === 'unused' || (!healthShape && toneStyle.fill === 'none')
+  // A hollow ring is backed with the board colour, so lines crossing it stay underneath.
+  const circleStyle = isMissing ? { fill: GRAPH_BG, stroke: INK } : ring ? { fill: GRAPH_BG, stroke: color } : { fill: color, stroke: 'none' }
+  const circleStrokeWidth = isMissing ? 2 : healthShape === 'unused' ? 1 : ring ? 1.5 : 0
+  const circleDash = isMissing ? '2 2' : healthShape === 'unused' ? '2 2' : healthShape ? undefined : toneStyle.dash
+  const id = node.id
+  return (
+    <g
+      ref={(el) => handlers.registerNode(id, el)}
+      onPointerDown={(e) => handlers.nodePointerDown(id, e)}
+      // Double-click centers the camera on this node (it's already selected —
+      // pointerdown above fired onSelectNode first) — deliberately not "jump
+      // to file" anymore, so double-clicking to steady the view for a drag
+      // never navigates away.
+      onDoubleClick={() => handlers.nodeDoubleClick(id)}
+      onPointerEnter={() => handlers.nodeEnter(id)}
+      onPointerLeave={() => handlers.nodeLeave(id)}
+      opacity={dimmed ? DIMMED_NODE_OPACITY : healthShape === 'unused' && !isSelected && !isHovered ? UNUSED_NODE_OPACITY : FOCUS_OPACITY}
+      style={{ cursor: 'pointer' }}
+    >
+      {isMissing && <title>File missing: {node.filePath} (moved or deleted outside Sleipnir)</title>}
+      {!isMissing && health && <title>{`${node.filePath}: ${describeNodeHealth(health)}`}</title>}
+      {isPlannedPlaceholder && <title>Planned: {node.filePath} — created when its step is approved</title>}
+      <circle r={radius + NODE_HIT_PADDING} fill="transparent" pointerEvents="all" />
+      {/* Selection ring. Every node is the same ink now, so the dot itself no
+          longer changes color to say "selected". */}
+      {isSelected && <circle r={radius + 4} fill="none" style={{ stroke: INK }} strokeWidth={1} />}
+      <circle
+        r={!health && !isMissing && tone === 'committed' ? radius * 0.6 : radius}
+        style={circleStyle}
+        strokeWidth={circleStrokeWidth}
+        strokeDasharray={circleDash}
+        pathLength={!isMissing && circleDash ? STAGE_PATH_LENGTH : undefined}
+      />
+      {showCounts && health && (
+        <text
+          y={radius + 10}
+          textAnchor="middle"
+          fontFamily="var(--font-ui)"
+          fontSize={8}
+          letterSpacing="0.04em"
+          style={{ fill: INK, pointerEvents: 'none', ...TEXT_HALO }}
+        >
+          in {health.fanIn} · out {health.fanOut}
+        </text>
+      )}
+      {/* A plan step's position in its plan. */}
+      {node.type === 'plan-step' && node.order !== undefined && (
+        <text
+          x={radius + 4}
+          y={radius + 7}
+          fontFamily="var(--font-ui)"
+          fontSize={8}
+          fontWeight={700}
+          style={{ fill: PLAN_COLOR, pointerEvents: 'none', ...TEXT_HALO }}
+        >
+          {node.order}
+        </text>
+      )}
+      <rect
+        x={contentLeft - 7}
+        y={labelY - labelHeight / 2}
+        width={contentWidth + 14}
+        height={labelHeight}
+        rx={3}
+        style={{ fill: labelBg, stroke: labelStroke }}
+        strokeWidth={1}
+      />
+      {/* Type icon — inherits labelText via `color` so it flips with the
+          row-state ladder (ground on the selected fill, ink otherwise). */}
+      <g transform={`translate(${contentLeft}, ${labelY - labelIconSize / 2})`} style={{ color: labelText, pointerEvents: 'none' }}>
+        <Icon name={labelIconName} size={labelIconSize} />
+      </g>
+      <text
+        x={contentLeft + labelIconSize + labelIconGap}
+        y={labelY}
+        textAnchor="start"
+        dominantBaseline="middle"
+        fontFamily="var(--font-ui)"
+        fontSize={9}
+        letterSpacing="0.05em"
+        style={{ pointerEvents: 'none', fill: labelText }}
+      >
+        {label}
+      </text>
+    </g>
+  )
+})

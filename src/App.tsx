@@ -1,13 +1,13 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import './00_themes/default.css'
-import './00_themes/dark.css'
-import './00_themes/houseplant.css'
-import './00_themes/tactical.css'
-import './00_themes/light.css'
-import './00_themes/item-states.css'
-import { ThemeProvider } from './00_themes/ThemeProvider'
-import { ThemeController, useAppTheme } from './00_themes/ThemeController'
-import { KeybindingsController } from './00_keybindings/KeybindingsController'
+import './themes/default.css'
+import './themes/dark.css'
+import './themes/houseplant.css'
+import './themes/tactical.css'
+import './themes/light.css'
+import './themes/item-states.css'
+import { ThemeProvider } from './themes/ThemeProvider'
+import { ThemeController, useAppTheme } from './themes/ThemeController'
+import { KeybindingsController } from './keybindings/KeybindingsController'
 import { Frame } from './app/UIKit/Frame/Frame'
 import { NavRail, type NavRailItem } from './app/NavRail/NavRail'
 import { TerminalDock } from './app/TerminalDock/TerminalDock'
@@ -21,10 +21,10 @@ import { StatusBar, type DockId } from './app/StatusBar/StatusBar'
 import type { ProblemsSummary } from './app/ProblemsDock/ProblemsDock'
 import { TitleBar } from './app/TitleBar/TitleBar'
 import { CommandPalette } from './app/CommandPalette/CommandPalette'
-import { PlanningView } from './00_planning/PlanningView'
+import { PlanningView } from './planning/PlanningView'
 import { CanvasView, SettingsView, SourceControlView, ValidationView, WorkspaceView } from './app/lazyViews'
 import { bootSignal } from './boot'
-import type { GraphMapId, SavedPlan } from './00_planning/graph/types'
+import type { GraphMapId, SavedPlan } from './planning/graph/types'
 import {
   getPlans,
   deletePlan,
@@ -38,21 +38,21 @@ import {
   newWindow,
   appendPlanGeneratedFiles,
   relinkPlanningPath,
-} from './00_planning/api/sleipnirApi'
-import type { RecentProject, WorkspaceInfo } from './00_planning/api/PlatformAPI'
-import { isPlanningWatchAvailable } from './00_planning/api/iPlanningWatch'
-import { usePlanningHealth } from './00_planning/usePlanningHealth'
-import { useStatusReconciler } from './00_planning/useStatusReconciler'
-import type { MissingPlanningRef } from './00_planning/api/PlatformAPI'
-import { useCanvasComponentPaths } from './01_canvas/useCanvasComponentPaths'
-import { reconcileDelete, reconcileMove } from './01_canvas/model/store'
+} from './platform/sleipnirApi'
+import type { RecentProject, WorkspaceInfo } from './platform/PlatformAPI'
+import { isPlanningWatchAvailable } from './platform/iPlanningWatch'
+import { usePlanningHealth } from './planning/usePlanningHealth'
+import { useStatusReconciler } from './planning/useStatusReconciler'
+import type { MissingPlanningRef } from './platform/PlatformAPI'
+import { useCanvasComponentPaths } from './canvas/useCanvasComponentPaths'
+import { reconcileDelete, reconcileMove } from './canvas/io/store'
 import type { FolderBrowserHandle } from './app/DesignSystem/iFolderBrowserView'
 import type { GeneratedFile } from './app/AgentChat/iAgentChat'
 import { registerLspFileOpener } from './app/DesignSystem/lspFileOpener'
 import { DOCK_PANEL_HEIGHT } from './app/shellLayout'
 import { flushPendingWrites } from './app/pendingWrites'
 import { isTerminalToggle, TERMINAL_TOGGLE_DEFAULT_KEY, TERMINAL_TOGGLE_ID } from './app/shortcuts'
-import { useKeybindings } from './00_keybindings/KeybindingsController'
+import { useKeybindings } from './keybindings/KeybindingsController'
 
 export type { Page } from './types'
 
@@ -63,16 +63,12 @@ export type { Page } from './types'
 // of real content) while its height and the strip reclaimed for it agree, and
 // four copies of the number had no way to stay agreed.
 
-// Analytics is still hidden for now, not removed — src/05_analytics/ stays
-// untouched on disk. Bringing it back is restoring its entry here and its
-// case in renderCategory. (Validation was restored the same way — see the
-// 'validation' entry below and its case in renderCategory.)
 const NAV_ITEMS: NavRailItem[] = [
-  { id: 'planning',    tag: '00',  title: 'Planning',    icon: 'network' },
+  { id: 'planning',    tag: '00',  title: 'Agent',       icon: 'network' },
   { id: 'canvas',      tag: '01',  title: 'Canvas',      icon: 'canvas' },
   { id: 'workspace',   tag: 'WS',  title: 'Workspace',   icon: 'folder' },
   { id: 'validation',  tag: '04',  title: 'Validation',  icon: 'check' },
-  { id: 'source-control', tag: 'GIT', title: 'Source Control', icon: 'git-branch' },
+  { id: 'source-control', tag: 'Git', title: 'Source Control', icon: 'git-branch' },
 ]
 
 // The boot screen stays up until the restored project's info and plans are in
@@ -144,7 +140,7 @@ function App() {
   // fetched once here and handed to PlanningView/WorkspaceView as a prop
   // (same "one fetch, many consumers" reasoning as `plans`), so cross-section
   // "Show in Canvas" menu items know when to appear without either of those
-  // features importing from 01_canvas directly.
+  // features importing from canvas directly.
   const canvasComponentPaths = useCanvasComponentPaths(activeProject?.path)
   // True when the active project is the auto-provided scratch project (no real
   // folder chosen yet) — drives the TitleBar's "unsaved" label + Save action.
@@ -163,7 +159,7 @@ function App() {
   const run = useRunner(activeProject?.path)
 
   // Ctrl+` toggles the terminal, as it does in VS Code (see app/shortcuts.ts for
-  // the rule, and 00_keybindings for why it is not registered through Frame's
+  // the rule, and keybindings for why it is not registered through Frame's
   // onHotkey like the palette is). Bound on the CAPTURE phase because the
   // terminal is the most likely place to press it from, and xterm handles keys
   // on its own element — it would otherwise swallow the combo that closes it.
@@ -208,7 +204,7 @@ function App() {
    * component becomes a workspace component — the move IS the promotion — so
    * the board has to follow it. Without this the board would keep pointing at
    * the path the file left, and the next push would rewrite an abandoned copy
-   * (see 01_canvas/model/relink.ts).
+   * (see document/relink.ts).
    *
    * Runs for every move, not just ones out of `.canvas`: reconcileMove is a
    * no-op for boards that own nothing at the source path, and a component that
@@ -239,7 +235,7 @@ function App() {
    * Canvas's own REMOVE FROM WORKSPACE, so it gets the same outcome: the
    * component is un-promoted back to a frame when nothing would be lost, and
    * kept but flagged when it carries variants, props, or several instances
-   * (see 01_canvas/model/relink.ts's reconcileDeletedPath).
+   * (see document/relink.ts's reconcileDeletedPath).
    */
   const handlePathDeleted = async (path: string) => {
     try {
@@ -625,8 +621,7 @@ function App() {
             // folder, so a stale instance can't leak content across a switch.
             key={activeProject?.path ?? 'no-project'}
             activeProject={activeProject}
-            // Keeps Ctrl+S working for a research doc opened in Canvas's Docs
-            // pane, which is the same FolderBrowserView the Research tab was.
+            // Keeps Ctrl+S working for a doc opened in Canvas's Docs pane.
             docsBrowserRef={(h) => setBrowserRef('canvas', h)}
             pendingFocus={pendingCanvasFocus}
             onFocusConsumed={() => setPendingCanvasFocus(null)}
@@ -776,7 +771,7 @@ function App() {
                     </button>
                   )}
                   {/* Non-Planning views are lazy chunks (see app/lazyViews.ts),
-                      normally already warmed by the boot screen. */}
+                      normally already warmed once the app went idle. */}
                   <Suspense fallback={null}>{renderCategory(id)}</Suspense>
                 </div>
               )
@@ -835,7 +830,7 @@ function App() {
 
 // ThemeController owns the app-wide theme (persisted) and must sit above App
 // so App and every view can read the selection via useAppTheme(). KeybindingsController
-// is the same shape for keybindings — see 00_keybindings/KeybindingsController.tsx.
+// is the same shape for keybindings — see keybindings/KeybindingsController.tsx.
 export default function AppRoot() {
   return (
     <ThemeController>

@@ -12,7 +12,7 @@
 //
 // The board store is watched for the same reason. Boards are rewritten from
 // outside the open Canvas more often than it looks: the Workspace tree's move
-// and delete reconcilers (01_canvas/model/store.ts's reconcileMove /
+// and delete reconcilers (canvas/io/store.ts's reconcileMove /
 // reconcileDelete) save every board that pointed at the moved file, and so do
 // git checkouts and edits in VS Code. Unwatched, the open board never heard
 // about any of it, and its next autosave wrote the stale copy back over the
@@ -21,7 +21,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const PLANNING_DIR = '.planning'
-// Renamed from `.canvas` (see src/01_canvas/model/store.ts's migrateCanvasFolder).
+// Renamed from `.canvas` (see src/canvas/io/store.ts's migrateCanvasFolder).
 const CANVAS_DIR = '.components'
 const DEBOUNCE_MS = 200
 const STAGES_FILE = `${PLANNING_DIR}/stages.json`
@@ -58,9 +58,26 @@ function isCanvasFile(relPath) {
 // a moment (`<file>.<pid>.tmp`). A batch of only these still counts as
 // `stagesOnly`, so an agent's progress never refetches the graph.
 const PLAN_STATUS_FILE = /^\.planning\/[^/]+\/(plan\.md|activity\.json)$/
+// The agent trail (tools/agentSkills/vendor/trail.mjs): a line per agent tool
+// call. Quiet like the status files — and flagged on its own, so the renderer
+// re-reads just the trail.
+const TRAIL_FILE = `${PLANNING_DIR}/trail.jsonl`
 function isStatusFile(relPath) {
   const file = relPath.replace(/\.\d+\.tmp$/, '')
-  return file === STAGES_FILE || PLAN_STATUS_FILE.test(file)
+  return file === STAGES_FILE || file === TRAIL_FILE || PLAN_STATUS_FILE.test(file)
+}
+
+// Edits anywhere in the project, for the trail of agents Sleipnir can't hook
+// (Codex, Gemini, anything else): which files changed, sent on their own
+// channel — they never touch the graph's data. Dependencies, build output and
+// git's own churn are skipped, as is .planning (watched above).
+const EDIT_SKIP = /(^|\/)(node_modules|\.git|dist|build|out|release|coverage|\.next|target|\.nx|__pycache__|\.venv|\.planning)(\/|$)|^\.claude\/worktrees\//
+const EDIT_DEBOUNCE_MS = 300
+// Tools' own scratch files, written and deleted in a blink (Vite bundles its
+// config to `vite.config.ts.timestamp-<n>.mjs`; editors leave `.tmp`/`~` files).
+const EDIT_SCRATCH = /\.timestamp-\d+|\.tmp$|~$|\.swp$/
+function isWatchedEdit(relPath) {
+  return !!relPath && !EDIT_SKIP.test(relPath) && !EDIT_SCRATCH.test(relPath) && /\.[A-Za-z0-9]+$/.test(relPath)
 }
 
 function scheduleNotify(entry, relPath) {
@@ -72,7 +89,8 @@ function scheduleNotify(entry, relPath) {
     entry.changedFiles = new Set()
     const stagesOnly = files.length > 0 && files.every(isStatusFile)
     const canvasOnly = files.length > 0 && files.every(isCanvasFile)
-    if (!entry.sender.isDestroyed()) entry.sender.send('planning:changed', { stagesOnly, canvasOnly })
+    const trail = files.includes(TRAIL_FILE)
+    if (!entry.sender.isDestroyed()) entry.sender.send('planning:changed', { stagesOnly, canvasOnly, trail })
   }, DEBOUNCE_MS)
 }
 
@@ -155,18 +173,41 @@ function startWatching(entry) {
   }
 }
 
+function watchEdits(entry) {
+  try {
+    entry.watchers.edits = fs.watch(entry.root, { recursive: true }, (_eventType, filename) => {
+      if (!filename) return
+      const relPath = String(filename).replace(/\\/g, '/')
+      if (!isWatchedEdit(relPath)) return
+      entry.edited.add(relPath)
+      if (entry.editTimer) clearTimeout(entry.editTimer)
+      entry.editTimer = setTimeout(() => {
+        entry.editTimer = null
+        const paths = [...entry.edited]
+        entry.edited = new Set()
+        if (!entry.sender.isDestroyed()) entry.sender.send('workspace:edited', { paths, at: Date.now() })
+      }, EDIT_DEBOUNCE_MS)
+    })
+    entry.watchers.edits.on('error', () => {})
+  } catch {
+    // No recursive watching here: the trail just has no edits from unhooked agents.
+  }
+}
+
 function watch(wcId, root, sender) {
   killForWindow(wcId)
   if (!root) return
-  const entry = { wcId, root, sender, watchers: { planning: null, canvas: null, root: null }, timer: null, changedFiles: new Set() }
+  const entry = { wcId, root, sender, watchers: { planning: null, canvas: null, root: null, edits: null }, timer: null, changedFiles: new Set(), editTimer: null, edited: new Set() }
   entries.set(wcId, entry)
   startWatching(entry)
+  watchEdits(entry)
 }
 
 function killForWindow(wcId) {
   const entry = entries.get(wcId)
   if (!entry) return
   if (entry.timer) clearTimeout(entry.timer)
+  if (entry.editTimer) clearTimeout(entry.editTimer)
   for (const watcher of Object.values(entry.watchers)) watcher?.close()
   entries.delete(wcId)
 }
@@ -175,4 +216,4 @@ function killAll() {
   for (const wcId of [...entries.keys()]) killForWindow(wcId)
 }
 
-module.exports = { watch, killForWindow, killAll, isCanvasFile, isStatusFile, toRelPath }
+module.exports = { watch, killForWindow, killAll, isCanvasFile, isStatusFile, isWatchedEdit, toRelPath }

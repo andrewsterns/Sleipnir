@@ -4,21 +4,21 @@ import type { ProviderId, ProviderStatus } from './iApiKeySettings'
 import type { useAiSettings } from './useAiSettings'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
-const SECTION_LABEL: React.CSSProperties = { fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }
+const SECTION_LABEL: React.CSSProperties = { fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }
 
 const smallButton = (enabled = true): React.CSSProperties => ({
   background: 'transparent',
   border: '1px solid var(--border-2)',
   color: 'var(--text-1)',
-  fontSize: 9,
-  letterSpacing: '0.08em',
+  fontSize: 10,
+  letterSpacing: '0.04em',
   padding: '4px 8px',
   cursor: enabled ? 'pointer' : 'default',
   opacity: enabled ? 1 : 0.5,
   whiteSpace: 'nowrap',
-  ...MONO,
+  ...UI_FONT,
 })
 
 function statusText(p: ProviderStatus): string {
@@ -76,15 +76,15 @@ function ProviderRow({ provider: p, onConnect, onDisconnect }: ProviderRowProps)
           }}
         />
         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-1)', ...MONO }}>
+          <span style={{ fontSize: 11, color: 'var(--text-1)', ...UI_FONT }}>
             {p.label}
             {p.needsKey && <span style={{ color: 'var(--text-3)' }}> · {p.company}</span>}
           </span>
-          <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>{statusText(p)}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>{statusText(p)}</span>
         </span>
         {p.needsKey && p.connected && p.source === 'saved' && (
           <button onClick={disconnect} disabled={busy} style={smallButton(!busy)}>
-            DISCONNECT
+            Disconnect
           </button>
         )}
         {(!p.connected || !p.needsKey) && (
@@ -94,7 +94,7 @@ function ProviderRow({ provider: p, onConnect, onDisconnect }: ProviderRowProps)
         )}
         {p.needsKey && p.source !== 'saved' && !pasting && (
           <button onClick={() => setPasting(true)} style={smallButton()}>
-            {p.connected ? 'USE A SAVED KEY' : 'PASTE KEY'}
+            {p.connected ? 'Use a saved key' : 'Paste key'}
           </button>
         )}
       </Frame>
@@ -113,11 +113,11 @@ function ProviderRow({ provider: p, onConnect, onDisconnect }: ProviderRowProps)
            
           />
           <button onClick={connect} disabled={busy || !key.trim()} style={smallButton(!busy && !!key.trim())}>
-            {busy ? 'CHECKING…' : 'CONNECT'}
+            {busy ? 'Checking…' : 'Connect'}
           </button>
         </Frame>
       )}
-      {error && <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 10, color: '#e07a7a', lineHeight: 1.5, ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -173,7 +173,7 @@ export function ConnectModels({ ai }: ConnectModelsProps) {
 
   return (
     <Frame flow="vertical" gap={10}>
-      <span style={SECTION_LABEL}>CONNECT MODELS</span>
+      <span style={SECTION_LABEL}>Connect models</span>
       <Frame flow="vertical" gap={6}>
         <Frame flow="horizontal" gap={6}>
           <TextField size="md" style={{ flex: 1 }}
@@ -191,10 +191,10 @@ export function ConnectModels({ ai }: ConnectModelsProps) {
            
           />
           <button onClick={connect} disabled={busy || !key.trim()} style={smallButton(!busy && !!key.trim())}>
-            {busy ? 'CHECKING…' : 'CONNECT'}
+            {busy ? 'Checking…' : 'Connect'}
           </button>
         </Frame>
-        <span style={{ fontSize: 9, color: error ? '#e07a7a' : 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+        <span style={{ fontSize: 10, color: error ? '#e07a7a' : 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
           {error
             ? error
             : justConnected
@@ -209,7 +209,7 @@ export function ConnectModels({ ai }: ConnectModelsProps) {
 
       <Frame flow="vertical" gap={0}>
         {ai.providers === null ? (
-          <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>Loading…</span>
+          <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>Loading…</span>
         ) : (
           ai.providers.map((p) => <ProviderRow key={p.id} provider={p} onConnect={ai.connect} onDisconnect={ai.disconnect} />)
         )}

@@ -1,5 +1,5 @@
-// Scans src/01_research and src/04_validation for docs and emits per-map
-// graph JSON consumed by src/00_planning/graph/combine.ts. Re-run with
+// Scans src/validation for docs and emits per-map
+// graph JSON consumed by src/planning/graph/combine.ts. Re-run with
 // `npm run generate:graph` whenever those folders' contents change.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -9,7 +9,7 @@ import { isSourceFile } from './source-extensions.mjs'
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const SRC = path.join(ROOT, 'src')
-const OUT_DIR = path.join(SRC, '00_planning', 'graph', 'generated')
+const OUT_DIR = path.join(SRC, 'planning', 'graph', 'generated')
 
 function walk(dir, files = []) {
   if (!fs.existsSync(dir)) return files
@@ -56,9 +56,9 @@ function resolveImport(fromFile, spec) {
 
 export { walk, toId, extractImportSpecifiers, resolveImport, ROOT, SRC }
 
-// research/ and validation/ can contain this app's own page implementation
-// (e.g. ResearchView.tsx) alongside the docs they display — that's source
-// code, not a research doc, so it's excluded here specifically.
+// validation/ contains this app's own page implementation (ValidationView.tsx)
+// alongside the docs it displays — that's source code, not a doc, so it's
+// excluded here specifically.
 const CODE_EXT_RE = /\.(tsx?|jsx?|mjs|cjs)$/
 
 function buildDocGraph(scanDir, mapName) {
@@ -77,16 +77,13 @@ function buildDocGraph(scanDir, mapName) {
 // Only runs when this file is executed directly (`node tools/generate-graph.mjs`,
 // which is what regenerateGraph() in sleipnir-backend.mjs spawns).
 if (process.argv[1] && import.meta.url === url.pathToFileURL(process.argv[1]).href) {
-  const research = buildDocGraph(path.join(SRC, '01_research'), 'research')
-  const validation = buildDocGraph(path.join(SRC, '04_validation'), 'validation')
+  const validation = buildDocGraph(path.join(SRC, 'validation'), 'validation')
 
   fs.mkdirSync(OUT_DIR, { recursive: true })
   const write = (name, data) => {
     fs.writeFileSync(path.join(OUT_DIR, `${name}.json`), JSON.stringify({ nodes: data.nodes, edges: data.edges }, null, 2))
   }
-  write('research', research)
   write('validation', validation)
 
-  console.log(`research:    ${research.nodes.length} nodes, ${research.edges.length} edges`)
   console.log(`validation:  ${validation.nodes.length} nodes, ${validation.edges.length} edges`)
 }

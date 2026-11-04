@@ -69,7 +69,7 @@ export const Text: React.FC<TextProps> = ({
     h6: 'text-[var(--font-h6)] leading-[var(--leading-normal)]',
     p: 'text-[var(--font-p)] leading-[var(--leading-normal)]',
     small: 'text-[var(--font-small)] leading-[var(--leading-normal)]',
-    xs: 'text-[var(--font-xs)] leading-[var(--leading-normal)] uppercase tracking-widest',
+    xs: 'text-[11px] leading-[var(--leading-normal)] tracking-[0.02em]',
     link: 'text-[var(--font-p)] leading-[var(--leading-normal)] hover:text-[var(--accent-1)] transition-colors cursor-pointer underline-offset-4',
     li: 'text-[var(--font-p)] leading-[var(--leading-normal)] list-disc ml-4',
   };

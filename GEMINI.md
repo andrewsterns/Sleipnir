@@ -1,4 +1,4 @@
-<!-- BEGIN SLEIPNIR v5 — generated, edits inside are overwritten -->
+<!-- BEGIN SLEIPNIR v6 — generated, edits inside are overwritten -->
 ## Planning with Sleipnir
 
 Read `AGENTS.md` at the project root before planning, designing or writing code here —

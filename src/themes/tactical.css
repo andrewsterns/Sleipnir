@@ -1,0 +1,142 @@
+.theme-tactical {
+  color-scheme: dark;
+
+  /* ── Backgrounds ───────────────────────────────────────────────────────
+     Pure neutral black-and-white — no hue in the greys. bg-1 is the ground;
+     raised surfaces (panels, fields, menus) step LIGHTER from it. */
+  --bg-1: #0b0b0c;
+  --bg-2: #161617;
+  --bg-3: #212123;
+
+  /* ── Text (ink-primary) ────────────────────────────────────────────────
+     One neutral off-white ink, #F5F5F7. text-2/text-3 step down from it and
+     both stay ≥4.5:1 on bg-1. */
+  --text-1: #f5f5f7;           /* ink */
+  --text-2: #a1a1a6;           /* secondary */
+  --text-3: #7c7c82;           /* tertiary / dim labels */
+
+  /* ── Borders ─────────────────────────────────────────────────────────── */
+  --border-1: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.16);
+
+  /* ── Button/Frame variant surfaces ───────────────────────────────────────
+     primary is the one prominent action: a solid ink fill with ground-coloured
+     text (white button, black label). secondary is a quiet tinted fill.
+     Defined here so they never fall through to an ancestor theme's ramp. */
+  --primary-1:   #f5f5f7;
+  --primary-2:   #0b0b0c;
+  --primary-3:   transparent;
+  --secondary-1: rgba(255, 255, 255, 0.08);
+  --secondary-2: #f5f5f7;
+  --secondary-3: transparent;
+  --accent-1:    rgba(255, 255, 255, 0.14);
+
+  /* ── Status accent palette — white spectrum only ─────────────────────── */
+  --scan:           #dce8f0;           /* operational / nominal: near-white */
+  --scan-dim:       rgba(220,232,240,0.10);
+  --scan-mid:       rgba(220,232,240,0.25);
+  --warn:           #b8ccd8;           /* degraded: medium grey-blue */
+  --warn-dim:       rgba(184,204,216,0.08);
+  --warn-mid:       rgba(184,204,216,0.20);
+  --critical:       #e5e3ed;           /* critical: full ink (maximum contrast) */
+  --critical-dim:   rgba(229,227,237,0.10);
+  --critical-mid:   rgba(229,227,237,0.25);
+  --track:          #c8dce8;           /* tracking: light grey */
+  --track-dim:      rgba(200,220,232,0.10);
+  --nominal:        #9ab4c4;
+  --nominal-dim:    rgba(154,180,196,0.10);
+  --caution:        #a8bccc;           /* caution: muted grey */
+
+  /* ── Gradient stroke presets — white only ────────────────────────────── */
+  --stroke-default:  135deg, rgba(229,227,237,0.28), rgba(229,227,237,0.03);
+  --stroke-scan:     135deg, rgba(220,232,240,0.35), rgba(220,232,240,0.03);
+  --stroke-warn:     135deg, rgba(229,227,237,0.22), rgba(229,227,237,0.03);
+  --stroke-critical: 135deg, rgba(229,227,237,0.48), rgba(229,227,237,0.03);
+  --stroke-track:    135deg, rgba(200,220,232,0.32), rgba(200,220,232,0.03);
+  --stroke-dim:      135deg, rgba(229,227,237,0.10), rgba(229,227,237,0.02);
+
+  /* ── Chamfer size tokens (numeric px) ────────────────────────────────── */
+  --chamfer-xs: 3;
+  --chamfer-sm: 6;
+  --chamfer-md: 10;
+  --chamfer-lg: 16;
+
+  /* ── Typography ──────────────────────────────────────────────────────────
+     Helvetica carries every piece of UI; mono is only for code (the editor,
+     terminal, diffs, tool output). */
+  --font-ui:      'Sleipnir Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-body:    var(--font-ui);
+  --font-display: var(--font-ui);
+  --font-mono:    ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Sometype Mono', monospace;
+
+  /* ── Radius ──────────────────────────────────────────────────────────────
+     Soft and restrained: panels stay edge-to-edge, controls round to 8px,
+     floating surfaces (menus, modals) to 12px. */
+  --radius-1: 4px;
+  --radius-2: 6px;
+  --radius-3: 8px;
+  --radius-4: 8px;
+  /* Interactive controls (buttons, chips, search, menu items). */
+  --radius-control: 8px;
+  /* Text fields, number fields and dropdown triggers. */
+  --radius-field: 8px;
+  /* Menus, popovers and modal dialogs. */
+  --radius-float: 12px;
+
+  /* ── Shadows ─────────────────────────────────────────────────────────── */
+  --shadow-1:             0 12px 32px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-glow-scan:     0 0 16px rgba(220, 232, 240, 0.10);
+  --shadow-glow-warn:     0 0 16px rgba(229, 227, 237, 0.08);
+  --shadow-glow-critical: 0 0 20px rgba(229, 227, 237, 0.14);
+  --shadow-glow-track:    0 0 16px rgba(200, 220, 232, 0.10);
+
+  /* ── Planning graph (GraphCanvas) ─────────────────────────────────────────
+     The node/edge/label colours the SVG graph reads, so it inverts with the
+     theme instead of being white-on-dark hardcoded. edge-1/edge-2 are the
+     directional gradient's faint tail → bright head; the alpha lives in the
+     colour so each theme tunes visibility independently. label-bg/label-text
+     are the node-label pill and its ink (a high-contrast chip vs. the graph
+     ground — light pill on dark here, dark pill on light in light.css). */
+  --graph-node:          #ffffff;              /* node dot — pure white, full strength at rest (see GraphCanvas's opacity ladder) */
+  --graph-node-new:      #5b9dff;              /* a node created since the project opened, until clicked */
+  --graph-ring:          #ffffff;              /* selection ring */
+  --graph-edge:          #4a4c53;              /* edge line + arrowhead — dark grey — lines sit back under nodes and labels */
+  --graph-danger:        #e5484d;              /* Health lens: a file or link in an import loop */
+  --graph-warn:          #eda100;              /* Health lens: an import up the layers */
+  --graph-heat:          #3987e5;              /* Health lens: heat glow — one hue; how hot is its strength */
+  --graph-heat-blend:    screen;               /* glows add up into light on the dark ground */
+
+  /* ── Selectable item states (list rows + graph node labels) ───────────────
+     One hover/selection language everywhere. --item-ink is an "R, G, B" triple
+     (so it can be used at varying alpha); --item-ground is the ink's opposite,
+     used as text on filled states. See item-states.css for the ladder:
+       idle → no fill / 80% ink text · hover → 40% ink · connected → 20% ink ·
+       selected → solid ink, all with ground-coloured text on fills. */
+  --item-ink:    245, 245, 247;
+  --item-ground: #0b0b0c;
+
+  /* ── Code editor syntax palette (CodeMirror highlight tokens) ─────────────
+     Read by codeEditorTheme.ts's HighlightStyle so syntax colours invert with
+     the app theme. Tactical's scheme: soft grey/white base (comments,
+     variables and punctuation reuse --text-*), light blue for
+     keywords/types/properties, light green for strings/attributes, soft
+     salmon (never red) for numbers/atoms/tags. Red is reserved for --code-
+     invalid. Keep these in lockstep with light.css. */
+  --code-keyword:   #a8c8ff;           /* keywords / control / module / operator kw */
+  --code-string:    #a8e6b2;           /* strings / regexp */
+  --code-number:    #ffa89d;           /* numbers / bool / null / atom */
+  --code-tag:       #ffa89d;           /* JSX/HTML element names + self */
+  --code-attribute: #a8e6b2;           /* JSX/HTML attribute (prop) names */
+  --code-type:      #a8c8ff;           /* type / class / namespace names */
+  --code-function:  #f5f5f7;           /* function names */
+  --code-property:  #a8c8ff;           /* object property names */
+  --code-invalid:   #ffa89d;           /* lexically invalid tokens */
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

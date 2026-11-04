@@ -1,12 +1,10 @@
 # Sleipnir
 
-Sleipnir is a desktop workbench for research-driven UI design that ships with a
-built-in AI coding agent. It's an Electron + React (Vite) application, organized
-as a numbered pipeline — research feeds planning, planning feeds components,
-components feed prototypes, prototypes get validated, results feed back into
-research — with a live component-library editor, a multi-provider AI chat that
-can plan and generate code for human review, a real terminal, and a Git panel,
-all built from one shared component library.
+Sleipnir is a desktop workbench for vibe coding on a canvas: design boards and
+3D models whose designs become real code, plan the work in a live graph of the
+project's architecture, and commit it — with AI agents and git built in. It's
+an Electron + React (Vite) application with a multi-provider AI chat that can
+plan and generate code for human review, a real terminal, and a Git panel.
 
 The same app runs three ways with (almost) identical behavior:
 - **Electron desktop app** — the primary target. Native file dialogs, a real
@@ -18,9 +16,8 @@ The same app runs three ways with (almost) identical behavior:
 
 ## Features
 
-- **Numbered pipeline (`00`–`06`)** — research, planning, components,
-  prototypes, validation, and analytics as ordered stages, plus a
-  source-control panel outside the sequence. See [ARCHITECTURE.md](ARCHITECTURE.md).
+- **Canvas** — 2D boards and 3D modeling (sketch planes, solids, a three.js
+  viewport) in one document, turned into code. See [ARCHITECTURE.md](ARCHITECTURE.md).
 - **AI agent chat** — Anthropic Claude by default (bring your own API key, or
   fall back to a local Ollama model with no key at all). The agent can create
   planning nodes, read files in the open Workspace, generate code, and propose
@@ -30,10 +27,8 @@ The same app runs three ways with (almost) identical behavior:
 - **Live component editor** — a CodeMirror-based code editor with real
   TypeScript language-server support (hover, diagnostics, go-to-definition) via
   a local LSP proxy, plus a live component preview pane.
-- **Refactor engine** — preview and apply a full folder-layout migration for a
-  component library (Atomic ↔ MVVM ↔ MVC ↔ MVP) without hand-editing imports.
-- **Planning graph** — a force-directed graph of every component/prototype and
-  its import relationships, generated from the actual source tree.
+- **Planning graph** — a force-directed graph of the open project's real
+  architecture (every file and import), with plans laid over it.
 - **In-app Validation** — run the open Workspace's own Vitest suite and see
   structured pass/fail results without leaving the app.
 - **Integrated terminal and Git panel** — any number of terminal tabs, and a
@@ -74,8 +69,8 @@ Everything below is for **running from source / development**.
 ### Prerequisites
 - **Node.js 20+** (the Docker image pins `20.17`; 18+ likely works for local
   dev but isn't tested here)
-- **Git**, available on `PATH` — required by the Source Control panel, the
-  refactor engine's dirty-tree check, and Husky's pre-commit hook
+- **Git**, available on `PATH` — required by the Source Control panel and
+  Husky's pre-commit hook
 - **Docker Desktop** — only if you want the containerized dev mode
 
 ### 1. Install
@@ -164,21 +159,21 @@ Pre-commit hooks (Husky + lint-staged) run ESLint and Prettier on staged
 ```
 electron/     Electron main process, IPC handlers, terminal/chat/key-store backends
 src/
-  00_planning/  Roadmap engine, planning graph
-  01_research/  Docs-only research graph (personas, proposals, analytics)
-  02_components/  Default component library (atoms -> molecules -> organisms -> templates)
-  03_prototypes/  Default prototype library
-  04_validation/  Test/validation logic (Vitest)
-  05_analytics/   Test-session results and reporting
-  06_source_control/  Git panel — outside the numbered pipeline
-  app/          Sleipnir's own application shell (nav rail, docks, editor, AI chat, ...)
-  utils/        Small cross-cutting helpers
-tools/        Shared Node backend (filesystem, git, refactor engine, codegen scripts)
+  planning/        Planning graph (plans, architecture and Health views)
+  document/        The scene document the canvas and the 3D modeler both edit
+  canvas/          Boards, panels, code emit, the editor's hooks
+  modeling/        3D: sketch planes, solids, the three.js viewport
+  source-control/  Git panel
+  validation/      Validation view + Vitest setup
+  platform/        The API every feature calls (Electron or web transport)
+  app/             Application shell (nav rail, docks, editor, AI chat, ...) and UIKit
+  themes/ keybindings/ utils/   App-wide support
+tools/        Shared Node backend (filesystem, planning store, git, agent skills)
 docker/       Dev/prod Dockerfiles
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how these actually fit together —
-the dual Electron/web transport, the planning graph pipeline, and the AI
+the dual Electron/web transport, the feature folders and load rules, and the AI
 agent's tool-use loop. Most directories also carry their own `README.md` with
 directory-specific conventions.
 

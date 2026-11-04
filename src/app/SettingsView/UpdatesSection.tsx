@@ -2,17 +2,17 @@ import React from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { isUpdaterAvailable, useAppUpdate, type UpdateStatus } from '../TitleBar/iUpdater'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 const BUTTON: React.CSSProperties = {
   background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
   border: '1px solid var(--border-2)',
   color: 'var(--text-1)',
-  fontSize: 9,
-  letterSpacing: '0.08em',
+  fontSize: 10,
+  letterSpacing: '0.04em',
   padding: '6px 12px',
   cursor: 'pointer',
-  ...MONO,
+  ...UI_FONT,
 }
 
 // One line describing where the updater is (see electron/updater.cjs) — the
@@ -42,7 +42,7 @@ export function UpdatesSection() {
   const { status, check, install } = useAppUpdate()
 
   if (!isUpdaterAvailable()) {
-    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>Updates are desktop-only.</span>
+    return <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>Updates are desktop-only.</span>
   }
 
   const busy = status?.state === 'checking' || status?.state === 'downloading'
@@ -50,8 +50,8 @@ export function UpdatesSection() {
 
   return (
     <Frame flow="vertical" gap={10} style={{ maxWidth: 420 }}>
-      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>UPDATES</span>
-      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+      <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>Updates</span>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
         You’re running Sleipnir v{status?.currentVersion ?? '—'}. New versions are checked for on launch and every
         4 hours, downloaded in the background, and installed when you restart.
       </span>
@@ -59,7 +59,7 @@ export function UpdatesSection() {
       <Frame flow="horizontal" align="center" gap={10}>
         {status?.state === 'ready' ? (
           <button onClick={() => install()} style={{ ...BUTTON, borderColor: 'var(--nominal)', color: 'var(--nominal)' }}>
-            RESTART TO UPDATE
+            Restart to update
           </button>
         ) : (
           <button
@@ -67,13 +67,13 @@ export function UpdatesSection() {
             disabled={busy}
             style={{ ...BUTTON, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}
           >
-            CHECK FOR UPDATES
+            Check for updates
           </button>
         )}
         {text && (
           <span
             title={status?.state === 'error' ? status.error : undefined}
-            style={{ fontSize: 9, color: status?.state === 'error' ? '#e07a7a' : 'var(--text-3)', ...MONO }}
+            style={{ fontSize: 10, color: status?.state === 'error' ? '#e07a7a' : 'var(--text-3)', ...UI_FONT }}
           >
             {text}
           </span>

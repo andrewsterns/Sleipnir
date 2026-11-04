@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { bootTask, previewBoot, startBoot } from './boot'
-import { preloadViews } from './app/lazyViews'
-import { getWorkspaceScan } from './00_planning/graph/workspaceScanCache'
+import { warmViewsWhenIdle } from './app/lazyViews'
+import { getWorkspaceScan } from './planning/graph/workspaceScanCache'
 
 // /loader (or #/loader in the packaged app, which loads from file://) never
 // mounts the app, so index.html's boot screen stays up and loops forever —
@@ -19,11 +19,11 @@ if (isLoaderPreview) {
       <App />
     </StrictMode>,
   )
-  // Work the boot screen covers. Warming every view's chunk makes the first
-  // switch to it instant; the workspace scan (every source file's imports) is
-  // the slowest first-time action in Planning, and it's cached, so starting it
-  // now makes the architecture view and asset plans open immediately.
-  bootTask(preloadViews())
+  // Work the boot screen covers. The workspace scan (every source file's
+  // imports) is the slowest first-time action in Planning, and it's cached, so
+  // starting it now makes the architecture view and asset plans open
+  // immediately. The other views' chunks warm afterwards, when the app is idle.
   bootTask(getWorkspaceScan(), { optional: true })
   startBoot()
+  warmViewsWhenIdle()
 }

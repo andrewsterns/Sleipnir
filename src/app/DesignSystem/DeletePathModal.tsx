@@ -3,9 +3,9 @@ import ReactDOM from 'react-dom'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Button } from '../UIKit/Button/Button'
 import { Card } from '../UIKit/Card/Card'
-import type { GraphNode } from '../../00_planning/graph/types'
+import type { GraphNode } from '../../planning/graph/types'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 export interface DeletePathModalProps {
   path: string
@@ -74,18 +74,18 @@ export function DeletePathModal({ path, name, isDir, deletePath, planNodes = [],
             style={{ position: 'fixed', inset: 0, background: 'rgba(2,5,10,0.85)', backdropFilter: 'blur(6px)' }}
           />
           <Card flow="vertical" gap={14} padding={20} relative w={420}>
-            <span style={{ fontSize: 12, letterSpacing: '0.1em', color: '#e07a7a', fontWeight: 600, ...MONO }}>
-              DELETE {isDir ? 'FOLDER' : 'FILE'}
+            <span style={{ fontSize: 12, letterSpacing: '0.04em', color: '#e07a7a', fontWeight: 600, ...UI_FONT }}>
+              Delete {isDir ? 'folder' : 'file'}
             </span>
 
-            <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
+            <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.6, ...UI_FONT }}>
               Delete <strong>{name}</strong>?
               {isDir && ' This removes the folder and everything inside it.'}
               {' '}Moves to the Recycle Bin when running the desktop app.
             </span>
 
             {hasNodes && (
-              <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.6, ...MONO }}>
+              <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.6, ...UI_FONT }}>
                 {planNodes.length === 1 ? (
                   <>
                     Plan node <strong>{planNodes[0].label}</strong> is scaffolded from{' '}
@@ -100,7 +100,7 @@ export function DeletePathModal({ path, name, isDir, deletePath, planNodes = [],
               </span>
             )}
 
-            {error && <span style={{ fontSize: 10, color: '#e07a7a', ...MONO }}>{error}</span>}
+            {error && <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
 
             <Frame flow="horizontal" gap={8} justify="end" wrap="wrap">
               <Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>

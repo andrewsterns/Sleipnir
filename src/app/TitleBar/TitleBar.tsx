@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { Logo } from '../UIKit/Logo/Logo'
-import type { RecentProject } from '../../00_planning/api/sleipnirApi'
+import type { RecentProject } from '../../platform/sleipnirApi'
 import { isUpdaterAvailable, useAppUpdate, type UpdateState, type UpdateStatus } from './iUpdater'
 import { isLicenseAvailable, useLicense } from '../License/iLicense'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 // Matches the titleBarOverlay height set in electron/main.cjs — the OS draws
 // its own minimize/maximize/close buttons on top of the right edge of this
@@ -172,7 +172,7 @@ const menuItemStyle = (active: boolean): React.CSSProperties => ({
   color: active ? 'var(--text-1)' : 'var(--text-3)',
   fontSize: 12,
   padding: '6px 12px',
-  ...MONO,
+  ...UI_FONT,
 })
 
 // The transient line a manual Help ▸ Check for Updates leaves in the title
@@ -206,7 +206,7 @@ const UpdateIndicator: React.FC<{
           fontSize: 11,
           padding: '2px 8px',
           whiteSpace: 'nowrap',
-          ...MONO,
+          ...UI_FONT,
         }}
       >
         Restart to update{status.version ? ` · v${status.version}` : ''}
@@ -221,7 +221,7 @@ const UpdateIndicator: React.FC<{
         : undefined
   if (!text) return null
   return (
-    <span title={status.error} style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}>
+    <span title={status.error} style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', ...UI_FONT }}>
       {text}
     </span>
   )
@@ -243,15 +243,15 @@ const LicenseBadge: React.FC<{ onOpen?: () => void }> = ({ onOpen }) => {
         borderRadius: 'var(--radius-control)',
         color: isPro ? 'var(--nominal)' : 'var(--text-3)',
         cursor: 'pointer',
-        fontSize: 10,
-        letterSpacing: '0.08em',
+        fontSize: 11,
+        letterSpacing: '0.04em',
         padding: '2px 8px',
         marginLeft: 8,
         whiteSpace: 'nowrap',
-        ...MONO,
+        ...UI_FONT,
       }}
     >
-      {isPro ? 'PRO' : 'Upgrade'}
+      {isPro ? 'Pro' : 'Upgrade'}
     </button>
   )
 }
@@ -317,7 +317,7 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
                 fontSize: 12,
                 padding: '0 10px',
                 height: TITLE_BAR_HEIGHT,
-                ...MONO,
+                ...UI_FONT,
               }}
             >
               {menu.label}
@@ -403,7 +403,7 @@ export const TitleBar: React.FC<TitleBarProps> = (props) => {
         {projectName && (
           <span
             title={isScratch ? 'Unsaved — File ▸ Save Project…' : projectName}
-            style={{ marginLeft: 10, fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', ...MONO }}
+            style={{ marginLeft: 10, fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', ...UI_FONT }}
           >
             {projectName}
             {isScratch && <span style={{ color: '#e0a040' }}> ●</span>}

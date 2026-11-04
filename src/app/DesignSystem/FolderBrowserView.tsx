@@ -6,12 +6,12 @@ import { WidgetShell, ResizeHandle } from './WidgetShell'
 import { WorkspaceHeader } from '../WorkspaceHeader/WorkspaceHeader'
 import { CodeEditorView, type CodeEditorHandle } from './CodeEditorView'
 import { LOADING_PLACEHOLDER } from './CodeEditorView.ViewModel'
-import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir, deleteWorkspacePath, deleteNote, planNodesUnderPath } from '../../00_planning/api/sleipnirApi'
+import { writeRepoFile, writeWorkspaceFile, createWorkspaceFile, createWorkspaceDir, deleteWorkspacePath, deleteNote, planNodesUnderPath } from '../../platform/sleipnirApi'
 import { useFolderBrowserViewModel } from './FolderBrowserView.ViewModel'
 import { registerPendingWrite } from '../pendingWrites'
 import type { FolderBrowserHandle, FolderBrowserViewProps, PaneId, PaneState } from './iFolderBrowserView'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 // The unified "browse a folder, preview a file, edit a file" component —
 // replaces three separate hand-built implementations (DesignLibraryView,
@@ -237,7 +237,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
       code={
         panes.primary.tabs.length === 0 && !isSplit ? (
           <Frame flow="vertical" align="center" justify="center" grow gap={16}>
-            <span style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.08em', ...MONO }}>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.04em', ...UI_FONT }}>
               Select a file to start
             </span>
             {headerAction && (
@@ -251,7 +251,7 @@ export const FolderBrowserView = forwardRef<FolderBrowserHandle, FolderBrowserVi
             <Frame flow="vertical" grow minH={0} minW={0} onMouseDown={() => focusPane('primary')}>
               {panes.primary.tabs.length === 0 ? (
                 <Frame flow="vertical" align="center" justify="center" grow>
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.08em', ...MONO }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.04em', ...UI_FONT }}>
                     Select a file to start
                   </span>
                 </Frame>

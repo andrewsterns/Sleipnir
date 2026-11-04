@@ -1,0 +1,228 @@
+{
+  "events": [
+    {
+      "at": 1793670766961,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/keep-codemirror-off-the-first-load-1793670682157",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793670909483,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/keep-codemirror-off-the-first-load-1793670682157",
+      "status": "completed",
+      "note": "Diff highlighter loads on demand: heavy eager 1 → 0, first-load JS 1,034 → 710 kB (gzip 332 → 226 kB)",
+      "since": 1793670766961,
+      "changes": [
+        {
+          "path": "src/06_source_control/DiffView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/06_source_control/diffFiles.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/06_source_control/diffHighlight.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793670916007,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/split-the-backend-along-its-seams-1793670682278",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793671408540,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/split-the-backend-along-its-seams-1793670682278",
+      "comment": "Split done into tools/backend/{paths,agentScaffolding,planningStore,stepReports,planSteps}.mjs; exports and function bodies identical, 1117 tests pass. Backend 2435 -> 652 lines, hotspot 212 -> 110. But god files stay 3 (facade still in 13 / out 10) and two new flags: barrels 0 -> 1 (the facade), misplaced 6 -> 7 (agentSkills/scaffold.mjs now mostly talks to tools/backend). Paused for a decision: keep the facade, or point the 13 importers at the modules directly.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793671444899,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/split-the-backend-along-its-seams-1793670682278",
+      "status": "completed",
+      "note": "Split into 5 tools/backend modules behind the facade: 2435 -> 652 lines, hotspot 212 -> 110; facade kept by choice (barrel +1, misplaced +1)",
+      "since": 1793670916007,
+      "changes": [
+        {
+          "path": "tools/backend/agentScaffolding.mjs",
+          "change": "added"
+        },
+        {
+          "path": "tools/backend/paths.mjs",
+          "change": "added"
+        },
+        {
+          "path": "tools/backend/planSteps.mjs",
+          "change": "added"
+        },
+        {
+          "path": "tools/backend/planningStore.mjs",
+          "change": "added"
+        },
+        {
+          "path": "tools/backend/stepReports.mjs",
+          "change": "added"
+        },
+        {
+          "path": "tools/sleipnir-backend.mjs",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793671445052,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/pull-boards-pen-and-pointer-out-of-the-canvas-viewmodel-1793670682472",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793671755651,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/pull-boards-pen-and-pointer-out-of-the-canvas-viewmodel-1793670682472",
+      "comment": "Did boards only. Measured the coupling first: pointer handling uses 36 of the ViewModel's names and pen/point editing exposes 26, so extracting them would only move lines behind a 36-field interface. Board persistence (in 9, out 9) moved to hooks/useCanvasBoards.ts verbatim.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793671755723,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/pull-boards-pen-and-pointer-out-of-the-canvas-viewmodel-1793670682472",
+      "status": "completed",
+      "note": "Board persistence -> hooks/useCanvasBoards.ts: ViewModel 3909 -> 3463 lines, out 30 -> 27; pen/pointer left in (too coupled)",
+      "since": 1793671445052,
+      "changes": [
+        {
+          "path": "src/01_canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/01_canvas/hooks/useCanvasBoards.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793671755848,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/move-activitylog-next-to-its-users-1793670682662",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793671857889,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/move-activitylog-next-to-its-users-1793670682662",
+      "status": "completed",
+      "note": "Moved to src/00_planning/activityLog.ts (+test), 6 importers updated: misplaced 7 -> 5 (emit/react.ts cleared too, by the boards hook)",
+      "since": 1793671755848,
+      "changes": [
+        {
+          "path": "src/00_planning/ActivityPanel.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/ActivityPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanStepsList.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/TrailInsightsPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/activityLog.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/activityLog.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/graph/activityLog.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "src/00_planning/graph/activityLog.ts",
+          "change": "deleted"
+        }
+      ]
+    },
+    {
+      "at": 1793671858030,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/move-schemaadapters-into-chatproviders-1793670682835",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793671886669,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/move-schemaadapters-into-chatproviders-1793670682835",
+      "status": "completed",
+      "note": "Moved to electron/chatProviders/ (+test), 5 requires updated: misplaced 5 -> 4",
+      "since": 1793671858030,
+      "changes": [
+        {
+          "path": "electron/agent/schemaAdapters.cjs",
+          "change": "deleted"
+        },
+        {
+          "path": "electron/agent/schemaAdapters.test.ts",
+          "change": "deleted"
+        },
+        {
+          "path": "electron/chat.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/chatProviders/anthropic.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/chatProviders/gemini.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/chatProviders/ollama.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/chatProviders/openai.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/chatProviders/schemaAdapters.cjs",
+          "change": "added"
+        },
+        {
+          "path": "electron/chatProviders/schemaAdapters.test.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793671886806,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/delete-the-two-dead-source-files-1793670683011",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793672041340,
+      "stepId": "plan/optimize-first-load-and-the-big-files-1793670666023/delete-the-two-dead-source-files-1793670683011",
+      "status": "completed",
+      "note": "Deleted CanvasComponentsPanel.tsx and treeSelection.ts: unreferenced 4 -> 2 (the rest are optimizeLab fixtures)",
+      "since": 1793671886806,
+      "changes": [
+        {
+          "path": "src/01_canvas/panels/CanvasComponentsPanel.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/app/DesignSystem/treeSelection.ts",
+          "change": "deleted"
+        }
+      ]
+    }
+  ]
+}

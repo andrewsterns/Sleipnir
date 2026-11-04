@@ -1,0 +1,819 @@
+import { useState, useRef, useEffect } from 'react'
+import { Frame } from '../app/UIKit/Frame/Frame'
+import { Icon } from '../app/UIKit/Icon/Icon'
+import { Button } from '../app/UIKit/Button/Button'
+import { IconButton } from '../app/UIKit/IconButton/IconButton'
+import { Checkbox } from '../app/UIKit/Checkbox/Checkbox'
+import { ListRow } from '../app/UIKit/ListRow/ListRow'
+import { Search } from '../app/UIKit/Search/Search'
+import { SEARCH_SORT_OPTIONS, type SearchSortId } from '../app/UIKit/Search/iSearch'
+import { ContextMenu } from '../app/UIKit/ContextMenu/ContextMenu'
+import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
+import { DiscardFileModal } from './DiscardFileModal'
+import { CommitGraphView } from './CommitGraphView'
+import { ConstellationView } from './ConstellationView'
+import { getWorkspaceInfo } from '../platform/sleipnirApi'
+import { useSourceControlViewModel } from './SourceControlView.ViewModel'
+import { useFileStages } from '../planning/useFileStages'
+import { StatusGlyph } from '../planning/graph/StatusGlyph'
+import { stageConfig } from '../planning/graph/stages'
+import type { NodeStage } from '../planning/graph/types'
+import type { GitFileStatus, GitBranch, GitBranchTree, GitBranchTreeEntry, GitCommitSummary, GitStash } from '../platform/sleipnirApi'
+import { StashDropModal } from './StashDropModal'
+import { DiffView } from './DiffView'
+import { useAppTheme } from '../themes/ThemeController'
+import { TextArea, TextField } from '../app/UIKit/Field/TextField'
+
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
+
+function statusLabel(f: GitFileStatus): string {
+  if (f.untracked) return 'Untracked'
+  if (f.conflicted) return 'Conflict'
+  const code = f.staged ? f.indexStatus : f.worktreeStatus
+  switch (code) {
+    case 'A': return 'Added'
+    case 'D': return 'Deleted'
+    case 'R': return 'Renamed'
+    case 'M': return 'Modified'
+    default: return code.trim() || 'Changed'
+  }
+}
+
+function FileRow({
+  file, stage, active, highlighted, onSelect, onToggleStage, onContextMenu, onMenuButton,
+}: {
+  file: GitFileStatus
+  /** Planning stage of the plan node this file backs, if any — shown as the at-rest status. */
+  stage?: NodeStage
+  active: boolean
+  /** The search box's current ↑/↓ keyboard highlight — outlined via `connected`, distinct from `active`'s solid fill. */
+  highlighted?: boolean
+  onSelect: () => void
+  onToggleStage: () => void
+  onContextMenu: (e: React.MouseEvent) => void
+  onMenuButton: (e: React.MouseEvent) => void
+}) {
+  return (
+    <ListRow
+      selected={active}
+      connected={!active && highlighted}
+      onClick={onSelect}
+      onContextMenu={onContextMenu}
+      // Git status (MODIFIED/ADDED/…) moves to the row tooltip now that the
+      // trailing shows planning status instead.
+      title={statusLabel(file)}
+      leading={
+        <Checkbox
+          checked={file.staged}
+          onChange={onToggleStage}
+          stopPropagation
+          title={file.staged ? 'Unstage' : 'Stage'}
+        />
+      }
+      trailing={(hovered) =>
+        hovered ? (
+          <IconButton
+            onClick={(e) => { e.stopPropagation(); onMenuButton(e) }}
+            title="More actions"
+            glyph="⋯"
+            iconSize={14}
+            size={18}
+            textColor="var(--text-3)"
+          />
+        ) : (
+          // Planning status: the plan node this file backs, or pending by
+          // default (the universal default) when it backs no node.
+          <StatusGlyph stage={stage} title={stage ? `plan: ${stageConfig(stage)?.label ?? stage}` : undefined} />
+        )
+      }
+    >
+      {file.path}
+    </ListRow>
+  )
+}
+
+function CommitDot({ commit, accent }: { commit: GitCommitSummary; accent: string }) {
+  return (
+    <div
+      title={`${commit.shortHash} · ${commit.subject}\n${commit.author} · ${commit.date}`}
+      style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'default' }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: accent, flexShrink: 0 }} />
+      <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>{commit.shortHash}</span>
+    </div>
+  )
+}
+
+const BRANCH_ACCENT = '#7aa8e0'
+
+// STAGED / CHANGES / UNTRACKED header: the label, then an optional bulk
+// action and a ⋯ menu of the rest (both hidden when the section is empty —
+// onAction/onMenu undefined).
+function SectionHeader({ label, actionLabel, onAction, onMenu }: {
+  label: string
+  actionLabel: string
+  onAction?: () => void
+  onMenu?: (e: React.MouseEvent) => void
+}) {
+  return (
+    <Frame flow="horizontal" align="center" justify="between" minH={18}>
+      <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>{label}</span>
+      <Frame flow="horizontal" align="center" gap={2}>
+        {onAction && (
+          <Button variant="ghost" size="sm" onClick={onAction}>
+            {actionLabel}
+          </Button>
+        )}
+        {onMenu && (
+          <IconButton onClick={onMenu} title={`More ${label.split(' ')[0].toLowerCase()} actions`} glyph="⋯" iconSize={14} size={20} textColor="var(--text-3)" />
+        )}
+      </Frame>
+    </Frame>
+  )
+}
+
+type SectionId = 'staged' | 'changes' | 'untracked'
+const PRIMARY_ACCENT = '#7ec98f'
+
+function BranchRow({ branch, accent }: { branch: GitBranchTreeEntry; accent: string }) {
+  return (
+    <Frame flow="vertical" gap={6} padding={{ y: 8 }} stroke={{ bottom: { color: 'var(--border-1)' } }}>
+      <Frame flow="horizontal" align="center" gap={6}>
+        <Icon name="git-branch" size={11} />
+        <span style={{ fontSize: 11, color: 'var(--text-1)', fontWeight: branch.current ? 700 : 500, ...UI_FONT }}>
+          {branch.name}
+        </span>
+        {branch.current && (
+          <span style={{ fontSize: 9, letterSpacing: '0.04em', color: accent, ...UI_FONT }}>Current</span>
+        )}
+      </Frame>
+
+      {!branch.isPrimary && (
+        <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT, paddingLeft: 17 }}>
+          {branch.forkedFrom && branch.forkPoint
+            ? `↳ forked from ${branch.forkedFrom} @ ${branch.forkPoint.shortHash} "${branch.forkPoint.subject}"`
+            : `↳ no shared history with ${branch.forkedFrom ?? 'the primary branch'}`}
+        </span>
+      )}
+
+      <Frame flow="horizontal" gap={12} wrap="wrap" style={{ paddingLeft: 17 }}>
+        {branch.commits.map((c) => (
+          <CommitDot key={c.hash} commit={c} accent={accent} />
+        ))}
+        {branch.commits.length === 0 && !branch.truncated && (
+          <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>No commits ahead of the fork point.</span>
+        )}
+        {branch.truncated && (
+          <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>… more branches omitted (commit budget reached)</span>
+        )}
+      </Frame>
+    </Frame>
+  )
+}
+
+function BranchTreeView({ tree, loading }: { tree: GitBranchTree | null; loading: boolean }) {
+  if (loading && !tree) {
+    return <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>Loading branch tree…</span>
+  }
+  if (!tree || tree.branches.length === 0) {
+    return <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>No branches found.</span>
+  }
+  return (
+    <Frame flow="vertical" gap={0}>
+      {tree.branches.map((b) => (
+        <BranchRow key={b.name} branch={b} accent={b.isPrimary ? PRIMARY_ACCENT : BRANCH_ACCENT} />
+      ))}
+    </Frame>
+  )
+}
+
+export default function SourceControlView({
+  active = true,
+  refreshToken = 0,
+  onOpenFile,
+}: {
+  /** True while Source Control is the visible category (primary or split pane). */
+  active?: boolean
+  /** Bumped by App on every in-app save so a just-saved file shows immediately. */
+  refreshToken?: number
+  /** Opens a file in the Workspace editor — used by the merge-conflict banner's "Open" action. */
+  onOpenFile?: (path: string) => void
+} = {}) {
+  const vm = useSourceControlViewModel()
+  const { theme } = useAppTheme()
+  // Planning stage per file (by workspace-relative path) — lets a changed file
+  // show the status of the plan node it backs, same glyph as the planning list.
+  // Reloads with dataVersion so a file added/committed this session picks up.
+  const { stages: fileStages } = useFileStages(vm.dataVersion)
+  const [showBranches, setShowBranches] = useState(false)
+  const [showStashes, setShowStashes] = useState(false)
+  const [droppingStash, setDroppingStash] = useState<GitStash | null>(null)
+  const [diffMode, setDiffMode] = useState<'unified' | 'side-by-side'>('unified')
+  // Which main-pane view is shown when no file is selected. 'commits' is the
+  // real commit DAG (CommitGraphView); 'constellation' weaves plan nodes into
+  // it (ConstellationView); 'branches' keeps the older per-branch divergence
+  // summary (BranchTreeView).
+  const [rightView, setRightView] = useState<'commits' | 'constellation' | 'branches'>('commits')
+  const fileMenu = useContextMenu<GitFileStatus>()
+  // Right-click / "⋯" menu for the branch list rows — same useContextMenu
+  // pattern as fileMenu above and PlanningView's node/plan menus.
+  const branchMenu = useContextMenu<GitBranch>()
+  // What the discard confirm is about to throw away — one file from its row
+  // menu, or a whole section from that section's ⋯ menu.
+  const [discarding, setDiscarding] = useState<GitFileStatus[] | null>(null)
+  const sectionMenu = useContextMenu<SectionId>()
+  const [fileSearchOpen, setFileSearchOpen] = useState(false)
+  const [fileQuery, setFileQuery] = useState('')
+  // Changed-file search box's ↑/↓ keyboard highlight — outlined via ListRow's
+  // `connected`, separate from `vm.selected`'s solid "diff open" fill.
+  const [fileHighlightPath, setFileHighlightPath] = useState<string | null>(null)
+  // Changed-file sort, sharing the Workspace/Planning search sort control
+  // (see SEARCH_SORT_OPTIONS). 'recent' orders by worktree mtime (GitFileStatus.mtime).
+  const [fileSort, setFileSort] = useState<SearchSortId>('name')
+  const [showAddRemote, setShowAddRemote] = useState(false)
+  const [remoteUrl, setRemoteUrl] = useState('')
+  const fileSearchRef = useRef<HTMLElement>(null)
+
+  // Re-read git state whenever Source Control becomes the visible category, and
+  // whenever an in-app save bumps refreshToken. App keeps every category mounted
+  // and just toggles `display`, so switching TO this view is neither a remount
+  // (the only thing that fires the ViewModel's own mount refresh) nor a
+  // window-focus change — without this, a file created/edited/saved in another
+  // category (e.g. a new file in Workspace) never shows up here until the app
+  // loses and regains focus. Driven by an explicit App prop rather than an
+  // IntersectionObserver because IO firing on a display:none→flex toggle is
+  // unreliable; a prop change is deterministic. refresh/refreshBranchTree are
+  // stable (useCallback), so the effect only re-runs when active/refreshToken
+  // actually change.
+  const { refresh, refreshBranchTree, refreshStashes } = vm
+  useEffect(() => {
+    if (active) { refresh(); refreshBranchTree(); refreshStashes() }
+  }, [active, refreshToken, refresh, refreshBranchTree, refreshStashes])
+
+  useEffect(() => {
+    if (!fileSearchOpen) return
+    const onMouseDown = (e: MouseEvent) => {
+      const t = e.target as Element
+      if (fileSearchRef.current?.contains(t)) return
+      setFileSearchOpen(false)
+      setFileQuery('')
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [fileSearchOpen])
+
+  const copyRelativePath = (f: GitFileStatus) => { void navigator.clipboard.writeText(f.path) }
+  const copyPaths = (files: GitFileStatus[]) => { void navigator.clipboard.writeText(files.map((f) => f.path).join('\n')) }
+  const copyAbsolutePath = async (f: GitFileStatus) => {
+    const info = await getWorkspaceInfo()
+    void navigator.clipboard.writeText(info.root ? `${info.root}/${f.path}` : f.path)
+  }
+
+  if (vm.loading && !vm.status) {
+    return (
+      <Frame flow="vertical" h="fill" w="fill" align="center" justify="center">
+        <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>Loading git status…</span>
+      </Frame>
+    )
+  }
+
+  if (vm.error && !vm.status) {
+    const notARepo = /not a git repository/i.test(vm.error)
+    return (
+      <Frame theme={theme} flow="vertical" h="fill" w="fill" align="center" justify="center" gap={10} fill={{ solid: 'bg-1' }}>
+        <span style={{ fontSize: 11, color: notARepo ? 'var(--text-2)' : '#e07a7a', ...UI_FONT }}>
+          {notARepo ? 'This folder is not a Git repository yet.' : vm.error}
+        </span>
+        <Frame flow="horizontal" align="center" gap={8}>
+          {notARepo && (
+            <Button variant="primary" size="sm" onClick={vm.doInit} disabled={vm.initializing} isLoading={vm.initializing}>
+              {vm.initializing ? 'Initializing…' : 'Initialize repository'}
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={vm.refresh}>Retry</Button>
+        </Frame>
+        {notARepo && (
+          <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>
+            Or clone a repo from the Workspace tab.
+          </span>
+        )}
+      </Frame>
+    )
+  }
+
+  const status = vm.status!
+  const nothingStaged = vm.staged.length === 0
+  // Last two path segments of the repo git status is actually reading — shown
+  // so "my changes aren't showing" is obviously a wrong-folder problem when it
+  // is one (full path on hover).
+  const repoLabel = status.root
+    ? status.root.replace(/\\/g, '/').split('/').filter(Boolean).slice(-2).join('/')
+    : null
+
+  const filterFiles = (files: GitFileStatus[]) => {
+    const matched = fileQuery.trim()
+      ? files.filter((f) => f.path.toLowerCase().includes(fileQuery.toLowerCase()))
+      : files
+    return [...matched].sort((a, b) =>
+      fileSort === 'name' ? a.path.localeCompare(b.path) : b.mtime - a.mtime,
+    )
+  }
+  // Backs the changed-files search box's ↑/↓/Enter keyboard nav — same visual
+  // order as the STAGED/CHANGES/UNTRACKED sections rendered below.
+  const fileListItems = [...filterFiles(vm.staged), ...filterFiles(vm.unstaged), ...filterFiles(vm.untracked)].map((f) => ({
+    id: f.path,
+    onSelect: () => vm.selectFile(f),
+  }))
+
+  return (
+    <Frame theme={theme} flow="horizontal" h="fill" w="fill" fill={{ solid: 'bg-1' }}>
+      {/* Left column — branch, sync actions, changed files, commit box */}
+      <Frame flow="vertical" gap={0} w={320} shrink={0} h="fill" stroke={{ right: { color: 'border-1' } }}>
+        <Frame flow="vertical" gap={10} padding={14} stroke={{ bottom: { color: 'border-1' } }}>
+          {(fileSearchOpen || fileQuery) ? (
+            // Opening search slides the input over the branch/title row instead
+            // of dropping a line beneath it \u2014 same cover-the-title interaction
+            // as Planning/LeftRailing (see SidebarHeader's search mode).
+            <Frame ref={fileSearchRef}>
+              <Search
+                value={fileQuery}
+                onChange={setFileQuery}
+                placeholder={`Search files\u2026`}
+                w="fill"
+                autoFocus={fileSearchOpen && !fileQuery}
+                // Same sort dropdown as the Workspace/Planning searches.
+                sort={{
+                  options: SEARCH_SORT_OPTIONS,
+                  active: fileSort,
+                  onChange: (v) => setFileSort(v as SearchSortId),
+                }}
+                listItems={fileListItems}
+                onHighlightChange={setFileHighlightPath}
+              />
+            </Frame>
+          ) : (
+            <Frame flow="horizontal" align="center" justify="between" gap={8}>
+              {/* Branch switcher reads as a dropdown (box + caret); the
+                  ahead/behind count and refresh sit right beside it. */}
+              <Frame flow="horizontal" align="center" gap={6} minW={0}>
+                <button
+                  type="button"
+                  title="Switch branch"
+                  aria-expanded={showBranches}
+                  onClick={() => setShowBranches((s) => !s)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    minWidth: 0,
+                    maxWidth: 190,
+                    padding: '3px 6px 3px 8px',
+                    background: showBranches ? 'rgba(var(--item-ink, 255,255,255), 0.08)' : 'transparent',
+                    border: '1px solid var(--border-2)',
+                    borderRadius: 'var(--radius-2)',
+                    color: 'var(--text-1)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Icon name="git-branch" size={12} />
+                  <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...UI_FONT }}>
+                    {status.branch ?? 'detached HEAD'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>{showBranches ? '\u25b4' : '\u25be'}</span>
+                </button>
+                {(status.ahead > 0 || status.behind > 0) && (
+                  <span
+                    title={`${status.ahead} commit(s) ahead, ${status.behind} behind the remote`}
+                    style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', ...UI_FONT }}
+                  >
+                    {status.ahead > 0 ? `\u2191${status.ahead}` : ''}{status.behind > 0 ? ` \u2193${status.behind}` : ''}
+                  </span>
+                )}
+                <IconButton
+                  as="span"
+                  glyph={'\u27f3'}
+                  iconSize={15}
+                  title={'Refresh \u2014 re-read git status (needed after committing in the terminal or editing outside Sleipnir)'}
+                  textColor="var(--text-3)"
+                  onClick={() => { vm.refresh(); vm.refreshBranchTree() }}
+                />
+              </Frame>
+              <Frame flow="horizontal" align="center" gap={4}>
+                <IconButton
+                  as="span"
+                  icon="search"
+                  iconSize={13}
+                  title="Search files"
+                  textColor="var(--text-3)"
+                  onClick={() => setFileSearchOpen(true)}
+                />
+              </Frame>
+            </Frame>
+          )}
+
+          {repoLabel && (
+            <span
+              title={`Source Control is tracking this repository:\n${status.root}\n\nIf your changes aren't here, this is the wrong folder — open the right project via File ▸ Open Project.`}
+              style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...UI_FONT }}
+            >
+              ▸ tracking …/{repoLabel}
+            </span>
+          )}
+
+          {showBranches && (
+            <Frame flow="vertical" gap={4} padding={8} radius="var(--radius-2)" stroke={{ color: 'border-1' }}>
+              {vm.branches.map((b) =>
+                vm.renamingBranch === b.name ? (
+                  <Frame key={b.name} flow="horizontal" align="center" gap={4} padding={{ x: 4, y: 3 }}>
+                    <TextField size="sm"
+                      autoFocus
+                      value={vm.renameValue}
+                      onChange={(e) => vm.setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') vm.submitRenameBranch()
+                        if (e.key === 'Escape') vm.cancelRenameBranch()
+                      }}
+                      disabled={vm.renamingInFlight}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      onClick={() => vm.submitRenameBranch()}
+                      title="Save"
+                      disabled={vm.renamingInFlight}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-1)', cursor: 'pointer', fontSize: 11, ...UI_FONT }}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => vm.cancelRenameBranch()}
+                      title="Cancel"
+                      disabled={vm.renamingInFlight}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 11, ...UI_FONT }}
+                    >
+                      ×
+                    </button>
+                  </Frame>
+                ) : (
+                  <Frame
+                    key={b.name}
+                    flow="horizontal"
+                    align="center"
+                    justify="between"
+                    padding={{ x: 4, y: 3 }}
+                    style={{ cursor: b.current ? 'default' : 'pointer' }}
+                    onClick={() => !b.current && !vm.switchingBranch && vm.switchBranch(b.name)}
+                    onContextMenu={(e) => branchMenu.openFromEvent(e, b)}
+                  >
+                    <span style={{ fontSize: 11, color: b.current ? 'var(--text-1)' : 'var(--text-2)', ...UI_FONT }}>
+                      {b.current ? '● ' : ''}{b.name}
+                    </span>
+                    <IconButton
+                      as="span"
+                      onClick={(e) => { e.stopPropagation(); branchMenu.openFromButton(e, b) }}
+                      title="More actions"
+                      glyph="⋯"
+                      iconSize={14}
+                      textColor="var(--text-3)"
+                    />
+                  </Frame>
+                ),
+              )}
+              <Frame flow="horizontal" gap={4} padding={{ top: 4 }}>
+                <TextField size="sm"
+                  value={vm.newBranchName}
+                  onChange={(e) => vm.setNewBranchName(e.target.value)}
+                  placeholder="new-branch-name"
+                  style={{ flex: 1 }}
+                />
+                <Button variant="ghost" size="sm" onClick={vm.submitNewBranch} disabled={vm.switchingBranch || !vm.newBranchName.trim()}>
+                  Create
+                </Button>
+              </Frame>
+            </Frame>
+          )}
+
+          {status.remotes && status.remotes.length > 0 ? (
+            <Frame flow="horizontal" gap={6} align="center">
+              <Button variant="ghost" size="sm" onClick={vm.doFetch} isLoading={vm.fetching}>Fetch</Button>
+              <Button variant="ghost" size="sm" onClick={vm.doPull} isLoading={vm.pulling}>Pull</Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={vm.doPush}
+                isLoading={vm.pushing}
+                disabled={status.ahead === 0 && !!status.upstream}
+              >
+                {/* "Publish" on first push (no upstream yet), "Push" thereafter.
+                    Never "Up to date" — that's a status, shown separately below so
+                    it can't be mistaken for a dead button. */}
+                {status.upstream ? 'Push' : 'Publish'}
+              </Button>
+              {status.upstream && status.ahead === 0 && status.behind === 0 && !vm.pushing && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, letterSpacing: '0.03em', color: '#7ec98f', ...UI_FONT }}>
+                  {'✓'} Up to date
+                </span>
+              )}
+            </Frame>
+          ) : showAddRemote ? (
+            /* No remote → let the user wire an 'origin' so Publish has a target. */
+            <Frame flow="vertical" gap={6}>
+              <TextField size="md"
+                autoFocus
+                value={remoteUrl}
+                onChange={(e) => setRemoteUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && remoteUrl.trim()) { vm.doAddRemote(remoteUrl); setShowAddRemote(false) }
+                  if (e.key === 'Escape') setShowAddRemote(false)
+                }}
+                placeholder="https://github.com/user/repo.git"
+              />
+              <Frame flow="horizontal" gap={6}>
+                <Button variant="ghost" size="sm" onClick={() => setShowAddRemote(false)} disabled={vm.addingRemote}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={() => { vm.doAddRemote(remoteUrl); setShowAddRemote(false) }} disabled={vm.addingRemote || !remoteUrl.trim()} isLoading={vm.addingRemote}>
+                  Add remote
+                </Button>
+              </Frame>
+            </Frame>
+          ) : (
+            <Frame flow="horizontal" gap={8} align="center">
+              <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>No remote — commits stay local.</span>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddRemote(true)}>Add remote…</Button>
+            </Frame>
+          )}
+
+          {vm.opResult && (
+            <span style={{ fontSize: 10, color: vm.opResult.ok ? '#7ec98f' : '#e07a7a', ...UI_FONT }}>
+              {vm.opResult.message}
+              {vm.opResult.conflicted && vm.opResult.conflictedFiles?.length
+                ? ` (${vm.opResult.conflictedFiles.join(', ')})` : ''}
+            </span>
+          )}
+
+          <Frame flow="horizontal" align="center" gap={6} style={{ cursor: 'pointer' }} onClick={() => setShowStashes((s) => !s)}>
+            <Icon name="folder" size={12} />
+            <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+              Stash{vm.stashes.length > 0 ? ` (${vm.stashes.length})` : ''}
+            </span>
+          </Frame>
+
+          {showStashes && (
+            <Frame flow="vertical" gap={6} padding={8} radius="var(--radius-2)" stroke={{ color: 'border-1' }}>
+              <Frame flow="horizontal" gap={4}>
+                <TextField size="sm"
+                  value={vm.stashMessage}
+                  onChange={(e) => vm.setStashMessage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && status.files.length > 0) vm.doStashPush() }}
+                  placeholder="Stash message (optional)"
+                  style={{ flex: 1 }}
+                />
+                <Button variant="ghost" size="sm" onClick={vm.doStashPush} disabled={vm.stashing || status.files.length === 0} isLoading={vm.stashing}>
+                  Stash
+                </Button>
+              </Frame>
+
+              {vm.stashes.length === 0 ? (
+                <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>
+                  {vm.stashesLoading ? 'Loading…' : 'No stashes.'}
+                </span>
+              ) : (
+                vm.stashes.map((s) => {
+                  const busy = vm.stashActionRef === s.ref
+                  return (
+                    <Frame key={s.ref} flow="horizontal" align="center" justify="between" gap={6} padding={{ y: 3 }}>
+                      <span
+                        title={`${s.ref} — ${s.author}, ${s.date}`}
+                        style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...UI_FONT }}
+                      >
+                        {s.message || s.ref}
+                      </span>
+                      <Frame flow="horizontal" gap={2} shrink={0}>
+                        <IconButton as="span" glyph="↩" iconSize={12} title="Apply (keep the stash)" disabled={busy} onClick={() => vm.doStashApply(s.ref)} />
+                        <IconButton as="span" glyph="⏏" iconSize={12} title="Pop (apply and remove)" disabled={busy} onClick={() => vm.doStashPop(s.ref)} />
+                        <IconButton as="span" icon="trash" iconSize={12} title="Drop" textColor="#e07a7a" disabled={busy} onClick={() => setDroppingStash(s)} />
+                      </Frame>
+                    </Frame>
+                  )
+                })
+              )}
+            </Frame>
+          )}
+        </Frame>
+
+        <Frame flow="vertical" gap={10} grow minH={0} scroll="y" padding={14}>
+          {vm.error && <span style={{ fontSize: 11, color: '#e07a7a', ...UI_FONT }}>{vm.error}</span>}
+
+          {vm.conflicted.length > 0 && (
+            <Frame flow="vertical" gap={6} padding={8} radius="var(--radius-2)" fill={{ solid: 'rgba(224,122,122,0.08)' }} stroke={{ color: '#e07a7a' }}>
+              <span style={{ fontSize: 10, letterSpacing: '0.04em', color: '#e07a7a', ...UI_FONT }}>
+                Merge conflict — {vm.conflicted.length} {vm.conflicted.length === 1 ? 'file' : 'files'}
+              </span>
+              {vm.conflicted.map((f) => (
+                <Frame key={f.path} flow="horizontal" align="center" justify="between" gap={6}>
+                  <span
+                    title={f.path}
+                    style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...UI_FONT }}
+                  >
+                    {f.path}
+                  </span>
+                  <Frame flow="horizontal" gap={4} shrink={0}>
+                    <Button variant="ghost" size="sm" onClick={() => onOpenFile?.(f.path)} disabled={!onOpenFile}>
+                      Open
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => vm.resolveConflict(f)}>
+                      Mark Resolved
+                    </Button>
+                  </Frame>
+                </Frame>
+              ))}
+            </Frame>
+          )}
+
+          <Frame flow="vertical" gap={2}>
+            <SectionHeader
+              label={`Staged (${vm.staged.length})`}
+              actionLabel="Unstage All"
+              onAction={vm.staged.length > 0 ? () => vm.unstageMany(vm.staged) : undefined}
+              onMenu={vm.staged.length > 0 ? (e) => sectionMenu.openFromButton(e, 'staged') : undefined}
+            />
+            {filterFiles(vm.staged).map((f) => (
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+            ))}
+          </Frame>
+
+          <Frame flow="vertical" gap={2}>
+            <SectionHeader
+              label={`Changes (${vm.unstaged.length})`}
+              actionLabel="Stage All"
+              // Stages every change *and* untracked file — the usual "take
+              // everything" intent; UNTRACKED has its own button to add only those.
+              onAction={vm.unstaged.length + vm.untracked.length > 0 ? () => vm.stageMany([...vm.unstaged, ...vm.untracked]) : undefined}
+              onMenu={vm.unstaged.length > 0 ? (e) => sectionMenu.openFromButton(e, 'changes') : undefined}
+            />
+            {filterFiles(vm.unstaged).map((f) => (
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+            ))}
+          </Frame>
+
+          <Frame flow="vertical" gap={2}>
+            <SectionHeader
+              label={`Untracked (${vm.untracked.length})`}
+              actionLabel="Stage All"
+              onAction={vm.untracked.length > 0 ? () => vm.stageMany(vm.untracked) : undefined}
+              onMenu={vm.untracked.length > 0 ? (e) => sectionMenu.openFromButton(e, 'untracked') : undefined}
+            />
+            {filterFiles(vm.untracked).map((f) => (
+              <FileRow key={f.path} file={f} stage={fileStages.get(f.path)} active={vm.selected?.path === f.path} highlighted={f.path === fileHighlightPath} onSelect={() => vm.selectFile(f)} onToggleStage={() => vm.toggleStage(f)} onContextMenu={(e) => fileMenu.openFromEvent(e, f)} onMenuButton={(e) => fileMenu.openFromButton(e, f)} />
+            ))}
+          </Frame>
+
+          {status.files.length === 0 && (
+            <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>Working tree clean.</span>
+          )}
+        </Frame>
+
+        <Frame flow="vertical" gap={6} padding={14} stroke={{ top: { color: 'border-1' } }}>
+          <TextArea size="md"
+            value={vm.commitMessage}
+            onChange={(e) => vm.setCommitMessage(e.target.value)}
+            placeholder="Commit message"
+            rows={3}
+            style={{ resize: 'none' }}
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={vm.commit}
+            isLoading={vm.committing}
+            disabled={nothingStaged || !vm.commitMessage.trim()}
+          >
+            Commit {vm.staged.length > 0 ? `(${vm.staged.length})` : ''}
+          </Button>
+        </Frame>
+      </Frame>
+
+      {/* Main area — the commit graph by default, or the selected file's diff */}
+      <Frame flow="vertical" grow minW={0} h="fill" scroll="y">
+        <Frame flow="horizontal" align="center" justify="between" padding={{ x: 16, y: 10 }} stroke={{ bottom: { color: 'border-1' } }}>
+          {vm.selected ? (
+            <span style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.04em', ...UI_FONT }}>
+              {vm.selected.path}
+            </span>
+          ) : (
+            <Frame flow="horizontal" gap={4} align="center">
+              <Button variant={rightView === 'commits' ? 'secondary' : 'ghost'} size="sm" onClick={() => setRightView('commits')}>Commits</Button>
+              <Button variant={rightView === 'constellation' ? 'secondary' : 'ghost'} size="sm" onClick={() => setRightView('constellation')}>Constellation</Button>
+              <Button variant={rightView === 'branches' ? 'secondary' : 'ghost'} size="sm" onClick={() => setRightView('branches')}>Branches</Button>
+            </Frame>
+          )}
+          {vm.selected && (
+            <Frame flow="horizontal" gap={6} align="center">
+              <Button variant={diffMode === 'unified' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDiffMode('unified')}>
+                Unified
+              </Button>
+              <Button variant={diffMode === 'side-by-side' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDiffMode('side-by-side')}>
+                Side-by-side
+              </Button>
+              <Button variant="ghost" size="sm" onClick={vm.clearSelection}>
+                Back
+              </Button>
+            </Frame>
+          )}
+        </Frame>
+        {vm.selected ? (
+          <Frame padding={{ y: 8 }}>
+            <DiffView diff={vm.diff} loading={vm.diffLoading} mode={diffMode} />
+          </Frame>
+        ) : rightView === 'commits' ? (
+          <CommitGraphView reloadToken={vm.dataVersion} />
+        ) : rightView === 'constellation' ? (
+          <ConstellationView reloadToken={vm.dataVersion} />
+        ) : (
+          <Frame padding={{ x: 16, y: 4 }}>
+            <BranchTreeView tree={vm.branchTree} loading={vm.branchTreeLoading} />
+          </Frame>
+        )}
+      </Frame>
+
+      {fileMenu.menu && (() => {
+        const f = fileMenu.menu.data
+        return (
+          <ContextMenu
+            x={fileMenu.menu.x}
+            y={fileMenu.menu.y}
+            anchorEl={fileMenu.menu.anchorEl}
+            onClose={fileMenu.close}
+            items={[
+              { label: 'Open diff', onSelect: () => vm.selectFile(f) },
+              { label: f.staged ? 'Unstage' : 'Stage', onSelect: () => vm.toggleStage(f) },
+              { label: 'Discard changes', separator: true, destructive: true, onSelect: () => setDiscarding([f]) },
+              { label: 'Copy path', separator: true, onSelect: () => copyAbsolutePath(f) },
+              { label: 'Copy relative path', onSelect: () => copyRelativePath(f) },
+            ]}
+          />
+        )
+      })()}
+
+      {sectionMenu.menu && (() => {
+        const section = sectionMenu.menu.data
+        // A conflicted file is mid-merge: "discard" would silently pick a
+        // side, so bulk discard leaves those to their own row menu.
+        const discardable = (files: GitFileStatus[]) => files.filter((f) => !f.conflicted)
+        const items = section === 'staged'
+          ? [
+              { label: 'Unstage all', onSelect: () => vm.unstageMany(vm.staged) },
+              { label: `Discard all staged (${discardable(vm.staged).length})`, separator: true, destructive: true, disabled: discardable(vm.staged).length === 0, onSelect: () => setDiscarding(discardable(vm.staged)) },
+              { label: 'Copy paths', separator: true, onSelect: () => copyPaths(vm.staged) },
+            ]
+          : section === 'changes'
+            ? [
+                { label: 'Stage all changes', onSelect: () => vm.stageMany(vm.unstaged) },
+                { label: 'Stage changes + untracked', onSelect: () => vm.stageMany([...vm.unstaged, ...vm.untracked]) },
+                { label: `Discard all changes (${discardable(vm.unstaged).length})`, separator: true, destructive: true, disabled: discardable(vm.unstaged).length === 0, onSelect: () => setDiscarding(discardable(vm.unstaged)) },
+                { label: 'Copy paths', separator: true, onSelect: () => copyPaths(vm.unstaged) },
+              ]
+            : [
+                { label: 'Stage all untracked', onSelect: () => vm.stageMany(vm.untracked) },
+                { label: `Delete all untracked (${vm.untracked.length})`, separator: true, destructive: true, onSelect: () => setDiscarding(vm.untracked) },
+                { label: 'Copy paths', separator: true, onSelect: () => copyPaths(vm.untracked) },
+              ]
+        return (
+          <ContextMenu
+            x={sectionMenu.menu.x}
+            y={sectionMenu.menu.y}
+            anchorEl={sectionMenu.menu.anchorEl}
+            onClose={sectionMenu.close}
+            items={items}
+          />
+        )
+      })()}
+
+      {branchMenu.menu && (
+        <ContextMenu
+          x={branchMenu.menu.x}
+          y={branchMenu.menu.y}
+          anchorEl={branchMenu.menu.anchorEl}
+          onClose={branchMenu.close}
+          items={[{ label: 'Rename', onSelect: () => vm.startRenameBranch(branchMenu.menu!.data.name) }]}
+        />
+      )}
+
+      {discarding && (
+        <DiscardFileModal
+          files={discarding.map((f) => ({ path: f.path, isNew: f.untracked || (f.staged && f.indexStatus === 'A') }))}
+          discard={() => vm.discard(discarding)}
+          onClose={() => setDiscarding(null)}
+          onDiscarded={() => setDiscarding(null)}
+        />
+      )}
+
+      {droppingStash && (
+        <StashDropModal
+          stash={droppingStash}
+          drop={() => vm.doStashDrop(droppingStash.ref)}
+          onClose={() => setDroppingStash(null)}
+          onDropped={() => setDroppingStash(null)}
+        />
+      )}
+    </Frame>
+  )
+}

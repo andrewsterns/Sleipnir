@@ -1,5 +1,5 @@
-import type { GraphMapId, SavedPlan } from '../../00_planning/graph/types'
-import type { RecentProject, WorkspaceInfo } from '../../00_planning/api/PlatformAPI'
+import type { GraphMapId, SavedPlan } from '../../planning/graph/types'
+import type { RecentProject, WorkspaceInfo } from '../../platform/PlatformAPI'
 
 /**
  * WorkspaceView otherwise takes no props — unlike Components/Prototypes/
@@ -34,7 +34,7 @@ export interface WorkspaceViewProps {
    * tree repaints. App.tsx uses it to reattach Canvas boards to files that
    * moved — moving a component out of `.canvas` into real source is how a
    * staged component is promoted, and the board has to follow it rather than
-   * keep pointing at the path it left (see 01_canvas/model/relink.ts).
+   * keep pointing at the path it left (see document/relink.ts).
    */
   onPathMoved?: (from: string, to: string) => Promise<void>
   /** Fired after a path is deleted from the file tree. App.tsx uses it to reconcile Canvas boards whose component file just went — the delete counterpart to onPathMoved. */

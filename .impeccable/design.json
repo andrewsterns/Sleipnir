@@ -1,25 +1,25 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-05T00:00:00.000Z",
+  "generatedAt": "2026-11-03T00:00:00.000Z",
   "title": "Design System: Sleipnir",
   "extensions": {
     "colorMeta": {
-      "bg-primary": { "role": "neutral", "displayName": "Void Black", "canonical": "oklch(6% 0 0)", "tonalRamp": ["#020202", "#050505", "#080808", "#0e0e0e", "#131313", "#1c1c1c", "#2a2a2a", "#3c3c3c"] },
-      "text-primary": { "role": "neutral", "displayName": "HUD White", "canonical": "oklch(92% 0 0)", "tonalRamp": ["#4a4a4a", "#6a6a6a", "#8a8a8a", "#9a9a9a", "#b8b8b8", "#cfcfcf", "#e8e8e8", "#f6f8fc"] },
-      "accent-scan": { "role": "primary", "displayName": "Scan", "canonical": "oklch(90% 0.02 235)", "tonalRamp": ["#3a4448", "#5a6a70", "#7a939c", "#9ab4c0", "#b8ccd8", "#dce8f0", "#eef4f8", "#ffffff"] },
-      "danger-tomato": { "role": "tertiary", "displayName": "Danger Tomato", "canonical": "oklch(58% 0.19 25)", "tonalRamp": ["#4a1410", "#7a251c", "#a83428", "#c0392b", "#e74c3c", "#ff6554", "#ff8576", "#ffa89d"] }
+      "bg-primary": { "role": "neutral", "displayName": "Ground", "canonical": "oklch(14% 0 0)", "tonalRamp": ["#000000", "#0b0b0c", "#161617", "#212123", "#2c2c2e", "#3a3a3c", "#48484a", "#636366"] },
+      "text-primary": { "role": "neutral", "displayName": "Ink", "canonical": "oklch(97% 0.002 286)", "tonalRamp": ["#6e6e73", "#7c7c82", "#8e8e93", "#a1a1a6", "#c7c7cc", "#d1d1d6", "#e8e8ed", "#f5f5f7"] },
+      "light-bg-primary": { "role": "neutral", "displayName": "Light Ground", "canonical": "oklch(100% 0 0)", "tonalRamp": ["#ffffff", "#f5f5f7", "#e8e8ed", "#d2d2d7", "#aeaeb2", "#86868b", "#6e6e73", "#1d1d1f"] },
+      "danger-tomato": { "role": "tertiary", "displayName": "Danger", "canonical": "oklch(58% 0.19 25)", "tonalRamp": ["#4a1410", "#7a251c", "#a83428", "#c0392b", "#e74c3c", "#ff6554", "#ff8576", "#ffa89d"] }
     },
     "typographyMeta": {
-      "body": { "displayName": "Body", "purpose": "Editor content, form fields, primary reading text." },
-      "label": { "displayName": "Label", "purpose": "Default size for list-item text, row labels, tab labels — the 12px floor for anything selectable." },
-      "micro-label": { "displayName": "Micro-label", "purpose": "Section headers only (PLANS, NODES, ARCHIVED) — uppercase + tracking buys back legibility at 11px; never body content." }
+      "body": { "displayName": "Body", "purpose": "List rows, menu items, buttons and editor chrome — 13px Helvetica." },
+      "label": { "displayName": "Label", "purpose": "Field text, secondary rows and metadata — 12px Helvetica." },
+      "section-label": { "displayName": "Section label", "purpose": "Sidebar section headers in sentence case — 11px, 600, 0.04em, tertiary ink." },
+      "code": { "displayName": "Code", "purpose": "Only where code or a command is read: editor, terminal, diffs, tool commands." }
     },
     "shadows": [
-      { "name": "overlay", "value": "0 8px 24px rgba(0,0,0,0.5)", "purpose": "Dropdown menus and popovers detaching from the page." },
-      { "name": "modal", "value": "0 14px 36px -18px rgba(0,0,0,0.95)", "purpose": "Modal dialogs." }
+      { "name": "float", "value": "0 12px 32px -8px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)", "purpose": "Menus, popovers, dropdowns and modals (--shadow-1); the light theme uses a softer black." }
     ],
     "motion": [
-      { "name": "hover-fast", "value": "80ms ease-out", "purpose": "Row/button hover fills and resize-handle color — precise and immediate, no bounce." }
+      { "name": "state", "value": "120ms ease", "purpose": "Hover/selection washes, field focus rings and NavRail pills — state only, no decoration." }
     ],
     "breakpoints": []
   },
@@ -28,72 +28,88 @@
       "name": "List Row",
       "kind": "custom",
       "refersTo": "list-row",
-      "description": "A file-tree row or Planning sidebar row — default state.",
+      "description": "A file-tree or sidebar row: inset, rounded, ink wash on hover.",
       "html": "<div class=\"ds-list-row\"><span class=\"ds-list-row-label\">MenuCard.tsx</span></div>",
-      "css": ".ds-list-row { display: flex; align-items: center; width: 100%; padding: 6px 8px; background: transparent; font-family: 'Sometype Mono', monospace; transition: background 80ms ease-out; } .ds-list-row:hover { background: rgba(255,255,255,0.03); } .ds-list-row-label { font-size: 12px; letter-spacing: 0.02em; color: #9a9a9a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }"
+      "css": ".ds-list-row { display: flex; align-items: center; height: 26px; margin: 0 6px; padding: 0 8px; border-radius: 6px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: rgba(245,245,247,0.82); transition: background-color 120ms ease, color 120ms ease; } .ds-list-row:hover { background: rgba(245,245,247,0.06); color: #f5f5f7; } .ds-list-row-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }"
     },
     {
-      "name": "List Row (Active)",
+      "name": "List Row (Selected)",
       "kind": "custom",
       "refersTo": "list-row-active",
-      "description": "A file-tree row or sidebar row in its selected/active state.",
-      "html": "<div class=\"ds-list-row-active\"><span class=\"ds-list-row-active-label\">Frame.tsx</span></div>",
-      "css": ".ds-list-row-active { display: flex; align-items: center; width: 100%; padding: 6px 8px; background: rgba(255,255,255,0.08); font-family: 'Sometype Mono', monospace; } .ds-list-row-active-label { font-size: 12px; letter-spacing: 0.02em; color: #e8e8e8; }"
+      "description": "A row in its selected state — a 12% ink wash, never an inverted fill.",
+      "html": "<div class=\"ds-list-row-active\"><span>Frame.tsx</span></div>",
+      "css": ".ds-list-row-active { display: flex; align-items: center; height: 26px; margin: 0 6px; padding: 0 8px; border-radius: 6px; background: rgba(245,245,247,0.12); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #f5f5f7; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one prominent action on a surface — solid ink, ground-coloured label.",
+      "html": "<button class=\"ds-btn-primary\">Commit</button>",
+      "css": ".ds-btn-primary { padding: 8px 14px; border: none; border-radius: 8px; background: #f5f5f7; color: #0b0b0c; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color 120ms ease; } .ds-btn-primary:hover { background: #d4d4d6; } .ds-btn-primary:disabled { opacity: 0.4; cursor: default; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet secondary actions (Fetch, Pull, Cancel).",
+      "html": "<button class=\"ds-btn-ghost\">Fetch</button>",
+      "css": ".ds-btn-ghost { padding: 8px 14px; border: none; border-radius: 8px; background: transparent; color: #a1a1a6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color 120ms ease, color 120ms ease; } .ds-btn-ghost:hover { background: rgba(245,245,247,0.07); color: #f5f5f7; }"
     },
     {
       "name": "Hover Icon Button",
       "kind": "button",
       "refersTo": "hover-icon-button",
-      "description": "A row-hover action (Play, Add-to-Plan, new file/folder, archive) — icon stays small, click box stays comfortable.",
-      "html": "<button class=\"ds-hover-icon-btn\" title=\"Add to plan\" aria-label=\"Add to plan\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><circle cx=\"12\" cy=\"12\" r=\"10\"/></svg></button>",
-      "css": ".ds-hover-icon-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: transparent; border: none; border-radius: 2px; color: #e8e8e8; cursor: pointer; transition: background 80ms ease-out; } .ds-hover-icon-btn:hover { background: rgba(255,255,255,0.08); } .ds-hover-icon-btn:focus-visible { outline: 1px solid #dce8f0; outline-offset: 1px; }"
+      "description": "A row or toolbar action — 28px hit box, soft rounded wash on hover.",
+      "html": "<button class=\"ds-icon-btn\" title=\"New file\" aria-label=\"New file\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 5v14M5 12h14\"/></svg></button>",
+      "css": ".ds-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; border-radius: 6px; background: transparent; color: #a1a1a6; cursor: pointer; transition: background-color 120ms ease, color 120ms ease; } .ds-icon-btn:hover { background: rgba(245,245,247,0.08); color: #f5f5f7; } .ds-icon-btn:focus-visible { outline: 2px solid rgba(245,245,247,0.55); outline-offset: 1px; }"
     },
     {
-      "name": "Tab",
-      "kind": "nav",
-      "refersTo": "tab",
-      "description": "A WorkspaceHeader tab strip item — default and active states.",
-      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab\">Frame.tsx</button><button class=\"ds-tab ds-tab-active\">MenuCard.tsx</button></div>",
-      "css": ".ds-tabs { display: flex; align-items: center; font-family: 'Sometype Mono', monospace; } .ds-tab { padding: 8px 12px; background: transparent; border: none; border-bottom: 2px solid transparent; font-size: 12px; letter-spacing: 0.04em; color: #4a4a4a; cursor: pointer; transition: background 80ms ease-out, color 80ms ease-out; } .ds-tab:hover { color: #9a9a9a; } .ds-tab-active { color: #e8e8e8; background: rgba(255,255,255,0.05); border-bottom-color: #e8e8e8; }"
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Every typed field, search box and dropdown trigger.",
+      "html": "<input class=\"ds-field\" placeholder=\"Commit message\" />",
+      "css": ".ds-field { width: 100%; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #161617; color: #f5f5f7; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12.5px; outline: none; transition: border-color 120ms ease, box-shadow 120ms ease; } .ds-field::placeholder { color: #7c7c82; } .ds-field:hover { border-color: rgba(255,255,255,0.16); } .ds-field:focus { border-color: rgba(245,245,247,0.45); box-shadow: 0 0 0 3px rgba(245,245,247,0.1); }"
     },
     {
-      "name": "Section Header",
+      "name": "Section Label",
       "kind": "custom",
-      "refersTo": "micro-label",
-      "description": "A sidebar section label (PLANS, NODES, ARCHIVED, or a folder root path).",
-      "html": "<span class=\"ds-section-header\">NODES (42)</span>",
-      "css": ".ds-section-header { font-family: 'Sometype Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9a9a; }"
+      "refersTo": "section-label",
+      "description": "A sidebar section header, in sentence case.",
+      "html": "<span class=\"ds-section-label\">Steps (2)</span>",
+      "css": ".ds-section-label { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #7c7c82; }"
     }
   ],
   "narrative": {
-    "northStar": "The Tactical HUD",
-    "overview": "Sleipnir reads like a heads-up display for building UI, not a consumer app. Near-monochrome white-on-black, sharp near-zero corners, translucent layered panels stacked by opacity rather than lifted by shadow, one mono typeface throughout. It's built for people who live in it for hours — scanning file trees, editing components, watching an AI agent plan and generate code, reviewing a Git diff — moving fast between many small, information-dense panels rather than reading long-form content. This system explicitly rejects consumer-SaaS softness: no pastel palette, no rounded cards-on-cards, no cheerful copy, no drop-shadow-heavy elevation, nothing skeuomorphic or glassy. But density is not an excuse for illegibility — the HUD is precise, not cramped. Text stays comfortably readable and every clickable icon keeps a real, comfortable hit target, even inside the densest sidebar list.",
+    "northStar": "The Quiet Instrument",
+    "overview": "Sleipnir is a precision tool finished to the level of Apple's and Google's own software: neutral black and white, one Helvetica voice, soft 8px controls, and nothing on screen that is there for show. The chrome recedes so the work leads. It replaced the retired Tactical HUD look — no monospace chrome, no ALL-CAPS, no wide tracking.",
     "keyCharacteristics": [
-      "Near-monochrome dark surface; color reserved for status meaning, never decoration",
-      "Sharp corners (0-4px) everywhere",
-      "One mono family (Sometype Mono) carries body, label, and code text alike",
-      "Depth from translucent layering + hairline borders, not drop shadows",
-      "Every interactive row/button gets a real hover state and a real click target"
+      "Pure neutral greys; colour only where it carries status meaning",
+      "Helvetica Neue for all UI, pinned per weight; mono only for code",
+      "Sentence case everywhere",
+      "8px controls, 12px floating surfaces, edge-to-edge panels",
+      "Hover and selection as quiet ink washes"
     ],
     "rules": [
-      { "name": "The Brightness-Not-Hue Rule", "body": "Emphasis comes from how bright something is, not from introducing a new color.", "section": "colors" },
-      { "name": "The 12px Floor Rule", "body": "Interactive/selectable list text never goes below Label size (12px). Micro-label (11px, uppercase, tracked) is for section headers only.", "section": "typography" },
-      { "name": "The Layering-Not-Lifting Rule", "body": "A panel becomes closer by getting brighter/more opaque, not by casting a shadow.", "section": "elevation" },
-      { "name": "The Two-Number Button Rule", "body": "Every hover icon button has an icon size and a hit-target size, and they are never the same number.", "section": "components" }
+      { "name": "The Ink-Wash Rule", "body": "Interactive states are the theme's ink at low alpha: 6-8% hover, 12% selected.", "section": "colors" },
+      { "name": "The One Prominent Action Rule", "body": "The primary button is solid ink with ground-coloured text, one per surface.", "section": "colors" },
+      { "name": "The Sentence-Case Rule", "body": "No label is set in ALL-CAPS, by string or text-transform; acronyms and file names keep their own case.", "section": "typography" },
+      { "name": "The Mono-Means-Code Rule", "body": "Monospace only where code or a command is read.", "section": "typography" }
     ],
     "dos": [
-      "Do keep interactive list/row text at 12px (Label) minimum",
-      "Do give every hover-revealed icon button a real ~28x28px click box",
-      "Do use brightness/opacity steps for hierarchy before reaching for a new color",
-      "Do reserve uppercase + heavy tracking for true section headers",
-      "Do keep borders to the two defined weights (hairline / emphasis)"
+      "Do use var(--font-ui) for UI text and var(--font-mono) only for code",
+      "Do write labels in sentence case",
+      "Do express hover and selection as ink washes from --item-ink",
+      "Do keep controls at --radius-control and floating surfaces at --radius-float",
+      "Do give every icon button a 28px hit box"
     ],
     "donts": [
-      "Don't hardcode raw fontSize 9/10/11 inline pixel values for selectable or continuously-read text",
-      "Don't size a hover button's clickable area to match its icon's visual size",
-      "Don't introduce drop-shadow elevation on docked/inline panels",
-      "Don't use rounded/soft radii, pastel colors, or gradient fills",
-      "Don't add a third border weight or a new gray outside the text-1/2/3 ramp for one component"
+      "Don't set any label in ALL-CAPS or add text-transform: uppercase",
+      "Don't track text wider than 0.04em",
+      "Don't use monospace as a technical costume for chrome",
+      "Don't invert a row to a solid ink fill for selection, or outline it on hover",
+      "Don't add hue to the neutral ramp or a third border weight"
     ]
   }
 }

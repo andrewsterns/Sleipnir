@@ -3,21 +3,21 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { FOUNDER_PRICE, PRO_FEATURES, isLicenseAvailable, useLicense, type LicenseStatus } from '../License/iLicense'
 import { LicenseKeyForm } from '../License/UpgradePrompt'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 const BUTTON: React.CSSProperties = {
   background: 'rgba(var(--item-ink, 255,255,255), 0.10)',
   border: '1px solid var(--border-2)',
   color: 'var(--text-1)',
-  fontSize: 9,
-  letterSpacing: '0.08em',
+  fontSize: 10,
+  letterSpacing: '0.04em',
   padding: '6px 12px',
   cursor: 'pointer',
-  ...MONO,
+  ...UI_FONT,
 }
 
-const LABEL: React.CSSProperties = { fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }
-const BODY: React.CSSProperties = { fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }
+const LABEL: React.CSSProperties = { fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }
+const BODY: React.CSSProperties = { fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }
 
 function summary(s: LicenseStatus): string {
   switch (s.state) {
@@ -42,16 +42,16 @@ export function LicenseSection() {
   const { status, isPro, deactivate, releaseProject, openCheckout } = useLicense()
 
   if (!isLicenseAvailable()) {
-    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>Licensing is desktop-only.</span>
+    return <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>Licensing is desktop-only.</span>
   }
   if (!status) return null
 
   return (
     <Frame flow="vertical" gap={18} style={{ maxWidth: 460 }}>
       <Frame flow="vertical" gap={8}>
-        <span style={LABEL}>LICENSE</span>
-        <span style={{ fontSize: 11, color: isPro ? 'var(--nominal)' : 'var(--text-1)', ...MONO }}>{summary(status)}</span>
-        {status.error && <span style={{ fontSize: 9, color: '#e07a7a', lineHeight: 1.5, ...MONO }}>{status.error}</span>}
+        <span style={LABEL}>License</span>
+        <span style={{ fontSize: 11, color: isPro ? 'var(--nominal)' : 'var(--text-1)', ...UI_FONT }}>{summary(status)}</span>
+        {status.error && <span style={{ fontSize: 10, color: '#e07a7a', lineHeight: 1.5, ...UI_FONT }}>{status.error}</span>}
         {status.stale && (
           <span style={BODY}>Couldn’t reach the license server for a while. Pro keeps working; it’ll recheck when you’re online.</span>
         )}
@@ -64,7 +64,7 @@ export function LicenseSection() {
             machine.
           </span>
           <Frame flow="horizontal">
-            <button onClick={deactivate} style={BUTTON}>REMOVE KEY FROM THIS COMPUTER</button>
+            <button onClick={deactivate} style={BUTTON}>Remove key from this computer</button>
           </Frame>
         </Frame>
       ) : status.state !== 'dev' && status.state !== 'unlocked' ? (
@@ -74,15 +74,15 @@ export function LicenseSection() {
           </span>
           <Frame flow="vertical" gap={4}>
             {PRO_FEATURES.map((f) => (
-              <span key={f.id} style={{ fontSize: 10, color: 'var(--text-2)', ...MONO }}>✓ {f.label}</span>
+              <span key={f.id} style={{ fontSize: 11, color: 'var(--text-2)', ...UI_FONT }}>✓ {f.label}</span>
             ))}
           </Frame>
           <Frame flow="horizontal">
             <button onClick={openCheckout} style={{ ...BUTTON, borderColor: 'var(--nominal)', color: 'var(--nominal)' }}>
-              BUY FOUNDER LICENSE · {FOUNDER_PRICE}
+              Buy founder license · {FOUNDER_PRICE}
             </button>
           </Frame>
-          <span style={LABEL}>ENTER A LICENSE KEY</span>
+          <span style={LABEL}>Enter a license key</span>
           {!status.configured && (
             <span style={BODY}>This build has no license store configured, so keys can’t be activated yet.</span>
           )}
@@ -93,7 +93,7 @@ export function LicenseSection() {
       {!isPro && (
         <Frame flow="vertical" gap={8}>
           <span style={LABEL}>
-            FREE PROJECTS · {status.freeProjects.length}/{status.freeProjectLimit}
+            Free projects · {status.freeProjects.length}/{status.freeProjectLimit}
           </span>
           <span style={BODY}>
             The free version opens up to {status.freeProjectLimit} projects. Release one you no longer use to free its
@@ -106,11 +106,11 @@ export function LicenseSection() {
               <Frame key={p} flow="horizontal" align="center" gap={10}>
                 <span
                   title={p}
-                  style={{ flex: 1, minWidth: 0, fontSize: 10, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...MONO }}
+                  style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...UI_FONT }}
                 >
                   {p}
                 </span>
-                <button onClick={() => releaseProject(p)} style={BUTTON}>RELEASE</button>
+                <button onClick={() => releaseProject(p)} style={BUTTON}>Release</button>
               </Frame>
             ))
           )}

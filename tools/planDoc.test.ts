@@ -16,14 +16,15 @@ import {
   toStepStatus,
   applyStepStatus,
   latestStepNotes,
+  addStepComment,
   snapshotTree,
   diffSnapshots,
   snapshotActionFor,
   attachChanges,
   MAX_SNAPSHOT_FILES,
 } from './planDoc.mjs'
-import { ROLE_OPTIONS, LANGUAGES } from '../src/00_planning/graph/architectures'
-import { ROLE_SUFFIX as TS_ROLE_SUFFIX } from '../src/00_planning/graph/naming'
+import { ROLE_OPTIONS, LANGUAGES } from '../src/planning/graph/architectures'
+import { ROLE_SUFFIX as TS_ROLE_SUFFIX } from '../src/planning/graph/naming'
 
 type Node = { id: string; label?: string; order?: number; type?: string; description?: string; [key: string]: unknown }
 type Edge = { source: string; target: string; kind: string }
@@ -350,7 +351,7 @@ describe('step status', () => {
       plannedFiles: [],
       existing: null,
       statuses: { [step('Build cart').id]: 'completed' },
-      notes: { [step('Build cart').id]: 'Shipped' },
+      events: [{ at: 1, stepId: step('Build cart').id, status: 'completed', note: 'Shipped', agent: 'claude' }],
     })
     expect(text).toContain(`<!-- step:${step('Build cart').id} -->\n**Status:** Done — Shipped\n`)
     expect(text).toContain(`<!-- step:${step('Test it').id} -->\n**Status:** Proposed\n`)
@@ -434,5 +435,32 @@ describe('testing status', () => {
     expect(snapshotActionFor('testing', 'in_progress')).toBe('keep')
     expect(snapshotActionFor('testing', 'completed')).toBe('compare')
     expect(snapshotActionFor(undefined, 'testing')).toBe('take')
+  })
+})
+
+describe('comments and who moved a step', () => {
+  it('puts a person\u2019s comment and status change in plan.md, where agents read', () => {
+    const data = empty()
+    addPlanStep(data, { planId: PLAN, node: step('Build cart') })
+    const id = step('Build cart').id
+    const events: Array<Record<string, unknown>> = [{ at: 1, stepId: id, status: 'in_progress', agent: 'you' }]
+    addStepComment({ nodes: data.nodes, events, stepId: id, text: '  Keep the old cart route working ', agent: 'you', at: 2 })
+    const text = renderPlanDoc({
+      plan: { id: PLAN, label: 'Cart' },
+      steps: planSteps(data.nodes, PLAN),
+      plannedFiles: [],
+      existing: null,
+      statuses: { [id]: 'in_progress' },
+      events,
+    })
+    expect(text).toContain('**Status:** In progress (set by you)')
+    expect(text).toContain('**Comments**\n- you: Keep the old cart route working\n')
+  })
+
+  it('refuses an empty comment, or one on something that is not a step', () => {
+    const data = empty()
+    addPlanStep(data, { planId: PLAN, node: step('Build cart') })
+    expect(() => addStepComment({ nodes: data.nodes, events: [], stepId: step('Build cart').id, text: '  ', at: 1 })).toThrow('needs some text')
+    expect(() => addStepComment({ nodes: data.nodes, events: [], stepId: 'nope', text: 'hi', at: 1 })).toThrow('No step')
   })
 })

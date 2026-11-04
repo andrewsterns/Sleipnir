@@ -1,7 +1,7 @@
 import { LSPClient, languageServerExtensions, Workspace, LSPPlugin, jumpToDefinition, hoverTooltips, type Transport, type WorkspaceFile } from '@codemirror/lsp-client'
 import { Text, StateField, StateEffect, type TransactionSpec, type ChangeSet } from '@codemirror/state'
 import { EditorView, Decoration, type DecorationSet } from '@codemirror/view'
-import { readRepoFile, readWorkspaceFile } from '../../00_planning/api/sleipnirApi'
+import { readRepoFile, readWorkspaceFile } from '../../platform/sleipnirApi'
 import { getLspFileOpener } from './lspFileOpener'
 import { languageForPath as tableLanguageForPath, languageById } from '../../../tools/agentSkills/vendor/languages.mjs'
 

@@ -1,0 +1,122 @@
+{
+  "events": [
+    {
+      "at": 1793652650654,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/pinned-views-1793652645615",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793652794366,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/pinned-views-1793652645615",
+      "status": "completed",
+      "note": "Architecture, Skills and Health open as plan-less tabs (graph/pinnedViews.ts); their controls follow the open view",
+      "since": 1793652650654,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanningView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/pinnedViews.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793652794583,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/the-picker-as-a-history-1793652645750",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793652889627,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/the-picker-as-a-history-1793652645750",
+      "status": "completed",
+      "note": "Picker lists PINNED views, then HISTORY: plans newest first with date and progress (planHistory)",
+      "since": 1793652794583,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/pinnedViews.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/00_planning/graph/pinnedViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/WorkspaceTabStrip/TabPicker.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793652889782,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/a-plan-opens-on-its-own-1793652645853",
+      "status": "completed",
+      "note": "Plan tabs open as PLAN, with an IN PROJECT switch; done alongside step 1 since the old toggle's modes moved to pinned views"
+    },
+    {
+      "at": 1793652889921,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/planning-becomes-agent-1793652645977",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793652911835,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/planning-becomes-agent-1793652645977",
+      "status": "completed",
+      "note": "Rail item and missing-files banner say Agent; the picker reads HISTORY",
+      "since": 1793652889921,
+      "changes": [
+        {
+          "path": "src/00_planning/MissingPlanningFiles.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793652911980,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/spacing-slider-1793652646091",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793653466219,
+      "stepId": "plan/agent-area-with-a-history-1793652645531/spacing-slider-1793652646091",
+      "status": "completed",
+      "note": "SPACING slider bottom-right scales link length, repulsion and berth (1-4x), live, remembered per viewer",
+      "since": 1793652911980,
+      "changes": [
+        {
+          "path": "src/00_planning/PlanningView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/GraphCanvas.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/layout.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/graph/layout.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/00_planning/useGraphSpacing.ts",
+          "change": "added"
+        }
+      ]
+    }
+  ]
+}

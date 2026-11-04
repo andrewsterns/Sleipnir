@@ -10,7 +10,7 @@ import { ProblemsDock } from './ProblemsDock/ProblemsDock'
 import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from './shellLayout'
 import { StatusBar, type DockId } from './StatusBar/StatusBar'
 import { isTerminalToggle, TERMINAL_TOGGLE_DEFAULT_KEY, TERMINAL_TOGGLE_ID } from './shortcuts'
-import { DEFAULT_KEYBINDINGS } from '../00_keybindings'
+import { DEFAULT_KEYBINDINGS } from '../keybindings'
 
 describe('shell stacking order', () => {
   // The bug: the dock painted at 999 while every modal and popover sits at 200,

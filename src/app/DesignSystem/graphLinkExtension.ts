@@ -1,8 +1,8 @@
 import { EditorState, type Extension } from '@codemirror/state'
 import { pickedCompletion, type Completion, type CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete'
 import { fuzzyScore } from '../../utils/fuzzyMatch'
-import { adapterForLanguage, adapterForPath } from '../../00_planning/graph/importAdapters'
-import type { GraphNode } from '../../00_planning/graph/types'
+import { adapterForLanguage, adapterForPath } from '../../planning/graph/importAdapters'
+import type { GraphNode } from '../../planning/graph/types'
 
 const MAX_CANDIDATES = 8
 const TRIGGER_RE = /##(\w*)$/

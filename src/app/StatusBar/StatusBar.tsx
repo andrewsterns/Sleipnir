@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../UIKit/Icon/Icon'
 import { STATUS_BAR_HEIGHT } from '../shellLayout'
 import type { ProblemsSummary } from '../ProblemsDock/ProblemsDock'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 export type DockId = 'terminal' | 'agent' | 'problems' | 'run'
 
@@ -38,7 +38,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ activeDock, onToggleDock, 
         padding: '0 6px',
         background: 'var(--bg-1)',
         borderTop: '1px solid var(--border-1)',
-        ...MONO,
+        ...UI_FONT,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>{runControl}</div>
@@ -86,11 +86,11 @@ const TAB_RESET: React.CSSProperties = {
   padding: '0 10px',
   background: 'transparent',
   border: 'none',
-  fontSize: 10,
+  fontSize: 11,
   letterSpacing: '0.04em',
   cursor: 'pointer',
   position: 'relative',
-  fontFamily: 'var(--font-mono)',
+  fontFamily: 'var(--font-ui)',
 }
 
 function DockTab({
@@ -131,7 +131,7 @@ function DockTab({
       {active && <span style={{ position: 'absolute', top: -1, left: 0, right: 0, height: 2, background: 'var(--text-1)' }} />}
       <Icon name={icon} size={12} />
       {label}
-      {badge && <span style={{ color: badgeColor, fontSize: 10 }}>{badge}</span>}
+      {badge && <span style={{ color: badgeColor, fontSize: 11 }}>{badge}</span>}
       {live && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#7ec98f' }} />}
     </button>
   )

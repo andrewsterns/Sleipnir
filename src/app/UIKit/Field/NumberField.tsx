@@ -67,12 +67,12 @@ export function NumberField({
         {suffix && (
           <span
             style={{
-              fontFamily: 'var(--font-mono)',
+              fontFamily: 'var(--font-ui)',
               position: 'absolute',
               right: 6,
               top: '50%',
               transform: 'translateY(-50%)',
-              fontSize: 9,
+              fontSize: 10,
               color: 'var(--text-3)',
               pointerEvents: 'none',
             }}

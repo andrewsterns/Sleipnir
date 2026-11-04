@@ -2,41 +2,53 @@
 name: Sleipnir
 description: A desktop workbench for research-driven UI design with a built-in AI coding agent
 colors:
-  bg-primary: "#080808"
-  bg-secondary: "#0e0e0e"
-  bg-tertiary: "#131313"
-  text-primary: "#e8e8e8"
-  text-secondary: "#9a9a9a"
-  text-tertiary: "#4a4a4a"
-  border-hairline: "rgba(255,255,255,0.07)"
+  bg-primary: "#0b0b0c"
+  bg-secondary: "#161617"
+  bg-tertiary: "#212123"
+  text-primary: "#f5f5f7"
+  text-secondary: "#a1a1a6"
+  text-tertiary: "#7c7c82"
+  border-hairline: "rgba(255,255,255,0.08)"
   border-emphasis: "rgba(255,255,255,0.16)"
-  accent-scan: "#dce8f0"
+  light-bg-primary: "#ffffff"
+  light-bg-secondary: "#f5f5f7"
+  light-bg-tertiary: "#e8e8ed"
+  light-text-primary: "#1d1d1f"
+  light-text-secondary: "#56565b"
+  light-text-tertiary: "#6e6e73"
   danger-tomato: "#e74c3c"
   warning-gold: "#faad14"
-  info-cyan: "#4f85ff"
+  info-blue: "#5b9dff"
 typography:
   body:
-    fontFamily: "Sometype Mono, Courier New, monospace"
-    fontSize: "0.875rem"
+    fontFamily: "Sleipnir Sans (Helvetica Neue), Helvetica, Arial, sans-serif"
+    fontSize: "0.8125rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   label:
-    fontFamily: "Sometype Mono, Courier New, monospace"
+    fontFamily: "Sleipnir Sans (Helvetica Neue), Helvetica, Arial, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.4
-    letterSpacing: "0.06em"
-  micro-label:
-    fontFamily: "Sometype Mono, Courier New, monospace"
+    letterSpacing: "normal"
+  section-label:
+    fontFamily: "Sleipnir Sans (Helvetica Neue), Helvetica, Arial, sans-serif"
     fontSize: "0.6875rem"
-    fontWeight: 500
+    fontWeight: 600
     lineHeight: 1.3
-    letterSpacing: "0.12em"
+    letterSpacing: "0.04em"
+  code:
+    fontFamily: "ui-monospace, SF Mono, Cascadia Mono, Consolas, monospace"
+    fontSize: "0.75rem"
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: "normal"
 rounded:
-  none: "0px"
-  sm: "2px"
-  md: "4px"
+  sm: "4px"
+  md: "6px"
+  control: "8px"
+  float: "12px"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -46,146 +58,157 @@ spacing:
 components:
   list-row:
     backgroundColor: "transparent"
-    textColor: "{colors.text-secondary}"
-    rounded: "{rounded.none}"
-    padding: "6px 8px"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.md}"
+    padding: "0 8px"
   list-row-active:
+    backgroundColor: "rgba(245,245,247,0.12)"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.md}"
+    padding: "0 8px"
+  button-primary:
+    backgroundColor: "{colors.text-primary}"
+    textColor: "{colors.bg-primary}"
+    rounded: "{rounded.control}"
+    padding: "8px 14px"
+  button-secondary:
     backgroundColor: "rgba(255,255,255,0.08)"
     textColor: "{colors.text-primary}"
-    rounded: "{rounded.none}"
-    padding: "6px 8px"
+    rounded: "{rounded.control}"
+    padding: "8px 14px"
   hover-icon-button:
     backgroundColor: "transparent"
-    textColor: "{colors.text-primary}"
-    rounded: "{rounded.sm}"
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.md}"
     size: "28px"
-  tab:
-    backgroundColor: "transparent"
-    textColor: "{colors.text-tertiary}"
-    typography: "{typography.label}"
-    padding: "8px 12px"
-  tab-active:
-    backgroundColor: "rgba(255,255,255,0.05)"
+  field:
+    backgroundColor: "{colors.bg-secondary}"
     textColor: "{colors.text-primary}"
-    typography: "{typography.label}"
-    padding: "8px 12px"
+    rounded: "{rounded.control}"
+    padding: "6px 10px"
+  menu:
+    backgroundColor: "{colors.bg-secondary}"
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.float}"
+    padding: "4px"
 ---
 
 # Design System: Sleipnir
 
 ## 1. Overview
 
-**Creative North Star: "The Tactical HUD"**
+**Creative North Star: "The Quiet Instrument"**
 
-Sleipnir reads like a heads-up display for building UI, not a consumer app.
-Near-monochrome white-on-black, sharp near-zero corners, translucent
-layered panels stacked by opacity rather than lifted by shadow, one mono
-typeface throughout. It's built for people who live in it for hours —
-scanning file trees, editing components, watching an AI agent plan and
-generate code, reviewing a Git diff — moving fast between many small,
-information-dense panels rather than reading long-form content.
+Sleipnir is a precision tool finished to the level of Apple's and Google's own
+software: neutral black and white, one Helvetica voice, soft 8px controls, and
+nothing on screen that is there for show. It is built for people who live in it
+for hours, scanning file trees, editing components, watching an agent plan and
+generate code, reviewing a diff, so the chrome recedes and the work leads.
 
-This system explicitly rejects consumer-SaaS softness: no pastel palette,
-no rounded cards-on-cards, no cheerful copy, no drop-shadow-heavy
-elevation, nothing skeuomorphic or glassy. But density is not an excuse for
-illegibility — the HUD is precise, not cramped. Text stays comfortably
-readable and every clickable icon keeps a real, comfortable hit target,
-even inside the densest sidebar list.
+The system replaced an earlier "Tactical HUD" look (monospace everywhere,
+violet-tinted charcoal, wide-tracked ALL-CAPS labels, outline hovers). Treat
+that look as retired: no mono for UI chrome, no ALL-CAPS, no wide tracking.
 
 **Key Characteristics:**
-- Near-monochrome dark surface; color is reserved for status meaning (scan/warn/critical/track), never decoration
-- Sharp corners (0–4px) everywhere — no soft "friendly" radii
-- One mono family (Sometype Mono) carries body, label, and code text alike
-- Depth from translucent layering + hairline borders, not drop shadows
-- Every interactive row/button gets a real hover state and a real click target, regardless of how dense the surrounding list is
+- Pure neutral greys; colour appears only where it carries status meaning
+- Helvetica Neue for every piece of UI, pinned weight by weight; mono only for code
+- Sentence case everywhere (acronyms like AI, 2D, 3D and file names excepted)
+- Soft, restrained corners: 8px controls, 12px floating surfaces, panels edge-to-edge
+- Hover and selection as quiet ink washes, never outlines or inverted fills
 
 ## 2. Colors
 
-Near-monochrome by design — the palette is mostly a white-on-black value
-ramp, with a handful of desaturated status hues reserved for meaning, never
-decoration.
+A neutral value ramp with no hue in the greys, defined twice (dark default, light
+sibling) under the same token names in `tactical.css` and `light.css`.
 
-### Primary
-- **HUD White** (`#e8e8e8`): primary text, primary icon color, active-state fills at low opacity. This is the closest thing to an "accent" — brightness, not hue, is the emphasis language.
+### Neutral (dark, default)
+- **Ground** (`#0b0b0c`): `--bg-1`, the app background.
+- **Raised** (`#161617`): `--bg-2`, fields, menus, cards.
+- **Pressed** (`#212123`): `--bg-3`, hover and pressed fills.
+- **Ink** (`#f5f5f7`) / **Secondary** (`#a1a1a6`) / **Tertiary** (`#7c7c82`): `--text-1/2/3`; all ≥4.5:1 on the ground.
+- **Hairline** (`rgba(255,255,255,0.08)`) / **Emphasis** (`rgba(255,255,255,0.16)`): the only two border weights.
 
-### Neutral
-- **Void Black** (`#080808`): base app background.
-- **Panel Black** (`#0e0e0e`): first layer up — docks, rails, the main content shell.
-- **Raised Black** (`#131313`): second layer up — hover fills, popovers, nested surfaces.
-- **Secondary Grey** (`#9a9a9a`): secondary text — labels, metadata, inactive tab text.
-- **Tertiary Grey** (`#4a4a4a`): tertiary/dim text — section eyebrows, placeholder-weight labels, disabled state.
-- **Hairline** (`rgba(255,255,255,0.07)`) / **Emphasis Border** (`rgba(255,255,255,0.16)`): the only two border weights. No third.
+### Neutral (light)
+- `#ffffff` / `#f5f5f7` / `#e8e8ed` grounds; `#1d1d1f` / `#56565b` / `#6e6e73` ink.
 
-### Status accents (used sparingly, only where they carry real meaning)
-- **Scan** (`#dce8f0`) — nominal/operational state.
-- **Danger** (`#e74c3c`), **Warning** (`#faad14`), **Info** (`#4f85ff`) — inherited from the base theme for diagnostics, errors, and confirmations; never used decoratively inside the tactical surfaces.
+### Status (used only where something has a status)
+- Danger, warning, info and the graph's status hues (`--graph-*`) keep their meaning; never decoration.
 
 ### Named Rules
-**The Brightness-Not-Hue Rule.** Emphasis in the HUD comes from *how bright* something is (text-1 vs text-2 vs text-3, or a translucent white fill), not from introducing a new color. Reach for a status hue only when the thing being shown genuinely has a status.
+**The Ink-Wash Rule.** Every interactive state is the theme's ink at low alpha
+(`rgba(var(--item-ink), a)`): 6–8% on hover, 12% on selection, 22% for text
+selection. It inverts with the theme on its own.
+
+**The One Prominent Action Rule.** The primary button is a solid ink fill with
+ground-coloured text (white button, black label in dark). One per surface.
 
 ## 3. Typography
 
-**Body/Label/Mono Font:** Sometype Mono (with Courier New, monospace fallback) — one family for everything, no separate display face.
+**UI face:** `--font-ui`: `'Sleipnir Sans'` (Helvetica Neue mapped per weight by
+PostScript name in `fonts/fonts.css`), then `'Helvetica Neue'`, Helvetica, Arial.
+**Code face:** `--font-mono`: ui-monospace, SF Mono, Cascadia Mono, Consolas.
 
-**Character:** A single monospaced voice throughout reinforces the instrument-panel read: every label, row, and code snippet shares the same rhythm, so the eye never has to recalibrate between panels.
+Local Helvetica Neue installs often mislabel weights (HelveticaNeue-Roman reports
+500), which is why the face is pinned by PostScript name instead of trusting the
+family.
 
 ### Hierarchy
-- **Body** (400, 0.875rem/14px, 1.5 line-height): editor content, form fields, primary reading text.
-- **Label** (400, 0.75rem/12px, 1.4 line-height, 0.06em tracking): the default size for list-item text, row labels, tab labels, button labels — this is the floor for anything a user reads to make a selection.
-- **Micro-label** (500, 0.6875rem/11px, 1.3 line-height, 0.12em tracking, uppercase): section headers only (PLANS, NODES, ARCHIVED) — never body content, never anything the user needs to read continuously.
+- **Body** (400, 13px, 1.5): list rows, menu items, buttons, editor chrome.
+- **Label** (400, 12px): field text, secondary rows, metadata.
+- **Section label** (600, 11px, 0.04em, sentence case, `--text-3`): sidebar section headers such as "Steps (2)".
+- **Code** (mono, 12px): the code editor, terminal, diff lines, agent tool commands.
 
 ### Named Rules
-**The 12px Floor Rule.** Interactive/selectable list text (file names, tab labels, row labels, node names) never goes below Label size (12px). Micro-label (11px, uppercase, tracked) is reserved for section headers precisely because tracking + uppercase + all-caps buys back legibility at that size — it is not a general-purpose "make it smaller" size.
+**The Sentence-Case Rule.** No label is set in ALL-CAPS, by string or by
+`text-transform`. Acronyms (AI, 2D, 3D) and file names (`CLAUDE.md`) keep their own case.
+
+**The Mono-Means-Code Rule.** Monospace appears only where the user reads code
+or a command. Paths, hashes and labels in chrome are Helvetica.
 
 ## 4. Elevation
 
-Flat by default, translucent by necessity. There is no drop-shadow-based elevation scale for panels — depth comes from stacking `bg-1` → `bg-2` → `bg-3` (each a slightly lighter, slightly more opaque black) plus a 1px hairline border. Shadows are reserved for the few surfaces that genuinely detach from the page flow: dropdown menus and modals, where something needs to visually float above everything else.
-
-### Shadow Vocabulary
-- **Overlay** (`box-shadow: 0 8px 24px rgba(0,0,0,0.5)`): dropdown menus, popovers — the one place a real shadow earns its place.
-- **Modal** (`box-shadow: 0 14px 36px -18px rgba(0,0,0,0.95)`): modal dialogs.
-
-### Named Rules
-**The Layering-Not-Lifting Rule.** A panel becomes "closer" to the user by getting brighter and more opaque (bg-1 → bg-3), not by casting a shadow. Reach for a shadow only when a surface is meant to float free of the layout entirely.
+Docked panels are flat, separated by hairlines. Floating surfaces (menus,
+popovers, dropdowns, modals) lift with `--shadow-1`: a soft offset shadow plus a
+1px ink ring, so the edge reads on both grounds.
 
 ## 5. Components
 
-### List rows (file tree, Planning's PLANS/NODES sidebar)
-- **Shape:** no radius; full-bleed rectangular rows.
-- **Default:** transparent background, Secondary Grey text, Label size (12px) minimum.
-- **Active:** `rgba(255,255,255,0.08)` background fill, HUD White text.
-- **Hover:** row background lifts to `rgba(255,255,255,0.03–0.06)`; any hover-revealed icon button becomes visible.
-- **Internal padding:** rows keep a real ~6–8px vertical tap area even though the row text itself is 12px — the *row*, not just the *text*, is the click target.
+### Buttons (`UIKit/Button`)
+- **Shape:** `--radius-control` (8px); Helvetica 500 at 12.5–15px; padding 6/12, 8/14, 10/18 by size.
+- **primary:** solid ink, ground text; hover mixes 14% toward the ground.
+- **secondary:** 8% ink wash; hover 13%.
+- **outline:** emphasis hairline; hover `--bg-3`.
+- **ghost:** `--text-2` at rest; 7% ink wash and full ink on hover.
 
-### Hover icon buttons (per-row actions: Play, Add-to-Plan, new file/folder, archive/remove)
-- **Size:** the icon itself stays small (11–13px) for visual density, but its clickable button box is a fixed **28×28px** minimum — icon size and hit-target size are two separate numbers, not one.
-- **Shape:** transparent background at rest, `rgba(255,255,255,0.06–0.1)` on its own hover, 2px radius.
-- **Visibility:** appears on row hover (or when the row is the active-path ancestor); never permanently visible in a dense list, so it doesn't compete with the row's primary label.
+### Icon buttons (`UIKit/IconButton`, NavRail)
+- 28px hit box regardless of glyph size, `--radius-2` (6px), `--text-2` at rest, 8% ink wash and full ink on hover.
+- NavRail is a column of 32px icon pills; the active view sits on a 12% wash. Names live in tooltips.
 
-### Tabs (WorkspaceHeader's tab strip)
-- **Shape:** no radius; bottom-border indicator (2px, HUD White) marks the active tab.
-- **Default:** Tertiary Grey label, Label size (12px).
-- **Active:** HUD White label, `rgba(255,255,255,0.05)` background wash.
-- **Internal padding:** 8px vertical / 12px horizontal — enough that adjacent tabs don't crowd each other's click area.
+### List rows (`UIKit/ListRow`, `.srow`)
+- 26px tall, 13px Helvetica, inset 6px from the panel edge with a 6px radius, like a macOS sidebar.
+- Hover: 6% ink wash. Selected: 12% ink wash, full ink. Graph neighbours: a faint 28% ink outline.
 
-### Section headers (PLANS, NODES, ARCHIVED, root-folder labels)
-- **Style:** Micro-label size (11px), uppercase, 0.12em tracking, Secondary Grey (not Tertiary — headers need to outrank the rows beneath them, see Named Rule below).
+### Fields (`UIKit/Field`, Search, Dropdown trigger)
+- `--bg-2` fill, hairline border, 8px radius; border strengthens on hover, focus adds a 3px 10% ink ring.
 
-### Named Rules
-**The Two-Number Button Rule.** Every hover icon button has an icon size and a hit-target size, and they are never the same number. A 12px icon can sit inside a 28px click box; shrinking the box to match the icon is the single most common cause of "this feels too small to click."
+### Menus (`UIKit/Dropdown`, `UIKit/ContextMenu`)
+- `--bg-2`, 12px radius, 4px inner padding, `--shadow-1`; rows are 28px, 6px-radius pills with a `--bg-3` hover. Submenu chevrons and checkmarks are drawn icons, not glyphs.
+
+### Browser surfaces (`index.css`)
+- Text selection, caret, focus ring and scrollbars (rounded 16% ink thumb) all come from the ink token.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** keep interactive list/row text at 12px (Label) minimum — never 9–11px raw pixel values.
-- **Do** give every hover-revealed icon button a real ~28×28px click box, even when the icon inside it is 11–12px.
-- **Do** use brightness/opacity steps (text-1/2/3, bg-1/2/3) for hierarchy before reaching for a new color.
-- **Do** reserve uppercase + heavy tracking for true section headers, not general-purpose small text.
-- **Do** keep borders to the two defined weights (hairline / emphasis) — no third ad hoc border color.
+- **Do** use `var(--font-ui)` for UI text and `var(--font-mono)` only for code.
+- **Do** write labels in sentence case.
+- **Do** express hover and selection as ink washes from `--item-ink`.
+- **Do** keep controls at `--radius-control` and floating surfaces at `--radius-float`.
+- **Do** give every icon button a 28px hit box, whatever the glyph size.
 
 ### Don't:
-- **Don't** hardcode raw `fontSize: 9` / `10` / `11` inline pixel values for anything the user selects or reads continuously — that's the current inconsistency this system is correcting.
-- **Don't** size a hover button's clickable area to match its icon's visual size — pad the box, don't shrink the target.
-- **Don't** introduce drop-shadow elevation on docked/inline panels — shadows are for overlays (dropdowns, modals) only.
-- **Don't** use rounded/soft radii (>4px), pastel colors, or gradient fills — reserved consumer-SaaS language this product explicitly rejects.
-- **Don't** add a third border weight or a new gray outside the text-1/2/3 ramp "for one component" — extend the ramp deliberately or don't.
+- **Don't** set any label in ALL-CAPS or add `text-transform: uppercase`.
+- **Don't** track text wider than 0.04em.
+- **Don't** use monospace as a "technical" costume for chrome.
+- **Don't** invert a row to a solid ink fill to show selection, or outline it on hover.
+- **Don't** add hue to the neutral ramp or a third border weight.

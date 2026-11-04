@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const REPO_ROOT = process.cwd()
-const REGISTRY_PATH = path.join(REPO_ROOT, 'src/00_planning/graph/preview-config.json')
+const REGISTRY_PATH = path.join(REPO_ROOT, 'src/planning/graph/preview-config.json')
 
 export function readRegistry() {
   if (!fs.existsSync(REGISTRY_PATH)) return []

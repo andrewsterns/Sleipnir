@@ -27,6 +27,36 @@
       "status": "pending",
       "note": "Partly done: extrude, revolve and sweep work; loft, bevel and taper are not built",
       "agent": "claude"
+    },
+    {
+      "at": 1793677078315,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/sketch-planes-frames-on-xy-xz-yz-or-any-angle-1793281213568",
+      "comment": "Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793677078426,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/point-selection-transform-just-the-points-you-pick-1793281722236",
+      "comment": "Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793677078519,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-one-sketch-extrude-revolve-sweep-loft-1793281213693",
+      "comment": "Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793677078660,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/solids-from-top-front-and-side-sketches-and-booleans-1793281213825",
+      "comment": "Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793677078762,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
+      "comment": "Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.",
+      "agent": "claude"
     }
   ]
 }

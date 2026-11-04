@@ -19,8 +19,8 @@ export interface SearchSortOption {
 }
 
 /**
- * The one sort dropdown every left-rail search shares (Workspace, Research,
- * Planning, Source Control, Analytics) — same two axes, same labels, so the
+ * The one sort dropdown every left-rail search shares (Workspace, Canvas Docs,
+ * Planning, Source Control) — same two axes, same labels, so the
  * sort control reads identically on every page rather than each view inventing
  * its own. `'recent'` means "most-recent first", backed by whatever recency
  * signal each list actually has (file/node createdAt, git file mtime); callers

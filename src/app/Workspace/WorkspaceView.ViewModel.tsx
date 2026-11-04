@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getWorkspaceInfo, openWorkspace, cloneRepo } from '../../00_planning/api/sleipnirApi'
-import type { WorkspaceInfo } from '../../00_planning/api/PlatformAPI'
+import { getWorkspaceInfo, openWorkspace, cloneRepo } from '../../platform/sleipnirApi'
+import type { WorkspaceInfo } from '../../platform/PlatformAPI'
 
 // `onProjectOpened`, when given, fires after a successful chooseFolder() —
 // lets App.tsx (the single owner of activeProject/recentProjects, see its

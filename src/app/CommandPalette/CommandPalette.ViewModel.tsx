@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { getWorkspaceInfo, listWorkspaceDir, searchWorkspace } from '../../00_planning/api/sleipnirApi'
-import type { FileTreeNode, SearchMatch } from '../../00_planning/api/PlatformAPI'
+import { getWorkspaceInfo, listWorkspaceDir, searchWorkspace } from '../../platform/sleipnirApi'
+import type { FileTreeNode, SearchMatch } from '../../platform/PlatformAPI'
 import { fuzzyScore } from '../../utils/fuzzyMatch'
 
 export interface PaletteFile {

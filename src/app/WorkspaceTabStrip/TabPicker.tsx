@@ -3,16 +3,34 @@ import ReactDOM from 'react-dom'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
 import { ListRow } from '../UIKit/ListRow/ListRow'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 export interface TabPickerItem {
   id: string
   label: string
+  /**
+   * The group it's listed under ("PINNED", "HISTORY"). Items of one section
+   * sit together, in the order given; a heading starts each section. Searching
+   * drops the headings — a filtered list is one list.
+   */
+  section?: string
+  /** Its own icon, in place of the picker's. */
+  icon?: IconName
+  /** A short note at the row's end: a date, a progress count. */
+  meta?: string
+  /** Hover text for the row. */
+  title?: string
+  /** What picking it does, in place of `onPick(id)` — a search result that isn't a tab (a node, a layer). */
+  onPick?: () => void
 }
 
 export interface TabPickerProps {
   /** Plural noun for what's listed — "Plans", "Boards". */
   noun: string
+  /** What the closed field reads, when "NOUN (count)" doesn't say what's inside — "ARCHITECTURE · SKILLS · CHATS". */
+  summary?: string
+  /** The closed field's width, when the summary needs more than the default; 'fill' takes the row. */
+  width?: number | 'fill'
   /** Leading icon on every row — the same one the tabs carry. */
   icon: IconName
   items: TabPickerItem[]
@@ -27,6 +45,12 @@ export interface TabPickerProps {
    * finds nothing turns straight into creating that thing.
    */
   create?: { label: (query: string) => string; onCreate: (query: string) => void; icon: IconName }
+  /**
+   * What a query finds beyond `items` — the nodes in every plan, the layers on
+   * a board — listed after the matching items under their own `section`
+   * heading. Only asked once something is typed.
+   */
+  search?: (query: string) => TabPickerItem[]
 }
 
 const POPOVER_MIN_W = 280
@@ -42,15 +66,14 @@ function matchParts(label: string, query: string): [string, string, string] | nu
   return [label.slice(0, at), label.slice(at, at + query.length), label.slice(at + query.length)]
 }
 
-// The everything-list beside a tab strip (Planning's plans, Canvas's boards):
-// the tabs are what's open, this is what exists. One combobox, not a dropdown
-// plus a search box — focus it and type to filter, ↑/↓ + Enter to open, Esc to
-// back out, or keep typing a name nothing matches and create it.
+// The everything-list at the top of a side panel (Planning's plans, Canvas's
+// boards): the tabs are what's open, this is what exists. One combobox, not a
+// dropdown plus a search box — focus it and type to filter, ↑/↓ + Enter to
+// open, Esc to back out, or keep typing a name nothing matches and create it.
 //
-// It lives at the top, beside the tabs, in every view: the top row answers
-// "which document am I in", the left rail answers "what's inside it" (NODES,
-// LAYERS). Searching plans from the rail would put two scopes in one place.
-export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds, activeId, onPick, create }) => {
+// It's the panel's only search: typing also finds what's inside (see
+// `search`), so a node or layer is one field away from wherever you are.
+export const TabPicker: React.FC<TabPickerProps> = ({ noun, summary, width = 188, icon, items, openIds, activeId, onPick, create, search }) => {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
@@ -61,13 +84,15 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
   const listId = useId()
 
   const q = query.trim()
+  const results = useMemo(() => (q && search ? search(q) : []), [q, search])
   const matches = useMemo(() => {
     if (!q) return items
     const needle = q.toLowerCase()
     const hits = items.filter((item) => item.label.toLowerCase().includes(needle))
     // Prefix hits first — typing "che" should put "Checkout" above "Paycheck".
-    return [...hits.filter((i) => i.label.toLowerCase().startsWith(needle)), ...hits.filter((i) => !i.label.toLowerCase().startsWith(needle))]
-  }, [items, q])
+    return [...hits.filter((i) => i.label.toLowerCase().startsWith(needle)), ...hits.filter((i) => !i.label.toLowerCase().startsWith(needle)), ...results]
+  }, [items, q, results])
+  const resultSet = useMemo(() => new Set(results), [results])
 
   // The create row is the last stop for the keyboard, after every match.
   const rowCount = matches.length + (create ? 1 : 0)
@@ -86,7 +111,8 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
     } else {
       const item = matches[index]
       if (!item) return
-      onPick(item.id)
+      if (item.onPick) item.onPick()
+      else onPick(item.id)
     }
     close()
     inputRef.current?.blur()
@@ -103,7 +129,7 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
   // One short settle-in when the list appears — skipped for reduced motion.
   useLayoutEffect(() => {
     const el = listRef.current
-    if (!open || !el || !anchor) return
+    if (!open || !el || !anchor || typeof el.animate !== 'function') return
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     el.animate(
       [
@@ -161,8 +187,7 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          width: 188,
-          flexShrink: 0,
+          ...(width === 'fill' ? { flex: 1, minWidth: 0 } : { width, flexShrink: 0 }),
           padding: '5px 8px',
           borderRadius: 'var(--radius-control)',
           background: 'var(--bg-2)',
@@ -190,13 +215,13 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
           onFocus={() => setOpen(true)}
           onBlur={close}
           onKeyDown={onKeyDown}
-          placeholder={open ? `Search ${nounLower}…` : `${noun.toUpperCase()} (${items.length})`}
+          placeholder={open ? `Search ${nounLower}…` : (summary ?? `${noun} (${items.length})`)}
           spellCheck={false}
           style={{
-            ...MONO,
+            ...UI_FONT,
             flex: 1,
             minWidth: 0,
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: open ? '0.02em' : '0.06em',
             color: 'var(--text-1)',
             background: 'transparent',
@@ -243,19 +268,28 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
               border: '1px solid var(--border-2)',
               borderRadius: 'var(--radius-2)',
               boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
-              ...MONO,
+              ...UI_FONT,
             }}
           >
             {matches.length === 0 && (
-              <div style={{ fontSize: 10, color: 'var(--text-3)', padding: '8px 2px', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', padding: '8px 2px', lineHeight: 1.5 }}>
                 {items.length === 0 ? `No ${nounLower} yet.` : `No ${nounLower} match “${q}”.`}
               </div>
             )}
             {matches.map((item, index) => {
               const parts = matchParts(item.label, q)
               const isOpen = openSet.has(item.id)
+              // A filtered list is one list — except what `search` found, which
+              // keeps its heading so a node never reads as a plan.
+              const heading = (!q || resultSet.has(item)) && item.section && item.section !== matches[index - 1]?.section ? item.section : null
               return (
-                <div key={item.id} id={`${listId}-${index}`} role="option" aria-selected={item.id === activeId} data-picker-index={index}>
+                <React.Fragment key={`${index}:${item.id}`}>
+                {heading && (
+                  <div role="presentation" style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', padding: index === 0 ? '6px 2px 4px' : '12px 2px 4px' }}>
+                    {heading}
+                  </div>
+                )}
+                <div id={`${listId}-${index}`} role="option" aria-selected={item.id === activeId} data-picker-index={index} title={item.title}>
                   <ListRow
                     selected={item.id === activeId}
                     connected={index === highlight && item.id !== activeId}
@@ -264,17 +298,19 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
                     onClick={() => commit(index)}
                     onMouseEnter={() => setHighlight(index)}
                     leading={
-                      <span style={{ display: 'flex', opacity: 0.7 }}>
-                        <Icon name={icon} size={12} />
+                      <span style={{ display: 'flex', color: 'var(--text-3)' }}>
+                        <Icon name={item.icon ?? icon} size={12} />
                       </span>
                     }
                     trailing={
-                      isOpen && item.id !== activeId ? (
-                        // Already a tab — picking it switches rather than opens.
-                        <span
-                          title="Open in a tab"
-                          style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', opacity: 0.6, marginRight: 4 }}
-                        />
+                      item.meta || (isOpen && item.id !== activeId) ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 4 }}>
+                          {item.meta && <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{item.meta}</span>}
+                          {isOpen && item.id !== activeId && (
+                            // Already a tab — picking it switches rather than opens.
+                            <span title="Open in a tab" style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-2)' }} />
+                          )}
+                        </span>
                       ) : undefined
                     }
                   >
@@ -289,6 +325,7 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, icon, items, openIds
                     )}
                   </ListRow>
                 </div>
+                </React.Fragment>
               )
             })}
             {create && (

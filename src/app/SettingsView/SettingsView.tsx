@@ -12,17 +12,17 @@ import {
   setAgentScaffolding,
   setGitIdentity,
   type GitIdentity,
-} from '../../00_planning/api/sleipnirApi'
-import type { AgentScaffolding } from '../../00_planning/api/PlatformAPI'
-import { useAppTheme } from '../../00_themes/ThemeController'
-import { THEME_OPTIONS, type Theme } from '../../00_themes'
-import { useKeybindings } from '../../00_keybindings/KeybindingsController'
-import { DEFAULT_KEYBINDINGS } from '../../00_keybindings'
+} from '../../platform/sleipnirApi'
+import type { AgentScaffolding } from '../../platform/PlatformAPI'
+import { useAppTheme } from '../../themes/ThemeController'
+import { THEME_OPTIONS, type Theme } from '../../themes'
+import { useKeybindings } from '../../keybindings/KeybindingsController'
+import { DEFAULT_KEYBINDINGS } from '../../keybindings'
 import { UpdatesSection } from './UpdatesSection'
 import { LicenseSection } from './LicenseSection'
 import { TextField } from '../UIKit/Field/TextField'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 interface SettingsSection {
   id: string
@@ -80,10 +80,10 @@ function AppearanceSection() {
 
   return (
     <Frame flow="vertical" gap={12} style={{ maxWidth: 420 }}>
-      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-        THEME
+      <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+        Theme
       </span>
-      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
         The app-wide color theme. Applies everywhere instantly and is remembered on this device.
       </span>
 
@@ -107,13 +107,13 @@ function AppearanceSection() {
                 background: active ? 'var(--bg-2)' : 'transparent',
                 border: `1px solid ${active ? 'var(--border-2)' : 'var(--border-1)'}`,
                 color: 'var(--text-1)',
-                ...MONO,
+                ...UI_FONT,
               }}
             >
               <ThemeSwatch id={opt.id} />
               <span style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: 12, color: 'var(--text-1)', letterSpacing: '0.02em' }}>{opt.label}</span>
-                <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.4 }}>{opt.description}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4 }}>{opt.description}</span>
               </span>
               <span style={{ fontSize: 13, color: active ? 'var(--text-1)' : 'var(--text-3)', flexShrink: 0 }}>
                 {active ? '◉' : '○'}
@@ -130,14 +130,14 @@ function ApiKeysSection() {
   const ai = useAiSettings()
 
   if (!window.settingsAPI) {
-    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>AI settings are desktop-only.</span>
+    return <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>AI settings are desktop-only.</span>
   }
 
   return (
     <Frame flow="vertical" gap={20} style={{ maxWidth: 480 }}>
       <Frame flow="vertical" gap={8}>
-        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>AI CHAT MODEL</span>
-        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+        <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>AI chat model</span>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
           Every connected provider’s models are listed. Switch any time — also from the AI chat header.
         </span>
         <ModelPicker ai={ai} />
@@ -178,14 +178,14 @@ function AgentPermissionsSection() {
   }
 
   if (!window.settingsAPI) {
-    return <span style={{ fontSize: 10, color: 'var(--text-3)', ...MONO }}>AI settings are desktop-only.</span>
+    return <span style={{ fontSize: 11, color: 'var(--text-3)', ...UI_FONT }}>AI settings are desktop-only.</span>
   }
 
   return (
     <Frame flow="vertical" gap={16} style={{ maxWidth: 420 }}>
       <Frame flow="vertical" gap={10}>
-        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>DEFAULT PERMISSION MODE</span>
-        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+        <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>Default permission mode</span>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
           The mode a new AI chat starts in. Switch per chat with the mode button or Shift+Tab.
         </span>
         <Frame flow="vertical" gap={6}>
@@ -204,12 +204,12 @@ function AgentPermissionsSection() {
                   background: active ? 'rgba(var(--item-ink, 255,255,255), 0.06)' : 'transparent',
                   border: `1px solid ${active ? 'var(--border-2)' : 'var(--border-1)'}`,
                   cursor: 'pointer',
-                  ...MONO,
+                  ...UI_FONT,
                 }}
               >
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-1)' }}>{AGENT_MODE_LABEL[m]}</span>
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.4 }}>{AGENT_MODE_HINT[m]}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4 }}>{AGENT_MODE_HINT[m]}</span>
                 </span>
                 <span style={{ fontSize: 13, color: active ? 'var(--text-1)' : 'var(--text-3)' }}>{active ? '◉' : '○'}</span>
               </button>
@@ -219,8 +219,8 @@ function AgentPermissionsSection() {
       </Frame>
 
       <Frame flow="vertical" gap={8}>
-        <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>TOOL STEPS PER MESSAGE</span>
-        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+        <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>Tool steps per message</span>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
           How many rounds of tool calls one message may take before the AI stops and hands back control.
         </span>
         <TextField size="lg"
@@ -238,7 +238,7 @@ function AgentPermissionsSection() {
         />
       </Frame>
 
-      {error && <span style={{ fontSize: 9, color: '#e07a7a', ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 10, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -280,10 +280,10 @@ function GitIdentitySection() {
 
   return (
     <Frame flow="vertical" gap={10} style={{ maxWidth: 360 }}>
-      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-        GIT IDENTITY
+      <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+        Git identity
       </span>
-      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
         Used for commits made from Source Control — writes to this repo's local git config only.
       </span>
       <Frame flow="vertical" gap={6}>
@@ -306,21 +306,21 @@ function GitIdentitySection() {
             background: dirty ? 'rgba(var(--item-ink, 255,255,255), 0.10)' : 'transparent',
             border: '1px solid var(--border-2)',
             color: 'var(--text-1)',
-            fontSize: 9,
-            letterSpacing: '0.08em',
+            fontSize: 10,
+            letterSpacing: '0.04em',
             padding: '6px 12px',
             cursor: busy || !dirty ? 'default' : 'pointer',
             opacity: busy || !dirty ? 0.5 : 1,
-            ...MONO,
+            ...UI_FONT,
           }}
         >
-          {busy ? 'SAVING…' : 'SAVE'}
+          {busy ? 'Saving…' : 'Save'}
         </button>
         {saved && !dirty && (
-          <span style={{ fontSize: 9, color: 'var(--text-3)', ...MONO }}>Saved.</span>
+          <span style={{ fontSize: 10, color: 'var(--text-3)', ...UI_FONT }}>Saved.</span>
         )}
       </Frame>
-      {error && <span style={{ fontSize: 9, color: '#e07a7a', ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 10, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -362,10 +362,10 @@ function AgentScaffoldingSection() {
 
   return (
     <Frame flow="vertical" gap={10} style={{ maxWidth: 460 }}>
-      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-        AGENT SCAFFOLDING
+      <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+        Agent scaffolding
       </span>
-      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
         Once you start planning in a project, Sleipnir writes <code>AGENTS.md</code>, <code>CLAUDE.md</code>,{' '}
         <code>GEMINI.md</code> and a <code>/plan</code> command for Claude Code, Codex and Gemini into it, plus
         a self-contained planning CLI at <code>.sleipnir/plan.mjs</code>. Just opening a folder writes nothing.
@@ -374,7 +374,7 @@ function AgentScaffoldingSection() {
       </span>
 
       {unavailable ? (
-        <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
           No project is open, or this build has no filesystem access.
         </span>
       ) : (
@@ -383,17 +383,17 @@ function AgentScaffoldingSection() {
             {[
               {
                 patch: { enabled: true, commit: true },
-                label: 'SHARE WITH THE TEAM',
+                label: 'Share with the team',
                 help: 'Leave the files committable. Anyone who clones the repo gets a working /plan with only Node installed — no Sleipnir needed.',
               },
               {
                 patch: { enabled: true, commit: false },
-                label: 'KEEP LOCAL',
+                label: 'Keep local',
                 help: 'Add the generated files to .git/info/exclude, which is per-clone and never committed. Your .gitignore is left alone, and AGENTS.md / CLAUDE.md / GEMINI.md stay visible to git since they may hold your own notes.',
               },
               {
                 patch: { enabled: false },
-                label: 'DON’T WRITE AGENT FILES',
+                label: 'Don’t write agent files',
                 help: 'Sleipnir writes and updates none of them in this project. Files it already wrote are left in place — delete them yourself if you want them gone.',
               },
             ].map((option) => {
@@ -411,15 +411,15 @@ function AgentScaffoldingSection() {
                     padding: '8px 10px',
                     cursor: busy || active || !config ? 'default' : 'pointer',
                     opacity: busy ? 0.5 : 1,
-                    ...MONO,
+                    ...UI_FONT,
                   }}
                 >
                   <Frame flow="vertical" gap={4}>
-                    <span style={{ fontSize: 9, letterSpacing: '0.08em' }}>
+                    <span style={{ fontSize: 10, letterSpacing: '0.04em' }}>
                       {active ? '● ' : '○ '}
                       {option.label}
                     </span>
-                    <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5 }}>{option.help}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5 }}>{option.help}</span>
                   </Frame>
                 </button>
               )
@@ -427,7 +427,7 @@ function AgentScaffoldingSection() {
           </Frame>
 
           {config?.state && (
-            <span style={{ fontSize: 9, color: 'var(--text-3)', lineHeight: 1.6, ...MONO }}>
+            <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.6, ...UI_FONT }}>
               Last written {new Date(config.state.generatedAt).toLocaleString()} · v{config.state.version} ·{' '}
               {config.paths.length} files
             </span>
@@ -435,7 +435,7 @@ function AgentScaffoldingSection() {
           {config?.state?.skipped?.length ? (
             <Frame flow="vertical" gap={2}>
               {config.state.skipped.map((s) => (
-                <span key={s.path} style={{ fontSize: 9, color: '#e0b07a', ...MONO }}>
+                <span key={s.path} style={{ fontSize: 10, color: '#e0b07a', ...UI_FONT }}>
                   Skipped {s.path}: {s.reason}
                 </span>
               ))}
@@ -443,7 +443,7 @@ function AgentScaffoldingSection() {
           ) : null}
         </>
       )}
-      {error && <span style={{ fontSize: 9, color: '#e07a7a', ...MONO }}>{error}</span>}
+      {error && <span style={{ fontSize: 10, color: '#e07a7a', ...UI_FONT }}>{error}</span>}
     </Frame>
   )
 }
@@ -451,7 +451,7 @@ function AgentScaffoldingSection() {
 // Deliberately minimal — only one real hotkey exists anywhere in the app
 // today (CommandPalette's Ctrl/Cmd+P, via Frame's onHotkey), so this just
 // remaps that one, built to extend as more commands register hotkeys later
-// (see 00_keybindings/index.ts). Not a general modifier-remapping UI.
+// (see keybindings/index.ts). Not a general modifier-remapping UI.
 function KeybindingsSection() {
   const { bindings, setBinding } = useKeybindings()
   const [listeningId, setListeningId] = useState<string | null>(null)
@@ -465,10 +465,10 @@ function KeybindingsSection() {
 
   return (
     <Frame flow="vertical" gap={12} style={{ maxWidth: 420 }}>
-      <span style={{ fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-3)', ...MONO }}>
-        KEYBINDINGS
+      <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', ...UI_FONT }}>
+        Keybindings
       </span>
-      <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, ...MONO }}>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, ...UI_FONT }}>
         Remaps to both Ctrl and Cmd, so it works the same on every platform. Applies instantly and is remembered on this device.
       </span>
       <Frame flow="vertical" gap={4}>
@@ -477,7 +477,7 @@ function KeybindingsSection() {
           const listening = listeningId === b.id
           return (
             <Frame key={b.id} flow="horizontal" align="center" justify="between" gap={10} padding={{ y: 4 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-1)', ...MONO }}>{b.label}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-1)', ...UI_FONT }}>{b.label}</span>
               {listening ? (
                 <TextField size="md"
                   autoFocus
@@ -492,7 +492,7 @@ function KeybindingsSection() {
                   onClick={() => setListeningId(b.id)}
                   style={{
                     background: 'transparent', border: '1px solid var(--border-2)', color: 'var(--text-1)',
-                    fontSize: 10, letterSpacing: '0.04em', padding: '5px 10px', cursor: 'pointer', ...MONO,
+                    fontSize: 11, letterSpacing: '0.04em', padding: '5px 10px', cursor: 'pointer', ...UI_FONT,
                   }}
                 >
                   Ctrl/Cmd + {current.toUpperCase()}
@@ -523,7 +523,7 @@ export const SettingsView: React.FC<{
   const { theme } = useAppTheme()
 
   return (
-    <Frame theme={theme} h="fill" flow="vertical" fill={{ solid: 'var(--bg-1)' }} style={MONO}>
+    <Frame theme={theme} h="fill" flow="vertical" fill={{ solid: 'var(--bg-1)' }} style={UI_FONT}>
       <Frame
         flow="horizontal"
         align="center"
@@ -531,8 +531,8 @@ export const SettingsView: React.FC<{
         padding={{ x: 24, y: 10 }}
         stroke={{ bottom: { color: 'var(--border-1)' } }}
       >
-        <span style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--text-2)', ...MONO }}>
-          SETTINGS
+        <span style={{ fontSize: 11, letterSpacing: '0.04em', color: 'var(--text-2)', ...UI_FONT }}>
+          Settings
         </span>
       </Frame>
 
@@ -555,7 +555,7 @@ export const SettingsView: React.FC<{
                   color: active ? 'var(--text-1)' : 'var(--text-3)',
                   fontSize: 11,
                   letterSpacing: '0.02em',
-                  ...MONO,
+                  ...UI_FONT,
                 }}
               >
                 {s.label}

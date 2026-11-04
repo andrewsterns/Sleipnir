@@ -5,10 +5,10 @@ import { Card } from '../UIKit/Card/Card'
 import { ScrollWindow } from '../UIKit/ScrollWindow/ScrollWindow'
 import { useCommandPaletteViewModel, type PaletteResultItem } from './CommandPalette.ViewModel'
 import type { CommandPaletteProps } from './iCommandPalette'
-import { useKeybindings } from '../../00_keybindings/KeybindingsController'
-import { DEFAULT_KEYBINDINGS } from '../../00_keybindings'
+import { useKeybindings } from '../../keybindings/KeybindingsController'
+import { DEFAULT_KEYBINDINGS } from '../../keybindings'
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' }
+const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
 // Ctrl+P/Cmd+P quick-open (ROADMAP.md's Phase 1) — a fuzzy file switcher over
 // the open Workspace's files. Mounted once at the App shell level alongside
@@ -95,33 +95,33 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                     fontSize: 14,
                     padding: '14px 16px',
                     outline: 'none',
-                    ...MONO,
+                    ...UI_FONT,
                   }}
                 />
                 {workspaceOpen && (
-                  <span style={{ fontSize: 9, letterSpacing: '0.08em', color: 'var(--text-3)', paddingRight: 14, flexShrink: 0, ...MONO }}>
-                    WORKSPACE
+                  <span style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-3)', paddingRight: 14, flexShrink: 0, ...UI_FONT }}>
+                    Workspace
                   </span>
                 )}
               </Frame>
               <ScrollWindow axis="y" flow="vertical" gap={0} minH={0} grow>
                 {error && (
-                  <span style={{ fontSize: 11, color: '#e07a7a', padding: '12px 16px', display: 'block', ...MONO }}>
+                  <span style={{ fontSize: 11, color: '#e07a7a', padding: '12px 16px', display: 'block', ...UI_FONT }}>
                     {error}
                   </span>
                 )}
                 {!error && loading && (
-                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...MONO }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...UI_FONT }}>
                     Loading…
                   </span>
                 )}
                 {!error && !loading && !workspaceOpen && (
-                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...MONO }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...UI_FONT }}>
                     Choose a Workspace folder to search.
                   </span>
                 )}
                 {!error && !loading && workspaceOpen && results.length === 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...MONO }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...UI_FONT }}>
                     No matches
                   </span>
                 )}
@@ -133,14 +133,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                         <span
                           style={{
                             fontSize: 11,
-                            letterSpacing: '0.06em',
+                            letterSpacing: '0.03em',
                             color: 'var(--text-3)',
                             padding: '10px 16px 4px',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             display: 'block',
-                            ...MONO,
+                            ...UI_FONT,
                           }}
                         >
                           {pathOf(item)}
@@ -169,7 +169,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          ...MONO,
+                          ...UI_FONT,
                         }}
                       >
                         {item.kind === 'file' ? (
@@ -185,7 +185,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onJumpToFile }) 
                   )
                 })}
                 {truncated && (
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...MONO }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', padding: '12px 16px', display: 'block', ...UI_FONT }}>
                     Showing partial results — refine your search for more.
                   </span>
                 )}

@@ -5,6 +5,7 @@ import type { DropdownProps } from './iDropdown'
 import { cn } from '../../../utils/cn'
 import { Frame } from '../Frame/Frame'
 import { Text } from '../Text/Text'
+import { Icon } from '../Icon/Icon'
 
 export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
   {
@@ -102,7 +103,7 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
       }}
       flow={flow}
       w={w}
-      className={cn('font-mono', className)}
+      className={className}
       {...frameProps}
     >
       {label && (
@@ -118,22 +119,19 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
         flow="horizontal"
         align="center"
         justify="between"
-        padding={trigger ? { x: 0, y: 0 } : { x: 10, y: 6 }}
+        padding={trigger ? { x: 0, y: 0 } : { x: 10, y: 7 }}
         variant={variant}
         radius="var(--radius-field)"
         w={trigger ? 'hug' : 'fill'}
-        effects={{ 'drop-shadow': { x: 0, y: 4, blur: 12, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
         activeScale={0.98}
         transition="all"
       >
         {trigger ?? (
           <>
-            <Text variant="small" size={11} color="text-2" noWrap>
+            <Text variant="small" size={12} color="text-1" noWrap>
               {selectedLabel}
             </Text>
-            <span className={cn('transition-transform duration-200 text-[9px]', isOpen ? 'rotate-180' : '')}>
-              ▼
-            </span>
+            <Icon name="chevron-down" size={12} className={cn('shrink-0 text-[var(--text-3)] transition-transform duration-200', isOpen ? 'rotate-180' : '')} />
           </>
         )}
       </Frame>
@@ -149,14 +147,15 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
             w={menuRect.width}
             z={200}
             variant="surface"
-            radius="var(--radius-field)"
+            radius="var(--radius-float)"
+            padding={4}
             clipContent
             maxH={hasGroups ? 320 : undefined}
             scroll={hasGroups ? 'y' : undefined}
-            effects={{ 'drop-shadow': { x: 0, y: 8, blur: 24, spread: 0, color: 'rgba(0,0,0,0.06)' } }}
+            // eslint-disable-next-line no-restricted-syntax -- the theme's --shadow-1 token (a layered shadow + hairline); Frame effects only take literal colours.
+            style={{ boxShadow: 'var(--shadow-1)' }}
             animate="fade-in"
             animationDuration={150}
-            className="font-mono"
           >
             {options.map((option, i) => {
               const isSelected = multiple ? selectedValues.includes(option.value) : selectedValue === option.value
@@ -164,8 +163,8 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
               return (
                 <React.Fragment key={option.value}>
                   {startsGroup && (
-                    <Frame padding={{ x: 10, top: i === 0 ? 6 : 10, bottom: 2 }}>
-                      <Text variant="xs" weight="black" color="text-3">{option.group}</Text>
+                    <Frame padding={{ x: 8, top: i === 0 ? 4 : 10, bottom: 4 }}>
+                      <Text size={11} weight="medium" color="text-3">{option.group}</Text>
                     </Frame>
                   )}
                   <Frame
@@ -175,14 +174,14 @@ export const Dropdown = React.forwardRef<HTMLElement, DropdownProps>((
                     flow="horizontal"
                     align="center"
                     gap={8}
-                    minH={24}
-                    padding={{ x: 10, y: 5 }}
-                    radius={0}
+                    minH={28}
+                    padding={{ x: 8, y: 5 }}
+                    radius="var(--radius-2)"
                     hoverFill="bg-3"
                     fill={{ solid: isSelected && !multiple ? 'bg-3' : 'transparent' }}
                   >
-                    {multiple && <span>{isSelected ? '☑' : '☐'}</span>}
-                    <Text variant="small" size={11} color="text-2" align="left">
+                    {multiple && <Icon name="check" size={12} className={isSelected ? 'shrink-0 text-[var(--text-1)]' : 'shrink-0 opacity-0'} />}
+                    <Text variant="small" size={12} color={isSelected ? 'text-1' : 'text-2'} align="left">
                       {option.label}
                     </Text>
                   </Frame>

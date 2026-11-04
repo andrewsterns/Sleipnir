@@ -69,7 +69,9 @@ export type IconName =
   | 'shape-triangle'
   | 'pen'
   | 'vector'
-  | 'chevron-down';
+  | 'chevron-down'
+  | 'eye'
+  | 'eye-off';
 
 interface IconProps {
   name: IconName;
@@ -84,7 +86,7 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 24 }) => {
         return <path d="M3 12H6M12 3V6M7.79998 7.8001L5.59998 5.6001M16.2 7.8001L18.4 5.6001M7.79998 16.2L5.59998 18.4M12 12L21 15L17 17L15 21L12 12Z" />;
       case 'frame':
         return <path d="M4 7H20M4 17H20M7 4V20M17 4V20" />;
-      // Canvas shape and pen tools (see 01_canvas/board/CanvasToolbar.tsx).
+      // Canvas shape and pen tools (see canvas/board/CanvasToolbar.tsx).
       case 'shape-rectangle':
         return <rect x="4" y="5" width="16" height="14" rx="1" />;
       case 'shape-ellipse':
@@ -107,6 +109,11 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 24 }) => {
         </>;
       case 'chevron-down':
         return <path d="M7 10L12 15L17 10" />;
+      // Shown / hidden — every visibility toggle in the app (UIKit/VisibilityToggle).
+      case 'eye':
+        return <path d="M10 12C10 12.5304 10.2107 13.0391 10.5858 13.4142C10.9609 13.7893 11.4696 14 12 14C12.5304 14 13.0391 13.7893 13.4142 13.4142C13.7893 13.0391 14 12.5304 14 12C14 11.4696 13.7893 10.9609 13.4142 10.5858C13.0391 10.2107 12.5304 10 12 10C11.4696 10 10.9609 10.2107 10.5858 10.5858C10.2107 10.9609 10 11.4696 10 12ZM21 12C18.6 16 15.6 18 12 18C8.4 18 5.4 16 3 12C5.4 8 8.4 6 12 6C15.6 6 18.6 8 21 12Z" />;
+      case 'eye-off':
+        return <path d="M10.5851 10.5869C10.21 10.9621 9.99942 11.4708 9.99951 12.0013C9.99961 12.5317 10.2104 13.0404 10.5856 13.4154C10.9607 13.7904 11.4695 14.0011 11.9999 14.001C12.5304 14.0009 13.039 13.7901 13.4141 13.4149M16.681 16.673C16.6794 16.6741 16.6777 16.6751 16.6761 16.6761M16.6761 16.6761C15.2745 17.5518 13.6527 18.0109 12 18C8.4 18 5.4 16 3 12C4.272 9.88003 5.712 8.32203 7.32 7.32603M16.6761 16.6761L3 3M16.6761 16.6761L21 21M10.18 6.18003C10.779 6.05876 11.3888 5.99845 12 6.00003C15.6 6.00003 18.6 8.00003 21 12C20.334 13.11 19.621 14.067 18.862 14.87" />;
       // Four diamonds — the main-component mark. Used wherever a canvas
       // instance is shown (the layers row and the on-board label).
       case 'component':

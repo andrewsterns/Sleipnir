@@ -24,7 +24,7 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
     flow    = 'horizontal',
     align   = 'center',
     gap     = 8,
-    padding = { x: 10, y: 6 },
+    padding = { x: 10, y: 7 },
     // A search box is a field: the shared field radius (--radius-field),
     // the same corner as every text input and dropdown.
     radius  = 'var(--radius-field)',
@@ -47,7 +47,7 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
       padding={padding}
       radius={radius}
       variant={variant}
-      className={cn('font-mono text-[10px]', className)}
+      className={cn('text-[12px]', className)}
       {...frameProps}
     >
       <Icon name="search" size={13} className="text-[var(--text-3)] shrink-0" />
@@ -58,7 +58,7 @@ export const Search = React.forwardRef<HTMLElement, SearchProps>((
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-[10px] text-[var(--text-1)] placeholder:text-[var(--text-3)]"
+        className="flex-1 min-w-0 bg-transparent border-none outline-none text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-3)]"
       />
       {sort && (
         <Dropdown

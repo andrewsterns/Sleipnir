@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Frame } from '../UIKit/Frame/Frame'
 import { useWidgetShellViewModel } from './WidgetShell.ViewModel'
-import { useAppTheme } from '../../00_themes/ThemeController'
+import { useAppTheme } from '../../themes/ThemeController'
 
 export interface WidgetShellProps {
   /** Rendered at the current rail width — a rail control (e.g. LeftRailing) sizes itself via a `width` prop, so this is a render prop rather than a plain node. */

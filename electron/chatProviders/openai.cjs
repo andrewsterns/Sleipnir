@@ -8,7 +8,7 @@
 const OpenAIModule = require('openai')
 const { resolveKey } = require('./keys.cjs')
 const { describeError } = require('./errors.cjs')
-const { normalizeToolSchema } = require('../agent/schemaAdapters.cjs')
+const { normalizeToolSchema } = require('./schemaAdapters.cjs')
 
 const OpenAI = OpenAIModule.default ?? OpenAIModule
 
