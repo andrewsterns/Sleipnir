@@ -1,0 +1,13 @@
+// Written by Sleipnir so your editor type-checks staged canvas components
+// with this project's settings. Nothing builds from it; edit or delete it
+// freely — it is only written when missing.
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "**/*",
+    "../src/vite-env.d.ts"
+  ]
+}

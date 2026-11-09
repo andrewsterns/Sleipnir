@@ -408,6 +408,9 @@ Teach the /frame, /component and canvas_build tools 3D: a spec can place frames 
 <!-- step:plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512 -->
 **Status:** Proposed
 
+**Comments**
+- someone: The user's name for this is the Lightroom widget: sketches, images and parts brought in for materials and high-quality renders, with /render as its skill. Takes over Prompt to scene steps 9 and 10 (stills, MP4 export, the /render skill).
+
 Long term: the hidden Analytics section (src/05_analytics) is replaced by Studio, a workspace for finishing a 3D scene rather than building it. A large viewport with lighting tools (key, fill and rim presets, HDRI picker, light linking, exposure and tone mapping), a material library and the node shader editor side by side, and the animation timeline with clips, curves and camera shots, plus a render panel for stills and turntable or shot videos. It works on the same boards and components as the Canvas, so a model goes from sketch to lit, animated shot without export.
 
 **Files**

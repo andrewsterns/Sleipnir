@@ -8,7 +8,6 @@
 import type { Guide } from '../../document/align'
 import type { CanvasDoc, CanvasNode, CanvasRect, NodeId } from '../../document/types'
 import { childrenOf } from '../../document/types'
-import { guidePolyline } from '../../document/pathGuide'
 import { placementOf, planeToWorld, worldToPlane } from '../../document/placement'
 
 // More lines than this is noise, not guidance.
@@ -61,9 +60,10 @@ function anchorsOf(node: CanvasNode, rectOf: (id: NodeId) => CanvasRect | null):
     const r = rectOf(n.id)
     if (!r) return
     if (n.kind === 'vector' && n.shape === 'path') {
-      // guidePolyline places the path in its parent's space; shift it to the board.
-      const { points } = guidePolyline(n)
-      for (const p of points) out.push([r.x + (p.x - n.rect.x), r.y + (p.y - n.rect.y)])
+      // Its anchors, not every point its curves are flattened into: a curve sampled
+      // finely would stack a wall of guides where one line per anchor is the help.
+      const view = n.viewBox ?? { w: n.rect.w, h: n.rect.h }
+      for (const p of n.points ?? []) out.push([r.x + (p.x * r.w) / (view.w || 1), r.y + (p.y * r.h) / (view.h || 1)])
     } else {
       out.push([r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h])
     }

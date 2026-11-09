@@ -1,4 +1,4 @@
-<!-- BEGIN SLEIPNIR v6 — generated, edits inside are overwritten -->
+<!-- BEGIN SLEIPNIR v8 — generated, edits inside are overwritten -->
 ## Planning with Sleipnir
 
 Plans live in `.planning/` and show live in Sleipnir's graph. Never hand-edit
@@ -20,10 +20,16 @@ follow `/plan`.
 
 ## Designing on the Sleipnir Canvas
 
-Visual designs live on Canvas boards in `.components/.boards/`; Sleipnir turns them
-into code. "Design this" means `/frame` (an editable design) or `/component` (a
-component Sleipnir writes the code for), built with `node .sleipnir/canvas.mjs`. Never
-hand-edit the board JSON or the code Sleipnir generates from it.
+2D designs live in Sketch documents in `.components/.boards/`; Sleipnir turns them
+into code. "Design this" means `/sketch` (an editable design; `/frame` is the same) or
+`/component` (a component Sleipnir writes the code for), built with `node .sleipnir/canvas.mjs`.
+Never hand-edit the board JSON or the code Sleipnir generates from it.
+
+## Sculpting in Sleipnir
+
+3D scenes are Environments in `.components/.boards/`, built with `node .sleipnir/model.mjs`
+(`help` lists the commands; `describe` reads a scene back in a few hundred tokens). "Model
+this" means `/sculpt`. Never hand-edit the board JSON.
 
 ## Sleipnir: optimize
 

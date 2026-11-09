@@ -227,12 +227,145 @@ describe('CanvasView', () => {
 
   it('offers to create the first board when the project has none', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    expect(await screen.findByText('No boards yet')).toBeInTheDocument()
+    expect(await screen.findByText('No sketches or environments yet')).toBeInTheDocument()
+  })
+
+  it('lists sketches and environments in their own groups', async () => {
+    files.set('.components/.boards/canvas-1.json', JSON.stringify({ id: 'canvas-1', name: 'Checkout', kind: 'sketch', nodes: [], components: [], createdAt: 1, updatedAt: 2 }))
+    files.set('.components/.boards/canvas-2.json', JSON.stringify({ id: 'canvas-2', name: 'Room', kind: 'environment', nodes: [], components: [], createdAt: 1, updatedAt: 1 }))
+    render(<CanvasView activeProject={PROJECT} />)
+    const field = await screen.findByRole('combobox')
+    await waitFor(() => expect(field.getAttribute('placeholder')).toBe('Sketches & environments'))
+    fireEvent.focus(field)
+    expect(screen.getByText('Sketches')).toBeInTheDocument()
+    expect(screen.getByText('Environments')).toBeInTheDocument()
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Checkout', 'Room', 'New sketch', 'New environment'])
+  })
+
+  it('opens a sketch in 2D and an environment in 3D, with no switch between them', async () => {
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
+    expect(screen.queryByText('+ Sketch')).toBeNull()
+    expect(screen.queryByRole('button', { name: '3D' })).toBeNull()
+
+    const field = screen.getByRole('combobox')
+    fireEvent.focus(field)
+    fireEvent.click((await screen.findByText('New environment')).closest('[role="option"]')!.firstElementChild!)
+    await waitFor(() => expect(savedDocs().map((d) => d.kind).sort()).toEqual(['environment', 'sketch']))
+    await waitFor(() => expect(screen.queryByText('Empty sketch')).toBeNull())
+    expect(screen.getByText('+ Sketch')).toBeInTheDocument()
+  })
+
+  it('pulls a placed sketch up to date when its environment opens, and the sketch says where it is used', async () => {
+    const card = { id: 'card', name: 'Card', kind: 'frame', rect: { x: 0, y: 0, w: 260, h: 120 }, style: {}, children: [] }
+    const placed = { id: 'p1', name: 'Checkout', kind: 'frame', rect: { x: 0, y: 0, w: 100, h: 50 }, style: {}, children: [], sketch: { plane: { kind: 'default', plane: 'front' }, link: { doc: 'canvas-1' } } }
+    files.set('.components/.boards/canvas-1.json', JSON.stringify({ id: 'canvas-1', name: 'Checkout', kind: 'sketch', nodes: [card], components: [], createdAt: 1, updatedAt: 1 }))
+    files.set('.components/.boards/canvas-2.json', JSON.stringify({ id: 'canvas-2', name: 'Room', kind: 'environment', nodes: [placed], components: [], createdAt: 1, updatedAt: 2 }))
+    render(<CanvasView activeProject={PROJECT} />)
+
+    const room = () => savedDocs().find((d) => d.id === 'canvas-2')
+    // Under a full run the environment's 3D view loads slowly; give the open room.
+    await waitFor(() => expect(room().nodes[0].rect.w).toBe(260), { timeout: 5000 })
+    expect(room().nodes[0].sketch.link).toEqual({ doc: 'canvas-1' })
+
+    const field = screen.getByRole('combobox')
+    fireEvent.focus(field)
+    fireEvent.click((await screen.findAllByRole('option')).find((o) => o.textContent === 'Checkout')!.firstElementChild!)
+    expect(await screen.findByText('Room', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText(/Used in 1 environment/)).toBeInTheDocument()
+    // Two documents open in turn, each through the 3D view’s lazy load: more than the default 5 s under a full run.
+  }, 15000)
+
+  it('gives an environment’s sketch its plane, part and look — none of Figma’s layout or component tools', async () => {
+    const floor = { id: 'floor', name: 'Floor', kind: 'vector', shape: 'rectangle', rect: { x: 0, y: 0, w: 100, h: 100 }, style: {}, sketch: { plane: { kind: 'default', plane: 'top' } } }
+    const objects = [{ id: 'o1', name: 'Slab', features: [{ id: 'f1', name: 'Extrude 1', op: 'new', kind: 'extrude', sketchId: 'floor', depth: 0.2 }] }]
+    files.set('.components/.boards/canvas-1.json', JSON.stringify({ id: 'canvas-1', name: 'Room', kind: 'environment', nodes: [floor], objects, components: [], createdAt: 1, updatedAt: 1 }))
+    render(<CanvasView activeProject={PROJECT} />)
+
+    fireEvent.click(await screen.findByLabelText('Expand', {}, { timeout: 5000 }))
+    fireEvent.click(await screen.findByText('Floor'))
+    expect(await screen.findByDisplayValue('Slab')).toBeInTheDocument()
+    expect(screen.getByText('Built by Extrude 1 from this sketch.')).toBeInTheDocument()
+    expect(screen.getByText('Plane')).toBeInTheDocument()
+    expect(screen.getByText('Size')).toBeInTheDocument()
+    for (const figma of ['Layout', 'Spacing', 'Target', 'Effects', 'Position & size']) expect(screen.queryByText(figma)).toBeNull()
+    expect(screen.queryByTitle(/Make SVG component|^Make component/)).toBeNull()
+  })
+
+  it('edits a feature as a dialog: live, then OK keeps it and Cancel puts it back; a part deletes from its menu', async () => {
+    const floor = { id: 'floor', name: 'Floor', kind: 'vector', shape: 'rectangle', rect: { x: 0, y: 0, w: 100, h: 100 }, style: {}, sketch: { plane: { kind: 'default', plane: 'top' } } }
+    const objects = [{ id: 'o1', name: 'Slab', features: [{ id: 'f1', name: 'Extrude 1', op: 'new', kind: 'extrude', sketchId: 'floor', depth: 0.2 }] }]
+    files.set('.components/.boards/canvas-1.json', JSON.stringify({ id: 'canvas-1', name: 'Room', kind: 'environment', nodes: [floor], objects, components: [], createdAt: 1, updatedAt: 1 }))
+    render(<CanvasView activeProject={PROJECT} />)
+    fireEvent.click(await screen.findByLabelText('Expand', {}, { timeout: 5000 }))
+    // Picking the feature's row opens its dialog in the right panel.
+    fireEvent.click(await screen.findByText('Extrude 1'))
+    expect(await screen.findByText('Starts Slab. Features after it add to it, cut it or keep only the overlap.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'OK' })).toBeNull()
+    // A change shows at once, with OK and Cancel; Cancel puts it back.
+    fireEvent.click(screen.getByRole('button', { name: 'Both sides' }))
+    expect(screen.getByRole('button', { name: 'Both sides' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'One way' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: 'OK' })).toBeNull()
+    // OK keeps it.
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse' }))
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(screen.getByRole('button', { name: 'Reverse' }).getAttribute('aria-pressed')).toBe('true')
+    await waitFor(() => expect(savedDocs()[0].objects[0].features[0].direction).toBe('reverse'), { timeout: 5000 })
+    // The part's own menu deletes it; its sketch stays.
+    fireEvent.contextMenu(screen.getByText('Slab', { selector: '[data-canvas-object]' }))
+    fireEvent.click(await screen.findByText('Delete Slab'))
+    await waitFor(() => expect(savedDocs()[0].objects ?? []).toEqual([]), { timeout: 5000 })
+    expect(savedDocs()[0].nodes.map((n: { id: string }) => n.id)).toEqual(['floor'])
+  })
+
+  it('gives an environment Blender’s keys and its own toolbox, and a sketch Figma’s', async () => {
+    files.set('.components/.boards/canvas-1.json', JSON.stringify({ id: 'canvas-1', name: 'Room', kind: 'environment', nodes: [], components: [], createdAt: 1, updatedAt: 1 }))
+    render(<CanvasView activeProject={PROJECT} />)
+    const rotate = await screen.findByTitle(/^Rotate handles/, {}, { timeout: 5000 })
+    expect(screen.getByTitle(/^Sketch — on a plane/)).toBeInTheDocument()
+    expect(screen.queryByTitle('Reset zoom (Ctrl+0)')).toBeNull()
+    expect(screen.queryByTitle(/^Rectangle/)).toBeNull()
+    // The toolbox picks the handles; R is Blender's rotate (the 3D view's own), never Rectangle, and leaves them be.
+    fireEvent.click(rotate)
+    expect(rotate.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.keyDown(window, { key: 'g' })
+    expect(rotate.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByTitle(/^Rectangle/)).toBeNull()
+
+    // A Sketch: R is Rectangle again, and there's no Sketch tool or transforms.
+    const field = screen.getByRole('combobox')
+    fireEvent.focus(field)
+    fireEvent.click((await screen.findByText('New sketch')).closest('[role="option"]')!.firstElementChild!)
+    await screen.findByText('Empty sketch', {}, { timeout: 5000 })
+    expect(screen.queryByTitle(/^Sketch — on a plane/)).toBeNull()
+    expect(screen.queryByTitle(/^Rotate handles/)).toBeNull()
+    expect(screen.getByTitle('Reset zoom (Ctrl+0)')).toBeInTheDocument()
+  })
+
+  it('keeps one home per control in an environment: views on the gizmo, display in the right panel, select modes in the toolbox', async () => {
+    files.set('.components/.boards/canvas-1.json', JSON.stringify({ id: 'canvas-1', name: 'Room', kind: 'environment', nodes: [], components: [], createdAt: 1, updatedAt: 1 }))
+    render(<CanvasView activeProject={PROJECT} />)
+    // Nothing selected: the environment's own view settings.
+    const wire = await screen.findByRole('button', { name: 'Wire' }, { timeout: 5000 })
+    expect(screen.getByText('View')).toBeInTheDocument()
+    fireEvent.click(wire)
+    expect(wire.getAttribute('aria-pressed')).toBe('true')
+    // The toolbox picks what Select picks; Tab and the number keys agree with it.
+    const faces = screen.getByTitle('Faces (3)')
+    fireEvent.keyDown(window, { key: '3' })
+    expect(faces.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByTitle('Objects (Tab)'))
+    expect(screen.getByTitle('Objects (Tab)').getAttribute('aria-pressed')).toBe('true')
+    // No view buttons beside the 3D view: the gizmo's axes are the views.
+    expect(screen.queryByRole('button', { name: 'Persp' })).toBeNull()
   })
 
   it('creates a board and persists it under .components/.boards/', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
+    fireEvent.click(await screen.findByText('New sketch'))
 
     await waitFor(() => expect(savedDocs()).toHaveLength(1))
     const [path] = [...files.keys()]
@@ -244,8 +377,8 @@ describe('CanvasView', () => {
 
   it('draws a frame by dragging with the Frame tool, and autosaves it', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     // Pick the Frame tool the way a user does.
     fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
@@ -257,7 +390,7 @@ describe('CanvasView', () => {
 
     // The board is no longer empty, and the new frame is named in both the
     // layers panel and its own board label.
-    await waitFor(() => expect(screen.queryByText('Empty board')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Empty sketch')).not.toBeInTheDocument())
     expect(screen.getAllByText('Frame').length).toBeGreaterThan(0)
     expect(document.querySelector('[data-canvas-frame-label="Frame"]')).not.toBeNull()
 
@@ -272,8 +405,8 @@ describe('CanvasView', () => {
   // the board put a pan into every diff. It is remembered per machine instead.
   it('saves boards without the camera', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
 
     await waitFor(() => expect(savedDocs()[0]?.nodes).toHaveLength(1))
@@ -285,8 +418,8 @@ describe('CanvasView', () => {
 
   it('selects the new frame and shows its geometry in the inspector', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
     const board = getBoard()
@@ -308,8 +441,8 @@ describe('CanvasView', () => {
 
   it('reloads a persisted board on remount, so boards survive leaving the tab', async () => {
     const first = render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
     const board = getBoard()
@@ -323,13 +456,13 @@ describe('CanvasView', () => {
     render(<CanvasView activeProject={PROJECT} />)
     // The frame comes back from disk, not from memory.
     expect(await screen.findByText('Frame')).toBeInTheDocument()
-    expect(screen.queryByText('Empty board')).not.toBeInTheDocument()
+    expect(screen.queryByText('Empty sketch')).not.toBeInTheDocument()
   })
 
   it('puts the tool picker in a floating toolbar over the board, not the top bar', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     const toolbar = document.querySelector('[data-canvas-toolbar]')
     expect(toolbar).not.toBeNull()
@@ -343,8 +476,8 @@ describe('CanvasView', () => {
 
   it('promotes a frame into a component, replacing it with a labelled instance', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
 
     await promoteFrame()
@@ -363,10 +496,10 @@ describe('CanvasView', () => {
     // path with no dialog, and the component records it — the two-step
     // "promote, then approve somewhere" flow is gone.
     expect(saved.components[0].componentRoot).toBe('.components')
-    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/untitledSketch/frame/frame.tsx'])
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
-      expect(component.filePath).toBe('.components/untitled/frame/frame.tsx')
+      expect(component.filePath).toBe('.components/untitledSketch/frame/frame.tsx')
       expect(component.sync).toBe('live')
       expect(component.lastWrittenHash).toBeTruthy()
     })
@@ -377,8 +510,8 @@ describe('CanvasView', () => {
 
   it('de-conflicts the derived path so two same-named frames both land', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     // Both frames keep the default name "Frame", which is what happens the
     // moment promotion stops asking for one. The second must not fail with
@@ -388,17 +521,17 @@ describe('CanvasView', () => {
     drawFrame(300, 320, 440, 420)
     await promoteFrame()
 
-    expect(componentFiles().sort()).toEqual(['.components/untitled/frame-2/frame.tsx', '.components/untitled/frame/frame.tsx'])
+    expect(componentFiles().sort()).toEqual(['.components/untitledSketch/frame-2/frame.tsx', '.components/untitledSketch/frame/frame.tsx'])
     await waitFor(() => {
       const paths = savedDocs()[0].components.map((c: { filePath?: string }) => c.filePath).sort()
-      expect(paths).toEqual(['.components/untitled/frame-2/frame.tsx', '.components/untitled/frame/frame.tsx'])
+      expect(paths).toEqual(['.components/untitledSketch/frame-2/frame.tsx', '.components/untitledSketch/frame/frame.tsx'])
     })
   })
 
   it('adds a variant, which creates the discriminating prop and the on-canvas dropdown', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -419,8 +552,8 @@ describe('CanvasView', () => {
 
   it('switches the instance variant from the board label trigger', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
     await addVariantNamed('Hover')
@@ -436,8 +569,8 @@ describe('CanvasView', () => {
 
   it('promoting is not cancellable, because there is nothing left to approve', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
 
     fireEvent.click(await screen.findByTitle(/^Make component/))
@@ -454,14 +587,14 @@ describe('CanvasView', () => {
 
   it('writes real code on promote, only inside the sandboxed component root', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
-    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/untitledSketch/frame/frame.tsx'])
 
-    const source = files.get('.components/untitled/frame/frame.tsx')!
+    const source = files.get('.components/untitledSketch/frame/frame.tsx')!
     expect(source).toContain('export type FrameProps = Record<string, never>')
     expect(source).toContain('export const Frame = () => {')
     expect(source).toContain('// <sleipnir:layout component=')
@@ -473,8 +606,8 @@ describe('CanvasView', () => {
 
   it('flattening removes the component file without leaving its folders behind', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -486,7 +619,7 @@ describe('CanvasView', () => {
     // automatic promotion they would accumulate one per discarded experiment.
     await waitFor(() => expect(componentFiles()).toEqual([]))
     // Nor the board folder it sat in, now that it holds nothing.
-    expect(deletedPaths()).toContain('.components/untitled')
+    expect(deletedPaths()).toContain('.components/untitledSketch')
 
     // And because promotion always writes a file, a component with no file is
     // no longer a rung on the ladder — it is what a frame is. This one carried
@@ -506,14 +639,14 @@ describe('CanvasView', () => {
 
   it('flattening a component that carries variants removes its file, and undo brings both back', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
     await addVariantNamed('Hover')
     await waitFor(() => expect(currentDoc().components[0].variants).toHaveLength(2))
-    const written = files.get('.components/untitled/frame/frame.tsx')
+    const written = files.get('.components/untitledSketch/frame/frame.tsx')
 
     fireEvent.click(await screen.findByTitle(/flatten back to a frame/))
 
@@ -530,17 +663,17 @@ describe('CanvasView', () => {
     // variants for good. Undo now restores the component AND its file, byte
     // for byte.
     fireEvent.click(screen.getByText('Undo'))
-    await waitFor(() => expect(files.get('.components/untitled/frame/frame.tsx')).toBe(written))
+    await waitFor(() => expect(files.get('.components/untitledSketch/frame/frame.tsx')).toBe(written))
     await waitFor(() => expect(currentDoc().components[0]?.variants).toHaveLength(2))
   })
 
   it('deletes the staged file with the last instance, and undo restores it', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
-    const written = files.get('.components/untitled/frame/frame.tsx')
+    const written = files.get('.components/untitledSketch/frame/frame.tsx')
 
     // The instance is selected after promotion; Delete is the board's own key.
     fireEvent.keyDown(window, { key: 'Delete' })
@@ -552,14 +685,14 @@ describe('CanvasView', () => {
     })
 
     fireEvent.click(screen.getByText('Undo'))
-    await waitFor(() => expect(files.get('.components/untitled/frame/frame.tsx')).toBe(written))
+    await waitFor(() => expect(files.get('.components/untitledSketch/frame/frame.tsx')).toBe(written))
     await waitFor(() => expect(currentDoc().components).toHaveLength(1))
   })
 
   it('takes the staged file away when the promotion is undone, and back on redo', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -568,7 +701,7 @@ describe('CanvasView', () => {
     await waitFor(() => expect(currentDoc().nodes[0]?.kind).toBe('frame'))
 
     fireEvent.click(screen.getByText('Redo'))
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx']))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitledSketch/frame/frame.tsx']))
     await waitFor(() => expect(currentDoc().components).toHaveLength(1))
   })
 
@@ -578,8 +711,8 @@ describe('CanvasView', () => {
     files.set('tsconfig.app.json', '{\n  // comments are fine\n  "compilerOptions": { "jsx": "react-jsx" }\n}')
 
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -589,8 +722,8 @@ describe('CanvasView', () => {
   it('never overwrites an editor tsconfig that is already there', async () => {
     files.set('.components/tsconfig.json', '{ "mine": true }')
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
     await waitFor(() => expect(currentDoc().components).toHaveLength(1))
@@ -600,16 +733,16 @@ describe('CanvasView', () => {
 
   it('relinks a component whose folder was moved outside Sleipnir, by its sentinel', async () => {
     const first = render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
-    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitled/frame/frame.tsx'))
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitledSketch/frame/frame.tsx'))
     first.unmount()
 
     // Moved in VS Code: Sleipnir never saw it, so nothing reconciled the board.
-    files.set('src/ui/frame/frame.tsx', files.get('.components/untitled/frame/frame.tsx')!)
-    files.delete('.components/untitled/frame/frame.tsx')
+    files.set('src/ui/frame/frame.tsx', files.get('.components/untitledSketch/frame/frame.tsx')!)
+    files.delete('.components/untitledSketch/frame/frame.tsx')
 
     render(<CanvasView activeProject={PROJECT} />)
 
@@ -624,15 +757,15 @@ describe('CanvasView', () => {
 
   it('leaves a moved component flagged when two files claim it', async () => {
     const first = render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
-    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitled/frame/frame.tsx'))
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitledSketch/frame/frame.tsx'))
     first.unmount()
 
-    const source = files.get('.components/untitled/frame/frame.tsx')!
-    files.delete('.components/untitled/frame/frame.tsx')
+    const source = files.get('.components/untitledSketch/frame/frame.tsx')!
+    files.delete('.components/untitledSketch/frame/frame.tsx')
     files.set('src/a/frame.tsx', source)
     files.set('src/b/frame.tsx', source)
 
@@ -642,13 +775,13 @@ describe('CanvasView', () => {
 
     // Picking one of two copies would be a guess; it says what happened instead.
     expect(await screen.findByText(/is gone — it was moved or deleted outside Sleipnir/)).toBeInTheDocument()
-    expect(currentDoc().components[0].filePath).toBe('.components/untitled/frame/frame.tsx')
+    expect(currentDoc().components[0].filePath).toBe('.components/untitledSketch/frame/frame.tsx')
   })
 
   it('removes the staged file when a component is flattened to a frame', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -660,13 +793,14 @@ describe('CanvasView', () => {
 
   it('deletes a board together with its staged files', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
-    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitled/frame/frame.tsx'))
+    await waitFor(() => expect(currentDoc().components[0]?.filePath).toBe('.components/untitledSketch/frame/frame.tsx'))
 
-    fireEvent.click(screen.getByTitle('Delete this board'))
+    fireEvent.click(screen.getByTitle('Sketch actions'))
+    fireEvent.click(await screen.findByText('Delete sketch'))
 
     await waitFor(() => expect(savedDocs()).toHaveLength(0))
     await waitFor(() => expect(componentFiles()).toEqual([]))
@@ -691,15 +825,15 @@ describe('CanvasView', () => {
     files.set('.components/ghost/ghost.tsx', '  // <sleipnir:layout component="cmp_gone" hash="h">\n  // </sleipnir:layout>\n')
 
     render(<CanvasView activeProject={PROJECT} />)
-    await screen.findByText('No boards yet')
+    await screen.findByText('No sketches or environments yet')
 
     expect(files.has('.components/ghost/ghost.tsx')).toBe(true)
   })
 
   it('flattens a variant-carrying component to a frame on request', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -714,8 +848,8 @@ describe('CanvasView', () => {
 
   it('renames a live component from its name field, carrying its file and its exported symbol along', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -727,11 +861,11 @@ describe('CanvasView', () => {
     fireEvent.blur(name)
 
     // The file moves, and the old one (plus its now-empty folder) goes.
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/card/card.tsx']))
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitledSketch/card/card.tsx']))
 
     // The rename reaches INSIDE the file, not just the board — a file called
     // card.tsx still exporting `Frame` would be the worse half-outcome.
-    const source = files.get('.components/untitled/card/card.tsx')!
+    const source = files.get('.components/untitledSketch/card/card.tsx')!
     expect(source).toContain('export type CardProps = Record<string, never>')
     expect(source).toContain('export const Card = () => {')
     expect(source).not.toContain('export const Frame')
@@ -739,42 +873,42 @@ describe('CanvasView', () => {
     await waitFor(() => {
       const doc = savedDocs()[0]
       expect(doc.components[0].name).toBe('Card')
-      expect(doc.components[0].filePath).toBe('.components/untitled/card/card.tsx')
+      expect(doc.components[0].filePath).toBe('.components/untitledSketch/card/card.tsx')
       // The instance was still called what the component was, so it follows.
       expect(doc.nodes[0].name).toBe('Card')
     })
     // And the path field shows where it went.
-    expect(screen.getByDisplayValue('.components/untitled/card/card.tsx')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('.components/untitledSketch/card/card.tsx')).toBeInTheDocument()
   })
 
   it('leaving the name and path fields unchanged relocates nothing', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
     const name = await screen.findByTitle(/^Component name/)
     fireEvent.focus(name)
     fireEvent.blur(name)
-    const path = screen.getByDisplayValue('.components/untitled/frame/frame.tsx')
+    const path = screen.getByDisplayValue('.components/untitledSketch/frame/frame.tsx')
     fireEvent.focus(path)
     fireEvent.keyDown(path, { key: 'Enter' })
     fireEvent.blur(path)
 
     await new Promise((r) => setTimeout(r, 50))
-    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/untitledSketch/frame/frame.tsx'])
   })
 
   it('moves a component from its path field, and keeps it there across a rename', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
     // File it somewhere of our own choosing: the path is typed out in full.
-    const path = await screen.findByDisplayValue('.components/untitled/frame/frame.tsx')
+    const path = await screen.findByDisplayValue('.components/untitledSketch/frame/frame.tsx')
     fireEvent.change(path, { target: { value: '.components/widgets/frame.tsx' } })
     fireEvent.keyDown(path, { key: 'Enter' })
     await waitFor(() => expect(componentFiles()).toEqual(['.components/widgets/frame.tsx']))
@@ -792,22 +926,22 @@ describe('CanvasView', () => {
 
   it('refuses a path outside the component root, saying why, and writes nothing', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
-    const path = await screen.findByDisplayValue('.components/untitled/frame/frame.tsx')
+    const path = await screen.findByDisplayValue('.components/untitledSketch/frame/frame.tsx')
     fireEvent.change(path, { target: { value: '../outside/frame.tsx' } })
     fireEvent.keyDown(path, { key: 'Enter' })
     expect((await screen.findAllByText(/outside|escape/i)).length).toBeGreaterThan(0)
-    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/untitledSketch/frame/frame.tsx'])
   })
 
   it('writes a detached component back into the workspace from the panel', async () => {
     const first = render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -821,18 +955,18 @@ describe('CanvasView', () => {
     // in the Workspace tree, where there is no undo to bring the variants back
     // (inside the canvas, removing a staged file flattens instead).
     first.unmount()
-    files.delete('.components/untitled/frame/frame.tsx')
-    await reconcileDelete('.components/untitled/frame/frame.tsx')
+    files.delete('.components/untitledSketch/frame/frame.tsx')
+    await reconcileDelete('.components/untitledSketch/frame/frame.tsx')
     render(<CanvasView activeProject={PROJECT} />)
     await screen.findAllByText('Frame')
     clickAt(200, 200)
 
     // The path field already holds where it would go; one button writes it.
-    expect(await screen.findByDisplayValue('.components/untitled/frame/frame.tsx')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('.components/untitledSketch/frame/frame.tsx')).toBeInTheDocument()
     fireEvent.click(await screen.findByText('Write to workspace'))
 
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx']))
-    const source = files.get('.components/untitled/frame/frame.tsx')!
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitledSketch/frame/frame.tsx']))
+    const source = files.get('.components/untitledSketch/frame/frame.tsx')!
     // The variant added above is a real prop, so it reaches the interface and
     // the signature — the fresh emit carries the component's whole shape.
     expect(source).toContain("state?: 'default' | 'hover'")
@@ -840,7 +974,7 @@ describe('CanvasView', () => {
 
     await waitFor(() => {
       const component = savedDocs()[0].components[0]
-      expect(component.filePath).toBe('.components/untitled/frame/frame.tsx')
+      expect(component.filePath).toBe('.components/untitledSketch/frame/frame.tsx')
       expect(component.sync).toBe('live')
       expect(component.lastWrittenHash).toBeTruthy()
     })
@@ -848,8 +982,8 @@ describe('CanvasView', () => {
 
   it('emits one branch per variant so states survive into the code', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await promoteFrame()
 
@@ -877,8 +1011,8 @@ describe('CanvasView', () => {
   // nested work miserable, and made every drag move the container instead.
   it('selects the child under the cursor on a SINGLE click, as Figma does', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 400, 400) // the frame — 300x300
     drawFrame(150, 150, 250, 250) // a child inside it — 100x100
@@ -900,8 +1034,8 @@ describe('CanvasView', () => {
 
   it('selects the frame itself when the click lands on its own background', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 400, 400)
     drawFrame(150, 150, 250, 250)
@@ -916,8 +1050,8 @@ describe('CanvasView', () => {
 
   it('drags a selected frame from anywhere inside it, children and all', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 400, 400)
     drawFrame(150, 150, 250, 250)
@@ -937,8 +1071,8 @@ describe('CanvasView', () => {
 
   it('grabs a frame by its label when its children leave no background to click', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 300, 300) // the frame — 200x200
     // A child covering it corner to corner, so no background is left over.
@@ -963,8 +1097,8 @@ describe('CanvasView', () => {
 
   it('reaches into a selected frame on a click that never moved', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 400, 400)
     drawFrame(150, 150, 250, 250)
@@ -983,8 +1117,8 @@ describe('CanvasView', () => {
 
   it('stays at the depth you are working in, so children stay one click away', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 400, 400) // outer
     drawFrame(150, 150, 250, 250) // child A — 100x100, drawn inside outer
@@ -1007,8 +1141,8 @@ describe('CanvasView', () => {
   // takes the outermost one below the current depth, and a double-click steps in.
   it('drills past the click depth on double-click', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame(100, 100, 400, 400) // frame  — 300x300
     drawFrame(150, 150, 350, 350) // card   — 200x200, inside the frame
     drawFrame(180, 180, 240, 240) // label  — 60x60, inside the card
@@ -1029,8 +1163,8 @@ describe('CanvasView', () => {
 
   it('un-nests a child by dragging it out onto empty board', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 400, 400) // parent
     drawFrame(150, 150, 250, 250) // child, nested by the draw
@@ -1055,8 +1189,8 @@ describe('CanvasView', () => {
 
   it('treats a shaky click as a click, not a one-pixel drag', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 300, 300)
     await waitFor(() => expect(currentDoc().nodes).toHaveLength(1))
@@ -1072,8 +1206,8 @@ describe('CanvasView', () => {
 
   it('reparents a frame by dragging it into another', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 300, 300) // target
     drawFrame(500, 100, 600, 200) // loose frame, drawn outside the target
@@ -1093,8 +1227,8 @@ describe('CanvasView', () => {
 
   it('groups a multi-selection into a new parent frame without moving anything', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 200, 200)
     drawFrame(400, 100, 500, 200)
@@ -1117,8 +1251,8 @@ describe('CanvasView', () => {
 
   it('aligns a multi-selection from the align toolbar', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 200, 200)
     drawFrame(400, 300, 500, 400)
@@ -1138,8 +1272,8 @@ describe('CanvasView', () => {
 
   it('shows the arrange controls in the inspector only once a selection can use them', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     expect(document.querySelector('[data-canvas-arrange]')).toBeNull()
 
@@ -1161,8 +1295,8 @@ describe('CanvasView', () => {
   /** Builds a stack frame holding two children, and reports where flex put them. */
   async function buildStack() {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     drawFrame(100, 100, 500, 400) // the stack: board 100,100 400x300
     drawFrame(150, 150, 250, 200) // child A: 100x50, nested by the draw
@@ -1295,8 +1429,8 @@ describe('CanvasView', () => {
 
   it('lists every language target, offering only the ones that can really emit a box', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
 
     fireEvent.click(screen.getByTitle(/^Frame \(F\)/))
     const board = getBoard()
@@ -1318,8 +1452,8 @@ describe('CanvasView paint', () => {
   /** A board with one selected frame, ready for the inspector. */
   async function frameOnBoard() {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await waitFor(() => expect(savedDocs()[0]?.nodes).toHaveLength(1))
   }
@@ -1362,7 +1496,7 @@ describe('CanvasView paint', () => {
 
     await promoteFrame()
     // Top layer first, over the frame's own bg-2 fill as a layer of its own.
-    expect(files.get('.components/untitled/frame/frame.tsx')).toContain(
+    expect(files.get('.components/untitledSketch/frame/frame.tsx')).toContain(
       "background: 'radial-gradient(ellipse 50% 50% at 50% 50%, #d9d9d9 0%, rgba(217, 217, 217, 0) 100%), linear-gradient(var(--bg-2), var(--bg-2))',",
     )
   })
@@ -1381,7 +1515,7 @@ describe('CanvasView paint', () => {
     expect(files.get('.components/assets/My-Hero.png')).toBe('iVBORw==')
 
     await promoteFrame()
-    const source = files.get('.components/untitled/frame/frame.tsx')!
+    const source = files.get('.components/untitledSketch/frame/frame.tsx')!
     expect(source).toContain("import myHeroImage from '../../assets/My-Hero.png'")
     expect(source).toContain('background: `url("${myHeroImage}") center / cover no-repeat, linear-gradient(var(--bg-2), var(--bg-2))`,')
   })
@@ -1414,7 +1548,7 @@ describe('CanvasView paint', () => {
 
     fireEvent.click(await screen.findByLabelText('Update component'))
     await waitFor(() =>
-      expect(files.get('.components/untitled/frame/frame.tsx')).toContain("boxShadow: '0px 4px 4px 0px rgba(0, 0, 0, 0.25)',"),
+      expect(files.get('.components/untitledSketch/frame/frame.tsx')).toContain("boxShadow: '0px 4px 4px 0px rgba(0, 0, 0, 0.25)',"),
     )
   })
 
@@ -1439,8 +1573,8 @@ describe('CanvasView paint', () => {
 describe('CanvasView shapes, pen and SVG components', () => {
   async function emptyBoard() {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
   }
 
   /** Drags a rect with whatever tool is active. */
@@ -1533,8 +1667,8 @@ describe('CanvasView shapes, pen and SVG components', () => {
 
     fireEvent.click(await screen.findByText('Make SVG component'))
 
-    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitled/ellipse/ellipse.tsx']))
-    const source = files.get('.components/untitled/ellipse/ellipse.tsx')!
+    await waitFor(() => expect(componentFiles()).toEqual(['.components/untitledSketch/ellipse/ellipse.tsx']))
+    const source = files.get('.components/untitledSketch/ellipse/ellipse.tsx')!
     expect(source).toContain('export const Ellipse = () => {')
     expect(source).toContain('<svg width={60} height={60} viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">')
     expect(source).toContain('<ellipse cx={30} cy={30} rx={30} ry={30} fill="#d9d9d9" />')
@@ -1580,8 +1714,8 @@ describe('CanvasView shapes, pen and SVG components', () => {
 describe('CanvasView fluid vector editing', () => {
   async function emptyBoard() {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
   }
   function drag(x1: number, y1: number, x2: number, y2: number, init: Record<string, unknown> = {}) {
     const board = getBoard()
@@ -1623,7 +1757,7 @@ describe('CanvasView fluid vector editing', () => {
     // A rectangle becomes a 4-anchor path the moment it's edited.
     await waitFor(() => expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(4))
     await waitFor(() => expect(savedNodes()[0]).toMatchObject({ shape: 'path', closed: true }))
-    expect(screen.getByText('Done (enter)')).toBeInTheDocument()
+    expect(screen.getByTitle('Done editing points (Enter)')).toBeInTheDocument()
 
     // Drag the bottom-right corner out; the box refits to the new shape.
     const corner = document.querySelector('[data-point-anchor="2"]')!
@@ -1647,7 +1781,7 @@ describe('CanvasView fluid vector editing', () => {
     fireEvent.keyDown(window, { key: 'r' })
     drag(100, 100, 200, 200)
     await waitFor(() => expect(savedNodes()).toHaveLength(1))
-    fireEvent.click(await screen.findByText('Edit points'))
+    fireEvent.click(await screen.findByTitle('Edit points (Enter)'))
     await waitFor(() => expect(document.querySelectorAll('[data-point-anchor]')).toHaveLength(4))
 
     // A plain click on the outline is a box-select: no new point.
@@ -1669,8 +1803,8 @@ describe('CanvasView fluid vector editing', () => {
 describe('CanvasView modifier keys', () => {
   async function emptyBoard() {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
   }
   function drag(target: Element, x1: number, y1: number, x2: number, y2: number, init: Record<string, unknown> = {}) {
     const board = getBoard()
@@ -1887,8 +2021,8 @@ describe('CanvasView modifier keys', () => {
 describe('layout controls in the inspector', () => {
   it('sets a frame’s flow, alignment and padding with buttons', async () => {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame(100, 100, 500, 400)
     drawFrame(150, 150, 250, 200)
     await waitFor(() => expect(currentDoc().nodes[0].children).toHaveLength(1))
@@ -1908,8 +2042,8 @@ describe('layout controls in the inspector', () => {
 describe('CanvasView text and components from the properties panel', () => {
   async function emptyBoard() {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
   }
   const editor = () => document.querySelector('[data-canvas-text-editor]') as HTMLTextAreaElement | null
 
@@ -1955,8 +2089,8 @@ describe('CanvasView text and components from the properties panel', () => {
 describe('CanvasView board folders', () => {
   async function componentOnBoard() {
     render(<CanvasView activeProject={PROJECT} />)
-    fireEvent.click(await screen.findByText('Create a board'))
-    await screen.findByText('Empty board')
+    fireEvent.click(await screen.findByText('New sketch'))
+    await screen.findByText('Empty sketch')
     drawFrame()
     await waitFor(() => expect(savedDocs()[0]?.nodes).toHaveLength(1))
     await promoteFrame()
@@ -1964,13 +2098,13 @@ describe('CanvasView board folders', () => {
 
   it("files a new component under its board's folder", async () => {
     await componentOnBoard()
-    expect(componentFiles()).toEqual(['.components/untitled/frame/frame.tsx'])
+    expect(componentFiles()).toEqual(['.components/untitledSketch/frame/frame.tsx'])
   })
 
   it("moves the board's components along when the board is renamed", async () => {
     await componentOnBoard()
     fireEvent.doubleClick(await screen.findByTitle('Double-click to rename'))
-    const field = await screen.findByDisplayValue('Untitled')
+    const field = await screen.findByDisplayValue('Untitled sketch')
     fireEvent.change(field, { target: { value: 'Checkout flow' } })
     fireEvent.keyDown(field, { key: 'Enter' })
 
@@ -1981,7 +2115,7 @@ describe('CanvasView board folders', () => {
       expect(doc.components[0].filePath).toBe('.components/checkoutFlow/frame/frame.tsx')
     }, { timeout: 3000 })
     // The old board folder doesn't linger.
-    expect(deletedPaths()).toContain('.components/untitled')
+    expect(deletedPaths()).toContain('.components/untitledSketch')
   })
 
   it('writes canvas changes into the file from the update icon beside the path', async () => {
@@ -1992,7 +2126,7 @@ describe('CanvasView board folders', () => {
     fireEvent.click(screen.getByTitle('Add effect'))
     await waitFor(() => expect(screen.getByLabelText('Update component')).not.toBeDisabled())
     fireEvent.click(screen.getByLabelText('Update component'))
-    await waitFor(() => expect(files.get('.components/untitled/frame/frame.tsx')).toContain('boxShadow'))
+    await waitFor(() => expect(files.get('.components/untitledSketch/frame/frame.tsx')).toContain('boxShadow'))
     await waitFor(() => expect(screen.getByLabelText('Update component')).toBeDisabled())
   })
 })

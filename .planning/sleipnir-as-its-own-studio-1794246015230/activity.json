@@ -1,0 +1,263 @@
+{
+  "events": [
+    {
+      "at": 1794246339594,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/commands-by-space-one-per-tool-1794246015473",
+      "comment": "Decided: the whole-scene command is /canvas:build, not /canvas:sculpt. The word Sculpt stays free for the future brush tools. This step renames today's /sculpt; the CLI file stays .sleipnir/model.mjs."
+    },
+    {
+      "at": 1794246339813,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "comment": "Decided: how model.mjs gets the kernel is settled by the step \"The agent CLI finds the kernel\" (one per-user copy, never per project). This step only needs the app side."
+    },
+    {
+      "at": 1794246339950,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "comment": "Decided, from \"Prove the kernel on one part first\": load when an Environment opens, stay synchronous once loaded, and keep the mesh path for parts with no kernel features. Do not start until that checkpoint passes. Moved points are handled in the next step."
+    },
+    {
+      "at": 1794246340095,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "comment": "Decided: do this one last, after \"End to end: the teaset\". Nothing else depends on it. The plan CLI cannot reorder steps, so it stays here in the graph until moved; drag it in Sleipnir, or skip it when you get here."
+    },
+    {
+      "at": 1794246383074,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "status": "in_progress"
+    },
+    {
+      "at": 1794246550339,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "status": "testing",
+      "agent": "auto"
+    },
+    {
+      "at": 1794246788793,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "comment": "electron/terminalScrollback.cjs was added beyond the planned files: the buffer has to live in the main process (.cjs), so it can't be in terminalSessions.ts."
+    },
+    {
+      "at": 1794246788908,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "status": "completed",
+      "note": "Shells live in the main process with a 2 MB replay buffer; a reloaded page lists and reattaches them (no duplicates, Claude redraws), and only closing a tab ends one; xterm scrollback 10,000 lines; checked with a running ping and a real Claude session across reloads",
+      "since": 1794246383074,
+      "changes": [
+        {
+          "path": ".claude/commands/component.md",
+          "change": "modified"
+        },
+        {
+          "path": ".claude/commands/frame.md",
+          "change": "modified"
+        },
+        {
+          "path": ".claude/commands/sketch.md",
+          "change": "modified"
+        },
+        {
+          "path": ".codex/prompts/component.md",
+          "change": "modified"
+        },
+        {
+          "path": ".codex/prompts/frame.md",
+          "change": "modified"
+        },
+        {
+          "path": ".codex/prompts/sketch.md",
+          "change": "modified"
+        },
+        {
+          "path": ".gemini/commands/component.toml",
+          "change": "modified"
+        },
+        {
+          "path": ".gemini/commands/frame.toml",
+          "change": "modified"
+        },
+        {
+          "path": ".gemini/commands/sketch.toml",
+          "change": "modified"
+        },
+        {
+          "path": "AGENTS.md",
+          "change": "modified"
+        },
+        {
+          "path": "CLAUDE.md",
+          "change": "modified"
+        },
+        {
+          "path": "GEMINI.md",
+          "change": "modified"
+        },
+        {
+          "path": "electron/main.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/preload.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/terminal.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/terminalScrollback.cjs",
+          "change": "added"
+        },
+        {
+          "path": "src/app/Terminal/Terminal.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Terminal/Terminal.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Terminal/iTerminal.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/Terminal/terminalSessions.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/app/Terminal/terminalSessions.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/app/TerminalDock/TerminalDock.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1794246847848,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-app-comes-back-where-you-were-1794246015338",
+      "status": "in_progress"
+    },
+    {
+      "at": 1794247114247,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-app-comes-back-where-you-were-1794246015338",
+      "status": "completed",
+      "note": "sessionState.ts: space, split pane and dock restored per window; Workspace open files and active tab come back (deleted ones close quietly); Canvas tabs and open document were already remembered; checked with a reload in the app",
+      "since": 1794246847848,
+      "changes": [
+        {
+          "path": "src/App.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/DesignSystem/FolderBrowserView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/sessionState.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/app/sessionState.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1794247286852,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "status": "in_progress"
+    },
+    {
+      "at": 1794247433791,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "status": "testing",
+      "agent": "auto"
+    },
+    {
+      "at": 1794247492237,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "status": "in_progress",
+      "agent": "auto"
+    },
+    {
+      "at": 1794247492238,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "status": "testing",
+      "agent": "auto"
+    },
+    {
+      "at": 1794247492238,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "status": "completed",
+      "agent": "auto",
+      "since": 1794247286852,
+      "changes": [
+        {
+          "path": ".sleipnir/trail.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/devRestart.cjs",
+          "change": "added"
+        },
+        {
+          "path": "electron/devRestart.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "electron/main.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/preload.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/terminal.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "electron/terminalScrollback.cjs",
+          "change": "modified"
+        },
+        {
+          "path": "package.json",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/StatusBar/DevRestartButton.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/app/StatusBar/StatusBar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "tools/agentSkills/vendor/trail.mjs",
+          "change": "modified"
+        },
+        {
+          "path": "tools/devLauncher.mjs",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1794247742634,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "comment": "Beyond the planned files: tools/devLauncher.mjs (npm run electron:dev used to stop Vite the moment Electron exited), src/app/StatusBar/DevRestartButton.tsx, and the trail hook now records which conversation each terminal holds."
+    },
+    {
+      "at": 1794247742740,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "status": "completed",
+      "note": "Status bar's Restart to apply appears when electron/ or tools code changes; saves, restarts, restores the window and shells, and resumes each terminal's own Claude conversation (checked: Claude remembered a word across a restart); electron:dev keeps Vite through restarts and cleans up on quit"
+    },
+    {
+      "at": 1794247793277,
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "comment": "Correction to the completion note: restarting under the launcher kept Vite as intended, but quitting left Vite running. Fixed by making the kill synchronous (tools/devLauncher.mjs); that fix has not been re-run, because a leftover server was holding port 5183. Check on the next quit that port 5183 is free."
+    }
+  ]
+}

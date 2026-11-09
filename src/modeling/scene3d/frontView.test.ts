@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { apply } from '../../document/rotation'
 import { boardMatrixOf } from '../../document/doc'
 import type { CanvasDoc, CanvasNode } from '../../document/types'
-import { frontFaces, frontMatrix, frontPoint, frontShade, isEdgeOn, resizeOnPlane } from '../../document/frontView'
-import { drawsAsSolid, layerMesh, projectedSolidsOf } from './sceneMeshes'
-import { migrateLayerSolids } from '../../document/objects'
+import { frontMatrix, frontPoint, isEdgeOn, resizeOnPlane } from '../../document/frontView'
 import { planeToWorld, PLANE_ROTATION } from '../../document/placement'
 import type { Placement3D } from '../../document/sceneTypes'
 
@@ -80,41 +78,5 @@ describe('resizing on a placed plane', () => {
 
   it('refuses an edge-on plane', () => {
     expect(resizeOnPlane({ position: [0, 0, 0], rotation: PLANE_ROTATION.top }, { w: 100, h: 50 }, { x: 5, y: 5 }, grow)).toBeNull()
-  })
-})
-
-describe('solids seen from the front', () => {
-  const cube = (space?: Placement3D) =>
-    ({ id: 'cube', name: 'cube', kind: 'vector', shape: 'rectangle', rect: { x: 0, y: 0, w: 100, h: 100 }, style: {}, solid: { kind: 'extrude', depth: 1 }, ...(space ? { space } : {}) }) as CanvasNode
-  // The cube is written as boards were before Objects, and read through the migration.
-  const docOf = (node: CanvasNode): CanvasDoc => migrateLayerSolids({ version: 1, id: 'b', name: 'b', nodes: [node], components: [], createdAt: 0, updatedAt: 0 })
-
-  it('shows only the front face of an unturned cube — the same square the flat layer is', () => {
-    const node = cube({ position: [0, 0, 0], rotation: [0, 0, 0] })
-    const faces = frontFaces(layerMesh(node, docOf(node))!, node.space!, node.rect)
-    expect(faces).toHaveLength(2)
-    expect(drawsAsSolid(node, docOf(node))).toBe(false)
-  })
-
-  it('turns a cube into three faces whose outline is a hexagon, and draws it as a solid', () => {
-    const node = cube({ position: [0, 0, 0], rotation: [35.264, 45, 0] })
-    expect(drawsAsSolid(node, docOf(node))).toBe(true)
-    const faces = frontFaces(layerMesh(node, docOf(node))!, node.space!, node.rect)
-    expect(faces).toHaveLength(6)
-    const facing = new Set(faces.map((f) => f.normal.map((n) => n.toFixed(3)).join()))
-    expect(facing.size).toBe(3)
-    // Painted far to near.
-    expect(faces.map((f) => f.depth)).toEqual([...faces.map((f) => f.depth)].sort((a, b) => a - b))
-    expect(projectedSolidsOf(docOf(node)).get('cube')?.[0].faces).toHaveLength(6)
-  })
-
-  it('lights a face the way the 3D view does: the top brighter than the front, unlit sides darker', () => {
-    const blue: [number, number, number] = [91, 157, 255]
-    const top = frontShade(blue, [0, 1, 0])
-    const front = frontShade(blue, [0, 0, 1])
-    const away = frontShade(blue, [-1, -1, -1].map((n) => n / Math.sqrt(3)) as [number, number, number])
-    expect(top.reduce((a, b) => a + b)).toBeGreaterThan(front.reduce((a, b) => a + b))
-    expect(front.reduce((a, b) => a + b)).toBeGreaterThan(away.reduce((a, b) => a + b))
-    top.forEach((c) => expect(c).toBeLessThanOrEqual(255))
   })
 })

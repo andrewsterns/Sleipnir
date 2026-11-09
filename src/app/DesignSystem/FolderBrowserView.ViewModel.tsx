@@ -13,6 +13,7 @@ import {
   type FileTreeNode,
   type ArchiveEntry,
 } from '../../platform/sleipnirApi'
+import { readOpenFiles, writeOpenFiles } from '../sessionState'
 import type { FolderBrowserViewProps, PaneId, PaneState } from './iFolderBrowserView'
 
 // Same recursive archived-subtree filter DesignLibrary.view.tsx/
@@ -44,11 +45,18 @@ function paneWithPath(panes: Record<PaneId, PaneState>, path: string): PaneId | 
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, supportsCreate, initialFile, pendingOverride }: FolderBrowserViewProps) {
+export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, supportsCreate, initialFile, pendingOverride, workspaceRoot }: FolderBrowserViewProps) {
   const [rawTree, setRawTree] = useState<FileTreeNode[]>([])
   const [archivedEntries, setArchivedEntries] = useState<ArchiveEntry[]>([])
   const [newPaths, setNewPaths] = useState<Set<string>>(new Set())
-  const [panes, setPanes] = useState<Record<PaneId, PaneState>>({ primary: emptyPane(), secondary: emptyPane() })
+  // The Workspace's open files come back after a page reload; other browsers start empty.
+  const remember = scope === 'workspace' && workspaceRoot ? workspaceRoot : null
+  const [panes, setPanes] = useState<Record<PaneId, PaneState>>(() => (remember ? readOpenFiles(remember) : { primary: emptyPane(), secondary: emptyPane() }))
+  // Files reopened from last time: one deleted since then closes quietly rather than opening as an error.
+  const restoredPaths = useRef(new Set([...panes.primary.tabs, ...panes.secondary.tabs].map((t) => t.path)))
+  useEffect(() => {
+    if (remember) writeOpenFiles(remember, panes)
+  }, [remember, panes])
   const [focusedPane, setFocusedPane] = useState<PaneId>('primary')
   const [contentByPath, setContentByPath] = useState<Record<string, string>>({})
   const requested = useRef<Set<string>>(new Set())
@@ -86,10 +94,13 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
   // Re-fetches whenever `root` changes — a browser instance whose root is
   // reassigned (e.g. Components switching which registered library it
   // shows) needs a clean tree, not the old library's.
+  const rootOpened = useRef(root)
   useEffect(() => {
     refresh()
     setLastVisit(Date.now())
-    setPanes({ primary: emptyPane(), secondary: emptyPane() })
+    // Only a change of root clears the tabs; the first run is this browser opening, restored tabs and all.
+    if (rootOpened.current !== root) setPanes({ primary: emptyPane(), secondary: emptyPane() })
+    rootOpened.current = root
     setFocusedPane('primary')
     requested.current.clear()
     seenPathsRef.current.clear()
@@ -232,6 +243,16 @@ export function useFolderBrowserViewModel({ scope, root, extraFiles, readOnly, s
         .then(({ content }) => setContentByPath((prev) => ({ ...prev, [tab.path]: content })))
         .catch((e) => {
           const message = e instanceof Error ? e.message : String(e)
+          if (restoredPaths.current.has(tab.path) && /ENOENT|no such file|does not exist/i.test(message)) {
+            setPanes((prev) => {
+              const without = (p: PaneState) => {
+                const tabs = p.tabs.filter((t) => t.path !== tab.path)
+                return { tabs, activeTabPath: p.activeTabPath === tab.path ? (tabs[tabs.length - 1]?.path ?? null) : p.activeTabPath }
+              }
+              return { primary: without(prev.primary), secondary: without(prev.secondary) }
+            })
+            return
+          }
           const text = /ENOENT|no such file|does not exist/i.test(message)
             ? `// File not found: ${tab.path}\n// It may have been moved or deleted outside Sleipnir. Planning's missing-files bar can relink it.`
             : `// Failed to load source: ${message}`

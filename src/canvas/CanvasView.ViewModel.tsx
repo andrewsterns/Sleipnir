@@ -49,12 +49,17 @@ import {
   detachedCopy,
 } from './io/clipboard'
 import { useCanvasBoards } from './hooks/useCanvasBoards'
+import { documentKindOf } from '../document/documentKind'
+import { readDisplay, storeDisplay, type GizmoMode } from '../modeling/viewport/Viewport3D.ViewModel'
+import { updateFeature, type Feature } from '../document/objects'
+import type { SolidTool } from './board/toolbox'
+import type { DisplayMode } from '../modeling/viewport/cameraViews'
+import { allElements, clickElement, mergeElements, selectKey, type ElementKind, type ElementRef, type SelectMode } from '../modeling/viewport/selectionModes'
+import { bodiesOf } from '../modeling/geometry/body'
 import { syncPlacements } from '../document/placement'
 import { mergePlaneEdit, planeEditView } from '../modeling/scene3d/planeEdit'
 import { planeGuides } from '../modeling/scene3d/sketchPlane'
 import { frontMatrix } from '../document/frontView'
-import { projectedSolidsOf, type ProjectedSurface } from '../modeling/scene3d/sceneMeshes'
-import { pruneObjects } from '../document/objects'
 import { resolvePlanes } from '../modeling/scene3d/planeRefs'
 import { isRigid, angleOf, apply as applyMat, normalizeDegrees, type OrientedBox } from '../document/rotation'
 import { isOnPath, isPathFlow, pathStartOf, reflowPaths } from '../document/pathFlow'
@@ -77,6 +82,9 @@ import { useComponentEditing } from './hooks/useComponentEditing'
 import { usePathEditing } from './hooks/usePathEditing'
 import { useCanvasShortcuts } from './hooks/useCanvasShortcuts'
 import { useModelingTools } from './hooks/useModelingTools'
+import { solidToolStates } from './board/toolbox'
+import { ghostForSketch } from '../modeling/scene3d/sketchGhost'
+import { describePlane } from '../modeling/scene3d/planeRefs'
 import { useCanvasClipboard } from './hooks/useCanvasClipboard'
 import { useLayerCommands } from './hooks/useLayerCommands'
 import { useBoardPointer } from './hooks/useBoardPointer'
@@ -147,7 +155,8 @@ export function useCanvasViewModel(
 
   // ── Camera ──
   const panZoom = usePanZoom({
-    wheelMode: 'pan-zoom',
+    // For now a plain wheel zooms, the same as Ctrl+wheel; Space-drag or the middle button pans.
+    wheelMode: 'zoom',
     onCameraChange: (c) =>
       setCameraState((prev) => (prev.x === c.x && prev.y === c.y && prev.k === c.k ? prev : c)),
     isBusy: () => dragRef.current !== null,
@@ -190,8 +199,20 @@ export function useCanvasViewModel(
     [doc, measured],
   )
 
-  /** Solids the 2D board draws as the front camera sees them, per top-level layer (scene3d/sceneMeshes.ts). */
-  const projectedSolids = useMemo(() => (doc ? projectedSolidsOf(doc) : new Map<NodeId, ProjectedSurface[]>()), [doc])
+  /**
+   * Sketch mode's backdrop and bar: every object's body seen down the open
+   * sketch's normal, drawn where the sketch shows face on, and what plane it's on.
+   */
+  const sketchMode = useMemo(() => {
+    const sketch = planeEditId ? present?.nodes.find((n) => n.id === planeEditId) : undefined
+    if (!present || !sketch) return null
+    return {
+      id: sketch.id,
+      name: sketch.name,
+      plane: sketch.sketch ? describePlane(present, sketch.sketch.plane) : 'Custom plane',
+      ghost: ghostForSketch(present, sketch.id, { x: sketch.rect.x, y: sketch.rect.y }),
+    }
+  }, [present, planeEditId])
 
   /**
    * Blueprint lines on the open plane from every other placed layer
@@ -233,7 +254,7 @@ export function useCanvasViewModel(
 
   // ── Board list, autosave, staged files and outside changes (hooks/useCanvasBoards.ts) ──
   // The real board, never the plane-edit view: this is what gets saved.
-  const { docs, loading, dirty, refreshDocs, openDoc, closeBoard, createBoard, removeBoard, renameBoard } = useCanvasBoards({
+  const { docs, loading, dirty, refreshDocs, openDoc, closeBoard, createBoard, removeBoard, renameBoard, readDoc } = useCanvasBoards({
     activeProjectPath,
     doc: present,
     docRef: presentRef,
@@ -286,8 +307,22 @@ export function useCanvasViewModel(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFocus])
 
+  // ── Live edits ── G / R / S and the feature dialog preview as they go: the
+  // first step is an undo step, the rest replace it, and putting it back drops
+  // that step again — so a live edit is one undo, a cancel none. Any other edit
+  // (or an undo) keeps it as it stands.
+  const liveRun = useRef<{ owner: string; start: CanvasDoc | null; pushed: boolean } | null>(null)
+  const livePreviewing = useRef(false)
+  /** The feature whose dialog has changes not yet kept (OK) or put back (Cancel). */
+  const [featureDraft, setFeatureDraft] = useState<string | null>(null)
+  const dropLive = useCallback(() => {
+    liveRun.current = null
+    setFeatureDraft(null)
+  }, [])
+
   // ── Edits ── every change goes through here; the autosave (useCanvasBoards) writes what it marks dirty.
   const apply = useCallback((next: CanvasDoc, coalesce = false) => {
+    if (liveRun.current && !livePreviewing.current) dropLive()
     // Every change re-flows any along-path frames, so editing the curve or the
     // children moves them in the same undo step (see document/pathFlow.ts).
     const flowed = reflowPaths(next)
@@ -299,10 +334,10 @@ export function useCanvasViewModel(
       const merged = edit ? mergePlaneEdit(h.present, flowed, edit) : flowed
       // Deleting a sketch takes the features built from it (document/objects.ts).
       // And every sketch held to a plane stands back on it (scene3d/planeRefs.ts).
-      return commit(h, resolvePlanes(pruneObjects(syncPlacements(h.present, merged))), coalesce)
+      return commit(h, resolvePlanes(syncPlacements(h.present, merged)), coalesce)
     })
     dirty.current = true
-  }, [dirty])
+  }, [dirty, dropLive])
 
   // ── Selection ──
   const selectOnly = useCallback((id: NodeId | null) => {
@@ -329,10 +364,10 @@ export function useCanvasViewModel(
   const { pen, setPen, penRef, penCursor, finishPen, coalesceGesture, editingVectorId, selectedPoints, setSelectedPoints, setSelectedHandle, insertPreview, editingNode, editingVectorIdRef, selectedPointsRef, exitVectorEdit, enterVectorEdit, startPointDrag, vectorEdit, deleteSelectedPoints, deleteSelectedHandle, pointSelection, setSelectedPointType, setSelectedPointRadius, nudgeSelectedPoints, selectAllPoints, applyDragFrame } = usePathEditing({ apply, doc, drag, measured, panZoom, selectedIds, setDrag, setSelectedIds, setTool, tool })
 
   // ── 3D: solids, placement, sketch planes ──
-  const { setLayerSolid, placeLayer, setLayersHidden, setSketchPlane, enterPlaneEdit, exitPlaneEdit, enterPlaneEditOfSelection, newSketchRef, createSketch, sketchOnFace } = useModelingTools({ apply, coalesceGesture, doc, planeEditId, planeEditRef, present, presentRef, selectedIds, setPlaneEditId, setScopeId, setSelectedIds })
+  const { setLayerSolid, placeLayer, setLayersHidden, setSketchPlane, enterPlaneEdit, exitPlaneEdit, enterPlaneEditOfSelection, newSketchRef, createSketch, placeSketch, unlinkPlaced, sketchOnFace, repickFace, repickFeature, deleteFeature, renamePart, editFeature, applySolidTool, addStarter, setFeatureHidden, reorderFeature, deletePart, resetPartPlacement } = useModelingTools({ apply, coalesceGesture, doc, planeEditId, planeEditRef, present, presentRef, selectedIds, setPlaneEditId, setScopeId, setSelectedIds })
 
   // ── Pointer interaction on the board ──
-  const { onBoardPointerDown, startMoveDrag, onBoardDoubleClick, startResize, startPathSlide, startRotate, onBoardPointerMove, onBoardPointerUp, onBoardPointerLeave } = useBoardPointer({ apply, applyDragFrame, doc, drag, dropIntent, editingNode, editingVectorId, enterPlaneEdit, enterVectorEdit, exitVectorEdit, finishPen, insertPreview, measured, panZoom, pathSlideStart, penCursor, penRef, projectedSolids, scopeId, selectedIds, selectedPoints, setDrag, setDropIntent, setEditingTextId, setGuides, setHoverId, setPen, setScopeId, setSelectedHandle, setSelectedIds, setSelectedPoints, setTool, snapDisabled, tool })
+  const { onBoardPointerDown, startMoveDrag, onBoardDoubleClick, startResize, startPathSlide, startRotate, onBoardPointerMove, onBoardPointerUp, onBoardPointerLeave } = useBoardPointer({ apply, applyDragFrame, doc, drag, dropIntent, editingNode, editingVectorId, enterPlaneEdit, enterVectorEdit, exitVectorEdit, finishPen, insertPreview, measured, panZoom, pathSlideStart, penCursor, penRef, scopeId, selectedIds, selectedPoints, setDrag, setDropIntent, setEditingTextId, setGuides, setHoverId, setPen, setScopeId, setSelectedHandle, setSelectedIds, setSelectedPoints, setTool, snapDisabled, tool })
 
   // ── Hierarchy & alignment ──
   const { groupSelected, canPattern, patternSelected, ungroupSelected, alignSelected, distributeSelected, duplicateSelected, selectParent, deleteSelected, removeNode, removeComponent, removeComponentFile, flattenComponentToFrame, setComponentPath } = useLayerCommands({ apply, doc, measured, selectedIds, selectedNodes, setScopeId, setSelectedIds, singleSelected })
@@ -515,20 +550,22 @@ export function useCanvasViewModel(
 
   // ── History ──
   const doUndo = useCallback(() => {
+    dropLive()
     setHistory((h) => {
       if (!h) return h
       dirty.current = true
       return undo(h)
     })
-  }, [dirty])
+  }, [dirty, dropLive])
 
   const doRedo = useCallback(() => {
+    dropLive()
     setHistory((h) => {
       if (!h) return h
       dirty.current = true
       return redo(h)
     })
-  }, [dirty])
+  }, [dirty, dropLive])
 
   // ── Camera helpers ──
   const zoomToFit = useCallback(() => {
@@ -575,13 +612,15 @@ export function useCanvasViewModel(
     [doc, panZoom, measured],
   )
 
-  // A new sketch has landed: open it face on if the board sees it at a slant or edge-on, then frame it.
+  // A new sketch has landed: open it face on — always in an environment, where
+  // 2D is only ever sketch mode; in a sketch, when the board sees it at a slant
+  // or edge-on — then frame it.
   useEffect(() => {
     const id = newSketchRef.current
     const node = id ? present?.nodes.find((n) => n.id === id) : undefined
     if (!id || !node) return
     const faceOn = !node.space || isRigid(frontMatrix(node.space))
-    if (!faceOn && planeEditId !== id) {
+    if ((!faceOn || documentKindOf(present!) === 'environment') && planeEditId !== id && node.space) {
       enterPlaneEdit(id)
       return
     }
@@ -680,7 +719,137 @@ export function useCanvasViewModel(
   )
 
   // ── Keyboard ──
-  useCanvasShortcuts({ deleteSelected, deleteSelectedHandle, deleteSelectedPoints, doRedo, doUndo, duplicateSelected, editingVectorIdRef, enterPlaneEditOfSelection, exitPlaneEdit, exitVectorEdit, finishPen, groupSelected, insertPreview, nudgeSelected, nudgeSelectedPoints, penCursor, penRef, planeEditRef, resetZoom, selectAllPoints, selectParent, selectedPointsRef, setPen, setScopeId, setSelectedIds, setSelectedPoints, setTool, snapDisabled, ungroupSelected, zoomToFit })
+  // Which key map is live (src/canvas/LAYOUT.md): an environment outside sketch mode is 3D, Blender's keys.
+  const in3d = !!present && documentKindOf(present) === 'environment' && !sketchMode
+  const in3dRef = useRef(in3d)
+  in3dRef.current = in3d
+  // ── Edit mode (modeling/viewport/selectionModes.ts): Tab, 1 / 2 / 3, A, Alt+A; the picked points, edges or faces ──
+  const [selectMode, setSelectModeState] = useState<SelectMode>('object')
+  const lastEditRef = useRef<ElementKind>('vertex')
+  const [elements, setElements] = useState<ElementRef[]>([])
+  const setSelectMode = useCallback((mode: SelectMode) => {
+    if (mode !== 'object') lastEditRef.current = mode
+    setSelectModeState(mode)
+    // A pick is of one kind: switching keeps none of another.
+    setElements((els) => (mode === 'object' ? [] : els.filter((e) => e.kind === mode)))
+  }, [])
+  const pickElement = useCallback((ref: ElementRef | null, additive: boolean) => setElements((sel) => clickElement(sel, ref, additive)), [])
+  const boxElements = useCallback((refs: ElementRef[], additive: boolean) => setElements((sel) => (additive ? mergeElements(sel, refs) : refs)), [])
+  const selectModeRef = useRef(selectMode)
+  selectModeRef.current = selectMode
+  const onSelectKey = useCallback(
+    (key: string, alt: boolean) => {
+      const action = selectKey(key, alt, selectModeRef.current, lastEditRef.current)
+      if (!action) return false
+      if ('mode' in action) setSelectMode(action.mode)
+      else if (action.select === 'none') setElements([])
+      else if (presentRef.current) {
+        const kind = selectModeRef.current as ElementKind
+        setElements(allElements(bodiesOf(presentRef.current).values(), kind))
+      }
+      return true
+    },
+    [setSelectMode, presentRef],
+  )
+  // Another document, or sketch mode, starts back in object mode.
+  const editDocId = present?.id
+  useEffect(() => {
+    setSelectModeState('object')
+    setElements([])
+  }, [editDocId, planeEditId])
+
+  // How the 3D view draws parts — set in the right panel with nothing selected, remembered on this machine.
+  const [display, setDisplayState] = useState<DisplayMode>(readDisplay)
+  const setDisplay = useCallback((mode: DisplayMode) => {
+    setDisplayState(mode)
+    storeDisplay(mode)
+  }, [])
+
+  const livePreview = useCallback(
+    (owner: string, next: CanvasDoc) => {
+      // Another live edit starting keeps the one before it.
+      if (liveRun.current && liveRun.current.owner !== owner) dropLive()
+      const run = liveRun.current ?? (liveRun.current = { owner, start: presentRef.current, pushed: false })
+      if (!run.pushed && next === run.start) return
+      livePreviewing.current = true
+      try {
+        apply(next, run.pushed)
+      } finally {
+        livePreviewing.current = false
+      }
+      run.pushed = true
+    },
+    [apply, presentRef, dropLive],
+  )
+  const liveEnd = useCallback(
+    (owner: string, keep: boolean) => {
+      const run = liveRun.current
+      if (!run || run.owner !== owner) return
+      dropLive()
+      if (!run.pushed || keep) return
+      setHistory((h) => (h && h.past.length ? { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [] } : h))
+      // A preview may have been saved part way: the doc put back is unsaved again.
+      dirty.current = true
+    },
+    [dirty, dropLive],
+  )
+
+  // ── G / R / S and the handles (modeling/viewport/modalTransform.ts) ──
+  const modal = useMemo(
+    () => ({
+      preview: (next: CanvasDoc) => livePreview('modal', next),
+      end: (keep: boolean, picked?: ElementRef[]) => {
+        liveEnd('modal', keep)
+        if (keep && picked) setElements(picked)
+      },
+    }),
+    [livePreview, liveEnd],
+  )
+
+  // ── The feature dialog (panels/FeatureSection.tsx): changes show live, OK keeps them, Cancel puts them back ──
+  /** The feature picked in the Parts list, for the right panel to show — else the one reading the selected sketch. */
+  const [focusFeature, setFocusFeature] = useState<string | null>(null)
+  const draftFeature = useCallback(
+    (featureId: string, patch: Partial<Feature>) => {
+      const base = presentRef.current
+      if (!base) return
+      livePreview(`feature:${featureId}`, updateFeature(base, featureId, patch))
+      setFeatureDraft(featureId)
+    },
+    [presentRef, livePreview],
+  )
+  const finishFeature = useCallback((keep: boolean) => {
+    const id = liveRun.current?.owner.startsWith('feature:') ? liveRun.current.owner : null
+    if (id) liveEnd(id, keep)
+    setFeatureDraft(null)
+  }, [liveEnd])
+  // Picking something else keeps what the dialog changed.
+  useEffect(() => {
+    if (liveRun.current?.owner.startsWith('feature:')) dropLive()
+  }, [selectedIds, dropLive])
+
+  // The 3D view's Move / Rotate / Scale handles (the toolbox), and its Fit (bumped).
+  const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate')
+  const [fit3d, setFit3d] = useState(0)
+  // With one face picked, the toolbox's Extrude grows that face rather than re-extruding the whole sketch.
+  const [extrudeSignal, setExtrudeSignal] = useState(0)
+  const facePicked = in3d && selectMode === 'face' && elements.length === 1
+  const solidTool = useCallback(
+    (tool: SolidTool) => {
+      if (tool === 'extrude' && facePicked) setExtrudeSignal((n) => n + 1)
+      else applySolidTool(tool)
+    },
+    [facePicked, applySolidTool],
+  )
+  // A starter shape lands beside everything else, which can be out of view: frame the scene so it shows.
+  const addStarterInView = useCallback((shape: Parameters<typeof addStarter>[0]) => {
+    addStarter(shape)
+    setFit3d((n) => n + 1)
+  }, [addStarter])
+  /** One Fit for both views: the 3D view frames the scene, the board frames its layers. */
+  const fitView = useCallback(() => (in3dRef.current ? setFit3d((n) => n + 1) : zoomToFit()), [zoomToFit])
+
+  useCanvasShortcuts({ in3dRef, fitView, onSelectKey, deleteSelected, deleteSelectedHandle, deleteSelectedPoints, doRedo, doUndo, duplicateSelected, editingVectorIdRef, enterPlaneEditOfSelection, exitPlaneEdit, exitVectorEdit, finishPen, groupSelected, insertPreview, nudgeSelected, nudgeSelectedPoints, penCursor, penRef, planeEditRef, resetZoom, selectAllPoints, selectParent, selectedPointsRef, setPen, setScopeId, setSelectedIds, setSelectedPoints, setTool, snapDisabled, ungroupSelected, zoomToFit })
 
   /** The live marquee/draw rect in board space, for the overlay to paint. */
   const previewRect = useMemo(() => {
@@ -740,12 +909,54 @@ export function useCanvasViewModel(
     setLayersHidden,
     setSketchPlane,
     createSketch,
+    /** + Sketch › From a sketch: places that Sketch document here, linked. */
+    placeSketchFrom: async (docId: string) => {
+      const source = await readDoc(docId)
+      return source ? placeSketch(source) : false
+    },
+    unlinkPlaced,
+    repickFace,
+    repickFeature,
+    deleteFeature,
+    renamePart,
+    editFeature,
     sketchOnFace,
+    applySolidTool: solidTool,
+    addStarter: addStarterInView,
+    setFeatureHidden,
+    /** What the toolbox's shaping tools can do with the selection right now. */
+    solidStates: { ...solidToolStates(doc, selectedIds), ...(facePicked ? { extrude: { enabled: true } } : {}) },
+    extrudeSignal,
     planeGuideLines,
+    sketchMode,
+    /** Sketch or Environment: the document decides the view (src/canvas/LAYOUT.md). */
+    kind: present ? documentKindOf(present) : null,
+    /** Whether the 3D view is showing: an environment, outside sketch mode. */
+    in3d,
+    selectMode,
+    setSelectMode,
+    display,
+    setDisplay,
+    elements,
+    pickElement,
+    boxElements,
+    gizmoMode,
+    setGizmoMode,
+    modal,
+    focusFeature,
+    setFocusFeature,
+    reorderFeature,
+    deletePart,
+    resetPartPlacement,
+    featureDraft,
+    draftFeature,
+    finishFeature,
+    /** Bumped to frame the 3D scene. */
+    fit3d,
+    fitView,
     enterPlaneEdit,
     exitPlaneEdit,
     planeRect,
-    projectedSolids,
     pathHint,
     /**
      * Frame to highlight as "this will receive the drop". Suppressed for a pure

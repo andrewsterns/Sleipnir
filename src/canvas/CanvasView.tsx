@@ -7,21 +7,31 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Frame } from '../app/UIKit/Frame/Frame'
 import { IconButton } from '../app/UIKit/IconButton/IconButton'
+import { Icon } from '../app/UIKit/Icon/Icon'
 import { DeletePathModal } from '../app/DesignSystem/DeletePathModal'
 import { deleteWorkspacePath, deleteNote, planNodesUnderPath } from '../platform/sleipnirApi'
 import { useFileStages } from '../planning/useFileStages'
 import { usePlanNodeLinks } from '../planning/usePlanNodeLinks'
 import type { GraphNode } from '../planning/graph/types'
 import { CanvasBoard } from './board/CanvasBoard'
+import { CanvasToolbar } from './board/CanvasToolbar'
 import { CanvasInspector } from './panels/CanvasInspector'
 import { CreateBar } from './panels/CreateBar'
+import { sketchMenuItems } from './panels/sketchMenu'
 import { DocsPane } from './panels/DocsPane'
 import { CanvasLayersPanel, layerMatches } from './panels/CanvasLayersPanel'
 import { SIDE_PANEL_W, SidebarHeader } from '../app/UIKit/SidebarHeader/SidebarHeader'
 import { childrenOf, type CanvasNode } from '../document/types'
 import { useCanvasViewModel } from './CanvasView.ViewModel'
 import { useWorkspaceImages } from './board/useWorkspaceImages'
-import { useBoardTabs } from './useBoardTabs'
+import { KIND_ICON, useBoardTabs } from './useBoardTabs'
+import { KIND_NAMES, untitledName } from '../document/documentKind'
+import { linkOfLayer } from '../document/placements'
+import { brokenFeatures, partPlacementOf, partReading } from '../document/objects'
+import { composePlacement } from '../document/placement'
+import { sketchProblem } from '../modeling/scene3d/planeRefs'
+import { ContextMenu } from '../app/UIKit/ContextMenu/ContextMenu'
+import { useContextMenu } from '../app/UIKit/ContextMenu/useContextMenu'
 import { WorkspaceTabStrip } from '../app/WorkspaceTabStrip/WorkspaceTabStrip'
 import { TAB_ROW_H, TabPicker } from '../app/WorkspaceTabStrip/TabPicker'
 import type { CanvasViewProps } from './iCanvasView'
@@ -40,6 +50,19 @@ const PANEL_W = SIDE_PANEL_W
 const INSPECTOR_W = 248
 const DOCS_W = 260
 
+const NO_SELECTION = new Set<string>()
+
+/** The board, alone — or laid over the 3D scene behind it, for sketch mode in an environment. */
+function OverScene({ scene, children }: { scene: React.ReactNode; children: React.ReactNode }) {
+  if (!scene) return <>{children}</>
+  return (
+    <div style={{ position: 'relative', flex: 1, minWidth: 0, height: '100%', display: 'flex' }}>
+      <div style={{ position: 'absolute', inset: 0 }}>{scene}</div>
+      {children}
+    </div>
+  )
+}
+
 export function CanvasView({
   activeProject,
   docsBrowserRef,
@@ -50,10 +73,30 @@ export function CanvasView({
   onWorkspaceChanged,
 }: CanvasViewProps) {
   const vm = useCanvasViewModel(activeProject?.path, { pendingFocus, onFocusConsumed, onFilesChanged: onWorkspaceChanged })
-  // The same board in 3D: every layer on its plane, solids built from outlines.
-  const [space, setSpace] = useState<'2d' | '3d'>('2d')
-  // + Sketch › On a face: the 3D view is picking the face the new sketch will stand on.
-  const [pickingFace, setPickingFace] = useState(false)
+  // The document decides the view (src/canvas/LAYOUT.md): a Sketch is 2D; an
+  // Environment is 3D, and 2D inside it is sketch mode. No switch between them.
+  const in3d = vm.in3d
+  // Sketch mode in an environment: the board lies over the scene, whose camera faces the sketch's
+  // plane and follows the board's pan and zoom (modeling/viewport/SketchInScene.tsx).
+  const sketchView = useMemo(() => {
+    const open = vm.sketchMode
+    if (!open || vm.kind !== 'environment' || !vm.present || !vm.doc) return null
+    const placed = vm.present.nodes.find((n) => n.id === open.id)
+    const flat = vm.doc.nodes.find((n) => n.id === open.id)
+    if (!placed?.space || !flat) return null
+    // A part moved as a whole carries its sketch's plane with it: sketch where the part now stands.
+    const present = vm.present
+    const part = [placed, ...childrenOf(placed)].map((n) => partPlacementOf(present, n.id)).find((p) => p)
+    return { placement: part ? composePlacement(part, placed.space) : placed.space, origin: { x: flat.rect.x, y: flat.rect.y }, camera: vm.camera }
+  }, [vm.sketchMode, vm.kind, vm.present, vm.doc, vm.camera])
+  // The open document's ⋯ menu, beside the picker.
+  const docMenu = useContextMenu<string>()
+  // The 3D view is picking a face: for a new sketch (+ Sketch › On a face), or for a sketch whose face is gone (Re-pick face).
+  const [pickFor, setPickFor] = useState<null | 'new' | string>(null)
+  const pickingFace = pickFor !== null
+  const setPickingFace = (on: boolean) => setPickFor(on ? 'new' : null)
+  // The toolbox's 3D groups, the same in both views (board/toolbox.ts).
+  const modeling = { states: vm.solidStates, onSolid: vm.applySolidTool, onStarter: vm.addStarter }
   const [Viewport3D, setViewport3D] = useState(loadViewport3D)
   // Vector layers anywhere on the board — what a sweep can follow.
   const vectorPaths = useMemo(() => {
@@ -74,15 +117,46 @@ export function CanvasView({
     },
     [vm.toggleSelect, vm.selectOnly], // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const place3d = useCallback(
-    (id: string, placement: NonNullable<CanvasNode['space']>) => vm.placeLayer(id, placement, `space:${id}`),
-    [vm.placeLayer], // eslint-disable-line react-hooks/exhaustive-deps
-  )
   // One image cache for the board and the inspector's fill swatches.
   const linkedComponents = useMemo(() => [...vm.linked.values()].map((l) => l.component), [vm.linked])
   const imageUrl = useWorkspaceImages(vm.doc, linkedComponents)
   const [showDocs, setShowDocs] = useState(false)
   const boardTabs = useBoardTabs(vm, activeProject?.path)
+  // Sketches, then environments — each group in the list's own order, most recently edited first.
+  const pickerItems = useMemo(
+    () =>
+      (['sketch', 'environment'] as const).flatMap((kind) =>
+        vm.docs
+          .filter((d) => d.kind === kind)
+          .map((d) => ({ id: d.id, label: d.name, icon: KIND_ICON[kind], section: kind === 'sketch' ? 'Sketches' : 'Environments' })),
+      ),
+    [vm.docs],
+  )
+  const sketchCount = pickerItems.filter((i) => i.section === 'Sketches').length
+  // What's broken in the open environment (src/canvas/LAYOUT.md): features whose sketch or path was
+  // deleted, sketches whose face is gone, placements whose Sketch was deleted. Flagged, never deleted.
+  const problems = useMemo(() => {
+    const out = new Map<string, string>()
+    const doc = vm.present
+    if (!doc || vm.kind !== 'environment') return out
+    for (const [id, why] of brokenFeatures(doc)) out.set(id, why)
+    for (const node of doc.nodes) {
+      const why = sketchProblem(doc, node)
+      if (why) out.set(node.id, why)
+      const link = node.sketch?.link
+      if (link && !vm.loading && !vm.docs.some((d) => d.id === link.doc)) out.set(node.id, `The sketch it was placed from was deleted — this is its last copy`)
+    }
+    return out
+  }, [vm.present, vm.kind, vm.docs, vm.loading])
+  const sketchDocs = useMemo(() => vm.docs.filter((d) => d.kind === 'sketch'), [vm.docs])
+  // A Sketch says which environments place it, so it can be found again from either side.
+  const usedIn = useMemo(() => (vm.doc ? vm.docs.filter((d) => d.links?.includes(vm.doc!.id)) : []), [vm.docs, vm.doc])
+  // Opening a placed sketch opens the Sketch it comes from: its layers are edited there, not here.
+  const openSketch = useCallback((id: string) => {
+    const placed = vmRef.current.present ? linkOfLayer(vmRef.current.present, id) : null
+    if (placed) void vmRef.current.openDoc(placed.link.doc)
+    else vmRef.current.enterPlaneEdit(id)
+  }, [])
   const { stages: fileStages, setStatus: setFileStatus } = useFileStages()
   const planNodeLinks = usePlanNodeLinks()
 
@@ -163,15 +237,16 @@ export function CanvasView({
           style={{ width: PANEL_W, minWidth: PANEL_W, minHeight: 0 }}
           stroke={{ right: { color: 'border-1' } }}
         >
-          {/* What's here — every board, and the search for any layer — then
-              the open board's layers. */}
+          {/* What's here — every sketch and environment, and the search for
+              any layer — then the open document's layers. */}
           <Frame flow="horizontal" align="center" gap={4} shrink={0} minH={TAB_ROW_H} padding={{ left: 10, right: 6 }} stroke={{ bottom: { color: 'border-1' } }}>
             <TabPicker
-              noun="Boards and layers"
-              summary={`Boards (${vm.docs.length})`}
+              noun="Sketches, environments and layers"
+              // Short enough for the closed field: the counts when there is one kind, the two words when there are both.
+              summary={sketchCount === 0 ? `Environments (${vm.docs.length})` : sketchCount === vm.docs.length ? `Sketches (${sketchCount})` : 'Sketches & environments'}
               width="fill"
               icon="canvas"
-              items={vm.docs.map((d) => ({ id: d.id, label: d.name }))}
+              items={pickerItems}
               openIds={boardTabs.tabs.map((t) => t.id)}
               activeId={vm.doc?.id ?? null}
               onPick={(id) => void vm.openDoc(id)}
@@ -188,46 +263,90 @@ export function CanvasView({
                     }))
                   : []
               }
-              create={{
-                icon: 'file-add',
-                label: (q) => (q ? `New board “${q}”` : 'New board'),
-                onCreate: (q) => void vm.createBoard(q || 'Untitled'),
-              }}
+              create={[
+                {
+                  icon: KIND_ICON.sketch,
+                  label: (q) => (q ? `New sketch “${q}”` : 'New sketch'),
+                  onCreate: (q) => void vm.createBoard(q || untitledName('sketch', vm.docs.map((d) => d.name)), 'sketch'),
+                },
+                {
+                  icon: KIND_ICON.environment,
+                  label: (q) => (q ? `New environment “${q}”` : 'New environment'),
+                  onCreate: (q) => void vm.createBoard(q || untitledName('environment', vm.docs.map((d) => d.name)), 'environment'),
+                },
+              ]}
             />
-            {vm.doc && (
+            {/* The open document's own actions, as Planning's ⋯ holds a plan's. */}
+            {vm.doc && vm.kind && (
               <IconButton
-                icon="trash"
-                iconSize={13}
+                glyph="⋯"
+                iconSize={16}
                 textColor="var(--text-3)"
-                title="Delete this board"
-                onClick={() => vm.removeBoard(vm.doc!.id)}
+                title={`${KIND_NAMES[vm.kind]} actions`}
+                onClick={(e) => docMenu.openFromButton(e, vm.doc!.id)}
+              />
+            )}
+            {docMenu.menu && vm.kind && (
+              <ContextMenu
+                x={docMenu.menu.x}
+                y={docMenu.menu.y}
+                anchorEl={docMenu.menu.anchorEl}
+                onClose={docMenu.close}
+                items={[{ label: `Delete ${KIND_NAMES[vm.kind].toLowerCase()}`, destructive: true, onSelect: () => void vm.removeBoard(docMenu.menu!.data) }]}
               />
             )}
           </Frame>
-          {vm.doc && (
+          {/* + Sketch adds a sketch to an environment; a Sketch has no planes. */}
+          {vm.doc && vm.kind === 'environment' && (
             <CreateBar
               onSketch={vm.createSketch}
+              sketches={sketchDocs}
+              onPlace={(id) => void vm.placeSketchFrom(id)}
               onPickFace={
                 vm.present?.objects?.length
                   ? () => {
-                      // Faces are picked in 3D; an open plane closes on the way.
+                      // Faces are picked in 3D; an open sketch closes on the way.
                       vm.exitPlaneEdit()
                       setPickingFace(true)
-                      setSpace('3d')
                     }
                   : undefined
               }
             />
           )}
+          {vm.kind === 'sketch' && usedIn.length > 0 && (
+            <div style={{ ...UI_FONT, fontSize: 11, color: 'var(--text-3)', padding: '6px 12px', lineHeight: 1.5 }}>
+              {`Used in ${usedIn.length} environment${usedIn.length === 1 ? '' : 's'}: `}
+              {usedIn.map((d, i) => (
+                <span key={d.id}>
+                  {i > 0 && ', '}
+                  <button type="button" onClick={() => void vm.openDoc(d.id)} title={`Open ${d.name}`} style={{ ...UI_FONT, fontSize: 11, color: 'var(--text-2)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                    {d.name}
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <SidebarHeader framed label={`Layers (${layerCount})`} />
           {vm.doc ? (
             <CanvasLayersPanel
               doc={vm.doc}
+              planes={vm.kind === 'environment'}
+              filteredTo={vm.sketchMode?.name ?? null}
+              problems={problems}
+              onRepickFeature={vm.repickFeature}
+              onDeleteFeature={vm.deleteFeature}
+              focusFeature={vm.focusFeature}
+              onFocusFeature={vm.setFocusFeature}
+              onMoveFeature={vm.reorderFeature}
+              onDeletePart={vm.deletePart}
+              sketchName={(id) => vm.docs.find((d) => d.id === id)?.name}
               selectedIds={vm.selectedIds}
               onSelect={selectLayer}
               onToggleHidden={toggleLayerHidden}
               onSetHidden={vm.setLayersHidden}
               onAddSketch={(plane) => vm.createSketch({ kind: 'default', plane })}
+              onSetFeatureHidden={vm.setFeatureHidden}
+              onOpenSketch={openSketch}
               onToggleLocked={toggleLayerLocked}
               dirtyComponentIds={vm.dirtyComponentIds}
               onPush={(componentId) => vm.pushComponent(componentId)}
@@ -264,9 +383,9 @@ export function CanvasView({
               activeTabId={boardTabs.activeId ?? ''}
               onActivate={boardTabs.activate}
               onClose={boardTabs.close}
-              onAddTab={(name) => void vm.createBoard(name)}
-              addPlaceholder="board name"
-              // Renames the open board; its folder in .components follows.
+              onAddTab={(name) => void vm.createBoard(name, 'sketch')}
+              addPlaceholder="sketch name"
+              // Renames the open document; its folder in .components follows.
               onRename={(id, name) => {
                 if (id === vm.doc?.id) vm.renameBoard(name)
               }}
@@ -275,37 +394,6 @@ export function CanvasView({
             {/* History and view controls — their own group, so the row itself
                 can run gap-free and the tabs start exactly where Planning's do. */}
             <Frame flow="horizontal" align="center" gap={8} shrink={0}>
-              {/* 2D is the 3D scene seen from the front; 3D shows the planes in space. */}
-              <Frame flow="horizontal" align="center" gap={0} radius="var(--radius-control)" stroke={{ color: 'border-2' }} clipContent>
-                {(['2d', '3d'] as const).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={space === s}
-                    onClick={() => {
-                      // 3D shows the whole scene, so an open plane closes.
-                      if (s === '3d') vm.exitPlaneEdit()
-                      // Switching by hand ends any face pick.
-                      setPickingFace(false)
-                      setSpace(s)
-                    }}
-                    title={s === '2d' ? 'The board as the 3D Front view sees it — double-click a placed layer to draw on its plane' : 'See the board in 3D — planes, solids, the gizmo'}
-                    style={{
-                      ...UI_FONT,
-                      fontSize: 10,
-                      letterSpacing: '0.04em',
-                      padding: '4px 8px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: space === s ? 'rgba(var(--item-ink, 255,255,255), 0.14)' : 'transparent',
-                      color: space === s ? 'var(--text-1)' : 'var(--text-3)',
-                    }}
-                  >
-                    {s.toUpperCase()}
-                  </button>
-                ))}
-              </Frame>
-
               <button
                 type="button"
                 onClick={vm.undo}
@@ -329,20 +417,21 @@ export function CanvasView({
 
               <button
                 type="button"
-                onClick={vm.zoomToFit}
-                title="Zoom to fit (Ctrl+1)"
+                onClick={vm.fitView}
+                title={in3d ? 'Frame everything in 3D (Ctrl+1)' : 'Zoom to fit (Ctrl+1)'}
                 style={{ ...UI_FONT, fontSize: 11, background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}
               >
                 Fit
               </button>
-              <button
+              {/* The board's zoom; the 3D view zooms by Ctrl + scroll and has no percent. */}
+              {!in3d && <button
                 type="button"
                 onClick={vm.resetZoom}
                 title="Reset zoom (Ctrl+0)"
                 style={{ ...UI_FONT, fontSize: 11, background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', minWidth: 44, textAlign: 'right' }}
               >
                 {Math.round(vm.zoom * 100)}%
-              </button>
+              </button>}
 
               <div style={{ width: 1, height: 16, background: 'var(--border-1)' }} />
 
@@ -384,9 +473,9 @@ export function CanvasView({
               <Frame grow align="center" justify="center">
                 <span style={{ ...UI_FONT, fontSize: 11, color: 'var(--text-3)' }}>Loading…</span>
               </Frame>
-            ) : vm.doc && space === '3d' ? (
-              <Frame grow minW={0} h="fill">
-                <Viewport3DBoundary onBack={() => setSpace('2d')} onRetry={() => setViewport3D(loadViewport3D)}>
+            ) : vm.doc && in3d ? (
+              <Frame grow minW={0} h="fill" style={{ position: 'relative' }}>
+                <Viewport3DBoundary onRetry={() => setViewport3D(loadViewport3D)}>
                 <Suspense
                   fallback={
                     <Frame grow align="center" justify="center" h="fill">
@@ -398,23 +487,66 @@ export function CanvasView({
                     doc={vm.present!}
                     selectedIds={vm.selectedIds}
                     onSelect={select3d}
-                    onPlacementChange={place3d}
+                    onModal={vm.modal}
+                    extrudeSignal={vm.extrudeSignal}
                     rectOf={vm.planeRect}
                     pickingFace={pickingFace}
                     onPickFace={(layerId, triangle) => {
-                      // A sketch on the picked face, opened face on in 2D. A click on a flat layer keeps picking.
-                      if (!vm.sketchOnFace(layerId, triangle)) return false
+                      // A new sketch on the picked face (opened in sketch mode), or a broken one standing there again. A click on a flat layer keeps picking.
+                      const done = pickFor && pickFor !== 'new' ? vm.repickFace(pickFor, layerId, triangle) : vm.sketchOnFace(layerId, triangle)
+                      if (!done) return false
                       setPickingFace(false)
-                      setSpace('2d')
                       return true
                     }}
                     onCancelPick={() => setPickingFace(false)}
+                    gizmoMode={vm.gizmoMode}
+                    fitSignal={vm.fit3d}
+                    selectMode={vm.selectMode}
+                    display={vm.display}
+                    elements={vm.elements}
+                    onPickElement={vm.pickElement}
+                    onBoxSelect={vm.boxElements}
                   />
                 </Suspense>
                 </Viewport3DBoundary>
+                {/* One toolbox (src/canvas/LAYOUT.md): in 3D, the shaping tools, starter shapes and transforms. */}
+                <CanvasToolbar
+                  view="3d"
+                  tool="select"
+                  onSelectTool={() => {}}
+                  sketchMenu={sketchMenuItems({
+                    onSketch: vm.createSketch,
+                    onPickFace: vm.present?.objects?.length ? () => setPickingFace(true) : undefined,
+                    sketches: sketchDocs,
+                    onPlace: (id) => void vm.placeSketchFrom(id),
+                  })}
+                  modeling={modeling}
+                  selectModes={{ mode: vm.selectMode, onMode: vm.setSelectMode }}
+                  transform={{ mode: vm.gizmoMode, onMode: vm.setGizmoMode }}
+                />
               </Frame>
             ) : vm.doc ? (
+              <OverScene
+                scene={
+                  sketchView && (
+                    <Viewport3DBoundary onRetry={() => setViewport3D(loadViewport3D)}>
+                      <Suspense fallback={null}>
+                        <Viewport3D doc={vm.present!} selectedIds={NO_SELECTION} onSelect={() => {}} rectOf={vm.planeRect} sketchView={sketchView} hideId={vm.sketchMode?.id} display={vm.display} />
+                      </Suspense>
+                    </Viewport3DBoundary>
+                  )
+                }
+              >
               <CanvasBoard
+                overScene={!!sketchView}
+                // The toolbox's Edit points: on the one selected shape, or ending the edit in progress.
+                editPoints={
+                  vm.editingVectorId
+                    ? { active: true, onToggle: vm.exitVectorEdit }
+                    : vm.singleSelected?.kind === 'vector'
+                      ? { active: false, onToggle: () => vm.enterVectorEdit(vm.singleSelected!.id) }
+                      : undefined
+                }
                 doc={vm.doc}
                 imageUrl={imageUrl}
                 linked={vm.linked}
@@ -427,7 +559,6 @@ export function CanvasView({
                 rectOf={vm.rectOf}
                 orientedOf={vm.orientedOf}
                 quadOf={vm.quadOf}
-                projectedSolids={vm.projectedSolids}
                 pathHint={vm.pathHint}
                 selectedIds={vm.selectedIds}
                 previewRect={vm.previewRect}
@@ -464,7 +595,12 @@ export function CanvasView({
                 onEndTextEdit={vm.endTextEdit}
                 guides={vm.guides}
                 planeGuides={vm.planeGuideLines}
-                planeEditName={vm.planeEditId ? (vm.doc?.nodes[0]?.name ?? null) : null}
+                planeEditName={vm.sketchMode?.name ?? null}
+                planeEditPlane={vm.sketchMode?.plane}
+                // Over the scene, the real parts show behind; the flattened ghost is for a board on its own.
+                sketchGhost={sketchView ? undefined : vm.sketchMode?.ghost}
+                // A Sketch builds no parts: the 3D groups are an environment's (and its sketch mode's).
+                modeling={vm.kind === 'environment' ? { states: modeling.states, onSolid: modeling.onSolid } : undefined}
                 onExitPlaneEdit={vm.exitPlaneEdit}
                 dropTargetId={vm.dropTargetId}
                 dropIndicator={vm.dropIndicator}
@@ -481,27 +617,37 @@ export function CanvasView({
                   if (instance) vm.selectOnly(instance.id)
                 }}
               />
+              </OverScene>
             ) : (
               <Frame grow flow="vertical" align="center" justify="center" gap={12}>
                 <span style={{ ...UI_FONT, fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.03em' }}>
-                  {vm.docs.length > 0 ? 'No board open' : 'No boards yet'}
+                  {vm.docs.length > 0 ? 'Nothing open — pick a sketch or environment from the list' : 'No sketches or environments yet'}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => vm.createBoard('Untitled')}
-                  style={{
-                    ...UI_FONT,
-                    fontSize: 11,
-                    background: 'var(--bg-2)',
-                    border: '1px solid var(--border-1)',
-                    borderRadius: 'var(--radius-control)',
-                    color: 'var(--text-1)',
-                    padding: '6px 12px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Create a board
-                </button>
+                <Frame flow="horizontal" gap={8}>
+                  {(['sketch', 'environment'] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => vm.createBoard(untitledName(kind, vm.docs.map((d) => d.name)), kind)}
+                      style={{
+                        ...UI_FONT,
+                        fontSize: 11,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: 'var(--bg-2)',
+                        border: '1px solid var(--border-1)',
+                        borderRadius: 'var(--radius-control)',
+                        color: 'var(--text-1)',
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Icon name={KIND_ICON[kind]} size={12} />
+                      {'New ' + KIND_NAMES[kind].toLowerCase()}
+                    </button>
+                  ))}
+                </Frame>
               </Frame>
             )}
 
@@ -515,7 +661,7 @@ export function CanvasView({
               <CanvasInspector
                 node={vm.singleSelected}
                 space3d={
-                  vm.doc
+                  vm.doc && vm.kind === 'environment'
                     ? {
                         doc: vm.doc,
                         topLevel: !!vm.singleSelected && vm.doc.nodes.some((n) => n.id === vm.singleSelected!.id),
@@ -523,6 +669,50 @@ export function CanvasView({
                         onPlacement: (id, placement, gesture) => vm.placeLayer(id, placement, gesture && `space:${gesture}`),
                         onPlane: (id, plane, gesture) => vm.setSketchPlane(id, plane, gesture && `plane:${gesture}`),
                         onSolid: (id, solid, gesture) => vm.setLayerSolid(id, solid, gesture && `solid:${gesture}`),
+                        onFeature: vm.editFeature,
+                        display: { mode: vm.display, onMode: vm.setDisplay },
+                        problemOf: (id) => {
+                          const why = problems.get(id)
+                          if (!why) return null
+                          return { why, onRepickFace: why.includes('face') || why.includes('part it stood') || why.includes('feature whose face') ? () => setPickFor(id) : undefined }
+                        },
+                        partOf: (id) => {
+                          const found = vm.present ? partReading(vm.present, id) : null
+                          if (!found) return null
+                          const placed = found.object.placement
+                          const moved = placed
+                            ? `Moved as a whole: ${placed.position.map((v) => +v.toFixed(3)).join(', ')} m${placed.rotation.some((v) => v) ? ` · turned ${placed.rotation.map((v) => +v.toFixed(1)).join(', ')}°` : ''}${placed.scale ? ` · scaled ${placed.scale.map((v) => +v.toFixed(3)).join(', ')}×` : ''}`
+                            : undefined
+                          return { name: found.object.name, feature: found.feature.name, onRename: (name) => vm.renamePart(found.object.id, name), moved, onResetPlacement: placed ? () => vm.resetPartPlacement(found.object.id) : undefined }
+                        },
+                        featureOf: (id) => {
+                          const found = vm.present ? partReading(vm.present, id) : null
+                          if (!found) return null
+                          const feature = found.object.features.find((f) => f.id === vm.focusFeature) ?? found.feature
+                          return {
+                            feature,
+                            part: found.object,
+                            pending: vm.featureDraft === feature.id,
+                            onChange: (patch) => vm.draftFeature(feature.id, patch),
+                            onDone: vm.finishFeature,
+                            onRemove: () => vm.deleteFeature(feature.id),
+                          }
+                        },
+                        linkedLayer: (id) => {
+                          const placed = vm.present ? linkOfLayer(vm.present, id) : null
+                          if (!placed) return null
+                          return { sketch: vm.docs.find((d) => d.id === placed.link.doc)?.name ?? placed.node.name, onEdit: () => void vm.openDoc(placed.link.doc) }
+                        },
+                        linkOf: (id) => {
+                          const placed = vm.present ? linkOfLayer(vm.present, id) : null
+                          if (!placed || placed.node.id !== id) return null
+                          const source = vm.docs.find((d) => d.id === placed.link.doc)
+                          return {
+                            name: source?.name ?? 'a sketch that is gone',
+                            onOpen: () => void vm.openDoc(placed.link.doc),
+                            onUnlink: () => vm.unlinkPlaced(id),
+                          }
+                        },
                       }
                     : undefined
                 }
@@ -558,8 +748,6 @@ export function CanvasView({
                 pointSelection={vm.pointSelection}
                 onPointType={vm.setSelectedPointType}
                 onPointRadius={vm.setSelectedPointRadius}
-                onEditPoints={vm.enterVectorEdit}
-                onDoneEditing={vm.exitVectorEdit}
                 canMakeSvgComponent={vm.canMakeSvgComponent}
                 onMakeSvgComponent={async () => {
                   try {

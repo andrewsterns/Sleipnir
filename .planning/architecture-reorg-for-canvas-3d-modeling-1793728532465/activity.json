@@ -4268,6 +4268,18 @@
           "change": "modified"
         }
       ]
+    },
+    {
+      "at": 1793809165396,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/show-the-whole-architecture-in-the-graph-1793728553135",
+      "status": "testing",
+      "agent": "you"
+    },
+    {
+      "at": 1793809168460,
+      "stepId": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/show-the-whole-architecture-in-the-graph-1793728553135",
+      "status": "pending",
+      "agent": "you"
     }
   ]
 }

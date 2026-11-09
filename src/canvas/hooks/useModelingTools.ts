@@ -9,9 +9,10 @@ import {
   findNode,
   updateNode,
 } from '../../document/doc'
+import { unlinkSketch } from '../../document/placements'
 import { planeEditTarget } from '../../modeling/scene3d/planeEdit'
 import type { Placement3D, SolidSpec } from '../../document/sceneTypes'
-import { featureOf, setSolidOf, type FaceName, type PlaneRef } from '../../document/objects'
+import { featureOf, moveFeature, removeFeature, removeObject, renameObject, repickFeatureInput, setPartPlacement, setSolidOf, updateFeature, type FaceName, type Feature, type FeatureId, type PlaneRef } from '../../document/objects'
 import { addSketch, attachSketch, nextSketchName } from '../../modeling/scene3d/planeRefs'
 import { bodyOf, faceAt, partTriangle } from '../../modeling/geometry/body'
 import {
@@ -20,6 +21,9 @@ import {
   type NodeId,
 } from '../../document/types'
 import { editTargetOf } from '../boardEditing'
+import { sweepPair, type SolidTool } from '../board/toolbox'
+import { addStarterShape, type StarterShape } from '../../modeling/scene3d/starterShapes'
+import { placeSketchIn } from '../../modeling/commands/modelCommands'
 
 export interface ModelingToolsDeps {
   apply: (next: CanvasDoc, coalesce?: boolean) => void
@@ -56,7 +60,7 @@ export function useModelingTools({ apply, coalesceGesture, doc, planeEditId, pla
       if (!doc) return
       const node = findNode(doc, id)
       const held = !!node?.sketch && node.sketch.plane.kind !== 'custom'
-      const patch: Partial<CanvasNode> = !space ? { space: undefined, sketch: undefined } : held ? { space, sketch: { plane: { kind: 'custom' } } } : { space }
+      const patch: Partial<CanvasNode> = !space ? { space: undefined, sketch: undefined } : held ? { space, sketch: { link: node.sketch?.link, plane: { kind: 'custom' } } } : { space }
       apply(updateNode(doc, id, patch), coalesceGesture(gesture))
     },
     [doc, apply, coalesceGesture],
@@ -125,6 +129,38 @@ export function useModelingTools({ apply, coalesceGesture, doc, planeEditId, pla
   )
 
   /**
+   * Place: a Sketch document, linked, standing on `plane`. On Front (the
+   * default) it stands on the ground to the right of everything already
+   * there, as a starter shape does, so it never lands inside a part; on
+   * another plane, in the middle of it. Selected rather than opened — its
+   * layers are the sketch's, edited there.
+   */
+  const placeSketch = useCallback(
+    (source: CanvasDoc, plane: PlaneRef = { kind: 'default', plane: 'front' }, frame?: NodeId) => {
+      const base = presentRef.current
+      if (!base) return false
+      // One implementation with the agent's `place` command (modeling/commands/modelCommands.ts).
+      const placed = placeSketchIn(base, source, plane, frame)
+      if (!placed) return false
+      planeEditRef.current = null
+      setPlaneEditId(null)
+      apply(placed.doc)
+      setSelectedIds(new Set([placed.id]))
+      return true
+    },
+    [apply, planeEditRef, presentRef, setPlaneEditId, setSelectedIds],
+  )
+
+  /** Unlink: a placed sketch becomes a local one, its layers kept as they are. */
+  const unlinkPlaced = useCallback(
+    (id: NodeId) => {
+      const base = presentRef.current
+      if (base) apply(unlinkSketch(base, id))
+    },
+    [apply, presentRef],
+  )
+
+  /**
    * The face of an object a click on its layer's 3D mesh landed on (triangle
    * `triangle` of that mesh), by its lasting name — or null on a flat layer.
    */
@@ -149,9 +185,131 @@ export function useModelingTools({ apply, coalesceGesture, doc, planeEditId, pla
     [faceAtLayer, createSketch],
   )
 
+  /** Re-pick face: a sketch stands on the face a 3D click picked, in place of the one it lost. False off a part's face. */
+  const repickFace = useCallback(
+    (id: NodeId, layerId: NodeId, triangle: number) => {
+      const hit = faceAtLayer(layerId, triangle)
+      const base = presentRef.current
+      if (!hit || !base) return false
+      apply(attachSketch(base, id, { kind: 'face', objectId: hit.objectId, face: hit.face }))
+      return true
+    },
+    [faceAtLayer, presentRef, apply],
+  )
+
+  /** Re-pick sketch / path: a broken feature reads another layer in place of the one deleted. */
+  const repickFeature = useCallback(
+    (featureId: FeatureId, input: 'sketch' | 'path', layerId: NodeId) => {
+      const base = presentRef.current
+      if (base) apply(repickFeatureInput(base, featureId, input, layerId))
+    },
+    [presentRef, apply],
+  )
+
+  /** Changes a feature's own settings — its smoothness — one undo step per pick. */
+  const editFeature = useCallback(
+    (featureId: FeatureId, patch: Partial<Feature>) => {
+      const base = presentRef.current
+      if (base) apply(updateFeature(base, featureId, patch))
+    },
+    [presentRef, apply],
+  )
+
+  /** Renames a part — one undo step however many keys it took. */
+  const renamePart = useCallback(
+    (objectId: string, name: string) => {
+      const base = presentRef.current
+      if (base) apply(renameObject(base, objectId, name), coalesceGesture(`part-name:${objectId}`))
+    },
+    [presentRef, apply, coalesceGesture],
+  )
+
+  /** Deletes one feature — and its part, when it was the last. */
+  const deleteFeature = useCallback(
+    (featureId: FeatureId) => {
+      const base = presentRef.current
+      if (base) apply(removeFeature(base, featureId))
+    },
+    [presentRef, apply],
+  )
+
+  /** Drags a feature to another place in its part's list; the part rebuilds in that order. */
+  const reorderFeature = useCallback(
+    (featureId: FeatureId, index: number) => {
+      const base = presentRef.current
+      if (base) apply(moveFeature(base, featureId, index))
+    },
+    [presentRef, apply],
+  )
+
+  /** Deletes a part from its row's menu: its features go, its sketches stay. */
+  const deletePart = useCallback(
+    (objectId: string) => {
+      const base = presentRef.current
+      if (base) apply(removeObject(base, objectId))
+    },
+    [presentRef, apply],
+  )
+
+  /** Puts a part moved as a whole back where its sketches stand it. */
+  const resetPartPlacement = useCallback(
+    (objectId: string) => {
+      const base = presentRef.current
+      if (base) apply(setPartPlacement(base, objectId, undefined))
+    },
+    [presentRef, apply],
+  )
+
+  /** Turns one of an object's features off or on — Onshape's suppress. */
+  const setFeatureHidden = useCallback(
+    (featureId: string, hidden: boolean) => {
+      if (!doc) return
+      apply(updateFeature(doc, featureId, { hidden }))
+    },
+    [doc, apply],
+  )
+
+  // ── The toolbox's 3D groups (src/canvas/board/toolbox.ts) ──
+
+  /**
+   * Extrude, Revolve or Sweep on the selection — as the feature of an Object.
+   * An extrude starts as deep as the shape is small across, so a square makes
+   * a cube; a revolve spins all the way round about the shape's middle.
+   */
+  const applySolidTool = useCallback(
+    (tool: SolidTool) => {
+      if (!doc) return
+      if (tool === 'sweep') {
+        const pair = sweepPair(doc, selectedIds)
+        if (pair) setLayerSolid(pair.profile, { kind: 'sweep', pathId: pair.path })
+        return
+      }
+      const only = selectedIds.size === 1 ? findNode(doc, [...selectedIds][0]) : null
+      if (!only) return
+      if (tool === 'extrude') setLayerSolid(only.id, { kind: 'extrude', depth: Math.max(0.01, Math.round(Math.min(only.rect.w, only.rect.h)) / 100) })
+      if (tool === 'revolve') setLayerSolid(only.id, { kind: 'revolve', axis: 'center', angle: 360, steps: 48 })
+    },
+    [doc, selectedIds, setLayerSolid],
+  )
+
+  /** A starter shape from the toolbox — a sketch and its feature — selected. */
+  const addStarter = useCallback(
+    (shape: StarterShape) => {
+      const base = presentRef.current
+      if (!base) return
+      // Out of any open plane first, synchronously, as createSketch does.
+      planeEditRef.current = null
+      setPlaneEditId(null)
+      const added = addStarterShape(base, shape)
+      apply(added.doc)
+      setSelectedIds(new Set([added.id]))
+    },
+    [apply, planeEditRef, presentRef, setPlaneEditId, setSelectedIds],
+  )
+
   // The edited layer gone (undone, deleted, un-placed) or another board opened: the plane closes.
   useEffect(() => {
     if (planeEditId && !planeEditTarget(present, planeEditId)) setPlaneEditId(null)
   }, [present, planeEditId, setPlaneEditId])
-  return { setLayerSolid, placeLayer, setLayersHidden, setSketchPlane, enterPlaneEdit, exitPlaneEdit, enterPlaneEditOfSelection, newSketchRef, createSketch, sketchOnFace }
+  return { setLayerSolid, placeLayer, setLayersHidden, setSketchPlane, enterPlaneEdit, exitPlaneEdit, enterPlaneEditOfSelection, newSketchRef, createSketch, placeSketch, unlinkPlaced, sketchOnFace, repickFace, repickFeature, deleteFeature, renamePart, editFeature, applySolidTool, addStarter, setFeatureHidden, reorderFeature, deletePart, resetPartPlacement }
 }

@@ -5619,6 +5619,2553 @@
         "src/canvas/scene3d/frontView.ts",
         "src/canvas/model/store.ts"
       ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/one-word-per-concept-1793816213052",
+      "label": "One word per concept",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The vocabulary, decided before any UI moves, in src/canvas/LAYOUT.md and every label: Sketch is the 2D document (today's board; Figma's file); Environment is the 3D document (Onshape's Part Studio); a sketch inside an environment is still a sketch, either placed there from a Sketch document (linked) or drawn there (local); Part is a solid an environment builds (today's 'Object'); Feature is a step that builds it (Extrude 1); Plane is Front, Top, Side or custom; Place puts a sketch into an environment, Unlink makes it a local copy; Sketch mode is editing a sketch face on (Edit sketch / Finish sketch). Board, canvas-as-document, Object, Done, 'Placed freely' and the 2D/3D labels go. Canvas stays only as the app rail's name.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 1,
+      "editsPaths": [
+        "src/canvas/LAYOUT.md",
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/canvas/panels/CreateBar.tsx",
+        "src/canvas/board/CanvasBoard.tsx"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "label": "Two document kinds: Sketch and Environment",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A document says what it is: kind 'sketch' (frames, layers, components; no planes, no parts) or 'environment' (local sketches on planes, placements of sketch documents, parts). Stored side by side in .components/.boards as today. Today's boards migrate on read: one with no parts and no placed layers is a Sketch; one with parts becomes an Environment, and any frame a part's feature consumes that also emits a component stays in a Sketch and is placed into the environment as a link, so no UI component is ever copied. Idempotent, like the solids migration.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 2,
+      "editsPaths": [
+        "src/document/types.ts",
+        "src/document/doc.ts",
+        "src/canvas/io/store.ts",
+        "src/document/objects.ts"
+      ]
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/document/documentKind.ts",
+      "label": "documentKind.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "filePath": "src/document/documentKind.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/document/documentKind.test.ts",
+      "label": "documentKind.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "filePath": "src/document/documentKind.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/one-picker-for-sketches-and-environments-the-document-decides-the-view-1793816213264",
+      "label": "One picker for sketches and environments; the document decides the view",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The left panel's picker lists both kinds, like plans: two groups with their icons, one search, and New sketch / New environment in its create row. Tabs carry the kind's icon. Opening a Sketch shows the 2D board; opening an Environment shows the 3D view. The 2D/3D toggle is removed, and with it the 'front view of the scene' board for environments — the 3D view's Front button is that view now. The delete-board trash moves into the picker row's menu.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 3,
+      "editsPaths": [
+        "src/canvas/CanvasView.tsx",
+        "src/canvas/useBoardTabs.ts",
+        "src/canvas/hooks/useCanvasBoards.ts",
+        "src/app/WorkspaceTabStrip/TabPicker.tsx"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "label": "Place a sketch into an environment, linked",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A placement in an environment points at a Sketch document (and optionally one frame in it), with the plane it stands on, its spot there and its scale (1 px = 1 mm by default). Edits in the sketch flow through: the environment reloads the referenced sketch and its features rebuild. + Sketch gains 'From a sketch…'. The sketch's frames show 'Used in 2 environments' so they can be found again. Unlink turns a placement into a local copy (Figma's detach, Blender's append). Local sketches — drawn on a face inside the environment — stay local, since a face only exists there.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 4,
+      "editsPaths": [
+        "src/modeling/scene3d/planeRefs.ts",
+        "src/canvas/CanvasView.ViewModel.tsx",
+        "src/canvas/hooks/useModelingTools.ts",
+        "src/canvas/panels/CreateBar.tsx",
+        "src/canvas/io/store.ts"
+      ]
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/document/placements.ts",
+      "label": "placements.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "filePath": "src/document/placements.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/document/placements.test.ts",
+      "label": "placements.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "filePath": "src/document/placements.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/the-environment-lists-parts-first-1793816213532",
+      "label": "The environment lists parts first",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "An environment's left panel, by what was built rather than where it sits: Parts (each with its features, each feature's sketch folded under it), then Sketches not yet used (flat, the plane as grey trailing text, a link glyph and 'from Sketch › Frame' on a placed one), then Planes (Front, Top, Side and custom, collapsed, with their eyes). No '· empty' rows. A Sketch document's left panel is Figma's layer tree only — no plane sections, no parts. Section headings get a lighter weight than rows. Sketch mode's filtered list says it's filtered.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 5,
+      "editsPaths": [
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/canvas/panels/planeGroups.ts",
+        "src/canvas/panels/planeGroups.test.ts"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/broken-links-and-broken-features-flagged-not-deleted-1793816213656",
+      "label": "Broken links and broken features, flagged not deleted",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Deleting or reflowing what a feature or placement depends on no longer deletes the part silently (today's pruneObjects). The feature or placement stays, marked broken in the list (Onshape's red feature) with why ('Sketch 2 was deleted', 'the face it stood on is gone'), and the part is built without it. The right panel offers Re-pick sketch, Re-pick face, or Delete. Undo restores as always.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 6,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/modeling/geometry/body.ts",
+        "src/modeling/scene3d/planeRefs.ts",
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/the-right-panel-follows-what-is-selected-1793816213795",
+      "label": "The right panel follows what is selected",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "No Figma layout, margin, clip or 'Make SVG component' on a part or an environment's sketch. A Sketch document's layers keep Figma's design panel. In an environment: a sketch shows its plane, offset, spot and (when placed) its source with Edit in sketch and Unlink; a part shows its name and placement; a feature shows its settings (until the feature inspector step adds preview and OK / Cancel).",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 7,
+      "editsPaths": [
+        "src/canvas/panels/CanvasInspector.tsx",
+        "src/canvas/panels/PlaneSection.tsx",
+        "src/canvas/panels/SolidSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/toolbox-and-controls-follow-the-document-1793816213939",
+      "label": "Toolbox and controls follow the document",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "In a Sketch: Figma's tools only. In an Environment: Sketch first (opens + Sketch's choices: a plane, a face, from a sketch), then the shaping tools, starter shapes and Move / Rotate / Scale; in sketch mode the 2D drawing tools take over. One Fit, the top bar's; the 3D view's own bar keeps Persp / Front / Top / Side only; the % zoom hides in 3D. Key maps follow the document: Figma's in a sketch and in sketch mode, Blender's in an environment, so R is never two things at once.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 8,
+      "editsPaths": [
+        "src/canvas/board/toolbox.ts",
+        "src/canvas/board/CanvasToolbar.tsx",
+        "src/canvas/CanvasView.tsx",
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/canvas/hooks/useCanvasShortcuts.ts"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/smoothness-for-curved-solids-1793816214053",
+      "label": "Smoothness for curved solids",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "How many polygons a curved solid is made of, set per feature in the right panel: a Smoothness control (low / medium / high, or a number) drives how finely circles and curves are flattened (geometry/shape.ts DEFAULT_TOLERANCE) and a revolve's or sweep's steps, with the triangle count shown beside it. Polygon sides are already editable on a polygon's own layer; the starter Polygon says so. Ties in with the 3D creation plan's polygon-budget step.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 9,
+      "editsPaths": [
+        "src/modeling/geometry/shape.ts",
+        "src/modeling/geometry/body.ts",
+        "src/modeling/scene3d/sceneMeshes.ts",
+        "src/document/objects.ts",
+        "src/canvas/panels/SolidSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/sketch-mode-inside-an-environment-1793816214193",
+      "label": "Sketch mode inside an environment",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "From the Sketches and Objects plan: opening a sketch in an environment turns the 3D camera to face its plane, locks it orthographic, and lays the live 2D board over the scene (transparent, its pan and zoom driving the camera), so Figma's tools draw while the parts and the ghosted bodies show behind. Finish sketch swings the camera back. Replaces today's switch to a separate 2D board for sketch mode.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 10,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/canvas/CanvasView.tsx",
+        "src/canvas/hooks/usePanZoom.ts",
+        "src/modeling/viewport/cameraViews.ts"
+      ]
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/SketchInScene.tsx",
+      "label": "SketchInScene.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/sketch-mode-inside-an-environment-1793816214193",
+      "filePath": "src/modeling/viewport/SketchInScene.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "label": "What editing a face, edge or point changes",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "From the Sketches and Objects plan: pure rules from a named face, edge or vertex and a move to a change in the sketch or feature that made it — a cap corner moves its sketch point (through the plane), a side face pushes its outline segment, an end cap pulled along its normal changes depth, an edge moves its two points. A placed (linked) sketch is edited in its Sketch document; the rule says so rather than editing a copy.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 11,
+      "editsPaths": [
+        "src/document/objects.ts"
+      ]
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/modeling/geometry/editBody.ts",
+      "label": "editBody.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "filePath": "src/modeling/geometry/editBody.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/modeling/geometry/editBody.test.ts",
+      "label": "editBody.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "filePath": "src/modeling/geometry/editBody.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "label": "Selection modes and hotkeys",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "From the Sketches and Objects plan: Blender's select modes in an environment — Tab object/edit, 1 / 2 / 3 points, edges, faces, Shift adds, A all, Alt+A none, box select — with hover highlights and dots for picked points, using the bodies' named triangles. A ? overlay lists the keys of the document you're in.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 13,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+        "src/canvas/CanvasView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/selectionModes.ts",
+      "label": "selectionModes.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "filePath": "src/modeling/viewport/selectionModes.ts",
+      "role": "controller",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/selectionModes.test.ts",
+      "label": "selectionModes.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "filePath": "src/modeling/viewport/selectionModes.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "label": "Grab, rotate, scale and push/pull",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "From the Sketches and Objects plan: G / R / S with X / Y / Z axis locks and typed amounts, Enter to confirm, Esc to cancel; on a part it moves the part; on faces, edges and points it goes through the editing rules, so pulling a box's top face deepens its extrude.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 15,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/viewport/TransformGizmo.tsx",
+        "src/canvas/CanvasView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/modalTransform.ts",
+      "label": "modalTransform.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "filePath": "src/modeling/viewport/modalTransform.ts",
+      "role": "controller",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/modalTransform.test.ts",
+      "label": "modalTransform.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "filePath": "src/modeling/viewport/modalTransform.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/the-feature-inspector-1793816214773",
+      "label": "The feature inspector",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "From the Sketches and Objects plan: a feature's settings as Onshape's feature dialog — depth, direction, both sides, axis, angle, smoothness, and how it combines (new part, add, subtract, intersect once booleans exist) — with a live preview and OK / Cancel. Dragging features in the parts list reorders them and rebuilds. Rename a part; delete a part from its row's menu.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 16,
+      "editsPaths": [
+        "src/canvas/panels/CanvasInspector.tsx",
+        "src/canvas/panels/SolidSection.tsx",
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/document/objects.ts"
+      ]
+    },
+    {
+      "id": "planned/sketches-and-environments-1793816162223/src/canvas/panels/FeatureSection.tsx",
+      "label": "FeatureSection.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "stepId": "plan/sketches-and-environments-1793816162223/the-feature-inspector-1793816214773",
+      "filePath": "src/canvas/panels/FeatureSection.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/retire-the-board-s-front-view-of-the-scene-1793816214907",
+      "label": "Retire the board's front view of the scene",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "With environments always in 3D, the 2D board no longer needs to draw parts projected through the front camera (scene3d/sceneMeshes projectedSolidsOf, board/ProjectedSolid.tsx, PlacedNodeView's front matrix). Keep what sketch mode needs (the ghost, plane-to-board math); remove the rest and its tests, and the 2D toolbox's shaping slots. Measured with /optimize before and after.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 17,
+      "editsPaths": [
+        "src/modeling/scene3d/sceneMeshes.ts",
+        "src/canvas/board/ProjectedSolid.tsx",
+        "src/canvas/board/CanvasBoard.tsx",
+        "src/canvas/board/CanvasNodeView.tsx",
+        "src/document/frontView.ts"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/agents-and-files-speak-sketches-and-environments-1793816215041",
+      "label": "Agents and files speak sketches and environments",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "From the Sketches and Objects plan: the canvas CLI agents use (tools/agentSkills/vendor/canvas.mjs, copied as .sleipnir/canvas.mjs) and the /frame and /component skill text learn the two kinds, placements, planes, parts and features, so an AI can say 'in Environment 1, place Sketch Logo on the Top face of Box and extrude it 2 cm'. Emitted component code is unchanged: it comes from Sketch documents.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 18,
+      "editsPaths": [
+        "tools/agentSkills/vendor/canvas.mjs",
+        "tools/agentSkills/registry.mjs",
+        "src/canvas/io/store.ts"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/verify-in-the-running-app-1793816215163",
+      "label": "Verify in the running app",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Over CDP with a scratch project: New sketch, draw a logo frame; New environment, + Sketch › From a sketch… onto the Top plane, Extrude it; edit the logo in its sketch and see the part follow; Unlink and see it stop; delete a sketch a feature uses and see the feature flagged, not gone; Box from the starter shapes, smoothness up and down on a cylinder; Tab, 3, pick a face, G Z 20; an old board with parts opens as an environment with its UI frames still in a sketch. Rerun /impeccable critique on the canvas and compare with 22/40.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 19,
+      "editsPaths": [
+        "src/canvas/CanvasView.test.tsx"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/display-modes-shaded-edges-wireframe-x-ray-1793831786457",
+      "label": "Display modes: shaded, edges, wireframe, x-ray",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "How the 3D view draws parts, chosen in its top bar beside Persp / Front / Top / Side (a view control: it changes how you look, not what's there). Shaded (today), Shaded + edges (each polygon's outline over the solid, so smoothness is visible), Wireframe (polygon lines only, in the part's fill colour) and X-ray (see-through, so points on the far side can be picked). Remembered per machine, like the camera. Lands before selection modes so edges and points can be seen before they're picked.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 12,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/viewport/Viewport3D.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "plan/sketches-and-environments-1793816162223/one-home-per-control-in-3d-1793837925093",
+      "label": "One home per control in 3D",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Removes doubles the user found. The axis gizmo is how views change: clicking X, Y or Z turns the camera to look straight down it (drafting, no perspective), and its centre or an orbit drag returns to perspective — so the Persp / Front / Top / Side buttons go. The toolbox owns shaping: Flat / Extrude / Revolve / Sweep leave the right panel, which keeps only the feature's settings (depth, axis, angle, steps) and Remove feature. Edit points moves into the toolbox too: in 2D and sketch mode an Edit points tool (Enter) for the selected shape; in 3D the Points / Edges / Faces modes sit in the toolbox's Select slot instead of the view bar. Smoothness joins Fill and Stroke in one Appearance group. With nothing selected the right panel shows the environment's own view settings, as Figma's shows the page's: Shaded / Edges / Wire / X-ray live there, not in the view bar. LAYOUT.md's areas table is updated to match.",
+      "status": "draft",
+      "planId": "plan/sketches-and-environments-1793816162223",
+      "order": 14,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+        "src/canvas/board/CanvasToolbar.tsx",
+        "src/canvas/board/toolbox.ts",
+        "src/canvas/panels/CanvasInspector.tsx",
+        "src/canvas/panels/SolidSection.tsx",
+        "src/canvas/CanvasView.tsx",
+        "src/canvas/LAYOUT.md"
+      ]
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "label": "Model commands for agents, on the app’s own code",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A command line an agent drives instead of writing scene JSON: env create, sketch --plane top, place --sketch Logo --on \"Lid: end face\", extrude / revolve / sweep, starter, smoothness, edit --face end --pull 0.5, unlink, delete. Each verb is a thin call into the same pure functions the app uses (document/objects, placements, scene3d/planeRefs, starterShapes, geometry/editBody), bundled into .sleipnir/model.mjs so an agent and the app can never disagree. Errors are the app's own reasons ('Placed from a sketch — edit it there'). One verb is one write, which Sleipnir shows live and takes as one undo step.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 1,
+      "editsPaths": [
+        "tools/agentSkills/scaffold.mjs",
+        "package.json",
+        "src/canvas/io/store.ts"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/commands/modelCommands.ts",
+      "label": "modelCommands.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "filePath": "src/modeling/commands/modelCommands.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/commands/modelCommands.test.ts",
+      "label": "modelCommands.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "filePath": "src/modeling/commands/modelCommands.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/tools/agentSkills/buildModelCli.mjs",
+      "label": "buildModelCli.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "filePath": "tools/agentSkills/buildModelCli.mjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/describe-the-scene-in-a-few-hundred-tokens-1793837965178",
+      "label": "describe: the scene in a few hundred tokens",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The read-back that keeps an agent from modelling blind, and cheap enough to call after every change: model.mjs describe --env Desk prints each part with its features and numbers, each face by its lasting name (\"Extrude 1's end face\") with size and centre in meters, the sketches and the planes they stand on, what's linked and what's broken, and the triangle budget. --json for scripts; --part narrows it. Same words as LAYOUT.md.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 2,
+      "editsPaths": [
+        "src/modeling/geometry/body.ts"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/commands/describeScene.ts",
+      "label": "describeScene.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/describe-the-scene-in-a-few-hundred-tokens-1793837965178",
+      "filePath": "src/modeling/commands/describeScene.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/commands/describeScene.test.ts",
+      "label": "describeScene.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/describe-the-scene-in-a-few-hundred-tokens-1793837965178",
+      "filePath": "src/modeling/commands/describeScene.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/the-model-and-sketch-skills-1793837965263",
+      "label": "The /model and /sketch skills",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Two short skills beside /plan and /optimize. /model teaches the vocabulary (Sketch, Environment, Part, Feature, Plane, Place / Unlink), units (100 px = 1 m), which way each plane faces, the recipes (a sphere is a half circle revolved, a box a square extruded, a starter or library part first), and the loop: build, describe, check, fix. /sketch is /frame in the new words: Sketch documents of frames and components that emit code; the canvas CLI learns the two kinds (this takes over Sketches-and-Environments step 17). Skill text stays small and points at --help, so it costs little context.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 3,
+      "editsPaths": [
+        "tools/agentSkills/registry.mjs",
+        "tools/agentSkills/vendor/canvas.mjs",
+        "tools/agentSkills/agentSkills.test.ts",
+        "AGENTS.md"
+      ]
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "label": "Picks are the agent’s context, and an Ask box",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "What you click is what 'this' means. The current pick — layers, parts, or edit mode's points, edges and faces — is described in a line (\"Extrude 1's end face on Lid, 8 mm deep\") and written where agents look (.sleipnir/selection.json, model.mjs selection), so a terminal agent edits exactly that. In the app, the right panel gets an Ask field under the selection: plain words go to the in-app agent with the pick attached, and come back as the same model commands a hand edit makes — each one undo step, so a vibe edit and a manual edit are never two systems.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 6,
+      "editsPaths": [
+        "src/canvas/panels/CanvasInspector.tsx",
+        "src/canvas/CanvasView.tsx",
+        "src/canvas/CanvasView.ViewModel.tsx",
+        "src/app/AgentChat/AgentChat.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/commands/pickContext.ts",
+      "label": "pickContext.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "filePath": "src/modeling/commands/pickContext.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/commands/pickContext.test.ts",
+      "label": "pickContext.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "filePath": "src/modeling/commands/pickContext.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/canvas/panels/AskSection.tsx",
+      "label": "AskSection.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "filePath": "src/canvas/panels/AskSection.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/a-library-of-ready-made-parts-1793837965485",
+      "label": "A library of ready-made parts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The biggest token saving: an agent asks for a laptop instead of building one face by face. Parametric assemblies made of ordinary sketches and features (so they edit like anything built by hand): laptop (base, lid on a hinge, a screen face named 'screen' to place a Sketch on), phone, monitor, desk, room. In the toolbox's Starter shapes as Library ▸, and model.mjs starter laptop --size 14in. Depends on parts having a placement of their own (grab / rotate / scale).",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 7,
+      "editsPaths": [
+        "src/modeling/scene3d/starterShapes.ts",
+        "src/canvas/board/toolbox.ts",
+        "src/canvas/board/CanvasToolbar.tsx"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/partsLibrary.ts",
+      "label": "partsLibrary.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-library-of-ready-made-parts-1793837965485",
+      "filePath": "src/modeling/scene3d/partsLibrary.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/partsLibrary.test.ts",
+      "label": "partsLibrary.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-library-of-ready-made-parts-1793837965485",
+      "filePath": "src/modeling/scene3d/partsLibrary.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/cameras-in-an-environment-1793837965577",
+      "label": "Cameras in an environment",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Named cameras saved in the environment — where it stands, what it looks at, lens — listed in the left panel under Cameras, set from the current view (Add camera here), and looked through in the 3D view. What a render shoots from, and what the timeline moves.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 8,
+      "editsPaths": [
+        "src/document/types.ts",
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/viewport/cameraViews.ts"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/document/cameras.ts",
+      "label": "cameras.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/cameras-in-an-environment-1793837965577",
+      "filePath": "src/document/cameras.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/document/cameras.test.ts",
+      "label": "cameras.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/cameras-in-an-environment-1793837965577",
+      "filePath": "src/document/cameras.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "label": "A timeline with keyframes",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Time for an environment: a bar under the 3D view with play, scrub and a length in seconds, and keyframes on what can move — a part's placement, a camera, a feature's numbers (a lid opening is its rotation over a second), and a placed Sketch's state. Values between keys ease; the document stores only the keys. Agents set them with model.mjs key --part Lid --at 1.5s --rotate x=-110.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 9,
+      "editsPaths": [
+        "src/canvas/CanvasView.tsx",
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/document/types.ts"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/document/timeline.ts",
+      "label": "timeline.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "filePath": "src/document/timeline.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/document/timeline.test.ts",
+      "label": "timeline.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "filePath": "src/document/timeline.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/canvas/timeline/TimelineView.tsx",
+      "label": "TimelineView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "filePath": "src/canvas/timeline/TimelineView.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/canvas/timeline/TimelineView.ViewModel.tsx",
+      "label": "TimelineView.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "filePath": "src/canvas/timeline/TimelineView.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/a-placed-sketch-shows-its-real-design-and-plays-its-states-1793837973403",
+      "label": "A placed Sketch shows its real design, and plays its states",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "So a website looks like a website on the laptop's screen: a Sketch placed on a face is drawn as the image of its frame — text, images, fills, as the 2D board draws it — not flat fill colours. Its component variants and prototype states become keyframeable, so 'click Sign in at 2 s, the dashboard slides in' is a timeline of states. The Sketch's code is what Sleipnir already emits: the website really works outside the video.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 10,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/document/placements.ts"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/sketchTexture.ts",
+      "label": "sketchTexture.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-placed-sketch-shows-its-real-design-and-plays-its-states-1793837973403",
+      "filePath": "src/modeling/scene3d/sketchTexture.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/sketchTexture.test.ts",
+      "label": "sketchTexture.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/a-placed-sketch-shows-its-real-design-and-plays-its-states-1793837973403",
+      "filePath": "src/modeling/scene3d/sketchTexture.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "label": "Render stills and video",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Out of the app: a still from any camera at any size, and an MP4 of the timeline at a frame rate, encoded in the app with the browser's own video encoder (WebCodecs) and an MP4 muxer, so nothing needs installing. A render panel (camera, size, length, quality) for people; model.mjs render --env Desk --camera Hero --out desk.mp4 for agents, which the running app carries out the way it does a frame request.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 12,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/canvas/CanvasView.tsx",
+        "package.json"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/render/renderScene.ts",
+      "label": "renderScene.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "filePath": "src/modeling/render/renderScene.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/render/videoExport.ts",
+      "label": "videoExport.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "filePath": "src/modeling/render/videoExport.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/render/videoExport.test.ts",
+      "label": "videoExport.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "filePath": "src/modeling/render/videoExport.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/canvas/panels/RenderPanel.tsx",
+      "label": "RenderPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "filePath": "src/canvas/panels/RenderPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/the-render-skill-and-skills-that-hand-off-to-each-other-1793837973560",
+      "label": "The /render skill, and skills that hand off to each other",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "/render teaches cameras, keys and export in a few lines. And the skills chain: a /plan for 'a working website on a 3D laptop, as a video' drafts steps that each name the skill that does them — /sketch for the site, /model for the laptop and placement, /render for the camera move and export, /optimize to keep the triangle and token budget in check — so an agent picks the cheap deterministic path at every step.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 13,
+      "editsPaths": [
+        "tools/agentSkills/registry.mjs",
+        "tools/agentSkills/agentSkills.test.ts"
+      ]
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/end-to-end-the-laptop-website-video-1793837973645",
+      "label": "End to end: the laptop website video",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The acceptance test, run as a user would: 'make a /plan to build out a functioning website on a mock 3D laptop, have this be a video animation'. An agent plans, builds the Sketch, places it on a library laptop, opens the lid on the timeline, moves a camera and renders an MP4; then a person clicks the lid's edge and asks 'make it thinner', and edits a point by hand. Records tokens and tool calls per step, and fixes whatever made the agent guess.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 14,
+      "editsPaths": [
+        "src/canvas/LAYOUT.md"
+      ]
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/measure-it-plain-three-js-vs-sleipnir-1793988082589",
+      "label": "Measure it: plain three.js vs Sleipnir",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Before building more, prove the agent loop pays. One scene prompt (a laptop on a desk, then three follow-up edits: thicker lid, open it 20°, move it left) done twice by a fresh agent — once writing three.js in a plain repo, once through model.mjs + describe + the skills. Record tokens, turns, wall time and whether each follow-up edit landed exactly. The script runs both from a prompt file and writes a table; the result decides whether the rest of this plan goes ahead as is.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 4
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/tools/benchmarks/sceneBench.mjs",
+      "label": "sceneBench.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/measure-it-plain-three-js-vs-sleipnir-1793988082589",
+      "filePath": "tools/benchmarks/sceneBench.mjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/tools/benchmarks/scenePrompts.json",
+      "label": "scenePrompts.json",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/measure-it-plain-three-js-vs-sleipnir-1793988082589",
+      "filePath": "tools/benchmarks/scenePrompts.json",
+      "role": "node",
+      "language": "react"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/export-to-gltf-1793988082722",
+      "label": "Export to glTF",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "So parts leave Sleipnir for a game engine or another tool: model.mjs export --env Desk --out desk.glb and a File menu item write each part's body (the same mesh the 3D view draws, its placement and colour), named by part, with the timeline's keyframes as glTF animation once they exist. Pure: bodies in, a GLB buffer out.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 11,
+      "editsPaths": [
+        "src/modeling/geometry/body.ts"
+      ]
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/export/exportGltf.ts",
+      "label": "exportGltf.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/export-to-gltf-1793988082722",
+      "filePath": "src/modeling/export/exportGltf.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/prompt-to-scene-1793837965047/src/modeling/export/exportGltf.test.ts",
+      "label": "exportGltf.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "stepId": "plan/prompt-to-scene-1793837965047/export-to-gltf-1793988082722",
+      "filePath": "src/modeling/export/exportGltf.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/prompt-to-scene-1793837965047/batch-commands-and-model-becomes-sculpt-1794243701181",
+      "label": "Batch commands, and /model becomes /sculpt",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The benchmark's extra cost was one command per turn. model.mjs batch runs a whole build as one script, all or nothing, ending in a describe; the skill teaches it. /model collides with Claude Code's own /model, so the skill becomes /sculpt. Rerun the comparison, adding a harder scene with curved parts.",
+      "status": "draft",
+      "planId": "plan/prompt-to-scene-1793837965047",
+      "order": 5,
+      "editsPaths": [
+        "src/modeling/commands/modelCommands.ts",
+        "src/modeling/commands/modelCli.ts",
+        "tools/agentSkills/registry.mjs",
+        "tools/benchmarks/sceneBench.mjs"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "label": "Terminals survive a reload",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Sessions keep running in the main process, each with a scrollback buffer; a reloaded page reattaches to them and replays what it missed. Today a reload leaves Claude running with nothing on screen and opens a fresh shell, which is what stops Sleipnir editing itself.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 1,
+      "editsPaths": [
+        "electron/terminal.cjs",
+        "electron/main.cjs",
+        "electron/preload.cjs",
+        "src/app/Terminal/Terminal.ViewModel.tsx",
+        "src/app/Terminal/iTerminal.tsx",
+        "src/app/TerminalDock/TerminalDock.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/terminalSessions.ts",
+      "label": "terminalSessions.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "filePath": "src/app/Terminal/terminalSessions.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/terminalSessions.test.ts",
+      "label": "terminalSessions.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "filePath": "src/app/Terminal/terminalSessions.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/the-app-comes-back-where-you-were-1794246015338",
+      "label": "The app comes back where you were",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The open space, dock, split pane and open document are remembered across a reload, so a code change from the agent no longer drops you back on Planning.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 2,
+      "editsPaths": [
+        "src/App.tsx",
+        "src/canvas/hooks/useCanvasBoards.ts"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "label": "Develop Sleipnir from inside Sleipnir",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A one-click restart for changes to Sleipnir's own main process: it saves your work, relaunches the app, reopens the terminals and resumes each Claude session with claude --continue. The status bar says when electron/ has changed and a restart is due. Renderer changes keep hot-reloading.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 3,
+      "editsPaths": [
+        "electron/main.cjs",
+        "electron/preload.cjs",
+        "src/app/StatusBar/StatusBar.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/electron/devRestart.cjs",
+      "label": "devRestart.cjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "filePath": "electron/devRestart.cjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/commands-by-space-one-per-tool-1794246015473",
+      "label": "Commands by space, one per tool",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Skills become /canvas:extrude, /canvas:chamfer, /canvas:sculpt, /studio:light, /planning:plan, /workspace:…, one small command per tool, emitted as nested command folders. Old flat names are cleaned up on update. Codex has no nested commands as far as we know, so its files get a flat prefix (canvas-extrude); Gemini to be checked. Each command stays short and points at model.mjs help.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 4,
+      "editsPaths": [
+        "tools/agentSkills/registry.mjs",
+        "tools/agentSkills/emitters/index.mjs",
+        "tools/agentSkills/scaffold.mjs",
+        "tools/agentSkills/agentSkills.test.ts",
+        "src/app/AgentChat/AgentChat.tsx",
+        "electron/agent/systemPrompt.cjs"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/tools/agentSkills/toolCommands.mjs",
+      "label": "toolCommands.mjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/commands-by-space-one-per-tool-1794246015473",
+      "filePath": "tools/agentSkills/toolCommands.mjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/one-map-of-commands-spaces-and-buttons-1794246015542",
+      "label": "One map of commands, spaces and buttons",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A single table says which space each command belongs to and which on-screen control it is, read by the scaffolder, the terminal and the UI, so a new tool only has to be added once. Also changes tools/agentSkills/toolCommands.mjs, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 5
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/commandMap.ts",
+      "label": "commandMap.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/one-map-of-commands-spaces-and-buttons-1794246015542",
+      "filePath": "src/app/commandMap.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/commandMap.test.ts",
+      "label": "commandMap.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/one-map-of-commands-spaces-and-buttons-1794246015542",
+      "filePath": "src/app/commandMap.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/typing-in-the-terminal-jumps-to-the-space-1794246015610",
+      "label": "Typing in the terminal jumps to the space",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The terminal tracks the line being typed; once a command prefix is recognised (/canvas:, /planning:, /workspace:, /studio:) the screen jumps there while the terminal keeps focus. On by default, with a toggle in Settings. It only acts at a Claude prompt, and pressing Enter confirms the exact command through the existing prompt hook.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 6,
+      "editsPaths": [
+        "src/app/Terminal/Terminal.ViewModel.tsx",
+        "src/App.tsx",
+        "src/app/SettingsView/SettingsView.tsx",
+        "tools/agentSkills/vendor/trail.mjs"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/commandLine.ts",
+      "label": "commandLine.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/typing-in-the-terminal-jumps-to-the-space-1794246015610",
+      "filePath": "src/app/Terminal/commandLine.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/commandLine.test.ts",
+      "label": "commandLine.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/typing-in-the-terminal-jumps-to-the-space-1794246015610",
+      "filePath": "src/app/Terminal/commandLine.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/corner-boxes-on-the-tools-you-type-1794246015682",
+      "label": "Corner boxes on the tools you type",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Typing /canvas:extrude marks the Extrude button with the same corner box the Planning graph uses for a step in testing. One shared component, reused from FocusBox, and every tool in the map gets a marker. Also changes src/app/commandMap.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 7,
+      "editsPaths": [
+        "src/planning/graph/FocusBox.tsx",
+        "src/canvas/board/CanvasToolbar.tsx",
+        "src/canvas/board/toolbox.ts",
+        "src/app/NavRail/NavRail.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/UIKit/CommandMark/CommandMark.tsx",
+      "label": "CommandMark.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/corner-boxes-on-the-tools-you-type-1794246015682",
+      "filePath": "src/app/UIKit/CommandMark/CommandMark.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/watch-the-agent-across-spaces-1794246015749",
+      "label": "Watch the agent across spaces",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "While a command runs you are free to move around: a corner box on the rail shows which space the agent is working in, read from the agent trail, and an optional Follow mode moves with it.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 8,
+      "editsPaths": [
+        "src/App.tsx",
+        "src/app/NavRail/NavRail.tsx",
+        "src/planning/graph/agentTrail.ts"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "label": "OpenCascade, loaded only when needed",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The CAD kernel, as WebAssembly, behind one small interface and kept out of the app's first load. Also settles how model.mjs gets it, since the CLI is currently one 150 KB file: most likely loaded from the Sleipnir install or fetched once, not copied into every project.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 9,
+      "editsPaths": [
+        "package.json",
+        "src/app/firstLoadBudget.test.ts",
+        "tools/agentSkills/buildModelCli.mjs"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/occKernel.ts",
+      "label": "occKernel.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "filePath": "src/modeling/kernel/occKernel.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/occKernel.test.ts",
+      "label": "occKernel.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "filePath": "src/modeling/kernel/occKernel.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "label": "Parts built by the kernel, faces keeping their names",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A part's features run through OpenCascade and come back as the same mesh, faces, edges and vertices, with faces still named by feature and role so picks, sketches on faces and commands keep working. The riskiest step: body building is synchronous today, and corner offsets (moved points) are mesh-level, so this decides how each carries over.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 12,
+      "editsPaths": [
+        "src/modeling/geometry/body.ts",
+        "src/modeling/geometry/cornerTweaks.ts",
+        "src/modeling/scene3d/sceneMeshes.ts",
+        "src/modeling/viewport/Viewport3D.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/kernelBody.ts",
+      "label": "kernelBody.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "filePath": "src/modeling/kernel/kernelBody.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/kernelBody.test.ts",
+      "label": "kernelBody.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "filePath": "src/modeling/kernel/kernelBody.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/real-cuts-subtract-and-intersect-1794246015945",
+      "label": "Real cuts: subtract and intersect",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The Subtract and Intersect choices in the feature dialog stop being shown as Add, and E pulled inward can cut a pocket instead of only moving the face. Also changes src/modeling/kernel/kernelBody.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 14,
+      "editsPaths": [
+        "src/modeling/geometry/editBody.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/fillet-and-chamfer-1794246016005",
+      "label": "Fillet and chamfer",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Pick edges and round or bevel them: new features with a radius or distance, a toolbox entry, feature-dialog settings and /canvas:fillet and /canvas:chamfer. Edges are remembered by name, flagged broken if they disappear. Also changes src/modeling/kernel/kernelBody.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 15,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/canvas/board/toolbox.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/shell-1794246016066",
+      "label": "Shell",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Hollow a part to a wall thickness, with picked faces left open: a cup from a solid. A feature, a toolbox entry and /canvas:shell. Also changes src/modeling/kernel/kernelBody.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 16,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/canvas/board/toolbox.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/loft-1794246016128",
+      "label": "Loft",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A skin through two or more sketches, in order, with a choice of ruled or smooth. The Loft button stops saying it isn't built. Also changes src/modeling/kernel/kernelBody.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 17,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/canvas/board/toolbox.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/3d-curves-1794246016195",
+      "label": "3D curves",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A new kind of layer: a path with points placed anywhere in the scene, drawn with a pen in 3D and edited with the same G and X / Y / Z moves. The base for spouts, pipes and handles.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 18,
+      "editsPaths": [
+        "src/document/types.ts",
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/canvas/board/CanvasToolbar.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/viewport/curveTool.ts",
+      "label": "curveTool.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/3d-curves-1794246016195",
+      "filePath": "src/modeling/viewport/curveTool.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/viewport/curveTool.test.ts",
+      "label": "curveTool.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/3d-curves-1794246016195",
+      "filePath": "src/modeling/viewport/curveTool.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/sweep-along-curves-and-part-edges-1794246016270",
+      "label": "Sweep along curves and part edges",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A sweep follows a 3D curve or picked edges of a part, not just a curve on the same flat sketch. Also changes src/modeling/kernel/kernelBody.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 19,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/sweep-with-twist-taper-and-guide-rails-1794246016335",
+      "label": "Sweep with twist, taper and guide rails",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The profile can rotate or change size along the path, and a second curve can steer it, so a spout can narrow and bend the way it should. Also changes src/modeling/kernel/kernelBody.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 20,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/mirror-and-pattern-1794246016412",
+      "label": "Mirror and pattern",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Mirror a part or feature across a plane, and repeat it along a line or around an axis, staying linked to the original: table legs, a set of cups. Also changes src/modeling/kernel/kernelBody.ts, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 21,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/canvas/board/toolbox.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/import-glb-and-step-1794246016483",
+      "label": "Import GLB and STEP",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Bring models made elsewhere in as parts. STEP arrives as real CAD with faces to pick; GLB arrives as a mesh you can place and light but not reshape, and the panel says so.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 22,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/canvas/CanvasView.tsx",
+        "src/canvas/panels/CanvasLayersPanel.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/import/importModel.ts",
+      "label": "importModel.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/import-glb-and-step-1794246016483",
+      "filePath": "src/modeling/import/importModel.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/import/importModel.test.ts",
+      "label": "importModel.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/import-glb-and-step-1794246016483",
+      "filePath": "src/modeling/import/importModel.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/commands-for-every-new-feature-1794246016555",
+      "label": "Commands for every new feature",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "model.mjs and describe learn fillet, chamfer, shell, loft, cuts, curves, sweep options, mirror, pattern and import, each with its /canvas: command, so agents can do everything the toolbox can. Also changes tools/agentSkills/toolCommands.mjs, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 23,
+      "editsPaths": [
+        "src/modeling/commands/modelCommands.ts",
+        "src/modeling/commands/describeScene.ts",
+        "tools/agentSkills/registry.mjs"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/a-shorter-right-panel-1794246016625",
+      "label": "A shorter right panel",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Plane, position and rotation fold away, so a selected part shows its name, feature settings and look first, with far less scrolling.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 25,
+      "editsPaths": [
+        "src/canvas/panels/CanvasInspector.tsx",
+        "src/canvas/panels/PlaneSection.tsx",
+        "src/canvas/LAYOUT.md"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/a-tidier-3d-canvas-1794246016691",
+      "label": "A tidier 3D canvas",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A quieter grid, a tighter Fit, clearer hover and selection, and a size readout on the canvas while dragging.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 26,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/viewport/cameraViews.ts"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/see-the-part-while-sketching-1794246016754",
+      "label": "See the part while sketching",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Sketch mode draws the part's edges as snap guides on the sketch plane, so new shapes line up with what is already there.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 27,
+      "editsPaths": [
+        "src/modeling/scene3d/sketchGhost.ts",
+        "src/modeling/viewport/SketchInScene.tsx",
+        "src/canvas/board/CanvasBoard.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "label": "Sketch dimensions and constraints",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Typed lengths and angles, plus equal, parallel, perpendicular, coincident and tangent, kept true by a solver as you drag, as in Onshape. Shapes stay editable by hand; a sketch that can't be solved says which constraint is the problem.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 29,
+      "editsPaths": [
+        "src/document/types.ts",
+        "src/canvas/board/CanvasBoard.tsx",
+        "src/canvas/panels/CanvasInspector.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/sketch/constraintSolver.ts",
+      "label": "constraintSolver.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "filePath": "src/modeling/sketch/constraintSolver.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/sketch/constraintSolver.test.ts",
+      "label": "constraintSolver.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "filePath": "src/modeling/sketch/constraintSolver.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/canvas/panels/ConstraintsSection.tsx",
+      "label": "ConstraintsSection.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "filePath": "src/canvas/panels/ConstraintsSection.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/tests-move-to-the-problems-dock-1794246016886",
+      "label": "Tests move to the Problems dock",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The test runner leaves its rail slot and runs from the bottom dock, its failures listed with the other problems. Nothing is lost, and the rail slot is free for Studio.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 31,
+      "editsPaths": [
+        "src/app/ProblemsDock/ProblemsDock.tsx",
+        "src/validation/ValidationView.tsx",
+        "src/validation/ValidationView.ViewModel.tsx",
+        "src/App.tsx",
+        "src/app/lazyViews.ts",
+        "src/app/shellLayout.test.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/ProblemsDock/TestsPanel.tsx",
+      "label": "TestsPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/tests-move-to-the-problems-dock-1794246016886",
+      "filePath": "src/app/ProblemsDock/TestsPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "label": "The Studio space",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Studio takes Validation's place on the rail: a live view of the shot, a list of what is in it on the left, settings on the right, the timeline along the bottom. Lazy-loaded like the other heavy spaces.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 32,
+      "editsPaths": [
+        "src/App.tsx",
+        "src/app/lazyViews.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/StudioView.tsx",
+      "label": "StudioView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "filePath": "src/studio/StudioView.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/StudioView.ViewModel.tsx",
+      "label": "StudioView.ViewModel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "filePath": "src/studio/StudioView.ViewModel.tsx",
+      "role": "view-model",
+      "language": "react"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/iStudioView.tsx",
+      "label": "iStudioView.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "filePath": "src/studio/iStudioView.tsx",
+      "role": "interface",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/shots-a-third-kind-of-document-1794246017026",
+      "label": "Shots: a third kind of document",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A Shot links Environments and Sketches and holds its own lights, cameras and timeline, so one model can have many shots. Links stay live, flagged broken like everything else if the source is deleted. Joins the picker alongside Sketches and Environments.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 33,
+      "editsPaths": [
+        "src/document/types.ts",
+        "src/document/documentKind.ts",
+        "src/canvas/io/store.ts",
+        "src/canvas/io/docFormat.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/shots.ts",
+      "label": "shots.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/shots-a-third-kind-of-document-1794246017026",
+      "filePath": "src/document/shots.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/shots.test.ts",
+      "label": "shots.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/shots-a-third-kind-of-document-1794246017026",
+      "filePath": "src/document/shots.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "label": "Materials on parts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A part keeps its material wherever it goes: colour, metalness, roughness, glass, emissive and image textures, chosen from presets or set by hand, and shown in the 3D view as well as in Studio. Needs UVs on the kernel's meshes.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 34,
+      "editsPaths": [
+        "src/document/objects.ts",
+        "src/modeling/scene3d/sceneMeshes.ts",
+        "src/modeling/viewport/Viewport3D.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/materials.ts",
+      "label": "materials.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "filePath": "src/document/materials.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/materials.test.ts",
+      "label": "materials.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "filePath": "src/document/materials.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/MaterialPanel.tsx",
+      "label": "MaterialPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "filePath": "src/studio/MaterialPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "label": "Lighting",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Area, point, spot and sun lights, placed and aimed in the scene, plus image-based environments and studio presets such as three-point and softbox. Also changes src/studio/StudioView.tsx, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 35
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/lighting.ts",
+      "label": "lighting.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "filePath": "src/studio/lighting.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/lighting.test.ts",
+      "label": "lighting.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "filePath": "src/studio/lighting.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/LightingPanel.tsx",
+      "label": "LightingPanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "filePath": "src/studio/LightingPanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/cameras-1794246017220",
+      "label": "Cameras",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Named cameras in a shot, with lens, aspect and focus: set from the current view, framed by hand, and looked through to compose. (From Prompt to scene.) Also changes src/studio/StudioView.tsx, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 36,
+      "editsPaths": [
+        "src/modeling/viewport/cameraViews.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/cameras.ts",
+      "label": "cameras.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/cameras-1794246017220",
+      "filePath": "src/studio/cameras.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/cameras.test.ts",
+      "label": "cameras.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/cameras-1794246017220",
+      "filePath": "src/studio/cameras.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "label": "A timeline with keyframes",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Keyframes on part placements, cameras, lights and materials, with easing. Turns need a pivot of their own so a lid swings about its hinge between keys, rather than drifting as it would with straight interpolation. (From Prompt to scene.) Also changes src/studio/StudioView.tsx, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 37,
+      "editsPaths": [
+        "src/document/sceneTypes.ts",
+        "src/document/placement.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/timeline.ts",
+      "label": "timeline.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "filePath": "src/studio/timeline.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/timeline.test.ts",
+      "label": "timeline.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "filePath": "src/studio/timeline.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/TimelinePanel.tsx",
+      "label": "TimelinePanel.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "filePath": "src/studio/TimelinePanel.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/2d-designs-in-shots-and-on-surfaces-1794246017346",
+      "label": "2D designs in shots and on surfaces",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A placed Sketch shows its real design instead of rough flat shapes, including text and layout, and can play its states over time. Sketches can also be shots on their own, so 2D work gets videos too. (From Prompt to scene.)",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 38,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/document/placements.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/sketchTexture.ts",
+      "label": "sketchTexture.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/2d-designs-in-shots-and-on-surfaces-1794246017346",
+      "filePath": "src/studio/sketchTexture.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/sketchTexture.test.ts",
+      "label": "sketchTexture.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/2d-designs-in-shots-and-on-surfaces-1794246017346",
+      "filePath": "src/studio/sketchTexture.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/path-traced-stills-1794246017408",
+      "label": "Path-traced stills",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Live preview while you work, then a GPU path tracer for final images with true reflections and soft light, progressively refining with a stop button. Also changes src/studio/StudioView.tsx, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 39,
+      "editsPaths": [
+        "package.json",
+        "src/app/firstLoadBudget.test.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/pathTrace.ts",
+      "label": "pathTrace.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/path-traced-stills-1794246017408",
+      "filePath": "src/studio/pathTrace.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/video-export-1794246017475",
+      "label": "Video export",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Render the timeline to MP4, at real-time or path-traced quality, with resolution, frame rate and a progress bar that can be cancelled. Also changes src/studio/StudioView.tsx, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 40,
+      "editsPaths": [
+        "electron/main.cjs",
+        "electron/preload.cjs"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/videoExport.ts",
+      "label": "videoExport.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/video-export-1794246017475",
+      "filePath": "src/studio/videoExport.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/videoExport.test.ts",
+      "label": "videoExport.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/video-export-1794246017475",
+      "filePath": "src/studio/videoExport.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/upgrade-an-object-to-a-3d-component-1794246017536",
+      "label": "Upgrade an object to a 3D component",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The same action a frame has today: upgrade a part or group of parts to a 3D component, with a name, the same label on the canvas and a place in the components list.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 41,
+      "editsPaths": [
+        "src/document/types.ts",
+        "src/canvas/hooks/useComponentEditing.ts",
+        "src/canvas/panels/CanvasInspector.tsx",
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/canvas/board/ComponentLabel.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/export-to-glb-1794246017601",
+      "label": "Export to GLB",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Bodies to a binary glTF with names, materials and placements, with timeline keys as animation once they exist. Also available from the File menu and model.mjs. (From Prompt to scene.)",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 42,
+      "editsPaths": [
+        "src/modeling/commands/modelCommands.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/export/exportGltf.ts",
+      "label": "exportGltf.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/export-to-glb-1794246017601",
+      "filePath": "src/modeling/export/exportGltf.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/export/exportGltf.test.ts",
+      "label": "exportGltf.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/export-to-glb-1794246017601",
+      "filePath": "src/modeling/export/exportGltf.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/a-3d-component-prints-its-code-1794246017663",
+      "label": "A 3D component prints its code",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Upgrading writes a .glb and a small React Three Fiber component into .components/<name>/, with named parts you can target in code, and re-prints them when the object changes, exactly as 2D components do.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 43,
+      "editsPaths": [
+        "src/canvas/emit/targets.ts",
+        "src/canvas/hooks/useCanvasBoards.ts",
+        "src/canvas/io/stagedFiles.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/canvas/emit/react3d.ts",
+      "label": "react3d.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/a-3d-component-prints-its-code-1794246017663",
+      "filePath": "src/canvas/emit/react3d.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/canvas/emit/react3d.test.ts",
+      "label": "react3d.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/a-3d-component-prints-its-code-1794246017663",
+      "filePath": "src/canvas/emit/react3d.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/everything-meets-in-the-workspace-1794246017731",
+      "label": "Everything meets in the Workspace",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Components, 3D components and Studio renders show in the file tree with their status; opening one jumps to its object on the Canvas and back; renders land in a known folder. A pass over every space so nothing made in one is invisible in another. Also changes src/studio/StudioView.ViewModel.tsx, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 44,
+      "editsPaths": [
+        "src/app/Workspace/WorkspaceView.tsx",
+        "src/canvas/CanvasView.ViewModel.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/picks-are-the-agent-s-context-and-an-ask-box-1794246017795",
+      "label": "Picks are the agent's context, and an Ask box",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Click points, edges or parts and describe the change in plain words; the picks go to the agent as named faces and edges, and the edit lands the same way a manual one does. (From Prompt to scene.)",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 45,
+      "editsPaths": [
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/commands/describeScene.ts",
+        "src/app/AgentChat/AgentChat.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/viewport/askBox.tsx",
+      "label": "askBox.tsx",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/picks-are-the-agent-s-context-and-an-ask-box-1794246017795",
+      "filePath": "src/modeling/viewport/askBox.tsx",
+      "role": "view",
+      "language": "react"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/a-library-of-ready-made-parts-1794246017857",
+      "label": "A library of ready-made parts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Laptop, phone, monitor, desk, room and more as editable starting points, placeable by hand or by command. (From Prompt to scene.)",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 46,
+      "editsPaths": [
+        "src/canvas/board/toolbox.ts",
+        "src/modeling/commands/modelCommands.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/library/partsLibrary.ts",
+      "label": "partsLibrary.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/a-library-of-ready-made-parts-1794246017857",
+      "filePath": "src/modeling/library/partsLibrary.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/library/partsLibrary.test.ts",
+      "label": "partsLibrary.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/a-library-of-ready-made-parts-1794246017857",
+      "filePath": "src/modeling/library/partsLibrary.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/studio-commands-and-skills-that-hand-off-1794246017922",
+      "label": "Studio commands, and skills that hand off",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "model.mjs learns shots, materials, lights, cameras, keyframes and renders, with /studio: commands such as /studio:light and /studio:render. Skills can name each other mid-prompt and pass work along, so one prompt runs from plan to model to shot to code. (From Prompt to scene.) Also changes tools/agentSkills/toolCommands.mjs, from an earlier step.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 47,
+      "editsPaths": [
+        "src/modeling/commands/modelCommands.ts",
+        "tools/agentSkills/registry.mjs"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/studioCommands.ts",
+      "label": "studioCommands.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/studio-commands-and-skills-that-hand-off-1794246017922",
+      "filePath": "src/modeling/commands/studioCommands.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/studioCommands.test.ts",
+      "label": "studioCommands.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/studio-commands-and-skills-that-hand-off-1794246017922",
+      "filePath": "src/modeling/commands/studioCommands.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/end-to-end-the-teaset-1794246017985",
+      "label": "End to end: the teaset",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The acceptance test, typed in Sleipnir's own terminal: \"/planning:plan out a rendered teaset using /studio:lighting and then make it\". The screen jumps as you type, the plan waits for approval and asks questions, the models are built, lit and rendered, and the workspace ends up with its code. The laptop website video from Prompt to scene is the second run.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 48
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/prove-the-kernel-on-one-part-first-1794246338732",
+      "label": "Prove the kernel on one part first",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "A checkpoint before anything depends on it: one box with a fillet built through OpenCascade, end to end, behind a switch. Measures load time, build time and memory, and confirms a face keeps its name when the sketch changes. Settles the design: the kernel loads when an Environment opens (with a \"Preparing 3D\" state), parts stay instant to read once it has loaded, and parts with no kernel features keep today's mesh path. If the numbers are bad, we stop here and reconsider Manifold.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 10,
+      "editsPaths": [
+        "src/modeling/geometry/body.ts",
+        "src/canvas/hooks/useCanvasBoards.ts"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/kernelProof.test.ts",
+      "label": "kernelProof.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/prove-the-kernel-on-one-part-first-1794246338732",
+      "filePath": "src/modeling/kernel/kernelProof.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/the-agent-cli-finds-the-kernel-1794246338854",
+      "label": "The agent CLI finds the kernel",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "OpenCascade is too big to copy into every project. It lives once per user in ~/.sleipnir/kernel/<version>/, copied from the Sleipnir install when a project opens, or downloaded once and checked against a hash. The basic commands and describe still work without it; a command that needs it says what to do. Keeps .sleipnir/model.mjs small.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 11,
+      "editsPaths": [
+        "src/modeling/commands/modelCli.ts",
+        "tools/agentSkills/scaffold.mjs",
+        "tools/agentSkills/buildModelCli.mjs"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/kernelLocator.ts",
+      "label": "kernelLocator.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-agent-cli-finds-the-kernel-1794246338854",
+      "filePath": "src/modeling/commands/kernelLocator.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/kernelLocator.test.ts",
+      "label": "kernelLocator.test.ts",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-agent-cli-finds-the-kernel-1794246338854",
+      "filePath": "src/modeling/commands/kernelLocator.test.ts",
+      "role": "node",
+      "language": "typescript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/moved-points-and-cad-features-work-together-1794246338975",
+      "label": "Moved points and CAD features work together",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Moved corners stay a last step on the mesh, so editing points stays instant. Adding a fillet, shell or cut to a part with moved corners offers Reset or Bake: Bake sews the moved mesh into a solid the kernel can work on. Also fixes a known flaw: corners are stored by outline point number, so adding or removing a point can move the wrong one. They get stable ids, and any that lose their point are dropped with a notice.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 13,
+      "editsPaths": [
+        "src/modeling/geometry/cornerTweaks.ts",
+        "src/document/objects.ts",
+        "src/modeling/geometry/editBody.ts",
+        "src/canvas/panels/FeatureSection.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/the-in-app-agent-can-sculpt-1794246339098",
+      "label": "The in-app agent can sculpt",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "Sleipnir's own chat only knows how to design 2D today. It gets a tool that runs the same model commands and describe, and its command list and instructions learn the /canvas: and /studio: names, so the in-app chat and a terminal agent can do the same things.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 24,
+      "editsPaths": [
+        "electron/agent/tools/registry.cjs",
+        "electron/agent/systemPrompt.cjs",
+        "electron/agentTrail.cjs",
+        "src/app/AgentChat/AgentChat.tsx"
+      ]
+    },
+    {
+      "id": "planned/sleipnir-as-its-own-studio-1794246015230/electron/agent/tools/model.cjs",
+      "label": "model.cjs",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "planned-file",
+      "planned": true,
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "stepId": "plan/sleipnir-as-its-own-studio-1794246015230/the-in-app-agent-can-sculpt-1794246339098",
+      "filePath": "electron/agent/tools/model.cjs",
+      "role": "node",
+      "language": "javascript"
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/loose-ends-in-3d-editing-1794246339232",
+      "label": "Loose ends in 3D editing",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The limits noted along the way: box select stops catching points hidden behind a part; a sketch frame's fill no longer hides the scene in sketch mode; the camera eases into and out of sketch mode; a single frame of a Sketch can be placed from the menu; components inside placed Sketches work; + Sketch stops being duplicated between the left panel and the toolbox; and dragging features to reorder gets its check in the running app.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 28,
+      "editsPaths": [
+        "src/modeling/viewport/selectionModes.ts",
+        "src/modeling/viewport/Viewport3D.tsx",
+        "src/modeling/viewport/SketchInScene.tsx",
+        "src/canvas/panels/sketchMenu.ts",
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/document/placements.ts",
+        "src/canvas/CanvasView.tsx"
+      ]
+    },
+    {
+      "id": "plan/sleipnir-as-its-own-studio-1794246015230/colours-and-first-time-help-1794246339409",
+      "label": "Colours and first-time help",
+      "kind": "proposed",
+      "map": "claude",
+      "type": "plan-step",
+      "description": "The rest of the design critique: status colours and the undefined --accent move onto the theme so they work in light and dark, the context menu's hardcoded red goes, and Sketch, Part, Plane and Environment get a one-line explanation the first time you meet them (the weakest score at 2 of 4). Ends with a full /impeccable critique run, to replace the 31 of 40 that was only a self-assessment.",
+      "status": "draft",
+      "planId": "plan/sleipnir-as-its-own-studio-1794246015230",
+      "order": 30,
+      "editsPaths": [
+        "src/app/AgentChat/AgentChat.tsx",
+        "src/app/AgentChat/ConnectModels.tsx",
+        "src/app/AgentChat/ModelPicker.tsx",
+        "src/app/AgentChat/ToolActivityRow.tsx",
+        "src/app/CommandPalette/CommandPalette.tsx",
+        "src/app/DesignSystem/CodeEditorView.tsx",
+        "src/app/DesignSystem/DeletePathModal.tsx",
+        "src/app/DesignSystem/LeftRailingView.tsx",
+        "src/app/DesignSystem/RenamePathModal.tsx",
+        "src/app/License/UpgradePrompt.tsx",
+        "src/app/ProblemsDock/ProblemsDock.tsx",
+        "src/app/Run/RunControl.tsx",
+        "src/app/Run/runLabels.ts",
+        "src/app/RunDock/RunDock.tsx",
+        "src/app/SettingsView/LicenseSection.tsx",
+        "src/app/SettingsView/SettingsView.tsx",
+        "src/app/SettingsView/UpdatesSection.tsx",
+        "src/app/TitleBar/TitleBar.tsx",
+        "src/app/UIKit/ContextMenu/ContextMenu.tsx",
+        "src/app/Workspace/NewWorkspacePlanModal.tsx",
+        "src/app/Workspace/WorkspaceView.tsx",
+        "src/canvas/CanvasView.tsx",
+        "src/canvas/board/CanvasBoard.tsx",
+        "src/canvas/board/CanvasNodeView.tsx",
+        "src/canvas/board/ComponentLabel.tsx",
+        "src/canvas/board/FrameLabel.tsx",
+        "src/canvas/board/TextEditOverlay.tsx",
+        "src/canvas/panels/CanvasInspector.tsx",
+        "src/canvas/panels/CanvasLayersPanel.tsx",
+        "src/canvas/panels/DocsPane.tsx",
+        "src/canvas/panels/PaintSections.tsx",
+        "src/planning/ActivityPanel.tsx",
+        "src/planning/AddNodeModal.tsx",
+        "src/planning/ApproveStepModal.tsx",
+        "src/planning/DeleteNodeModal.tsx",
+        "src/planning/DeletePlanModal.tsx",
+        "src/planning/DismissWelcomeModal.tsx",
+        "src/planning/MissingPlanningFiles.tsx",
+        "src/planning/PlanningView.tsx",
+        "src/planning/skills/NewSkillModal.tsx",
+        "src/planning/skills/SkillCard.tsx",
+        "src/source-control/CommitGraphView.tsx",
+        "src/source-control/ConstellationView.tsx",
+        "src/source-control/DiffView.tsx",
+        "src/source-control/DiscardFileModal.tsx",
+        "src/source-control/SourceControlView.tsx",
+        "src/source-control/StashDropModal.tsx",
+        "src/source-control/commitGraphLayout.ts",
+        "src/validation/ValidationView.tsx",
+        "src/themes/tactical.css",
+        "src/themes/light.css"
+      ]
     }
   ],
   "edges": [
@@ -7475,6 +10022,861 @@
     {
       "source": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/rename-planning-and-canvas-folders-1793728554348",
       "target": "plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/lift-the-document-model-into-src-document-1793737318384",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/one-word-per-concept-1793816213052",
+      "target": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "target": "planned/sketches-and-environments-1793816162223/src/document/documentKind.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "target": "planned/sketches-and-environments-1793816162223/src/document/documentKind.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "target": "plan/sketches-and-environments-1793816162223/one-picker-for-sketches-and-environments-the-document-decides-the-view-1793816213264",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/one-picker-for-sketches-and-environments-the-document-decides-the-view-1793816213264",
+      "target": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "target": "planned/sketches-and-environments-1793816162223/src/document/placements.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "target": "planned/sketches-and-environments-1793816162223/src/document/placements.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "target": "plan/sketches-and-environments-1793816162223/the-environment-lists-parts-first-1793816213532",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/the-environment-lists-parts-first-1793816213532",
+      "target": "plan/sketches-and-environments-1793816162223/broken-links-and-broken-features-flagged-not-deleted-1793816213656",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/broken-links-and-broken-features-flagged-not-deleted-1793816213656",
+      "target": "plan/sketches-and-environments-1793816162223/the-right-panel-follows-what-is-selected-1793816213795",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/the-right-panel-follows-what-is-selected-1793816213795",
+      "target": "plan/sketches-and-environments-1793816162223/toolbox-and-controls-follow-the-document-1793816213939",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/toolbox-and-controls-follow-the-document-1793816213939",
+      "target": "plan/sketches-and-environments-1793816162223/smoothness-for-curved-solids-1793816214053",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/smoothness-for-curved-solids-1793816214053",
+      "target": "plan/sketches-and-environments-1793816162223/sketch-mode-inside-an-environment-1793816214193",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/sketch-mode-inside-an-environment-1793816214193",
+      "target": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/SketchInScene.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/sketch-mode-inside-an-environment-1793816214193",
+      "target": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "target": "planned/sketches-and-environments-1793816162223/src/modeling/geometry/editBody.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "target": "planned/sketches-and-environments-1793816162223/src/modeling/geometry/editBody.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/display-modes-shaded-edges-wireframe-x-ray-1793831786457",
+      "target": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "target": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/selectionModes.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "target": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/selectionModes.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/one-home-per-control-in-3d-1793837925093",
+      "target": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "target": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/modalTransform.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "target": "planned/sketches-and-environments-1793816162223/src/modeling/viewport/modalTransform.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "target": "plan/sketches-and-environments-1793816162223/the-feature-inspector-1793816214773",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/the-feature-inspector-1793816214773",
+      "target": "planned/sketches-and-environments-1793816162223/src/canvas/panels/FeatureSection.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/the-feature-inspector-1793816214773",
+      "target": "plan/sketches-and-environments-1793816162223/retire-the-board-s-front-view-of-the-scene-1793816214907",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/retire-the-board-s-front-view-of-the-scene-1793816214907",
+      "target": "plan/sketches-and-environments-1793816162223/agents-and-files-speak-sketches-and-environments-1793816215041",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/agents-and-files-speak-sketches-and-environments-1793816215041",
+      "target": "plan/sketches-and-environments-1793816162223/verify-in-the-running-app-1793816215163",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "target": "plan/sketches-and-environments-1793816162223/display-modes-shaded-edges-wireframe-x-ray-1793831786457",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "target": "plan/sketches-and-environments-1793816162223/one-home-per-control-in-3d-1793837925093",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/commands/modelCommands.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/commands/modelCommands.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "target": "planned/prompt-to-scene-1793837965047/tools/agentSkills/buildModelCli.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/model-commands-for-agents-on-the-app-s-own-code-1793837965104",
+      "target": "plan/prompt-to-scene-1793837965047/describe-the-scene-in-a-few-hundred-tokens-1793837965178",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/describe-the-scene-in-a-few-hundred-tokens-1793837965178",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/commands/describeScene.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/describe-the-scene-in-a-few-hundred-tokens-1793837965178",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/commands/describeScene.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/describe-the-scene-in-a-few-hundred-tokens-1793837965178",
+      "target": "plan/prompt-to-scene-1793837965047/the-model-and-sketch-skills-1793837965263",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/batch-commands-and-model-becomes-sculpt-1794243701181",
+      "target": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/commands/pickContext.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/commands/pickContext.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "target": "planned/prompt-to-scene-1793837965047/src/canvas/panels/AskSection.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/picks-are-the-agent-s-context-and-an-ask-box-1793837965386",
+      "target": "plan/prompt-to-scene-1793837965047/a-library-of-ready-made-parts-1793837965485",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-library-of-ready-made-parts-1793837965485",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/partsLibrary.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-library-of-ready-made-parts-1793837965485",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/partsLibrary.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-library-of-ready-made-parts-1793837965485",
+      "target": "plan/prompt-to-scene-1793837965047/cameras-in-an-environment-1793837965577",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/cameras-in-an-environment-1793837965577",
+      "target": "planned/prompt-to-scene-1793837965047/src/document/cameras.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/cameras-in-an-environment-1793837965577",
+      "target": "planned/prompt-to-scene-1793837965047/src/document/cameras.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/cameras-in-an-environment-1793837965577",
+      "target": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "target": "planned/prompt-to-scene-1793837965047/src/document/timeline.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "target": "planned/prompt-to-scene-1793837965047/src/document/timeline.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "target": "planned/prompt-to-scene-1793837965047/src/canvas/timeline/TimelineView.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "target": "planned/prompt-to-scene-1793837965047/src/canvas/timeline/TimelineView.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-timeline-with-keyframes-1793837965668",
+      "target": "plan/prompt-to-scene-1793837965047/a-placed-sketch-shows-its-real-design-and-plays-its-states-1793837973403",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-placed-sketch-shows-its-real-design-and-plays-its-states-1793837973403",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/sketchTexture.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-placed-sketch-shows-its-real-design-and-plays-its-states-1793837973403",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/scene3d/sketchTexture.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/export-to-gltf-1793988082722",
+      "target": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/render/renderScene.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/render/videoExport.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/render/videoExport.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "target": "planned/prompt-to-scene-1793837965047/src/canvas/panels/RenderPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/render-stills-and-video-1793837973483",
+      "target": "plan/prompt-to-scene-1793837965047/the-render-skill-and-skills-that-hand-off-to-each-other-1793837973560",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/the-render-skill-and-skills-that-hand-off-to-each-other-1793837973560",
+      "target": "plan/prompt-to-scene-1793837965047/end-to-end-the-laptop-website-video-1793837973645",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/the-model-and-sketch-skills-1793837965263",
+      "target": "plan/prompt-to-scene-1793837965047/measure-it-plain-three-js-vs-sleipnir-1793988082589",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/measure-it-plain-three-js-vs-sleipnir-1793988082589",
+      "target": "planned/prompt-to-scene-1793837965047/tools/benchmarks/sceneBench.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/measure-it-plain-three-js-vs-sleipnir-1793988082589",
+      "target": "planned/prompt-to-scene-1793837965047/tools/benchmarks/scenePrompts.json",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/a-placed-sketch-shows-its-real-design-and-plays-its-states-1793837973403",
+      "target": "plan/prompt-to-scene-1793837965047/export-to-gltf-1793988082722",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/export-to-gltf-1793988082722",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/export/exportGltf.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/export-to-gltf-1793988082722",
+      "target": "planned/prompt-to-scene-1793837965047/src/modeling/export/exportGltf.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/prompt-to-scene-1793837965047/measure-it-plain-three-js-vs-sleipnir-1793988082589",
+      "target": "plan/prompt-to-scene-1793837965047/batch-commands-and-model-becomes-sculpt-1794243701181",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/terminalSessions.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/terminalSessions.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/terminals-survive-a-reload-1794246015280",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/the-app-comes-back-where-you-were-1794246015338",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-app-comes-back-where-you-were-1794246015338",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/electron/devRestart.cjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/develop-sleipnir-from-inside-sleipnir-1794246015401",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/commands-by-space-one-per-tool-1794246015473",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/commands-by-space-one-per-tool-1794246015473",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/tools/agentSkills/toolCommands.mjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/commands-by-space-one-per-tool-1794246015473",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/one-map-of-commands-spaces-and-buttons-1794246015542",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/one-map-of-commands-spaces-and-buttons-1794246015542",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/commandMap.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/one-map-of-commands-spaces-and-buttons-1794246015542",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/commandMap.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/one-map-of-commands-spaces-and-buttons-1794246015542",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/typing-in-the-terminal-jumps-to-the-space-1794246015610",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/typing-in-the-terminal-jumps-to-the-space-1794246015610",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/commandLine.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/typing-in-the-terminal-jumps-to-the-space-1794246015610",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/Terminal/commandLine.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/typing-in-the-terminal-jumps-to-the-space-1794246015610",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/corner-boxes-on-the-tools-you-type-1794246015682",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/corner-boxes-on-the-tools-you-type-1794246015682",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/UIKit/CommandMark/CommandMark.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/corner-boxes-on-the-tools-you-type-1794246015682",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/watch-the-agent-across-spaces-1794246015749",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/watch-the-agent-across-spaces-1794246015749",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/occKernel.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/occKernel.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-agent-cli-finds-the-kernel-1794246338854",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/kernelBody.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/kernelBody.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/moved-points-and-cad-features-work-together-1794246338975",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/real-cuts-subtract-and-intersect-1794246015945",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/real-cuts-subtract-and-intersect-1794246015945",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/fillet-and-chamfer-1794246016005",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/fillet-and-chamfer-1794246016005",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/shell-1794246016066",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/shell-1794246016066",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/loft-1794246016128",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/loft-1794246016128",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/3d-curves-1794246016195",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/3d-curves-1794246016195",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/viewport/curveTool.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/3d-curves-1794246016195",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/viewport/curveTool.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/3d-curves-1794246016195",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/sweep-along-curves-and-part-edges-1794246016270",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/sweep-along-curves-and-part-edges-1794246016270",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/sweep-with-twist-taper-and-guide-rails-1794246016335",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/sweep-with-twist-taper-and-guide-rails-1794246016335",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/mirror-and-pattern-1794246016412",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/mirror-and-pattern-1794246016412",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/import-glb-and-step-1794246016483",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/import-glb-and-step-1794246016483",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/import/importModel.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/import-glb-and-step-1794246016483",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/import/importModel.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/import-glb-and-step-1794246016483",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/commands-for-every-new-feature-1794246016555",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-in-app-agent-can-sculpt-1794246339098",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/a-shorter-right-panel-1794246016625",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-shorter-right-panel-1794246016625",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/a-tidier-3d-canvas-1794246016691",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-tidier-3d-canvas-1794246016691",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/see-the-part-while-sketching-1794246016754",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/loose-ends-in-3d-editing-1794246339232",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/sketch/constraintSolver.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/sketch/constraintSolver.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/canvas/panels/ConstraintsSection.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/colours-and-first-time-help-1794246339409",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/tests-move-to-the-problems-dock-1794246016886",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/tests-move-to-the-problems-dock-1794246016886",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/app/ProblemsDock/TestsPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/tests-move-to-the-problems-dock-1794246016886",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/StudioView.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/StudioView.ViewModel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/iStudioView.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-studio-space-1794246016956",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/shots-a-third-kind-of-document-1794246017026",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/shots-a-third-kind-of-document-1794246017026",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/shots.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/shots-a-third-kind-of-document-1794246017026",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/shots.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/shots-a-third-kind-of-document-1794246017026",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/materials.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/document/materials.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/MaterialPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/materials-on-parts-1794246017094",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/lighting.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/lighting.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/LightingPanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/lighting-1794246017158",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/cameras-1794246017220",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/cameras-1794246017220",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/cameras.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/cameras-1794246017220",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/cameras.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/cameras-1794246017220",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/timeline.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/timeline.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/TimelinePanel.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-timeline-with-keyframes-1794246017284",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/2d-designs-in-shots-and-on-surfaces-1794246017346",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/2d-designs-in-shots-and-on-surfaces-1794246017346",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/sketchTexture.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/2d-designs-in-shots-and-on-surfaces-1794246017346",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/sketchTexture.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/2d-designs-in-shots-and-on-surfaces-1794246017346",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/path-traced-stills-1794246017408",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/path-traced-stills-1794246017408",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/pathTrace.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/path-traced-stills-1794246017408",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/video-export-1794246017475",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/video-export-1794246017475",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/videoExport.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/video-export-1794246017475",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/studio/videoExport.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/video-export-1794246017475",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/upgrade-an-object-to-a-3d-component-1794246017536",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/upgrade-an-object-to-a-3d-component-1794246017536",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/export-to-glb-1794246017601",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/export-to-glb-1794246017601",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/export/exportGltf.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/export-to-glb-1794246017601",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/export/exportGltf.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/export-to-glb-1794246017601",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/a-3d-component-prints-its-code-1794246017663",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-3d-component-prints-its-code-1794246017663",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/canvas/emit/react3d.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-3d-component-prints-its-code-1794246017663",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/canvas/emit/react3d.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-3d-component-prints-its-code-1794246017663",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/everything-meets-in-the-workspace-1794246017731",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/everything-meets-in-the-workspace-1794246017731",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/picks-are-the-agent-s-context-and-an-ask-box-1794246017795",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/picks-are-the-agent-s-context-and-an-ask-box-1794246017795",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/viewport/askBox.tsx",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/picks-are-the-agent-s-context-and-an-ask-box-1794246017795",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/a-library-of-ready-made-parts-1794246017857",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-library-of-ready-made-parts-1794246017857",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/library/partsLibrary.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-library-of-ready-made-parts-1794246017857",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/library/partsLibrary.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/a-library-of-ready-made-parts-1794246017857",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/studio-commands-and-skills-that-hand-off-1794246017922",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/studio-commands-and-skills-that-hand-off-1794246017922",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/studioCommands.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/studio-commands-and-skills-that-hand-off-1794246017922",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/studioCommands.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/studio-commands-and-skills-that-hand-off-1794246017922",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/end-to-end-the-teaset-1794246017985",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/opencascade-loaded-only-when-needed-1794246015815",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/prove-the-kernel-on-one-part-first-1794246338732",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/prove-the-kernel-on-one-part-first-1794246338732",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/kernel/kernelProof.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/prove-the-kernel-on-one-part-first-1794246338732",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/the-agent-cli-finds-the-kernel-1794246338854",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-agent-cli-finds-the-kernel-1794246338854",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/kernelLocator.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-agent-cli-finds-the-kernel-1794246338854",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/src/modeling/commands/kernelLocator.test.ts",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/parts-built-by-the-kernel-faces-keeping-their-names-1794246015884",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/moved-points-and-cad-features-work-together-1794246338975",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/commands-for-every-new-feature-1794246016555",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/the-in-app-agent-can-sculpt-1794246339098",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/the-in-app-agent-can-sculpt-1794246339098",
+      "target": "planned/sleipnir-as-its-own-studio-1794246015230/electron/agent/tools/model.cjs",
+      "kind": "plan-step"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/see-the-part-while-sketching-1794246016754",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/loose-ends-in-3d-editing-1794246339232",
+      "kind": "sequence"
+    },
+    {
+      "source": "plan/sleipnir-as-its-own-studio-1794246015230/sketch-dimensions-and-constraints-1794246016819",
+      "target": "plan/sleipnir-as-its-own-studio-1794246015230/colours-and-first-time-help-1794246339409",
       "kind": "sequence"
     }
   ]

@@ -8,6 +8,9 @@ import { useScrub } from './useScrub'
  * sideways to change the value, click it to type. See useScrub for the drag
  * (pointer lock, edge wraparound, Shift/Alt/Esc).
  */
+/** A value as a field shows it: six significant digits, four decimals below one — never float dust. */
+const shown = (v: number) => (Math.abs(v) >= 1 ? Number(v.toPrecision(6)) : Number(v.toFixed(4)))
+
 export function NumberField({
   label,
   value,
@@ -51,7 +54,8 @@ export function NumberField({
           type="number"
           className={`${FIELD_CLASS} scrub-field`}
           disabled={disabled}
-          value={value ?? ''}
+          // Shown rounded (a frame drawn at 143% sits at -107.67468564994432 px); typed, exactly as typed.
+          value={value === undefined ? '' : focused ? value : shown(value)}
           min={min}
           max={max}
           {...scrub}

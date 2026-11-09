@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CanvasDocSummary } from '../document/types'
+import type { DocumentKind } from '../document/documentKind'
+import type { IconName } from '../app/UIKit/Icon/Icon'
 
-// Open boards as tabs — the same model as Planning's open plans: closing a tab
+/** A Sketch's icon and an Environment's — on its tab and its picker row. */
+export const KIND_ICON: Record<DocumentKind, IconName> = { sketch: 'canvas', environment: 'box' }
+
+// Open sketches and environments as tabs — the same model as Planning's open plans: closing a tab
 // never deletes anything, the board stays in the BOARDS list to reopen. Which
 // tabs are open (and which is active) is remembered per project on this
 // machine, like the camera is.
@@ -89,7 +94,7 @@ export function useBoardTabs(vm: BoardTabsVm, projectPath: string | null | undef
     .map((id) => vm.docs.find((d) => d.id === id))
     .filter((d): d is CanvasDocSummary => !!d)
     // The open board's own name, not its summary's — a rename shows before it's saved.
-    .map((d) => ({ id: d.id, label: d.id === activeId && vm.doc ? vm.doc.name : d.name, closable: true, icon: 'canvas' as const }))
+    .map((d) => ({ id: d.id, label: d.id === activeId && vm.doc ? vm.doc.name : d.name, closable: true, icon: KIND_ICON[d.kind] }))
 
   return { tabs, activeId, activate, close }
 }

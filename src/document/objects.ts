@@ -12,9 +12,9 @@
 // becomes an Object with one feature when a board is read
 // (migrateLayerSolids), so old boards open as they were.
 
-import { nextId } from './doc'
+import { ancestorsOf, findNode, nextId } from './doc'
 import { childrenOf, type CanvasDoc, type CanvasNode, type NodeId } from './types'
-import type { Placement3D, RevolveAxis, SolidSpec } from './sceneTypes'
+import { PX_PER_METER, type Placement3D, type RevolveAxis, type SolidSpec } from './sceneTypes'
 
 export type ObjectId = string
 export type FeatureId = string
@@ -31,6 +31,33 @@ interface FeatureBase {
   name: string
   op: FeatureOp
   hidden?: boolean
+  /** How finely its curves are flattened into polygons — Medium when absent (see SMOOTHNESS). */
+  smoothness?: Smoothness
+}
+
+/** How many polygons a curved solid is made of: coarse and light, the default, or fine and heavy. */
+export type Smoothness = 'low' | 'medium' | 'high'
+
+/**
+ * What each smoothness means: how far a curve's flat pieces may stray from it
+ * (px — so a big circle gets more pieces than a small one), and how many steps
+ * a full revolve takes. Medium is what every solid was built at before.
+ */
+export const SMOOTHNESS: Record<Smoothness, { tolerance: number; steps: number; label: string }> = {
+  low: { tolerance: 2, steps: 16, label: 'Low' },
+  medium: { tolerance: 0.25, steps: 48, label: 'Medium' },
+  high: { tolerance: 0.04, steps: 128, label: 'High' },
+}
+
+/**
+ * The flattening tolerance a feature builds its curves at. Below a meter it
+ * shrinks with the profile (`size`, its larger side in px), so a small part's
+ * curves get as many pieces as a big one's: an 8 cm mug is as round as a 1 m
+ * drum, not an octagon. A meter and up, it's the smoothness's own.
+ */
+export function toleranceOf(feature: Pick<FeatureBase, 'smoothness'> | null | undefined, size?: number): number {
+  const base = SMOOTHNESS[feature?.smoothness ?? 'medium'].tolerance
+  return size && size > 0 ? base * Math.min(1, Math.max(0.02, size / PX_PER_METER)) : base
 }
 
 /**
@@ -48,7 +75,11 @@ export interface ExtrudeFeature extends FeatureBase, SketchInput {
   kind: 'extrude'
   depth: number
   direction?: 'normal' | 'reverse' | 'symmetric'
+  /** Corners moved on their own (geometry/cornerTweaks.ts): by "outline point:end", px x right, y down, out of the plane. */
+  tweaks?: CornerTweaks
 }
+
+export type CornerTweaks = Record<string, [number, number, number]>
 
 /** Spun about an axis in the sketch's plane (see RevolveAxis). */
 export interface RevolveFeature extends FeatureBase, SketchInput {
@@ -107,6 +138,14 @@ export type DefaultPlane = 'front' | 'top' | 'side'
 export interface SketchSpec {
   plane: PlaneRef
   at?: { u: number; v: number }
+  /** A placed sketch: the Sketch document (and frame in it) its layers come from (document/placements.ts). Absent: a local sketch, drawn here. */
+  link?: SketchLink
+}
+
+/** Where a placed sketch comes from: a Sketch document, and one frame in it or — absent — all of it. */
+export interface SketchLink {
+  doc: string
+  frame?: NodeId
 }
 
 /**
@@ -177,8 +216,16 @@ function nextFeatureName(doc: CanvasDoc, kind: FeatureKind): string {
 }
 
 function featureFrom(doc: CanvasDoc, layerId: NodeId, spec: SolidSpec, keep?: Feature): Feature {
-  const base = { id: keep?.id ?? nextId('feature'), name: keep && keep.kind === spec.kind ? keep.name : nextFeatureName(doc, spec.kind), op: keep?.op ?? ('new' as const), sketchId: layerId }
-  if (spec.kind === 'extrude') return { ...base, kind: 'extrude', depth: spec.depth }
+  const base = {
+    id: keep?.id ?? nextId('feature'),
+    name: keep && keep.kind === spec.kind ? keep.name : nextFeatureName(doc, spec.kind),
+    op: keep?.op ?? ('new' as const),
+    sketchId: layerId,
+    // Kept across an edit of its numbers: whether it's on, and how smooth.
+    ...(keep?.hidden ? { hidden: true } : {}),
+    ...(keep?.smoothness ? { smoothness: keep.smoothness } : {}),
+  }
+  if (spec.kind === 'extrude') return { ...base, kind: 'extrude', depth: spec.depth, ...(keep?.kind === 'extrude' && keep.direction ? { direction: keep.direction } : {}), ...(keep?.kind === 'extrude' && keep.tweaks ? { tweaks: keep.tweaks } : {}) }
   if (spec.kind === 'revolve') return { ...base, kind: 'revolve', axis: spec.axis, angle: spec.angle, steps: spec.steps }
   return { ...base, kind: 'sweep', pathId: spec.pathId, ...(spec.samples ? { samples: spec.samples } : {}) }
 }
@@ -206,13 +253,8 @@ export function setSolidOf(doc: CanvasDoc, layerId: NodeId, spec: SolidSpec | un
   return { ...doc, objects: next }
 }
 
-/**
- * Drops features whose sketch (or path) is gone, and objects left with none —
- * deleting a sketch takes what was built from it, as Onshape does when you
- * delete a sketch and its dependents. Returns `doc` itself when nothing went.
- */
-export function pruneObjects(doc: CanvasDoc): CanvasDoc {
-  if (!doc.objects?.length) return doc
+/** Every layer id on the board, in components' variants too — what a feature's inputs can still be found among. */
+export function aliveLayers(doc: CanvasDoc): Set<NodeId> {
   const alive = new Set<NodeId>()
   const visit = (nodes: CanvasNode[]) => {
     for (const n of nodes) {
@@ -222,14 +264,134 @@ export function pruneObjects(doc: CanvasDoc): CanvasDoc {
   }
   visit(doc.nodes)
   for (const c of doc.components) visit((c.variants ?? []).flatMap((v) => (v?.root ? [v.root] : [])))
-  let changed = false
-  const objects = doc.objects.flatMap((object) => {
-    const features = object.features.filter((f) => inputsOf(f).every((id) => alive.has(id)))
-    if (features.length === object.features.length) return [object]
-    changed = true
-    return features.length ? [{ ...object, features }] : []
+  return alive
+}
+
+/**
+ * Why a feature can't be built — its sketch or path was deleted — or null
+ * when it can. A broken feature stays in its part's list, marked, and the
+ * part is built without it (Onshape's red feature); deleting what it reads
+ * never deletes it. Undo brings the sketch back, and the feature with it.
+ */
+export function featureProblem(feature: Feature, alive: Set<NodeId>): string | null {
+  if (feature.kind === 'loft') return feature.sketchIds.every((id) => alive.has(id)) ? null : 'A sketch it lofts through was deleted'
+  if (!alive.has(feature.sketchId) || feature.regions?.some((id) => !alive.has(id))) return 'Its sketch was deleted'
+  if (feature.kind === 'sweep' && !alive.has(feature.pathId)) return 'The path it follows was deleted'
+  return null
+}
+
+/** Every broken feature on the board, by id, with why (see featureProblem). */
+export function brokenFeatures(doc: CanvasDoc): Map<FeatureId, string> {
+  const out = new Map<FeatureId, string>()
+  if (!doc.objects?.length) return out
+  const alive = aliveLayers(doc)
+  for (const object of doc.objects) {
+    for (const feature of object.features) {
+      const problem = featureProblem(feature, alive)
+      if (problem) out.set(feature.id, problem)
+    }
+  }
+  return out
+}
+
+/** Renames a part. */
+export function renameObject(doc: CanvasDoc, objectId: ObjectId, name: string): CanvasDoc {
+  return { ...doc, objects: objectsOf(doc).map((o) => (o.id === objectId ? { ...o, name } : o)) }
+}
+
+/** The part that reads a layer — as a feature's sketch, region or path — and that feature. */
+export function partReading(doc: CanvasDoc, layerId: NodeId): { object: CanvasObject; feature: Feature } | null {
+  for (const object of objectsOf(doc)) {
+    for (const feature of object.features) if (inputsOf(feature).includes(layerId)) return { object, feature }
+  }
+  return null
+}
+
+/** Whether a plane is, through any offsets, a face of this part. */
+function onFaceOf(ref: PlaneRef | undefined, objectId: ObjectId): boolean {
+  if (!ref) return false
+  if (ref.kind === 'face') return ref.objectId === objectId
+  return ref.kind === 'offset' ? onFaceOf(ref.from, objectId) : false
+}
+
+/**
+ * Where a part's own placement carries a layer it builds: the part's
+ * placement — or null when it has none, or when the layer's sketch stands on
+ * a face of that same part, whose plane has moved with it already.
+ */
+export function partPlacementFor(doc: CanvasDoc, object: CanvasObject, layerId: NodeId): Placement3D | null {
+  if (!object.placement) return null
+  const top = ancestorsOf(doc, layerId)[0] ?? findNode(doc, layerId)
+  return onFaceOf(top?.sketch?.plane, object.id) ? null : object.placement
+}
+
+/** The same, from the layer alone: the placement of the part that reads it. */
+export function partPlacementOf(doc: CanvasDoc, layerId: NodeId): Placement3D | null {
+  const reading = partReading(doc, layerId)
+  return reading ? partPlacementFor(doc, reading.object, layerId) : null
+}
+
+/** Moves a part as a whole (G / R / S on a part); undefined puts it back where its sketches stand it. */
+export function setPartPlacement(doc: CanvasDoc, objectId: ObjectId, placement: Placement3D | undefined): CanvasDoc {
+  return { ...doc, objects: objectsOf(doc).map((o) => (o.id === objectId ? { ...o, placement } : o)) }
+}
+
+/** Deletes one feature; a part left with none goes with it. */
+export function removeFeature(doc: CanvasDoc, featureId: FeatureId): CanvasDoc {
+  if (!objectsOf(doc).some((o) => o.features.some((f) => f.id === featureId))) return doc
+  const objects = objectsOf(doc).flatMap((object) => {
+    const features = object.features.filter((f) => f.id !== featureId)
+    return features.length === object.features.length ? [object] : features.length ? [{ ...object, features }] : []
   })
-  return changed ? { ...doc, objects } : doc
+  return { ...doc, objects }
+}
+
+/** A new feature on an existing part, built from `layerId` and added to what's there. */
+export function addFeature(doc: CanvasDoc, objectId: ObjectId, layerId: NodeId, spec: SolidSpec): { doc: CanvasDoc; featureId: FeatureId } {
+  const feature: Feature = { ...featureFrom(doc, layerId, spec), op: 'add' }
+  return { doc: { ...doc, objects: objectsOf(doc).map((o) => (o.id === objectId ? { ...o, features: [...o.features, feature] } : o)) }, featureId: feature.id }
+}
+
+/** Moves a feature to `index` in its part's list — the part rebuilds in the new order. */
+export function moveFeature(doc: CanvasDoc, featureId: FeatureId, index: number): CanvasDoc {
+  const owner = objectsOf(doc).find((o) => o.features.some((f) => f.id === featureId))
+  if (!owner) return doc
+  const from = owner.features.findIndex((f) => f.id === featureId)
+  const to = Math.max(0, Math.min(owner.features.length - 1, index))
+  if (from === to) return doc
+  const features = [...owner.features]
+  const [moved] = features.splice(from, 1)
+  features.splice(to, 0, moved)
+  // The first feature starts the part: it can only be a new body; what it displaced adds to it.
+  const ordered = features.map((f, i) => (i === 0 ? (f.op === 'new' ? f : { ...f, op: 'new' as const }) : f.op === 'new' ? { ...f, op: 'add' as const } : f))
+  return { ...doc, objects: objectsOf(doc).map((o) => (o.id === owner.id ? { ...o, features: ordered } : o)) }
+}
+
+/** Deletes a part with all its features; the sketches they read stay, flat again. */
+export function removeObject(doc: CanvasDoc, objectId: ObjectId): CanvasDoc {
+  if (!objectsOf(doc).some((o) => o.id === objectId)) return doc
+  return { ...doc, objects: objectsOf(doc).filter((o) => o.id !== objectId) }
+}
+
+/**
+ * Re-pick: a broken feature reads `layerId` in place of what was deleted —
+ * its sketch (as a whole outline again), or a sweep's path.
+ */
+export function repickFeatureInput(doc: CanvasDoc, featureId: FeatureId, input: 'sketch' | 'path', layerId: NodeId): CanvasDoc {
+  const alive = aliveLayers(doc)
+  return {
+    ...doc,
+    objects: objectsOf(doc).map((object) => ({
+      ...object,
+      features: object.features.map((f): Feature => {
+        if (f.id !== featureId) return f
+        if (f.kind === 'loft') return { ...f, sketchIds: f.sketchIds.map((id) => (alive.has(id) ? id : layerId)) }
+        if (input === 'path') return f.kind === 'sweep' ? { ...f, pathId: layerId } : f
+        const { regions: _regions, ...rest } = f
+        return { ...rest, sketchId: layerId }
+      }),
+    })),
+  }
 }
 
 /**
@@ -263,4 +425,24 @@ export function migrateLayerSolids(doc: CanvasDoc): CanvasDoc {
   let next: CanvasDoc = { ...doc, nodes, components }
   for (const { id, name, solid } of found) next = setSolidOf(next, id, solid, name)
   return next
+}
+
+/**
+ * Changes one feature wherever it is — hiding it (Onshape's suppress: the
+ * object is built as if it weren't there, and its sketch shows flat), or any
+ * other field. Returns `doc` itself when there's no such feature.
+ */
+export function updateFeature(doc: CanvasDoc, featureId: FeatureId, patch: Partial<Feature>): CanvasDoc {
+  let changed = false
+  const objects = objectsOf(doc).map((object) => {
+    if (!object.features.some((f) => f.id === featureId)) return object
+    changed = true
+    return { ...object, features: object.features.map((f) => (f.id === featureId ? ({ ...f, ...patch } as Feature) : f)) }
+  })
+  return changed ? { ...doc, objects } : doc
+}
+
+/** Every layer some object's features read — its sketches and their paths. */
+export function usedLayers(doc: CanvasDoc): Set<NodeId> {
+  return new Set(objectsOf(doc).flatMap((o) => o.features.flatMap(inputsOf)))
 }

@@ -4,6 +4,24 @@
 // crosses the bridge.
 const { contextBridge, ipcRenderer } = require('electron')
 
+// After a dev restart, this window's remembered state goes back before the page first renders (electron/devRestart.cjs).
+try {
+  const carried = ipcRenderer.sendSync('dev:takeSession')
+  for (const [key, value] of Object.entries(carried ?? {})) window.sessionStorage.setItem(key, value)
+} catch {
+  // Starts fresh.
+}
+
+contextBridge.exposeInMainWorld('devAPI', {
+  dueFiles: () => ipcRenderer.invoke('dev:dueFiles'),
+  onDue: (callback) => {
+    const listener = (_e, files) => callback(files)
+    ipcRenderer.on('dev:due', listener)
+    return () => ipcRenderer.removeListener('dev:due', listener)
+  },
+  restart: (session) => ipcRenderer.invoke('dev:restart', session),
+})
+
 contextBridge.exposeInMainWorld('electronAPI', {
   regenerateGraph: () => ipcRenderer.invoke('sleipnir:regenerateGraph'),
   readFile: (filePath) => ipcRenderer.invoke('sleipnir:readFile', filePath),
@@ -136,11 +154,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 // electronAPI above. No web equivalent exists (see electron/terminal.cjs).
 contextBridge.exposeInMainWorld('terminalAPI', {
   spawn: (cols, rows) => ipcRenderer.invoke('terminal:spawn', cols, rows),
+  list: () => ipcRenderer.invoke('terminal:list'),
+  attach: (id) => ipcRenderer.invoke('terminal:attach', id),
   write: (id, data) => ipcRenderer.send('terminal:write', id, data),
   resize: (id, cols, rows) => ipcRenderer.send('terminal:resize', id, cols, rows),
   kill: (id) => ipcRenderer.send('terminal:kill', id),
   onData: (id, callback) => {
-    const listener = (_e, dataId, chunk) => { if (dataId === id) callback(chunk) }
+    const listener = (_e, dataId, chunk, end) => { if (dataId === id) callback(chunk, end) }
     ipcRenderer.on('terminal:data', listener)
     return () => ipcRenderer.removeListener('terminal:data', listener)
   },

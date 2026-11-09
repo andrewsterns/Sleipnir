@@ -10,6 +10,7 @@ const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 const { randomUUID } = require('node:crypto')
 const terminal = require('./terminal.cjs')
+const devRestart = require('./devRestart.cjs')
 const chat = require('./chat.cjs')
 const preview = require('./preview.cjs')
 const runTargets = require('./runTargets.cjs')
@@ -596,15 +597,52 @@ function registerIpcHandlers() {
     // Open the shell in the calling window's project (falling back to the
     // app's own cwd when that window has none) — part of per-window isolation.
     const { id, term } = terminal.spawnSession(cols, rows, rootForSender(event.sender) || process.cwd(), event.sender.id)
-    const sender = event.sender
-    term.onData((data) => {
-      if (!sender.isDestroyed()) sender.send('terminal:data', id, data)
-    })
-    term.onExit(({ exitCode }) => {
-      if (!sender.isDestroyed()) sender.send('terminal:exit', id, exitCode)
-    })
+    wireTerminal(id, term, event.sender)
     return { id }
   })
+  // Developing Sleipnir itself (electron/devRestart.cjs). The preload asks for its carried state synchronously,
+  // so the page has it before its first render.
+  ipcMain.on('dev:takeSession', (event) => {
+    const wcId = event.sender.id
+    let session = null
+    if (!carriedSeen.has(wcId)) {
+      carriedSeen.add(wcId)
+      if (carried) {
+        carriedFor.set(wcId, carried.terminals ?? [])
+        session = carried.session ?? null
+        carried = null
+      }
+    }
+    event.returnValue = session
+  })
+  ipcMain.handle('dev:dueFiles', () => (isDev ? dueFiles() : null))
+  ipcMain.handle('dev:restart', async (event, session) => {
+    if (!isDev) return
+    const terminals = await devRestart.terminalsToCarry(terminal.describeForWindow(event.sender.id))
+    devRestart.saveCarry(app.getPath('userData'), { session, terminals })
+    terminal.killAll()
+    if (process.env.SLEIPNIR_DEV_LAUNCHER) app.exit(devRestart.RESTART_EXIT_CODE)
+    else {
+      app.relaunch()
+      app.exit(0)
+    }
+  })
+  // A reloaded page finds the shells still running for its window, and replays them.
+  ipcMain.handle('terminal:list', (event) => {
+    // After a restart the page's first look is what brings its shells back.
+    const carriedShells = carriedFor.get(event.sender.id)
+    if (carriedShells) {
+      carriedFor.delete(event.sender.id)
+      for (const shell of carriedShells) {
+        const notice = '\r\n\x1b[2m(Sleipnir restarted)\x1b[0m\r\n'
+        const { id, term } = terminal.spawnSession(80, 24, shell.cwd, event.sender.id, shell.scrollback + notice)
+        wireTerminal(id, term, event.sender)
+        if (shell.command) setTimeout(() => terminal.write(id, `${shell.command}\r`), 700)
+      }
+    }
+    return terminal.listForWindow(event.sender.id)
+  })
+  ipcMain.handle('terminal:attach', (event, id) => terminal.attach(id, event.sender.id))
   ipcMain.on('terminal:write', (_e, id, data) => terminal.write(id, data))
   ipcMain.on('terminal:resize', (_e, id, cols, rows) => terminal.resize(id, cols, rows))
   ipcMain.on('terminal:kill', (_e, id) => terminal.kill(id))
@@ -1056,6 +1094,22 @@ async function confirmCloseAll() {
 // blank File > New Window. Its webContents id is what every workspace IPC
 // call keys off (event.sender.id), so it's registered here before the page
 // even loads, well before the renderer's first getWorkspaceInfo().
+/** Streams a shell's output and exit to the window that owns it. */
+function wireTerminal(id, term, sender) {
+  term.onData((data) => {
+    if (!sender.isDestroyed()) sender.send('terminal:data', id, data, terminal.endOf(id))
+  })
+  term.onExit(({ exitCode }) => {
+    if (!sender.isDestroyed()) sender.send('terminal:exit', id, exitCode)
+  })
+}
+
+// What the last dev restart carried, until the first window takes it, and each window's shells until its page asks.
+let carried = null
+const carriedSeen = new Set()
+const carriedFor = new Map()
+let dueFiles = () => []
+
 function createWindow(initialRoot = null, initialName = null) {
   const win = new BrowserWindow({
     width: 1400,
@@ -1132,6 +1186,12 @@ function createWindow(initialRoot = null, initialName = null) {
 }
 
 app.whenReady().then(async () => {
+  if (isDev) {
+    carried = devRestart.takeCarry(app.getPath('userData'))
+    dueFiles = devRestart.watchMainProcess(path.join(__dirname, '..'), (files) => {
+      for (const win of BrowserWindow.getAllWindows()) win.webContents.send('dev:due', files)
+    })
+  }
   // Sleipnir has no light theme in Electron chrome — this only affects the
   // OS-drawn title bar (Windows defaults it to light regardless of the
   // page's own background), not the web content.

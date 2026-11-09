@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { CanvasDoc, CanvasNode } from '../../document/types'
-import { featureOf, migrateLayerSolids, objectsOf, pruneObjects, setSolidOf, solidOf } from '../../document/objects'
+import { brokenFeatures, featureOf, migrateLayerSolids, moveFeature, objectsOf, removeFeature, removeObject, repickFeatureInput, setSolidOf, solidOf } from '../../document/objects'
 import { parseDoc } from './store'
 
 const shape = (id: string, extra: Record<string, unknown> = {}): CanvasNode =>
@@ -60,10 +60,44 @@ describe("a layer's solid as a feature", () => {
     expect(objectsOf(doc).map((o) => o.features[0].name)).toEqual(['Extrude 1', 'Extrude 2'])
   })
 
-  it('drops what was built from a deleted sketch or path', () => {
+  it('keeps what was built from a deleted sketch or path, marked broken with why', () => {
     const doc = migrateLayerSolids(docOf([shape('box', { solid: { kind: 'extrude', depth: 1 } }), shape('ring', { solid: { kind: 'sweep', pathId: 'path' } }), shape('path')]))
-    const withoutPath = pruneObjects({ ...doc, nodes: doc.nodes.filter((n) => n.id !== 'path') })
-    expect(objectsOf(withoutPath).map((o) => o.name)).toEqual(['box'])
-    expect(pruneObjects(doc)).toBe(doc)
+    expect(brokenFeatures(doc).size).toBe(0)
+    const withoutPath = { ...doc, nodes: doc.nodes.filter((n) => n.id !== 'path') }
+    expect(objectsOf(withoutPath).map((o) => o.name)).toEqual(['box', 'ring'])
+    const ring = objectsOf(withoutPath)[1].features[0]
+    expect([...brokenFeatures(withoutPath)]).toEqual([[ring.id, 'The path it follows was deleted']])
+    const withoutBox = { ...doc, nodes: doc.nodes.filter((n) => n.id !== 'box') }
+    expect([...brokenFeatures(withoutBox).values()]).toEqual(['Its sketch was deleted'])
+  })
+
+  it('repairs a broken feature by re-picking what it reads, or deletes it and its emptied part', () => {
+    const doc = migrateLayerSolids(docOf([shape('ring', { solid: { kind: 'sweep', pathId: 'path' } }), shape('path'), shape('rail')]))
+    const broken = { ...doc, nodes: doc.nodes.filter((n) => n.id !== 'path') }
+    const id = objectsOf(broken)[0].features[0].id
+    const fixed = repickFeatureInput(broken, id, 'path', 'rail')
+    expect(brokenFeatures(fixed).size).toBe(0)
+    expect(objectsOf(fixed)[0].features[0]).toMatchObject({ kind: 'sweep', pathId: 'rail', sketchId: 'ring' })
+    expect(objectsOf(removeFeature(broken, id))).toEqual([])
+    expect(removeFeature(broken, 'nope')).toBe(broken)
+  })
+})
+
+describe('the part list, edited', () => {
+  it('reorders a part’s features, the first one always starting the part', () => {
+    let doc = docOf([shape('a'), shape('b')])
+    doc = setSolidOf(doc, 'a', { kind: 'extrude', depth: 1 }, 'Part')
+    const part = objectsOf(doc)[0]
+    doc = { ...doc, objects: [{ ...part, features: [...part.features, { ...part.features[0], id: 'f2', name: 'Extrude 2', sketchId: 'b', op: 'add' as const }] }] }
+    const moved = moveFeature(doc, 'f2', 0)
+    expect(objectsOf(moved)[0].features.map((f) => [f.name, f.op])).toEqual([['Extrude 2', 'new'], ['Extrude 1', 'add']])
+    expect(moveFeature(doc, 'f2', 1)).toBe(doc)
+  })
+
+  it('deletes a part and keeps its sketches', () => {
+    const doc = setSolidOf(docOf([shape('a')]), 'a', { kind: 'extrude', depth: 1 }, 'Part')
+    const gone = removeObject(doc, objectsOf(doc)[0].id)
+    expect(objectsOf(gone)).toEqual([])
+    expect(gone.nodes.map((n) => n.id)).toEqual(['a'])
   })
 })

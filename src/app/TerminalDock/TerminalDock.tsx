@@ -3,6 +3,7 @@ import { Frame } from '../UIKit/Frame/Frame'
 import { Icon } from '../UIKit/Icon/Icon'
 import { Terminal } from '../lazyViews'
 import { isTerminalAvailable } from '../Terminal/iTerminal'
+import { tabsFromSessions } from '../Terminal/terminalSessions'
 import { DOCK_PANEL_HEIGHT, LAYER, STATUS_BAR_HEIGHT } from '../shellLayout'
 
 const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
@@ -16,9 +17,10 @@ interface TerminalDockProps {
 // Mounted once at the App shell level, not per-page. Each terminal tab's
 // <Terminal /> stays mounted for the app's lifetime (hidden via CSS when it
 // isn't the active tab, and the whole panel is hidden — not unmounted — when
-// closed), so every shell process survives tab-switching and panel-hiding.
-// Closing a tab explicitly is the only thing that unmounts a <Terminal /> and
-// kills its shell.
+// closed), so every shell process survives tab-switching and panel-hiding. The
+// shells also outlive the page: after a reload this finds the ones still
+// running and gives each its tab back. Closing a tab is the only thing that
+// ends its shell.
 export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }) => {
   const [everOpened, setEverOpened] = useState(false)
   // Built the first time it opens (from the status bar), then kept.
@@ -28,6 +30,10 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
   const [terminals, setTerminals] = useState<number[]>([])
   const [activeId, setActiveId] = useState<number | null>(null)
   const nextId = useRef(1)
+  // Which shell each tab shows: sessions found after a reload (read when the tab mounts), and new ones as they report in.
+  const sessions = useRef(new Map<number, string>())
+  // Whether the running shells have been asked for yet: a first terminal mustn't start before the answer.
+  const [listed, setListed] = useState(false)
   /** Scopes the focus-on-open query to this panel. */
   const panelRef = useRef<HTMLElement>(null)
   const available = isTerminalAvailable()
@@ -39,6 +45,9 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
   }
 
   const closeTerminal = (id: number) => {
+    const session = sessions.current.get(id)
+    if (session) window.terminalAPI?.kill(session)
+    sessions.current.delete(id)
     setTerminals((ts) => {
       const idx = ts.indexOf(id)
       const next = ts.filter((t) => t !== id)
@@ -50,11 +59,31 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
     })
   }
 
+  // The shells still running from before a page reload come back as tabs.
+  useEffect(() => {
+    if (!available) return
+    let cancelled = false
+    void window.terminalAPI!.list().then((running) => {
+      if (cancelled) return
+      const tabs = tabsFromSessions(running, nextId.current)
+      nextId.current += tabs.length
+      for (const tab of tabs) sessions.current.set(tab.key, tab.sessionId)
+      if (tabs.length) {
+        setTerminals(tabs.map((t) => t.key))
+        setActiveId(tabs[tabs.length - 1].key)
+      }
+      setListed(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [available])
+
   // First open (or reopening after every tab was closed) spawns one terminal.
   useEffect(() => {
-    if (open && everOpened && available && terminals.length === 0) addTerminal()
+    if (open && everOpened && available && listed && terminals.length === 0) addTerminal()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, everOpened, available, terminals.length])
+  }, [open, everOpened, available, listed, terminals.length])
 
   // Opening the panel puts the caret in the shell, the way Ctrl+` does in VS
   // Code — a terminal you have to click before you can type in is half a
@@ -166,7 +195,7 @@ export const TerminalDock: React.FC<TerminalDockProps> = ({ open, onOpenChange }
                   style={{ position: 'absolute', inset: 0, display: id === activeId ? 'flex' : 'none' }}
                 >
                   <Suspense fallback={null}>
-                    <Terminal onExit={() => closeTerminal(id)} />
+                    <Terminal sessionId={sessions.current.get(id)} onSession={(session) => sessions.current.set(id, session)} onExit={() => closeTerminal(id)} />
                   </Suspense>
                 </div>
               ))

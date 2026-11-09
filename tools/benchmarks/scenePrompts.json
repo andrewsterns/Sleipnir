@@ -1,0 +1,33 @@
+{
+  "note": "One scene and three follow-up edits, each with an exact answer the checker can measure. Meters, Y up, the user sits at +Z. Both arms get the same words; only 'where' differs.",
+  "where": {
+    "plain": "Write it as scene.mjs in this folder: its default export is a function taking no arguments that returns a three.js Object3D holding one named Mesh per part (three is installed; import it from 'three'). Name each mesh exactly as the part is named below. Node can import scene.mjs, so check your work by running it.",
+    "sleipnir": "Build it in a new Environment called \"Bench\", using the instructions in .claude/commands/sculpt.md. Name each part exactly as it is named below."
+  },
+  "followUp": {
+    "plain": "Update scene.mjs.",
+    "sleipnir": "Update the Environment \"Bench\"."
+  },
+  "stages": [
+    {
+      "name": "build",
+      "prompt": "Model a laptop on a desk. Y is up, the floor is Y = 0, the user sits toward +Z, and everything is centered on X = 0 and Z = 0.\n- \"Desk top\": 1.2 wide (X), 0.6 deep (Z), 0.03 thick, its top surface at Y = 0.75.\n- \"Leg 1\", \"Leg 2\", \"Leg 3\", \"Leg 4\": each 0.05 × 0.05 in plan, from the floor up to the underside of the desk top, flush with the desk top's four corners.\n- \"Laptop base\": 0.34 wide, 0.24 deep, 0.015 thick, resting on the desk, centered.\n- \"Lid\": the same 0.34 × 0.24 footprint, 0.008 thick, hinged along the back top edge of the base (Y = 0.765, Z = -0.12). Its opening angle is 110°, where 0° is closed flat on top of the base and 90° is straight up; so it leans 20° back, away from the user. The back edge of the lid's inner face (the face that touches the base when closed) lies on the hinge line.",
+      "state": { "thickness": 0.008, "angle": 110, "dx": 0 }
+    },
+    {
+      "name": "thicker lid",
+      "prompt": "Make the Lid 0.012 thick. It grows outward: its inner face and the hinge stay exactly where they are.",
+      "state": { "thickness": 0.012, "angle": 110, "dx": 0 }
+    },
+    {
+      "name": "open further",
+      "prompt": "Open the Lid 20° further about its hinge, so its opening angle is 130°.",
+      "state": { "thickness": 0.012, "angle": 130, "dx": 0 }
+    },
+    {
+      "name": "move laptop",
+      "prompt": "Move the whole laptop (Laptop base and Lid together) 0.2 toward -X. The desk stays where it is.",
+      "state": { "thickness": 0.012, "angle": 130, "dx": -0.2 }
+    }
+  ]
+}

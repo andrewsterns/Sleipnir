@@ -285,6 +285,8 @@ function main() {
             : name === 'SessionStart'
             ? sessionEntry({ agent: 'claude', session, root })
             : entryFor({ agent: 'claude', session, tool: stopping ? undefined : event.tool_name, input: event.tool_input, root })
+      // In a Sleipnir terminal: which conversation this terminal holds, so a restart can resume it.
+      if (process.env.SLEIPNIR_TERMINAL && event.session_id) Object.assign(entry, { terminal: process.env.SLEIPNIR_TERMINAL, conversation: event.session_id })
       appendTrail(root, entry)
     } catch {
       // Watching must never get in the agent's way.

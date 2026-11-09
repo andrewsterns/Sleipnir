@@ -2,6 +2,7 @@ import React from 'react'
 import { Icon, type IconName } from '../UIKit/Icon/Icon'
 import { STATUS_BAR_HEIGHT } from '../shellLayout'
 import type { ProblemsSummary } from '../ProblemsDock/ProblemsDock'
+import { DevRestartButton } from './DevRestartButton'
 
 const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
@@ -41,7 +42,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({ activeDock, onToggleDock, 
         ...UI_FONT,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>{runControl}</div>
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+        {runControl}
+        <DevRestartButton />
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 0 }}>
         {problems.text && activeDock !== 'problems' && (

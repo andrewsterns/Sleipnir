@@ -1,22 +1,20 @@
 // What each layer is in 3D, without three.js: its mesh (the solid its modifier
 // makes, or its outline lying flat), the tubes swept along a path, the color
-// it is drawn in, and the scene's triangle count. Shared by the 3D viewport and
-// the 2D board, which draws a solid as the front camera sees it
-// (board/ProjectedSolid.tsx) — so neither needs the other's renderer.
+// it is drawn in, and the scene's triangle count — what the 3D viewport draws,
+// and what the inspector counts.
 
 import type { CanvasDoc, CanvasNode, NodeId } from '../../document/types'
 import { isVectorNode } from '../../document/types'
 import { isPaintVisible } from '../../document/paint'
 import { cssColor } from '../../document/cssValue'
+import { DEFAULT_FRAME_FILL } from '../../document/doc'
 import { guidePolyline } from '../../document/pathGuide'
 import { shapeOf } from '../geometry/shape'
 import { flatMesh, type Mesh } from '../geometry/mesh'
 import { extrude, revolve, sweep, triangleCount } from '../geometry/modifiers'
+import { extrudeShift, tweakMesh } from '../geometry/cornerTweaks'
 import { PX_PER_METER } from '../../document/sceneTypes'
-import { isRigid, type XY } from '../../document/rotation'
-import { placementOf } from '../../document/placement'
-import { frontFaces, frontMatrix, type FrontFace } from '../../document/frontView'
-import { featureOf, objectsOf, solidOf } from '../../document/objects'
+import { featureOf, objectsOf, solidOf, toleranceOf } from '../../document/objects'
 
 /** Every layer's geometry, found once per layer object — an unchanged layer keeps its mesh. */
 const meshCache = new WeakMap<CanvasNode, { feature: unknown; pathKey: unknown; w: number; h: number; mesh: Mesh | null }>()
@@ -35,10 +33,18 @@ export function layerMesh(node: CanvasNode, doc: CanvasDoc, size: { w: number; h
   if (cached && cached.feature === feature && cached.pathKey === pathKey && cached.w === size.w && cached.h === size.h) return cached.mesh
   let mesh: Mesh | null = null
   const sized = size.w === node.rect.w && size.h === node.rect.h ? node : { ...node, rect: { ...node.rect, w: size.w, h: size.h } }
-  const shape = shapeOf(sized)
+  // Sized as body.ts sizes it (the layer's own rect), so the mesh drawn and the body picked stay one.
+  const shape = shapeOf(sized, toleranceOf(feature, Math.max(node.rect.w, node.rect.h)))
   if (shape) {
     const box = { w: size.w, h: size.h }
-    if (solid?.kind === 'extrude') mesh = extrude(shape, box, solid.depth * PX_PER_METER)
+    if (solid?.kind === 'extrude') {
+      // As body.ts builds it: moved corners carried, and pushed back when reversed or both ways.
+      const depth = solid.depth * PX_PER_METER
+      const extruded = feature?.kind === 'extrude' ? feature : null
+      const built = tweakMesh(extrude(shape, box, depth), node, depth, extruded?.tweaks)
+      const shift = extruded ? extrudeShift(extruded, depth) : 0
+      mesh = shift ? { ...built, positions: built.positions.map((v, i) => (i % 3 === 2 ? v + shift : v)) } : built
+    }
     else if (solid?.kind === 'revolve') mesh = revolve(shape, box, solid.axis, solid.angle, solid.steps)
     else if (solid?.kind === 'sweep') mesh = pathKey ? null : flatMesh(shape, box)
     else mesh = flatMesh(shape, box)
@@ -48,8 +54,13 @@ export function layerMesh(node: CanvasNode, doc: CanvasDoc, size: { w: number; h
 }
 
 /** The tube a swept profile makes along `path`, in the path layer's plane (px, y up). */
-export function sweptMesh(profile: CanvasNode, path: CanvasNode): Mesh | null {
-  const shape = shapeOf(profile)
+/** The tolerance a sweep's profile is flattened at — its feature's smoothness at its size, as body.ts builds it. */
+export function sweepTolerance(doc: CanvasDoc, profile: CanvasNode): number {
+  return toleranceOf(featureOf(doc, profile.id)?.feature, Math.max(profile.rect.w, profile.rect.h))
+}
+
+export function sweptMesh(profile: CanvasNode, path: CanvasNode, tolerance?: number): Mesh | null {
+  const shape = shapeOf(profile, tolerance)
   if (!shape || !isVectorNode(path)) return null
   const { points, closed } = guidePolyline(path)
   // guidePolyline places the path in its parent's space; the tube lives in the path's own.
@@ -100,6 +111,8 @@ export function surfaceOf(node: CanvasNode, solid = false): { css: string; opaci
   if (fill.type === 'linear' || fill.type === 'radial' || fill.type === 'angular') {
     return fill.stops.length ? { css: cssColor(fill.stops[0].color), opacity: own * layer } : null
   }
+  // A frame's default fill is the app's panel colour — near black in the dark theme. As a solid's material it reads as a hole, so it's clay until a colour is chosen.
+  if (solid && fill.color === DEFAULT_FRAME_FILL) return { css: CLAY, opacity: own * layer }
   return { css: cssColor(fill.color), opacity: own * layer }
 }
 
@@ -128,7 +141,7 @@ export function sceneTriangles(doc: CanvasDoc): number {
       const mesh = layerMesh(n, doc)
       if (mesh) total += triangleCount(mesh)
       for (const profile of sweeps.get(n.id) ?? []) {
-        const tube = sweptMesh(profile, n)
+        const tube = sweptMesh(profile, n, sweepTolerance(doc, profile))
         if (tube) total += triangleCount(tube)
       }
       if (n.kind === 'frame') visit(n.children)
@@ -136,88 +149,4 @@ export function sceneTriangles(doc: CanvasDoc): number {
   }
   visit(doc.nodes)
   return total
-}
-
-// ── Solids on the 2D board ─────────────────────────────────────────────────
-
-/** One solid surface of a top-level layer as the front camera sees it — the layer's own, or a tube swept along it. */
-export interface ProjectedSurface {
-  /** The layer a click on it selects: the solid's own layer, or a tube's profile (as in 3D). */
-  id: NodeId
-  faces: FrontFace[]
-  css: string
-  opacity: number
-}
-
-/**
- * Whether the 2D board draws a top-level layer as its projected solid rather
- * than as its flat 2D self. A revolve never looks like its outline. An extrude
- * does only while its plane faces the front (its front face is the outline),
- * so it switches once the plane turns. A swept profile has no solid of its own
- * — its tube is drawn with the path it follows.
- */
-export function drawsAsSolid(node: CanvasNode, doc: CanvasDoc): boolean {
-  const solid = solidOf(doc, node.id)
-  if (!solid || node.hidden) return false
-  if (solid.kind === 'revolve') return true
-  if (solid.kind === 'extrude') return !!node.space && !isRigid(frontMatrix(node.space))
-  return false
-}
-
-const projectedCache = new WeakMap<CanvasNode, { profiles: CanvasNode[] | undefined; features: unknown[]; surfaces: ProjectedSurface[] }>()
-
-/**
- * Every top-level layer's solids, projected onto the 2D board (document/frontView.ts):
- * the layer's own when drawsAsSolid, plus any tubes swept along it. Unchanged
- * layers keep their projection.
- */
-export function projectedSolidsOf(doc: CanvasDoc): Map<NodeId, ProjectedSurface[]> {
-  const out = new Map<NodeId, ProjectedSurface[]>()
-  const sweeps = sweepsAlong(doc)
-  for (const node of doc.nodes) {
-    if (node.hidden) continue
-    const profiles = sweeps.get(node.id)
-    const own = drawsAsSolid(node, doc)
-    if (!own && !profiles) continue
-    // The solids live in the board's objects, so their features are part of the key.
-    const features = [node, ...(profiles ?? [])].map((n) => featureOf(doc, n.id)?.feature ?? null)
-    const cached = projectedCache.get(node)
-    // sweepsAlong builds fresh arrays, so compare the profiles themselves.
-    if (cached && sameNodes(cached.profiles, profiles) && cached.features.length === features.length && cached.features.every((f, i) => f === features[i])) {
-      out.set(node.id, cached.surfaces)
-      continue
-    }
-    const placement = placementOf(node)
-    const surfaces: ProjectedSurface[] = []
-    const add = (id: NodeId, mesh: Mesh | null, surface: { css: string; opacity: number } | null) => {
-      if (!mesh || !surface) return
-      const faces = frontFaces(mesh, placement, node.rect, node.style.rotate ?? 0, true)
-      if (faces.length) surfaces.push({ id, faces, ...surface })
-    }
-    if (own) add(node.id, layerMesh(node, doc), surfaceOf(node, true))
-    for (const profile of profiles ?? []) add(profile.id, sweptMesh(profile, node), surfaceOf(profile, true))
-    projectedCache.set(node, { profiles, features, surfaces })
-    if (surfaces.length) out.set(node.id, surfaces)
-  }
-  return out
-}
-
-const sameNodes = (a: CanvasNode[] | undefined, b: CanvasNode[] | undefined) => a === b || (!!a && !!b && a.length === b.length && a.every((n, i) => n === b[i]))
-
-/** The projected surface under a board point, topmost first — the solid a click there hits. */
-export function solidAt(solids: Map<NodeId, ProjectedSurface[]>, order: NodeId[], x: number, y: number): { layer: NodeId; id: NodeId } | null {
-  for (let i = order.length - 1; i >= 0; i -= 1) {
-    for (const surface of solids.get(order[i]) ?? []) {
-      if (surface.faces.some((f) => inTriangle(f.points, x, y))) return { layer: order[i], id: surface.id }
-    }
-  }
-  return null
-}
-
-function inTriangle([a, b, c]: [XY, XY, XY], x: number, y: number): boolean {
-  const side = (p: XY, q: XY) => (q.x - p.x) * (y - p.y) - (q.y - p.y) * (x - p.x)
-  const d1 = side(a, b)
-  const d2 = side(b, c)
-  const d3 = side(c, a)
-  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))
 }

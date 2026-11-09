@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { CanvasDoc, CanvasNode } from '../../document/types'
 import { setSolidOf, type PlaneRef } from '../../document/objects'
 import { bodyOf, faceAt, partTriangle } from '../geometry/body'
-import { addSketch, attachSketch, describePlane, eulerOf, nextSketchName, resolvePlanes } from './planeRefs'
+import { addSketch, attachSketch, describePlane, eulerOf, nextSketchName, resolvePlanes, sketchProblem } from './planeRefs'
 import { onPlane, planeNormal, rotate, syncPlacements } from '../../document/placement'
 import type { Vec3 } from '../../document/sceneTypes'
 
@@ -51,6 +51,21 @@ describe('sketches on planes', () => {
     doc = resolvePlanes(setSolidOf(doc, 'box', { kind: 'extrude', depth: 2.5 }))
     close(doc.nodes[1].space!.position, [0.2, -0.2, 2.5])
     expect(describePlane(doc, doc.nodes[1].sketch!.plane)).toBe("Extrude 1's end face")
+  })
+
+  it('flags a sketch whose face is gone, keeping where it stood, and not one whose part is only hidden', () => {
+    let doc = setSolidOf(docOf([box('box'), frame('s', { rect: { x: 20, y: 20, w: 40, h: 40 } })]), 'box', { kind: 'extrude', depth: 1 })
+    const object = doc.objects![0]
+    const end = bodyOf(doc, object).faces.find((f) => f.name.role === 'end')!.name
+    doc = attachSketch(doc, 's', { kind: 'face', objectId: object.id, face: end })
+    expect(sketchProblem(doc, doc.nodes[1])).toBeNull()
+    expect(sketchProblem({ ...doc, objects: [{ ...object, hidden: true }] }, doc.nodes[1])).toBeNull()
+    // The box's sketch deleted: the feature is kept but builds nothing, so its end face is gone.
+    const gone = resolvePlanes({ ...doc, nodes: [doc.nodes[1]] })
+    expect(sketchProblem(gone, gone.nodes[0])).toBe('The face it stood on is gone')
+    expect(gone.nodes[0].space).toEqual(doc.nodes[1].space)
+    expect(sketchProblem({ ...doc, objects: [] }, doc.nodes[1])).toBe('The part it stood on was deleted')
+    expect(sketchProblem({ ...doc, objects: [{ ...object, features: [] }] }, doc.nodes[1])).toBe('The feature whose face it stood on was deleted')
   })
 
   it('refuses to stand a sketch on a face built from itself', () => {

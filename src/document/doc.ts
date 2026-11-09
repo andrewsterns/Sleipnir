@@ -8,6 +8,7 @@
 // rewrite history.
 
 import { angleOf, apply, boundsOf, IDENTITY, invert, isRigid, multiply, nodeMatrix, orientedFrom, quadOf, type Mat, type OrientedBox, type XY } from './rotation'
+import type { DocumentKind } from './documentKind'
 import {
   CANVAS_SCHEMA_VERSION,
   childrenOf,
@@ -40,12 +41,13 @@ export function nextId(prefix: string): string {
 
 // ── Construction ───────────────────────────────────────────────────────────
 
-export function createDoc(name: string): CanvasDoc {
+export function createDoc(name: string, kind: DocumentKind = 'sketch'): CanvasDoc {
   const now = Date.now()
   return {
     version: CANVAS_SCHEMA_VERSION,
     id: nextId('canvas'),
     name,
+    kind,
     nodes: [],
     components: [],
     createdAt: now,
@@ -53,9 +55,12 @@ export function createDoc(name: string): CanvasDoc {
   }
 }
 
+/** The fill a new frame gets: the app's own panel colour, so a UI frame matches the theme. */
+export const DEFAULT_FRAME_FILL = 'bg-2'
+
 const DEFAULT_FRAME_STYLE: CanvasStyle = {
   flow: 'freeform',
-  fills: [{ color: 'bg-2' }],
+  fills: [{ color: DEFAULT_FRAME_FILL }],
   stroke: { color: 'border-1', width: 1 },
   radius: 4,
 }

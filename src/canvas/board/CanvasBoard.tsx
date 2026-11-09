@@ -17,18 +17,16 @@ import { TextEditOverlay } from './TextEditOverlay'
 import { Frame } from '../../app/UIKit/Frame/Frame'
 import { toScreenPoint, type Camera } from '../hooks/panZoomMath'
 import { findComponent, resolveVariant } from '../../document/variants'
-import { CanvasNodeView, PlacedNodeView } from './CanvasNodeView'
-import { ProjectedSolid } from './ProjectedSolid'
-import { drawsAsSolid, type ProjectedSurface } from '../../modeling/scene3d/sceneMeshes'
+import { CanvasNodeView } from './CanvasNodeView'
 import type { ImageUrlResolver } from '../../document/paint'
 import type { LinkedComponents } from '../hooks/useLinkedComponents'
-import { CanvasToolbar } from './CanvasToolbar'
+import { CanvasToolbar, type CanvasToolbarProps } from './CanvasToolbar'
 import { ComponentLabel } from './ComponentLabel'
 import { FrameLabel } from './FrameLabel'
 import { PlaneGuides } from './PlaneGuides'
 import { isFrameNode, isInstanceNode, isTextNode, type CanvasDoc, type CanvasRect, type NodeId } from '../../document/types'
 import type { Guide } from '../../document/align'
-import { Fragment, useSyncExternalStore } from 'react'
+import { useSyncExternalStore } from 'react'
 import { ROOT_DROP_TARGET, type CanvasTool, type PenDraft, type ResizeHandle, type ValueStore } from '../boardEditing'
 import { pathData } from '../../document/vector'
 import type { PointPart } from '../../document/vectorEdit'
@@ -141,11 +139,19 @@ export interface CanvasBoardProps {
   orientedOf: (id: NodeId) => OrientedBox | null
   /** A node's board corners when a plane turned in 3D squashes or shears it on the board; null for an ordinary box. */
   quadOf?: (id: NodeId) => [XY, XY, XY, XY] | null
-  /** The layer whose plane is open face on (plane edit), named on a chip with a way back; null when none is. */
+  /** The toolbox's shaping tools and starter shapes (board/toolbox.ts), shown beside the drawing tools. */
+  modeling?: CanvasToolbarProps['modeling']
+  /** Laid over the 3D view (sketch mode in an environment): no background of its own. */
+  overScene?: boolean
+  /** The toolbox's Edit points (CanvasToolbar). */
+  editPoints?: CanvasToolbarProps['editPoints']
+  /** The sketch open face on (sketch mode), named on the sketch bar with its plane and a way back; null when none is. */
   planeEditName?: string | null
+  /** The open sketch's plane, in words, for the sketch bar. */
+  planeEditPlane?: string
+  /** Sketch mode's backdrop: the scene's bodies flattened onto the open sketch's plane (scene3d/sketchGhost.ts). */
+  sketchGhost?: { faces: string; edges: string } | null
   onExitPlaneEdit?: () => void
-  /** Solids drawn as the 3D front camera sees them, per top-level layer — in place of the layer when drawsAsSolid, else over it (a path's tubes). */
-  projectedSolids?: Map<NodeId, ProjectedSurface[]>
   /** The selected along-path frame's start point and heading, in board space — drawn as a dot and an arrow. */
   pathHint: { x: number; y: number; angle: number } | null
   selectedIds: Set<NodeId>
@@ -218,8 +224,12 @@ export function CanvasBoard({
   rectOf,
   orientedOf,
   quadOf,
-  projectedSolids,
   planeEditName = null,
+  planeEditPlane,
+  sketchGhost,
+  modeling,
+  overScene,
+  editPoints,
   onExitPlaneEdit,
   pathHint,
   selectedIds,
@@ -345,7 +355,8 @@ export function CanvasBoard({
         // a selection is what the browser drags on the second press.
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        background: 'var(--bg-0)',
+        // Over the 3D view in sketch mode, the scene shows through.
+        background: overScene ? 'transparent' : 'var(--bg-0)',
         // 'move' over a hit node is the affordance that tells you the press will
         // grab THAT node rather than pan or marquee.
         cursor: crosshair ? 'crosshair' : hoverId ? 'move' : undefined,
@@ -356,20 +367,17 @@ export function CanvasBoard({
         ref={viewportRef}
         style={{ position: 'absolute', left: 0, top: 0, transformOrigin: '0 0', willChange: 'transform' }}
       >
-        {doc.nodes.map((node) => {
-          const solids = projectedSolids?.get(node.id)
-          const flat = drawsAsSolid(node, doc) ? null : node.space ? (
-            <PlacedNodeView node={node} parentFlow="freeform" components={doc.components} imageUrl={imageUrl} linked={linked} />
-          ) : (
-            <CanvasNodeView node={node} parentFlow="freeform" components={doc.components} imageUrl={imageUrl} linked={linked} />
-          )
-          return (
-            <Fragment key={node.id}>
-              {flat}
-              {solids && <ProjectedSolid layerId={node.id} surfaces={solids} />}
-            </Fragment>
-          )
-        })}
+        {/* Behind the open sketch, the solids it's drawn against, flattened onto its plane — faint, so the sketch reads first. */}
+        {sketchGhost && (
+          <svg data-canvas-sketch-ghost="" style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, overflow: 'visible', pointerEvents: 'none' }}>
+            <path d={sketchGhost.faces} fill="var(--text-1)" fillOpacity={0.06} />
+            <path d={sketchGhost.edges} fill="none" stroke="var(--text-2)" strokeOpacity={0.55} strokeWidth={1} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+          </svg>
+        )}
+        {/* A Sketch has no placements, and an environment reaches the board only in sketch mode, its sketch laid flat: every layer draws as itself. */}
+        {doc.nodes.map((node) => (
+          <CanvasNodeView key={node.id} node={node} parentFlow="freeform" components={doc.components} imageUrl={imageUrl} linked={linked} />
+        ))}
         {editingText && isTextNode(editingText) && editingTextRect && (
           <TextEditOverlay
             node={editingText}
@@ -403,16 +411,15 @@ export function CanvasBoard({
             whiteSpace: 'nowrap',
           }}
         >
-          <span>
-            Drawing on <span style={{ color: 'var(--text-1)' }}>{planeEditName}</span>’s plane, face on
-          </span>
+          <span style={{ color: 'var(--text-1)' }}>{planeEditName}</span>
+          {planeEditPlane && <span style={{ color: 'var(--text-3)' }}>{planeEditPlane}</span>}
           <button
             type="button"
             onClick={onExitPlaneEdit}
-            title="Back to the front view (Esc)"
+            title="Finish sketch and go back to the 3D view (Esc)"
             style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-1)', background: 'rgba(var(--item-ink, 255,255,255), 0.08)', border: 'none', borderRadius: 'var(--radius-control)', padding: '3px 8px', cursor: 'pointer' }}
           >
-            Done
+            Finish sketch
           </button>
         </div>
       )}
@@ -736,7 +743,7 @@ export function CanvasBoard({
           style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
         >
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.03em' }}>
-            Empty board
+            Empty sketch
           </span>
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-3)' }}>
             Press F and drag to draw a frame · R / O for shapes · P for the pen · T for text
@@ -744,7 +751,7 @@ export function CanvasBoard({
         </Frame>
       )}
 
-      <CanvasToolbar tool={tool} onSelectTool={onSelectTool} />
+      <CanvasToolbar tool={tool} onSelectTool={onSelectTool} modeling={modeling} editPoints={editPoints} />
     </div>
   )
 }

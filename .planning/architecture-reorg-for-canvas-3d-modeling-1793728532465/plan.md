@@ -8,7 +8,7 @@ Show Sleipnir's whole architecture in its own graph, keep startup light as 3D gr
 
 ## 1. Show the whole architecture in the graph
 <!-- step:plan/architecture-reorg-for-canvas-3d-modeling-1793728532465/show-the-whole-architecture-in-the-graph-1793728553135 -->
-**Status:** Done — Cap 300 -> 1500 and spare budget goes to most-connected files; Sleipnir's 753 listed files now all draw (was 300 max, 0 with no focus)
+**Status:** Proposed (set by you) — Cap 300 -> 1500 and spare budget goes to most-connected files; Sleipnir's 753 listed files now all draw (was 300 max, 0 with no focus)
 
 Fixes missing nodes when Sleipnir opens itself: scopeArchitecture keeps at most 300 files (max=300) and folds the rest into depth-2 folder nodes; Sleipnir has ~470 code files plus docs/assets, so most of the graph collapses. Count only source files toward the cap, raise it (~1500), and with no plan focus show everything instead of folders. Moves: files drawn on Sleipnir ~300 -> all ~470.
 

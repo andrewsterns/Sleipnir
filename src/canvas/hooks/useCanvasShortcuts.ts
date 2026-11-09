@@ -1,11 +1,18 @@
-// The Canvas's keyboard shortcuts (Figma's keys), plus Ctrl tracking for
-// snapping. Split out of CanvasView.ViewModel.tsx; every action comes in from
+// The Canvas's keyboard shortcuts — Figma's in a Sketch and in sketch mode,
+// Blender's in an environment's 3D view (G / R / S), so a key is never two
+// things at once — plus Ctrl tracking for snapping. Split out of CanvasView.ViewModel.tsx; every action comes in from
 // the view model, so this file only maps keys to them.
 
 import { useEffect } from 'react'
 import type { CanvasTool, PenDraft, ValueStore } from '../boardEditing'
 
 export interface CanvasShortcutsDeps {
+  /** True while the 3D view shows: Blender's keys instead of Figma's. */
+  in3dRef: React.MutableRefObject<boolean>
+  /** Ctrl+1: fits whichever view is showing. */
+  fitView: () => void
+  /** The 3D view's edit-mode keys (Tab, 1 / 2 / 3, A, Alt+A); true when the key was one. */
+  onSelectKey: (key: string, alt: boolean) => boolean
   deleteSelected: () => void
   deleteSelectedHandle: () => boolean
   deleteSelectedPoints: () => boolean
@@ -38,7 +45,7 @@ export interface CanvasShortcutsDeps {
   zoomToFit: () => void
 }
 
-export function useCanvasShortcuts({ deleteSelected, deleteSelectedHandle, deleteSelectedPoints, doRedo, doUndo, duplicateSelected, editingVectorIdRef, enterPlaneEditOfSelection, exitPlaneEdit, exitVectorEdit, finishPen, groupSelected, insertPreview, nudgeSelected, nudgeSelectedPoints, penCursor, penRef, planeEditRef, resetZoom, selectAllPoints, selectParent, selectedPointsRef, setPen, setScopeId, setSelectedIds, setSelectedPoints, setTool, snapDisabled, ungroupSelected, zoomToFit }: CanvasShortcutsDeps) {
+export function useCanvasShortcuts({ in3dRef, fitView, onSelectKey, deleteSelected, deleteSelectedHandle, deleteSelectedPoints, doRedo, doUndo, duplicateSelected, editingVectorIdRef, enterPlaneEditOfSelection, exitPlaneEdit, exitVectorEdit, finishPen, groupSelected, insertPreview, nudgeSelected, nudgeSelectedPoints, penCursor, penRef, planeEditRef, resetZoom, selectAllPoints, selectParent, selectedPointsRef, setPen, setScopeId, setSelectedIds, setSelectedPoints, setTool, snapDisabled, ungroupSelected, zoomToFit }: CanvasShortcutsDeps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
@@ -133,6 +140,20 @@ export function useCanvasShortcuts({ deleteSelected, deleteSelectedHandle, delet
         duplicateSelected()
         return
       }
+      // The 3D view: Blender's keys. G / R / S are the 3D view's own (modalTransform.ts); the board's drawing keys and nudges don't apply.
+      if (in3dRef.current) {
+        if (mod && e.key === '1') {
+          e.preventDefault()
+          fitView()
+        }
+        if (mod) return
+        if (onSelectKey(e.key, e.altKey)) {
+          e.preventDefault()
+          return
+        }
+        if (e.key === 'v') setTool('select')
+        return
+      }
       if (e.key === 'f' && !mod) setTool('frame')
       if (e.key === 't' && !mod) setTool('text')
       if (e.key === 'v' && !mod) setTool('select')
@@ -168,6 +189,6 @@ export function useCanvasShortcuts({ deleteSelected, deleteSelectedHandle, delet
       window.removeEventListener('keydown', track)
       window.removeEventListener('keyup', track)
     }
-  }, [enterPlaneEditOfSelection, exitPlaneEdit, doUndo, doRedo, deleteSelected, nudgeSelected, resetZoom, zoomToFit, groupSelected, ungroupSelected, duplicateSelected, selectParent, finishPen, deleteSelectedPoints, deleteSelectedHandle, exitVectorEdit, selectAllPoints, nudgeSelectedPoints, penCursor, insertPreview, editingVectorIdRef, penRef, planeEditRef, setTool, setPen, selectedPointsRef, setSelectedPoints, setSelectedIds, setScopeId, snapDisabled])
+  }, [in3dRef, fitView, onSelectKey, enterPlaneEditOfSelection, exitPlaneEdit, doUndo, doRedo, deleteSelected, nudgeSelected, resetZoom, zoomToFit, groupSelected, ungroupSelected, duplicateSelected, selectParent, finishPen, deleteSelectedPoints, deleteSelectedHandle, exitVectorEdit, selectAllPoints, nudgeSelectedPoints, penCursor, insertPreview, editingVectorIdRef, penRef, planeEditRef, setTool, setPen, selectedPointsRef, setSelectedPoints, setSelectedIds, setScopeId, snapDisabled])
   return {  }
 }

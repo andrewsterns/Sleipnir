@@ -45,9 +45,11 @@ import { resolveVariant } from '../../document/variants'
 import { componentFileName, componentPathIn, resolveComponentPath } from '../../document/paths'
 import { ComponentPathField } from './ComponentPathField'
 import { IconButton } from '../../app/UIKit/IconButton/IconButton'
-import { PlaneSection } from './PlaneSection'
-import type { PlaneRef } from '../../document/objects'
-import { SolidSection } from './SolidSection'
+import { PlaneSection, segmentGroup, segmentStyle } from './PlaneSection'
+import { DISPLAY_MODES, type DisplayMode } from '../../modeling/viewport/cameraViews'
+import type { Feature, PlaneRef } from '../../document/objects'
+import { SmoothnessSection } from './SolidSection'
+import { FeatureSection } from './FeatureSection'
 import type { Placement3D, SolidSpec } from '../../document/sceneTypes'
 import { SelectField, TextField } from '../../app/UIKit/Field/TextField'
 import { Checkbox } from '../../app/UIKit/Checkbox/Checkbox'
@@ -82,8 +84,6 @@ export interface CanvasInspectorProps {
   pointSelection: PointSelection | null
   onPointType: (type: PointType) => void
   onPointRadius: (radius: number, gesture?: string) => void
-  onEditPoints: (id: NodeId) => void
-  onDoneEditing: () => void
   /** Whether the selection is vector art MAKE SVG COMPONENT can promote. */
   canMakeSvgComponent: boolean
   onMakeSvgComponent: () => void
@@ -119,8 +119,10 @@ export interface CanvasInspectorProps {
   onOpenMainComponent: (filePath: string) => void
   onDetachLinked: () => void
   /**
-   * The 3D sections: where a top-level layer's plane stands (3D PLANE) and
-   * how its outline becomes a solid (SOLID). Absent hides both.
+   * An environment's right panel (src/canvas/LAYOUT.md): a sketch's plane, the
+   * part and feature that read it, its size and look — and none of Figma's
+   * layout, spacing, clip, effects or component tools. Absent: a Sketch
+   * document, which keeps Figma's design panel and has no 3D sections.
    */
   space3d?: {
     doc: CanvasDoc
@@ -132,6 +134,20 @@ export interface CanvasInspectorProps {
     /** Stands the layer on a plane as a sketch (scene3d/planeRefs.ts). */
     onPlane: (id: NodeId, plane: PlaneRef, gesture?: string) => void
     onSolid: (id: NodeId, solid: SolidSpec | undefined, gesture?: string) => void
+    /** A feature's own settings beyond its spec: smoothness. */
+    onFeature?: (featureId: string, patch: Partial<Feature>) => void
+    /** The environment's own view settings, shown with nothing selected (as Figma's right panel shows the page's). */
+    display?: { mode: DisplayMode; onMode: (mode: DisplayMode) => void }
+    /** Why a sketch is broken, and Re-pick face when a face is what it lost. */
+    problemOf?: (id: NodeId) => { why: string; onRepickFace?: () => void } | null
+    /** A placed sketch's link (document/placements.ts), for the 3D plane section's Open and Unlink. */
+    linkOf?: (id: NodeId) => { name: string; onOpen: () => void; onUnlink: () => void } | null
+    /** The part that reads this layer, and the feature that does — with a rename for the part. */
+    partOf?: (id: NodeId) => { name: string; feature: string; onRename: (name: string) => void; moved?: string; onResetPlacement?: () => void } | null
+    /** The feature dialog for this layer: the feature picked in the Parts list, else the one reading it (panels/FeatureSection.tsx). */
+    featureOf?: (id: NodeId) => Omit<React.ComponentProps<typeof FeatureSection>, 'paths'> | null
+    /** Part of a placed sketch: its layers are the Sketch's, edited there — shown, not edited, here. */
+    linkedLayer?: (id: NodeId) => { sketch: string; onEdit: () => void } | null
   }
 }
 
@@ -139,6 +155,15 @@ export interface CanvasInspectorProps {
  * Paint that belongs to a component on another board: shown for reference,
  * edited over there. `disabled` on a fieldset disables every control inside.
  */
+/** The panel's scrolling column — one for the Figma panel and one for an environment's. */
+function InspectorScroll({ children }: { children: React.ReactNode }) {
+  return (
+    <Frame flow="vertical" w="fill" style={{ overflowY: 'auto' }} grow>
+      {children}
+    </Frame>
+  )
+}
+
 function ReadOnly({ when, children }: { when: boolean; children: React.ReactNode }) {
   if (!when) return <>{children}</>
   return (
@@ -419,8 +444,6 @@ export function CanvasInspector({
   pointSelection,
   onPointType,
   onPointRadius,
-  onEditPoints,
-  onDoneEditing,
   canMakeSvgComponent,
   onMakeSvgComponent,
   imageUrl,
@@ -456,6 +479,28 @@ export function CanvasInspector({
     [paintChange],
   )
 
+  if (!node && space3d?.display) {
+    const display = space3d.display
+    return (
+      <Frame flow="vertical" grow>
+        {/* Nothing selected: the environment itself — how its parts are drawn. */}
+        <Section title="View">
+          <Label>Display</Label>
+          <div style={segmentGroup} role="group" aria-label="Display">
+            {DISPLAY_MODES.map((d) => (
+              <button key={d.id} type="button" aria-pressed={display.mode === d.id} title={d.hint} style={segmentStyle(display.mode === d.id)} onClick={() => display.onMode(d.id)}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <span style={{ ...UI_FONT, fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5 }}>
+            {selectionCount > 1 ? `${selectionCount} selected. ` : ''}Remembered on this machine. Click an axis of the gizmo to look straight down it.
+          </span>
+        </Section>
+      </Frame>
+    )
+  }
+
   if (!node) {
     return (
       <Frame flow="vertical" grow>
@@ -465,7 +510,7 @@ export function CanvasInspector({
         <span style={{ ...UI_FONT, fontSize: 11, color: 'var(--text-3)' }}>
           {selectionCount > 1 ? `${selectionCount} selected` : 'Nothing selected'}
         </span>
-        {canMakeSvgComponent && <MakeSvgButton onClick={onMakeSvgComponent} />}
+        {canMakeSvgComponent && !space3d && <MakeSvgButton onClick={onMakeSvgComponent} />}
         </Frame>
       </Frame>
     )
@@ -542,8 +587,93 @@ export function CanvasInspector({
           : null
   paintRef.current = paint
 
+  // ── An environment: the sketch, the part that reads it, its size and look ──
+  if (space3d) {
+    const part = space3d.partOf?.(node.id)
+    const linkedLayer = space3d.linkedLayer?.(node.id)
+    return (
+      <InspectorScroll>
+        <Section title={space3d.topLevel ? 'Sketch' : 'Layer'}>
+          <TextField size="sm" value={node.name} disabled={!!linkedLayer} onChange={(e) => onRename(node.id, e.target.value)} style={{ flex: 1 }} />
+          {linkedLayer && (
+            <Frame flow="horizontal" align="center" gap={8} w="fill">
+              <span style={{ ...UI_FONT, fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, flex: 1 }}>
+                From the sketch “{linkedLayer.sketch}” — its layers, size and look are edited there.
+              </span>
+              <button type="button" style={{ ...UI_FONT, fontSize: 11, color: 'var(--text-1)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2, whiteSpace: 'nowrap' }} onClick={linkedLayer.onEdit}>
+                Edit in sketch
+              </button>
+            </Frame>
+          )}
+        </Section>
+
+        {part && (
+          <Section title="Part">
+            <TextField size="sm" value={part.name} onChange={(e) => part.onRename(e.target.value)} style={{ flex: 1 }} />
+            <span style={{ ...UI_FONT, fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5 }}>Built by {part.feature} from this sketch.</span>
+            {part.moved && (
+              <Frame flow="horizontal" align="center" gap={8} w="fill">
+                <span style={{ ...UI_FONT, fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5, flex: 1 }}>{part.moved}</span>
+                {part.onResetPlacement && (
+                  <button type="button" title="Put the part back where its sketch stands it" style={{ ...UI_FONT, fontSize: 10, color: 'var(--text-3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }} onClick={part.onResetPlacement}>
+                    Reset
+                  </button>
+                )}
+              </Frame>
+            )}
+          </Section>
+        )}
+
+        {space3d.topLevel && <PlaneSection node={node} doc={space3d.doc} onChange={space3d.onPlacement} onPlane={space3d.onPlane} link={space3d.linkOf?.(node.id)} problem={space3d.problemOf?.(node.id)} />}
+        {(() => {
+          const dialog = space3d.featureOf?.(node.id)
+          return dialog ? <FeatureSection key={dialog.feature.id} {...dialog} paths={space3d.paths.filter((p) => p.id !== node.id)} /> : null
+        })()}
+
+        {!linkedLayer && (
+          <>
+            {/* On its plane a sketch is placed by the Plane section; inside one, a layer by its spot in the sketch. */}
+            <Section title={space3d.topLevel ? 'Size' : 'Position & size'}>
+              {!space3d.topLevel && (
+                <Frame flow="horizontal" gap={6} w="fill">
+                  <NumberField label="X" value={node.rect.x} disabled={positionOwnedByLayout} onChange={(x) => onRectChange({ x }, 'x')} />
+                  <NumberField label="Y" value={node.rect.y} disabled={positionOwnedByLayout} onChange={(y) => onRectChange({ y }, 'y')} />
+                </Frame>
+              )}
+              <Frame flow="horizontal" gap={6} w="fill">
+                <NumberField label="W" value={node.rect.w} onChange={(w) => onRectChange({ w }, 'w')} />
+                <NumberField label="H" value={node.rect.h} onChange={(h) => onRectChange({ h }, 'h')} />
+              </Frame>
+            </Section>
+
+            {node.kind === 'vector' && (
+              <VectorSection
+                node={node}
+                onVectorChange={onVectorChange}
+                pointSelection={editingVectorId === node.id ? pointSelection : null}
+                onPointType={onPointType}
+                onPointRadius={onPointRadius}
+                editingPoints={editingVectorId === node.id}
+              />
+            )}
+
+            {/* Appearance: the look a part takes from its sketch — its fill colours the solid, its stroke the outline — and how round it is. */}
+            {paint?.hasPaint && (
+              <>
+                <FillsSection key={paint.key} fills={paint.style.fills ?? NO_FILLS} imageUrl={imageUrl} images={images} svg={!!paint.vector} onChange={fillsChange} />
+                <StrokeSection style={paint.style} vectorShape={paint.vector?.shape} onStyleChange={paintChange} />
+              </>
+            )}
+            {space3d.onFeature && (node.kind === 'frame' || node.kind === 'vector') && <SmoothnessSection node={node} doc={space3d.doc} onFeature={space3d.onFeature} />}
+          </>
+        )}
+      </InspectorScroll>
+    )
+  }
+
+
   return (
-    <Frame flow="vertical" w="fill" style={{ overflowY: 'auto' }} grow>
+    <InspectorScroll>
       <Section title={component ? 'Component' : 'Name'}>
         <Frame flow="horizontal" gap={2} align="center" w="fill">
           {component ? (
@@ -710,8 +840,6 @@ export function CanvasInspector({
           onPointType={onPointType}
           onPointRadius={onPointRadius}
           editingPoints={editingVectorId === node.id}
-          onEditPoints={onEditPoints}
-          onDoneEditing={onDoneEditing}
         />
       )}
 
@@ -729,11 +857,6 @@ export function CanvasInspector({
 
       {node.kind === 'frame' && <LayoutSection node={node} onStyleChange={onStyleChange} />}
       <SpacingSection node={node} parentFlow={parentFlow} onStyleChange={onStyleChange} />
-
-      {space3d?.topLevel && <PlaneSection node={node} doc={space3d.doc} onChange={space3d.onPlacement} onPlane={space3d.onPlane} />}
-      {space3d && (node.kind === 'frame' || node.kind === 'vector') && (
-        <SolidSection node={node} doc={space3d.doc} paths={space3d.paths.filter((p) => p.id !== node.id)} onChange={space3d.onSolid} />
-      )}
 
       <ReadOnly when={!!paint?.readOnly}>
       {paint?.hasPaint && (
@@ -790,7 +913,7 @@ export function CanvasInspector({
           </Section>
         </>
       )}
-    </Frame>
+    </InspectorScroll>
   )
 }
 
@@ -997,8 +1120,6 @@ function VectorSection({
   node,
   onVectorChange,
   editingPoints,
-  onEditPoints,
-  onDoneEditing,
   pointSelection,
   onPointType,
   onPointRadius,
@@ -1006,8 +1127,6 @@ function VectorSection({
   node: CanvasVectorNode
   onVectorChange: (id: NodeId, patch: Partial<Pick<CanvasVectorNode, 'sides' | 'closed'>>, gesture?: string) => void
   editingPoints: boolean
-  onEditPoints: (id: NodeId) => void
-  onDoneEditing: () => void
   pointSelection: PointSelection | null
   onPointType: (type: PointType) => void
   onPointRadius: (radius: number, gesture?: string) => void
@@ -1025,19 +1144,11 @@ function VectorSection({
               anchor: sharp ↔ smooth · click a handle and Delete to make that side sharp
             </span>
           )}
-          <button type="button" onClick={onDoneEditing} style={{ ...ACTION, color: 'var(--text-1)' }}>
-            Done (enter)
-          </button>
         </>
       ) : (
-        <button
-          type="button"
-          onClick={() => onEditPoints(node.id)}
-          title={node.shape === 'path' ? 'Edit this path point by point (or double-click it)' : 'Turn this shape into a path and edit its points (or double-click it)'}
-          style={ACTION}
-        >
-          Edit points
-        </button>
+        <span style={{ ...UI_FONT, fontSize: 10, color: 'var(--text-3)', lineHeight: 1.5 }}>
+          {node.shape === 'path' ? 'Edit its points with Edit points in the toolbox, Enter, or a double-click.' : 'Edit points in the toolbox (or Enter, or a double-click) turns it into a path to edit point by point.'}
+        </span>
       )}
       {node.shape === 'polygon' && (
         <NumberField

@@ -11,10 +11,10 @@
 
 import { planeRectOf } from '../../document/doc'
 import type { CanvasDoc, CanvasNode, NodeId } from '../../document/types'
-import { inputsOf, objectsOf, type DefaultPlane, type PlaneRef, type SketchSpec } from '../../document/objects'
+import { inputsOf, objectsOf, partPlacementOf, type DefaultPlane, type PlaneRef, type SketchSpec } from '../../document/objects'
 import { bodiesOf, type Body } from '../geometry/body'
 import { frontPoint } from '../../document/frontView'
-import { PLANE_ROTATION, placementOf, planeToWorld, rotate, worldToPlane } from '../../document/placement'
+import { PLANE_ROTATION, eulerOf, placeInScene, placementOf, planeToWorld, rotate, worldToPlane } from '../../document/placement'
 import type { Placement3D, Vec3 } from '../../document/sceneTypes'
 
 /** A plane in the scene: where its origin is, and how it's turned (the plane's right, up and normal). */
@@ -27,7 +27,6 @@ export interface PlaneFrame {
 
 const DEFAULT_ROTATION: Record<DefaultPlane, Vec3> = { front: PLANE_ROTATION.front, top: PLANE_ROTATION.top, side: PLANE_ROTATION.side }
 
-const RAD = Math.PI / 180
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s]
@@ -35,17 +34,7 @@ const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 const unit = (a: Vec3): Vec3 => scale(a, 1 / (Math.hypot(...a) || 1))
 
-/**
- * The 'XYZ' Euler rotation (degrees, as placements store it) that turns the
- * plane's own right, up and normal onto these three scene directions — the
- * inverse of placement.ts rotate(), read off its matrix the way three.js does.
- */
-export function eulerOf(right: Vec3, up: Vec3, normal: Vec3): Vec3 {
-  const m13 = Math.max(-1, Math.min(1, normal[0]))
-  const y = Math.asin(m13)
-  if (Math.abs(m13) < 0.9999999) return [Math.atan2(-normal[1], normal[2]) / RAD, y / RAD, Math.atan2(-up[0], right[0]) / RAD]
-  return [Math.atan2(up[2], up[1]) / RAD, y / RAD, 0]
-}
+export { eulerOf }
 
 /** A plane's normal, in the scene. */
 const normalOf = (frame: PlaneFrame): Vec3 => rotate([0, 0, 1], frame.rotation)
@@ -105,11 +94,15 @@ export function faceFrame(doc: CanvasDoc, body: Body, index: number): PlaneFrame
   const top = topOf(doc, profile)
   const placement = top ? placementOf(top) : { position: [0, 0, 0] as Vec3, rotation: [0, 0, 0] as Vec3 }
   const at = planeRectOf(doc, profile) ?? { x: 0, y: 0 }
-  const profileOrigin = planeToWorld(placement, at.x, at.y)
+  // And where its part's own placement has carried that plane (a part turned with R).
+  const part = partPlacementOf(doc, profile)
+  const inScene = (p: Vec3) => (part ? placeInScene(part, p) : p)
+  const turn = (v: Vec3) => (part ? rotate(v, part.rotation) : v)
+  const profileOrigin = inScene(planeToWorld(placement, at.x, at.y))
   const origin = sub(profileOrigin, scale(normal, dot(sub(profileOrigin, centroid), normal)))
   const across = (axis: Vec3) => sub(axis, scale(normal, dot(axis, normal)))
-  let right = across(rotate([1, 0, 0], placement.rotation))
-  if (Math.hypot(...right) < 0.1) right = across(rotate([0, 0, 1], placement.rotation))
+  let right = across(turn(rotate([1, 0, 0], placement.rotation)))
+  if (Math.hypot(...right) < 0.1) right = across(turn(rotate([0, 0, 1], placement.rotation)))
   right = unit(right)
   const up = cross(normal, right)
   return { origin, rotation: eulerOf(right, up, normal), center: centroid }
@@ -171,12 +164,12 @@ export function resolvePlanes(doc: CanvasDoc): CanvasDoc {
 export function attachSketch(doc: CanvasDoc, id: NodeId, plane: PlaneRef): CanvasDoc {
   const node = doc.nodes.find((n) => n.id === id)
   if (!node) return doc
-  if (plane.kind === 'custom') return replaceTop(doc, { ...node, sketch: { plane }, space: placementOf(node) })
+  if (plane.kind === 'custom') return replaceTop(doc, { ...node, sketch: { ...node.sketch, plane, at: undefined }, space: placementOf(node) })
   let bodies: Map<string, Body> | null = null
   const frame = frameOf(doc, plane, () => (bodies ??= bodiesOf(doc)), id)
   if (!frame) return doc
   const { u, v } = worldToPlane({ position: frame.origin, rotation: frame.rotation }, placementOf(node).position)
-  const sketch: SketchSpec = { plane, at: { u: round(u, 3), v: round(v, 3) } }
+  const sketch: SketchSpec = { ...node.sketch, plane, at: { u: round(u, 3), v: round(v, 3) } }
   return resolvePlanes(replaceTop(doc, { ...node, sketch }))
 }
 
@@ -194,8 +187,27 @@ export function addSketch(doc: CanvasDoc, plane: PlaneRef, node: CanvasNode): Ca
   const frame = frameOf(doc, plane, () => (bodies ??= bodiesOf(doc)))
   if (!frame) return null
   const middle = worldToPlane({ position: frame.origin, rotation: frame.rotation }, frame.center ?? frame.origin)
-  const sketch: SketchSpec = { plane, at: { u: round(middle.u - node.rect.w / 2, 3), v: round(middle.v - node.rect.h / 2, 3) } }
+  const sketch: SketchSpec = { ...node.sketch, plane, at: { u: round(middle.u - node.rect.w / 2, 3), v: round(middle.v - node.rect.h / 2, 3) } }
   return resolvePlanes({ ...doc, nodes: [...doc.nodes, { ...node, sketch }] })
+}
+
+/**
+ * Why a sketch can't find what it stands on — the part, the feature or the
+ * face under it is gone — or null when it can. Such a sketch keeps its last
+ * placement, marked broken, until a face or plane is picked again. A part or
+ * feature that's only hidden isn't broken: its faces come back with it.
+ */
+export function sketchProblem(doc: CanvasDoc, node: CanvasNode, bodies: () => Map<string, Body> = () => bodiesOf(doc)): string | null {
+  let ref = node.sketch?.plane
+  while (ref?.kind === 'offset') ref = ref.from
+  if (ref?.kind !== 'face') return null
+  const face = ref
+  const object = objectsOf(doc).find((o) => o.id === face.objectId)
+  if (!object) return 'The part it stood on was deleted'
+  const feature = object.features.find((f) => f.id === face.face.feature)
+  if (!feature) return 'The feature whose face it stood on was deleted'
+  if (object.hidden || feature.hidden) return null
+  return frameOf(doc, face, bodies, node.id) ? null : 'The face it stood on is gone'
 }
 
 /** "Sketch 3": the next free number among the board's top-level names. */
@@ -220,6 +232,6 @@ export function describePlane(doc: CanvasDoc, ref: PlaneRef): string {
       return object ? `${feature?.name ?? object.name}'s ${which}` : 'a face that is gone'
     }
     case 'custom':
-      return 'Placed freely'
+      return 'Custom plane'
   }
 }

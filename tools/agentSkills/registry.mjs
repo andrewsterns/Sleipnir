@@ -30,7 +30,9 @@ import { LANGUAGES } from './vendor/languages.mjs'
 // v4: /optimize, and the vendored architecture analyzer.
 // v5: the language table, vendored beside the CLIs that read it.
 // v6: slim AGENTS.md (references move into their skills), testing status, comments.
-export const SCAFFOLD_VERSION = 6
+// v7: /model and /sketch, and the vendored model commands.
+// v8: /model is /sculpt (Claude Code has its own /model), and builds go in one batch.
+export const SCAFFOLD_VERSION = 8
 
 // Where the vendored CLI lands, relative to the project root. Relative on
 // purpose: the emitted files are committed and cloned by people who have never
@@ -51,6 +53,8 @@ export const LANGUAGES_LIB = '.sleipnir/languages.mjs'
 // The agent-trail hook (vendor/trail.mjs) and the file it appends to.
 export const TRAIL_CLI = '.sleipnir/trail.mjs'
 export const TRAIL_FILE = '.planning/trail.jsonl'
+// The model commands (vendor/model.mjs, built from src/modeling/commands/ by buildModelCli.mjs).
+export const MODEL_CLI = '.sleipnir/model.mjs'
 
 // Emitters replace this with their own target's argument placeholder.
 export const ARGS_TOKEN = '{{ARGS}}'
@@ -290,9 +294,11 @@ Constraints:
 
 // Canvas design — /frame and /component. One context for both (rendered into
 // AGENTS.md once); each command says what to do now.
-const CANVAS_REFERENCE = `This project has Canvas boards in \`.components/.boards/\`: visual designs that
-Sleipnir renders and turns into real code. \`/frame\` and \`/component\` mean "design
-this on the board", not "write source files by hand".
+const CANVAS_REFERENCE = `This project has Sketch documents in \`.components/.boards/\`: 2D designs that
+Sleipnir renders and turns into real code. \`/sketch\` (or \`/frame\`, the same thing) and
+\`/component\` mean "design this in a Sketch", not "write source files by hand". \`build\`
+only writes to Sketch documents — 3D scenes are Environments, built with \`/sculpt\`, which
+can place a finished Sketch onto a plane or a part's face.
 
 Build designs with the bundled CLI — it needs only Node, and Sleipnir shows the
 result live:
@@ -316,7 +322,7 @@ desktop page, 390 for mobile), prefer stacks with gap and padding over free x/y 
 become real flex layouts in the code), use the theme tokens unless asked for specific
 colors, and write real copy.`
 
-const FRAME_COMMAND = `The user wants this designed on the Canvas board: ${ARGS_TOKEN}
+const FRAME_COMMAND = `The user wants this designed as a Sketch: ${ARGS_TOKEN}
 
 1. Read the spec format: \`node ${CANVAS_CLI} spec-help\`.
 2. Design ONE root frame for it — a page is one frame with nested sections. Size it
@@ -325,8 +331,58 @@ const FRAME_COMMAND = `The user wants this designed on the Canvas board: ${ARGS_
 
        node ${CANVAS_CLI} build --root . --spec <file>
 
-4. Report the board and frame it landed on. It stays an editable design; the user can
+4. Report the Sketch and frame it landed on. It stays an editable design; the user can
    refine it in Sleipnir and turn it into code there. Do not write source files.`
+
+const MODEL_COMMAND = `The user wants this sculpted in 3D: ${ARGS_TOKEN}
+
+1. See what's here: \`node ${MODEL_CLI} list --root .\`, and \`node ${MODEL_CLI} help\` for every
+   command and flag. Use the Environment they name, or make one with \`env create\`.
+2. Work out real sizes in meters before the first command, and which part stands on which.
+3. Write the whole build as one batch, a command per line, ending with \`describe\`, and run it:
+   \`node ${MODEL_CLI} batch --root . --env <name> --file <path>\`. It's all or nothing: a line
+   that fails names itself and nothing is written, so fix that line and run it again.
+4. Compare describe's numbers with what was asked — size, where it stands, which way faces
+   point — and fix what's off, in one more batch. Look at the numbers, not at screenshots.
+5. Report the parts you made and anything you couldn't. Never hand-edit the board JSON.`
+
+const MODEL_REFERENCE = `Words: an **Environment** is a 3D scene. A **Sketch** is a 2D drawing: a document of its
+own (design it with \`/sketch\`), or a shape standing on a plane. A **Part** is what's built
+from sketches by **Features** (Extrude 1, Revolve 2). **Place** puts a Sketch document in an
+Environment, linked, so edits to it show there; **Unlink** makes that copy local. A Sketch
+is drawn at 100 px to the meter, so give \`place --width <m>\` to size a design for its surface.
+
+Space: meters, Y up, the ground at Y = 0. The Sketch layer's own px are 100 to the meter.
+Extrudes go out of a plane's front:
+
+    Front   faces +Z    --at x,y is scene X, Y
+    Top     faces +Y    --at x,y is scene X, -Z (its up points away)
+    Side    faces +X    --at x,y is scene -Z, Y (its right points away)
+
+Recipes — a starter first when one fits (\`starter --shape box\`, then \`move\` it: starters land
+1 m wide, beside what's there):
+
+    box        rect on Top, extruded (from the ground up)
+    cylinder   circle (--shape ellipse) on Top, extruded
+    sphere     circle on Front, revolved about its center
+    cone       triangle (--shape polygon --sides 3) on Front, revolved about its center
+    custom     --shape path --points "x,y x,y …" (meters), then extrude or revolve
+
+Stacking: stand a sketch on a face (\`--plane "Base: end"\`) and it rides along when that
+face moves. \`describe\` prints faces by the names commands take (end, start, side 2,
+"Extrude 2 end").
+
+Moving: \`move\` carries a whole part and keeps its sketch on its plane. Turning is
+counterclockwise looking down the axis at the origin, about the part's middle unless
+\`--about x,y,z\` names a hinge: a lid lying flat opens with \`--turn x,-100 --about <back edge>\`.
+Scaling is about the middle too, so give \`--about\` on the ground to keep a part standing on it.
+
+Changing: \`feature\` sets a feature's numbers, \`edit --pull\` pushes or pulls a flat face,
+\`extrude --part --face\` grows new material out of one, \`resize\` changes a sketch. A refusal
+says why and what to do instead.
+
+Not built yet: subtract and intersect show as added, and lofts don't build. Each extrude
+makes its own part, so cut-outs have to be drawn into the outline.`
 
 const COMPONENT_COMMAND = `The user wants this built as a component: ${ARGS_TOKEN}
 
@@ -407,14 +463,18 @@ mark it \`completed\` with a one-line note; use \`set-status\` for anything else
 to name your step when steps share files, or to correct one. To draft a new plan,
 follow \`/plan\`.`
 
-const CANVAS_CONTEXT = `Visual designs live on Canvas boards in \`.components/.boards/\`; Sleipnir turns them
-into code. "Design this" means \`/frame\` (an editable design) or \`/component\` (a
-component Sleipnir writes the code for), built with \`node ${CANVAS_CLI}\`. Never
-hand-edit the board JSON or the code Sleipnir generates from it.`
+const CANVAS_CONTEXT = `2D designs live in Sketch documents in \`.components/.boards/\`; Sleipnir turns them
+into code. "Design this" means \`/sketch\` (an editable design; \`/frame\` is the same) or
+\`/component\` (a component Sleipnir writes the code for), built with \`node ${CANVAS_CLI}\`.
+Never hand-edit the board JSON or the code Sleipnir generates from it.`
 
 const OPTIMIZE_CONTEXT = `Before changing a project's structure or chasing a slow feature, measure:
 \`node ${ANALYZE_CLI} report --root . [--feature "<words>"]\` maps every import in a few
 thousand tokens — read it instead of the source tree. \`/optimize\` has the full method.`
+
+const MODEL_CONTEXT = `3D scenes are Environments in \`.components/.boards/\`, built with \`node ${MODEL_CLI}\`
+(\`help\` lists the commands; \`describe\` reads a scene back in a few hundred tokens). "Model
+this" means \`/sculpt\`. Never hand-edit the board JSON.`
 
 // Appended to each skill's own instructions, after a rule.
 const withReference = (command, reference) => `${command}\n\n---\n\n${reference}`
@@ -428,10 +488,18 @@ export const SKILLS = [
     command: withReference(PLAN_COMMAND, PLAN_REFERENCE),
   },
   {
-    id: 'frame',
-    description: "Design something on Sleipnir's Canvas board as editable frames.",
+    id: 'sketch',
+    description: 'Design something in a Sketch document as editable frames.',
     argumentHint: '<what to design>',
     context: CANVAS_CONTEXT,
+    command: withReference(FRAME_COMMAND, CANVAS_REFERENCE),
+  },
+  {
+    id: 'frame',
+    description: 'The same as /sketch: design something as editable frames.',
+    argumentHint: '<what to design>',
+    // Shares /sketch's context — AGENTS.md carries it once.
+    context: '',
     command: withReference(FRAME_COMMAND, CANVAS_REFERENCE),
   },
   {
@@ -441,6 +509,13 @@ export const SKILLS = [
     // Shares /frame's context — AGENTS.md carries it once.
     context: '',
     command: withReference(COMPONENT_COMMAND, CANVAS_REFERENCE),
+  },
+  {
+    id: 'sculpt',
+    description: 'Build or change a 3D scene: parts, sketches on planes, moves. Checks its work with describe.',
+    argumentHint: '<what to sculpt>',
+    context: MODEL_CONTEXT,
+    command: withReference(MODEL_COMMAND, MODEL_REFERENCE),
   },
   {
     id: 'optimize',

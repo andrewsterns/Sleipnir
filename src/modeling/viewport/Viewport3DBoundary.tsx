@@ -6,9 +6,9 @@ const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
  * Keeps a failure inside the 3D view inside the 3D view. Its code arrives as a
  * separate chunk, and a chunk that fails to load (offline, a stale dev build)
  * or a WebGL context the machine can't give would otherwise take the whole app
- * down with it. Offers a retry, and the way back to 2D.
+ * down with it. Offers a retry, and the way back to 2D where there is one.
  */
-export class Viewport3DBoundary extends Component<{ children: ReactNode; onBack: () => void; onRetry: () => void }, { error: Error | null; attempt: number }> {
+export class Viewport3DBoundary extends Component<{ children: ReactNode; onBack?: () => void; onRetry: () => void }, { error: Error | null; attempt: number }> {
   state = { error: null as Error | null, attempt: 0 }
 
   static getDerivedStateFromError(error: Error) {
@@ -29,9 +29,11 @@ export class Viewport3DBoundary extends Component<{ children: ReactNode; onBack:
             }}>
             Try again
           </button>
-          <button type="button" style={button} onClick={this.props.onBack}>
-            Back to 2D
-          </button>
+          {this.props.onBack && (
+            <button type="button" style={button} onClick={this.props.onBack}>
+              Back to 2D
+            </button>
+          )}
         </span>
       </div>
     )

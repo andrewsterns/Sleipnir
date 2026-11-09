@@ -22,7 +22,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, GRAPH_CORE, LANGUAGES_LIB, TRAIL_CLI, TRAIL_FILE } from './registry.mjs'
+import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, GRAPH_CORE, LANGUAGES_LIB, TRAIL_CLI, TRAIL_FILE, MODEL_CLI } from './registry.mjs'
 import { emitAll } from './emitters/index.mjs'
 import { mergeBlock } from './managedBlock.mjs'
 
@@ -35,6 +35,7 @@ const VENDOR_ANALYZE_CLI = path.join(path.dirname(fileURLToPath(import.meta.url)
 const VENDOR_GRAPH_CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'graphCore.mjs')
 const VENDOR_LANGUAGES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'languages.mjs')
 const VENDOR_TRAIL = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'trail.mjs')
+const VENDOR_MODEL = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vendor', 'model.mjs')
 
 const STATE_FILE = '.sleipnir/scaffold.json'
 
@@ -68,6 +69,7 @@ export function scaffoldFiles(root) {
   files.push({ path: GRAPH_CORE, content: fs.readFileSync(VENDOR_GRAPH_CORE, 'utf8'), managed: false })
   files.push({ path: LANGUAGES_LIB, content: fs.readFileSync(VENDOR_LANGUAGES, 'utf8'), managed: false })
   files.push({ path: TRAIL_CLI, content: fs.readFileSync(VENDOR_TRAIL, 'utf8'), managed: false })
+  files.push({ path: MODEL_CLI, content: fs.readFileSync(VENDOR_MODEL, 'utf8'), managed: false })
   return files
 }
 
@@ -120,7 +122,7 @@ function withEol(text, eol) {
 // Without this check, a project's existing `/plan` command was silently
 // replaced the first time Sleipnir opened it.
 function isOwnedBySleipnir(relPath, existing) {
-  return relPath.startsWith('.sleipnir/') || existing.includes(PLAN_CLI) || existing.includes(CANVAS_CLI) || existing.includes(ANALYZE_CLI)
+  return relPath.startsWith('.sleipnir/') || existing.includes(PLAN_CLI) || existing.includes(CANVAS_CLI) || existing.includes(ANALYZE_CLI) || existing.includes(MODEL_CLI)
 }
 
 // What would change, without touching disk. Split out from the write so it can

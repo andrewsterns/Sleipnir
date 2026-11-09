@@ -24,6 +24,13 @@ export interface TabPickerItem {
   onPick?: () => void
 }
 
+/** A trailing "create" row: gets whatever has been typed, so a search that finds nothing turns straight into creating that thing. */
+export interface TabPickerCreate {
+  label: (query: string) => string
+  onCreate: (query: string) => void
+  icon: IconName
+}
+
 export interface TabPickerProps {
   /** Plural noun for what's listed — "Plans", "Boards". */
   noun: string
@@ -40,11 +47,8 @@ export interface TabPickerProps {
   activeId: string | null
   /** Opens (or switches to) that item's tab. */
   onPick: (id: string) => void
-  /**
-   * The trailing "create" row. Gets whatever has been typed, so a search that
-   * finds nothing turns straight into creating that thing.
-   */
-  create?: { label: (query: string) => string; onCreate: (query: string) => void; icon: IconName }
+  /** The trailing "create" row, or rows — New sketch, New environment. */
+  create?: TabPickerCreate | TabPickerCreate[]
   /**
    * What a query finds beyond `items` — the nodes in every plan, the layers on
    * a board — listed after the matching items under their own `section`
@@ -94,9 +98,10 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, summary, width = 188
   }, [items, q, results])
   const resultSet = useMemo(() => new Set(results), [results])
 
-  // The create row is the last stop for the keyboard, after every match.
-  const rowCount = matches.length + (create ? 1 : 0)
-  const createIndex = create ? matches.length : -1
+  // The create rows are the last stops for the keyboard, after every match.
+  const creates = create ? (Array.isArray(create) ? create : [create]) : []
+  const rowCount = matches.length + creates.length
+  const createIndex = matches.length
 
   useEffect(() => setHighlight(0), [q, open])
 
@@ -106,8 +111,8 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, summary, width = 188
   }
 
   const commit = (index: number) => {
-    if (index === createIndex && create) {
-      create.onCreate(q)
+    if (index >= createIndex && creates[index - createIndex]) {
+      creates[index - createIndex].onCreate(q)
     } else {
       const item = matches[index]
       if (!item) return
@@ -142,7 +147,7 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, summary, width = 188
 
   // Keep the keyboard highlight in view in a long list.
   useEffect(() => {
-    listRef.current?.querySelector(`[data-picker-index="${highlight}"]`)?.scrollIntoView({ block: 'nearest' })
+    listRef.current?.querySelector(`[data-picker-index="${highlight}"]`)?.scrollIntoView?.({ block: 'nearest' })
   }, [highlight])
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -216,6 +221,7 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, summary, width = 188
           onBlur={close}
           onKeyDown={onKeyDown}
           placeholder={open ? `Search ${nounLower}…` : (summary ?? `${noun} (${items.length})`)}
+          title={open ? undefined : (summary ?? `${noun} (${items.length})`)}
           spellCheck={false}
           style={{
             ...UI_FONT,
@@ -228,6 +234,7 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, summary, width = 188
             border: 'none',
             outline: 'none',
             padding: 0,
+            textOverflow: 'ellipsis',
           }}
         />
         <span
@@ -328,30 +335,35 @@ export const TabPicker: React.FC<TabPickerProps> = ({ noun, summary, width = 188
                 </React.Fragment>
               )
             })}
-            {create && (
-              <div
-                id={`${listId}-${createIndex}`}
-                role="option"
-                aria-selected={false}
-                data-picker-index={createIndex}
-                style={{ borderTop: matches.length > 0 ? '1px solid var(--border-1)' : undefined, marginTop: matches.length > 0 ? 4 : 0, paddingTop: matches.length > 0 ? 4 : 0 }}
-              >
-                <ListRow
-                  connected={highlight === createIndex}
-                  indent={6}
-                  style={{ marginLeft: -8, marginRight: -8 }}
-                  onClick={() => commit(createIndex)}
-                  onMouseEnter={() => setHighlight(createIndex)}
-                  leading={
-                    <span style={{ display: 'flex', opacity: 0.7 }}>
-                      <Icon name={create.icon} size={12} />
-                    </span>
-                  }
+            {creates.map((row, i) => {
+              const index = createIndex + i
+              const first = i === 0 && matches.length > 0
+              return (
+                <div
+                  key={`create:${i}`}
+                  id={`${listId}-${index}`}
+                  role="option"
+                  aria-selected={false}
+                  data-picker-index={index}
+                  style={{ borderTop: first ? '1px solid var(--border-1)' : undefined, marginTop: first ? 4 : 0, paddingTop: first ? 4 : 0 }}
                 >
-                  {create.label(q)}
-                </ListRow>
-              </div>
-            )}
+                  <ListRow
+                    connected={highlight === index}
+                    indent={6}
+                    style={{ marginLeft: -8, marginRight: -8 }}
+                    onClick={() => commit(index)}
+                    onMouseEnter={() => setHighlight(index)}
+                    leading={
+                      <span style={{ display: 'flex', opacity: 0.7 }}>
+                        <Icon name={row.icon} size={12} />
+                      </span>
+                    }
+                  >
+                    {row.label(q)}
+                  </ListRow>
+                </div>
+              )
+            })}
           </div>,
           document.body,
         )}

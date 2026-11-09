@@ -280,16 +280,23 @@ function readBoards(root) {
     })
 }
 
+/** A board's kind: what it says, or, saved before the kinds, what it holds (src/document/documentKind.ts). */
+function kindOf(doc) {
+  if (doc.kind === 'sketch' || doc.kind === 'environment') return doc.kind
+  return (doc.objects?.length ?? 0) > 0 || doc.nodes.some((n) => n.space || n.sketch) ? 'environment' : 'sketch'
+}
+
 export function listBoards(root) {
   return readBoards(root)
     .sort((a, b) => (b.doc.updatedAt ?? 0) - (a.doc.updatedAt ?? 0))
-    .map(({ doc }) => ({ id: doc.id, name: doc.name, nodes: doc.nodes.length, updatedAt: doc.updatedAt }))
+    .map(({ doc }) => ({ id: doc.id, name: doc.name, kind: kindOf(doc), nodes: doc.nodes.length, updatedAt: doc.updatedAt }))
 }
 
 /**
- * Builds `spec` onto a board: the named one (id or name), else the one edited
- * most recently — the board the human has open, almost always — else a new
- * "AI designs" board. The new frame lands to the right of what's there.
+ * Builds `spec` onto a Sketch document: the named one (id or name), else the
+ * one edited most recently, else a new "AI designs" one. An Environment is 3D
+ * and built with model.mjs, so it's never written to here. The new frame lands
+ * to the right of what's there.
  *
  * `component` asks Sleipnir to promote the result to a component (writing its
  * code into `.components/<name>/`); `svg` makes that an SVG component.
@@ -310,11 +317,14 @@ export function buildOnBoard(root, { spec, board, component, svg } = {}) {
   const wanted = board ? String(board).toLowerCase() : null
   let target = wanted
     ? boards.find((b) => b.doc.id.toLowerCase() === wanted || String(b.doc.name ?? '').toLowerCase() === wanted)
-    : [...boards].sort((a, b) => (b.doc.updatedAt ?? 0) - (a.doc.updatedAt ?? 0))[0]
+    : boards.filter((b) => kindOf(b.doc) === 'sketch').sort((a, b) => (b.doc.updatedAt ?? 0) - (a.doc.updatedAt ?? 0))[0]
+  if (target && kindOf(target.doc) === 'environment') {
+    throw new Error(`"${target.doc.name}" is an Environment. Design in a Sketch (name a new one with --board), then place it there: node .sleipnir/model.mjs place --env "${target.doc.name}" --sketch <name>`)
+  }
   const now = Date.now()
   if (!target) {
     const id = nextId('canvas')
-    const doc = { version: SCHEMA_VERSION, id, name: board ? String(board) : 'AI designs', nodes: [], components: [], createdAt: now, updatedAt: now }
+    const doc = { version: SCHEMA_VERSION, id, name: board ? String(board) : 'AI designs', kind: 'sketch', nodes: [], components: [], createdAt: now, updatedAt: now }
     target = { file: path.join(boardsDir(root), `${id}.json`), doc }
   }
 
@@ -415,8 +425,9 @@ const HELP = `Sleipnir Canvas CLI
   node .sleipnir/canvas.mjs build --root . --spec <file|-> [--board <name|id>] [--component <Name>] [--svg]
   node .sleipnir/canvas.mjs spec-help
 
-build appends the spec's frame to a board (the named one, else the most recently
-edited, else a new "AI designs" board). Sleipnir shows it live. --component asks
+build appends the spec's frame to a Sketch document (the named one, else the most
+recently edited, else a new "AI designs" one). Sleipnir shows it live. Environments
+are 3D: build those with .sleipnir/model.mjs, which can place a Sketch in one. --component asks
 Sleipnir to make it a component and write its code into .components/<name>/;
 --svg makes that an SVG component (vector shapes only).`
 

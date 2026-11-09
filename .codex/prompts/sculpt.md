@@ -1,0 +1,56 @@
+---
+description: "Build or change a 3D scene: parts, sketches on planes, moves. Checks its work with describe."
+argument-hint: "<what to sculpt>"
+---
+
+The user wants this sculpted in 3D: $ARGUMENTS
+
+1. See what's here: `node .sleipnir/model.mjs list --root .`, and `node .sleipnir/model.mjs help` for every
+   command and flag. Use the Environment they name, or make one with `env create`.
+2. Work out real sizes in meters before the first command, and which part stands on which.
+3. Write the whole build as one batch, a command per line, ending with `describe`, and run it:
+   `node .sleipnir/model.mjs batch --root . --env <name> --file <path>`. It's all or nothing: a line
+   that fails names itself and nothing is written, so fix that line and run it again.
+4. Compare describe's numbers with what was asked — size, where it stands, which way faces
+   point — and fix what's off, in one more batch. Look at the numbers, not at screenshots.
+5. Report the parts you made and anything you couldn't. Never hand-edit the board JSON.
+
+---
+
+Words: an **Environment** is a 3D scene. A **Sketch** is a 2D drawing: a document of its
+own (design it with `/sketch`), or a shape standing on a plane. A **Part** is what's built
+from sketches by **Features** (Extrude 1, Revolve 2). **Place** puts a Sketch document in an
+Environment, linked, so edits to it show there; **Unlink** makes that copy local. A Sketch
+is drawn at 100 px to the meter, so give `place --width <m>` to size a design for its surface.
+
+Space: meters, Y up, the ground at Y = 0. The Sketch layer's own px are 100 to the meter.
+Extrudes go out of a plane's front:
+
+    Front   faces +Z    --at x,y is scene X, Y
+    Top     faces +Y    --at x,y is scene X, -Z (its up points away)
+    Side    faces +X    --at x,y is scene -Z, Y (its right points away)
+
+Recipes — a starter first when one fits (`starter --shape box`, then `move` it: starters land
+1 m wide, beside what's there):
+
+    box        rect on Top, extruded (from the ground up)
+    cylinder   circle (--shape ellipse) on Top, extruded
+    sphere     circle on Front, revolved about its center
+    cone       triangle (--shape polygon --sides 3) on Front, revolved about its center
+    custom     --shape path --points "x,y x,y …" (meters), then extrude or revolve
+
+Stacking: stand a sketch on a face (`--plane "Base: end"`) and it rides along when that
+face moves. `describe` prints faces by the names commands take (end, start, side 2,
+"Extrude 2 end").
+
+Moving: `move` carries a whole part and keeps its sketch on its plane. Turning is
+counterclockwise looking down the axis at the origin, about the part's middle unless
+`--about x,y,z` names a hinge: a lid lying flat opens with `--turn x,-100 --about <back edge>`.
+Scaling is about the middle too, so give `--about` on the ground to keep a part standing on it.
+
+Changing: `feature` sets a feature's numbers, `edit --pull` pushes or pulls a flat face,
+`extrude --part --face` grows new material out of one, `resize` changes a sketch. A refusal
+says why and what to do instead.
+
+Not built yet: subtract and intersect show as added, and lofts don't build. Each extrude
+makes its own part, so cut-outs have to be drawn into the outline.

@@ -103,7 +103,10 @@ Under the board picker (it stays the panel's one search and board switcher, per 
 
 ## 6. The toolbox in 3D: shaping tools and starter shapes
 <!-- step:plan/sketches-and-objects-1793676967972/the-toolbox-in-3d-shaping-tools-and-starter-shapes-1793726031365 -->
-**Status:** Proposed
+**Status:** Done — One toolbox in 2D and 3D: Extrude/Revolve/Sweep/Loft act on the selection (disabled ones say why); Box, Cylinder, Sphere, Cone, Torus, Polygon as sketch + feature; Move/Rotate/Scale moved in from the 3D bar; checked in the app
+
+**Comments**
+- claude: Built in the new layout: registry at src/canvas/board/toolbox.ts; starter shapes at src/modeling/scene3d/starterShapes.ts (not document/, since Top-plane shapes need the plane resolver). Starter shapes land clear of the scene, standing on the ground. Loft is listed but disabled ('Lofts aren't built yet'); the E hotkey waits for the hotkeys step.
 
 Brought forward so each step can be seen in the app. The board's toolbox gets its 3D groups beside the 2D ones (one toolbox, the groups shown for the view you're in): Extrude, Revolve, Sweep and Loft act on the selected sketch (or ask for one) and create or extend an Object; starter shapes, Box, Cylinder, Sphere, Cone, Torus and Polygon (n sides), each made as a sketch plus a feature (a sphere is a revolved half circle, a polygon an extruded n-gon) so they edit like anything else. Tools are defined once in a registry both views read, with their key, icon and which view they belong to. Settings for what a tool made appear in the right panel (the inspector's Solid section until the feature inspector lands).
 
@@ -123,10 +126,11 @@ Brought forward so each step can be seen in the app. The board's toolbox gets it
 
 ## 7. Layers: Sketches, and Objects with their feature list
 <!-- step:plan/sketches-and-objects-1793676967972/layers-sketches-and-objects-with-their-feature-list-1793677058165 -->
-**Status:** Proposed
+**Status:** Done — Left panel: Front/Top/Side sections plus Objects, each object opening to its features with the sketch each uses (used sketches leave their plane section); object eye hides the part, feature eye suppresses the step; double-click opens a sketch; checked in the app
 
 **Comments**
 - claude: Started early (requested 2026-11-03): the layers panel now groups top-level layers into Front / Top / Side sections (always shown; offsets file under their base plane), plus 'On faces' and 'Placed freely' when used. Each section has + (new sketch there) and an eye for all of it (panels/planeGroups.ts). Still to do here: the Objects list with its feature tree.
+- claude: Not done here: dragging features to reorder (it needs rebuild ordering, worth doing with the feature inspector step), renaming an object, and a delete-object menu item.
 
 The layers panel splits in two, like Onshape's feature list over its parts list, in Figma's look. Sketches: each sketch frame with its layer tree, as today. Objects: each part, expanding to its features in order (Sketch 1 > Extrude 1 > Sketch 2 > Revolve 1); clicking a feature selects it, double-clicking a sketch opens sketch mode, dragging reorders (rebuilding after), an eye hides. A sketch a feature consumes shows under that feature, as in Onshape.
 
@@ -142,7 +146,10 @@ The layers panel splits in two, like Onshape's feature list over its parts list,
 
 ## 8. Sketch mode: Figma on the sketch's plane
 <!-- step:plan/sketches-and-objects-1793676967972/sketch-mode-figma-on-the-sketch-s-plane-1793677058267 -->
-**Status:** Proposed
+**Status:** Done — Sketch mode: bodies flattened onto the open sketch's plane as a faint silhouette plus edges (scene3d/sketchGhost.ts); the open sketch draws flat; sketch bar shows name, plane, Finish sketch; guides use real anchors; checked in the app
+
+**Comments**
+- claude: Not done here: snapping drawn points to the backdrop's edges and corners (they're shown, not snapped to yet), and 'features rebuild on Finish' needed nothing new since features already rebuild on every edit. Kept the internal name planeEdit; only the UI says sketch mode.
 
 Plane edit (scene3d/planeEdit.ts) becomes sketch mode in Onshape's sense: open a sketch (double-click it, its tree row, or + Sketch) and the board shows that plane face on with every Figma tool, the bodies it sits on ghosted and projected onto the plane so you can draw against their edges, plus the cross-plane guides. Finish sketch (or Esc) closes it and the features using it rebuild. Plane edit's chip becomes the Onshape-style sketch bar: the sketch's name, its plane, Finish.
 
@@ -158,6 +165,9 @@ Plane edit (scene3d/planeEdit.ts) becomes sketch mode in Onshape's sense: open a
 ## 9. Sketch mode in 3D: the board laid over the scene
 <!-- step:plan/sketches-and-objects-1793676967972/sketch-mode-in-3d-the-board-laid-over-the-scene-1793677058374 -->
 **Status:** Proposed
+
+**Comments**
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
 
 The seamless half: opening a sketch in the 3D view turns the camera to face its plane and locks it orthographic, and the live 2D board (DOM, transparent background) is drawn on top, its pan and zoom driving the 3D camera, so you draw with Figma's tools while the solids show behind. Finishing swings the camera back. This is the 'add 2D sketches into a 3D environment' moment, without two editors.
 
@@ -177,6 +187,9 @@ The seamless half: opening a sketch in the 3D view turns the camera to face its 
 <!-- step:plan/sketches-and-objects-1793676967972/what-editing-a-face-edge-or-point-changes-1793677066141 -->
 **Status:** Proposed
 
+**Comments**
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
+
 The rules, as pure functions, from a named element and a move to a change in the sketch or feature that made it: a cap's corner moves that sketch point (on the plane, through the inverse plane matrix); dragging a side face pushes or pulls its outline segment; an end cap pulled along its normal changes the extrude's depth (push/pull, as in Onshape or SketchUp); a revolve's faces move profile points; an edge moves its two points. Anything with no source (a boolean seam) says so rather than guessing. The 3D creation plan's 'Editable meshes' step is the escape hatch for free-form mesh editing beyond this.
 
 **Files**
@@ -189,6 +202,9 @@ The rules, as pure functions, from a named element and a move to a change in the
 ## 11. Selection modes and hotkeys
 <!-- step:plan/sketches-and-objects-1793676967972/selection-modes-and-hotkeys-1793677066279 -->
 **Status:** Proposed
+
+**Comments**
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
 
 Blender's select modes on any object, in 3D and in the 2D front view: Tab toggles object and edit mode, 1 / 2 / 3 pick points, edges or faces, click selects, Shift adds, A all, Alt+A none, box-drag selects in edit mode. Hover highlights the face or edge under the cursor; selected points draw as dots, edges as lines, faces tinted. Figma's keys stay while a sketch is open (V, F, R, O, P, T); Blender's apply in 3D and on objects; a ? overlay lists both. Picking uses the named triangles from 'Bodies with named faces, edges and points'.
 
@@ -210,6 +226,9 @@ Blender's select modes on any object, in 3D and in the 2D front view: Tab toggle
 <!-- step:plan/sketches-and-objects-1793676967972/grab-rotate-scale-and-push-pull-1793677066405 -->
 **Status:** Proposed
 
+**Comments**
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
+
 Blender's modal transforms on whatever is selected: G grab, R rotate, S scale, then X / Y / Z to lock an axis (twice for local), type a number for an exact amount, Enter or click to confirm, Esc or right-click to cancel. On an object they move its placement; on faces, edges and points they go through 'What editing a face, edge or point changes', so dragging a cube's top face up deepens the extrude and its corners stay on the sketch. The gizmo (viewport/TransformGizmo.tsx) does the same by mouse.
 
 **Files**
@@ -230,6 +249,7 @@ Blender's modal transforms on whatever is selected: G grab, R rotate, S scale, t
 
 **Comments**
 - claude: The toolbox half (Toolbar3D, the tool buttons) moved forward to 'The toolbox in 3D: shaping tools and starter shapes'. This step keeps the right-panel half: the feature inspector with live preview and OK/Cancel, and Combine once booleans exist.
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
 
 3D's toolbar is Onshape's feature set in Figma's style and words: Select, Sketch, Extrude, Revolve, Sweep, Loft, Combine (union / subtract / intersect), Plane, Move. Choosing one with a sketch or face selected starts that feature with a live preview; the inspector shows its fields (depth, direction, both sides, add or subtract into which object, axis, angle) as Onshape's feature dialog does, with OK and Cancel. SolidSection's per-layer solid controls fold into it.
 
@@ -250,6 +270,9 @@ Blender's modal transforms on whatever is selected: G grab, R rotate, S scale, t
 <!-- step:plan/sketches-and-objects-1793676967972/the-front-view-draws-objects-from-their-bodies-1793677066672 -->
 **Status:** Proposed
 
+**Comments**
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
+
 The 2D board stops drawing solids per layer (scene3d/sceneMeshes.ts projectedSolidsOf) and draws every Object's evaluated body through the front camera with its named faces, so picking, hover and edit-mode dots work in 2D too. Sketches draw as frames on their planes as now (squashed, sheared or edge-on); a sketch a feature has consumed draws as a thin outline. Retires drawsAsSolid.
 
 **Edits**
@@ -265,6 +288,9 @@ The 2D board stops drawing solids per layer (scene3d/sceneMeshes.ts projectedSol
 <!-- step:plan/sketches-and-objects-1793676967972/agents-and-files-speak-sketches-and-objects-1793677066788 -->
 **Status:** Proposed
 
+**Comments**
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
+
 The canvas CLI agents use (/frame and /component through tools/agentSkills/vendor/canvas.mjs, copied into projects as .sleipnir/canvas.mjs) and the board file learn sketches, planes, objects and features, so an AI can say 'sketch a circle on the top face of Box and extrude it 2 cm' and Sleipnir builds it. The /frame and /component skill text explains the two kinds. Emitted 2D component code is unchanged: a sketch is still a frame.
 
 **Edits**
@@ -278,6 +304,9 @@ The canvas CLI agents use (/frame and /component through tools/agentSkills/vendo
 ## 16. Verify in the running app
 <!-- step:plan/sketches-and-objects-1793676967972/verify-in-the-running-app-1793677066924 -->
 **Status:** Proposed
+
+**Comments**
+- claude: Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.
 
 Over CDP in the dev app with a scratch project: + Object > Box; pick its top face (Tab, 3, click) in 3D and in 2D; G, Z, 20 raises it and the depth changes; + Sketch on that face, draw a circle with Figma's ellipse tool in sketch mode (2D and 3D), Finish, Extrude it; change the box's depth and the circle's extrude follows; select a corner (1) and drag it, and the sketch point moves; an old board with per-layer solids opens migrated.
 

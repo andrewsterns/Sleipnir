@@ -158,23 +158,6 @@ function readRects(
     const id = el.getAttribute('data-canvas-node')
     if (!id || !wanted.has(id)) continue
     const box = el.getBoundingClientRect()
-    // On a plane placed in 3D the client rect is the box around its front view
-    // (document/frontView.ts). Its center is still the projected center, so carry
-    // that back onto the plane: these rects are in the plane's own space, which
-    // doc.ts composes with the plane's matrix.
-    const plane = (el as HTMLElement).closest?.('[data-canvas-plane]') as HTMLElement | null
-    if (plane) {
-      const m = new DOMMatrix(plane.style.transform || undefined)
-      if (Math.abs(m.a * m.d - m.b * m.c) < 1e-6) continue // edge-on: nothing to measure on screen
-      const css = getComputedStyle(el)
-      const w = parseFloat(css.width) || 0
-      const h = parseFloat(css.height) || 0
-      const center = m.inverse().transformPoint(
-        new DOMPoint((box.left + box.width / 2 - base.left - camera.x) / k, (box.top + box.height / 2 - base.top - camera.y) / k),
-      )
-      out.set(id, { x: center.x - w / 2, y: center.y - h / 2, w, h })
-      continue
-    }
     // A rotated node's client rect is the box AROUND its turned shape. The
     // geometry wants the unrotated box (document/rotation.ts), which shares that
     // box's center and has the element's own layout size.

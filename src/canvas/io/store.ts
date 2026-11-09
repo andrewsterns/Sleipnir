@@ -34,81 +34,14 @@ import type { FileTreeNode } from '../../platform/PlatformAPI'
 import { DEFAULT_COMPONENT_ROOT, LEGACY_COMPONENT_ROOT, isContained, normalizeRelPath, parentDir } from '../../document/paths'
 import { movedComponents, reconcileDeletedPath, relinkAfterMove } from '../../document/relink'
 import { isStagedPath, sentinelComponentId } from './stagedFiles'
-import { CANVAS_SCHEMA_VERSION, type CanvasDoc, type CanvasDocId, type CanvasDocSummary } from '../../document/types'
-import { migrateLayerSolids } from '../../document/objects'
+import { type CanvasDoc, type CanvasDocId, type CanvasDocSummary } from '../../document/types'
+import { documentKindOf } from '../../document/documentKind'
+import { linkedDocIds } from '../../document/placements'
+import { CANVAS_DIR, canvasDocPath, hashContent, parseDoc, renameLegacyPaths, serializeDoc } from './docFormat'
 
-export const CANVAS_DIR = `${DEFAULT_COMPONENT_ROOT}/.boards`
+export { CANVAS_DIR, canvasDocPath, hashContent, parseDoc, renameLegacyPaths, serializeDoc }
+
 const LEGACY_CANVAS_DIR = '.planning/canvas'
-
-export function canvasDocPath(id: string): string {
-  return `${CANVAS_DIR}/${id}.json`
-}
-
-/**
- * Content hash of a serialized doc. Used to suppress the watcher self-echo:
- * our own autosave fires planning:changed, and reloading from it would stomp
- * whatever the user typed in the ~200ms since.
- */
-export function hashContent(content: string): string {
-  // FNV-1a. Not cryptographic — this only needs to detect "same bytes".
-  let h = 0x811c9dc5
-  for (let i = 0; i < content.length; i += 1) {
-    h ^= content.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  return (h >>> 0).toString(36)
-}
-
-export function serializeDoc(doc: CanvasDoc): string {
-  return JSON.stringify(doc, null, 2)
-}
-
-/**
- * Parses and migrates a stored doc forward.
- *
- * Returns null rather than throwing on malformed JSON: one corrupt board must
- * not take down the whole board list. The caller surfaces it as an unreadable
- * entry.
- */
-export function parseDoc(content: string): CanvasDoc | null {
-  let raw: unknown
-  try {
-    raw = JSON.parse(renameLegacyPaths(content))
-  } catch {
-    return null
-  }
-  if (!raw || typeof raw !== 'object') return null
-  const doc = raw as Partial<CanvasDoc>
-  if (!doc.id || !Array.isArray(doc.nodes)) return null
-  // A board saved before Objects keeps its solids on the layers; move them (document/objects.ts).
-  return migrateLayerSolids({
-    version: doc.version ?? CANVAS_SCHEMA_VERSION,
-    id: doc.id,
-    name: doc.name ?? 'Untitled',
-    nodes: doc.nodes,
-    components: doc.components ?? [],
-    // Dropping this silently undid "New folder" on every reload — the one
-    // thing componentFolders exists to survive (see types.ts).
-    ...(Array.isArray(doc.componentFolders) ? { componentFolders: doc.componentFolders } : {}),
-    ...(Array.isArray(doc.objects) && doc.objects.length ? { objects: doc.objects } : {}),
-    camera: doc.camera,
-    createdAt: doc.createdAt ?? Date.now(),
-    updatedAt: doc.updatedAt ?? Date.now(),
-  })
-}
-
-/**
- * A board written before `.canvas` became `.components` names paths inside it
- * — components' componentRoot and filePath, image fills' src — under the old
- * folder. Every one is a JSON string starting with that folder, so they are
- * rewritten as strings, before parsing. A no-op on any current board.
- */
-export function renameLegacyPaths(content: string): string {
-  if (!content.includes(`"${LEGACY_COMPONENT_ROOT}`)) return content
-  return content
-    .split(`"${LEGACY_COMPONENT_ROOT}/`).join(`"${DEFAULT_COMPONENT_ROOT}/`)
-    .split(`"${LEGACY_COMPONENT_ROOT}"`).join(`"${DEFAULT_COMPONENT_ROOT}"`)
-}
 
 /**
  * One-time rename of a project's `.canvas` folder to `.components` — boards,
@@ -175,8 +108,10 @@ export async function listDocs(): Promise<CanvasDocSummary[]> {
         return {
           id: doc.id,
           name: doc.name,
+          kind: documentKindOf(doc),
           updatedAt: doc.updatedAt,
           componentFilePaths: doc.components.flatMap((c) => (c.filePath ? [c.filePath] : [])),
+          links: linkedDocIds(doc),
         }
       } catch {
         return null

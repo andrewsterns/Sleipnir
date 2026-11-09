@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, ARGS_TOKEN } from './registry.mjs'
+import { SKILLS, SCAFFOLD_VERSION, PLAN_CLI, CANVAS_CLI, ANALYZE_CLI, MODEL_CLI, ARGS_TOKEN } from './registry.mjs'
 import { emitAll, emitAgentsMd, emitClaude, emitCodex, emitGemini } from './emitters/index.mjs'
 import { mergeBlock, wrapBlock, hasBlock } from './managedBlock.mjs'
 import { planScaffold, ensureAgentScaffolding, scaffoldPaths, ownedScaffoldPaths, readState } from './scaffold.mjs'
@@ -17,14 +17,20 @@ describe('emitters', () => {
       '.claude/commands/frame.md',
       '.claude/commands/optimize.md',
       '.claude/commands/plan.md',
+      '.claude/commands/sculpt.md',
+      '.claude/commands/sketch.md',
       '.codex/prompts/component.md',
       '.codex/prompts/frame.md',
       '.codex/prompts/optimize.md',
       '.codex/prompts/plan.md',
+      '.codex/prompts/sculpt.md',
+      '.codex/prompts/sketch.md',
       '.gemini/commands/component.toml',
       '.gemini/commands/frame.toml',
       '.gemini/commands/optimize.toml',
       '.gemini/commands/plan.toml',
+      '.gemini/commands/sculpt.toml',
+      '.gemini/commands/sketch.toml',
       'AGENTS.md',
       'CLAUDE.md',
       'GEMINI.md',
@@ -197,7 +203,7 @@ describe('scaffolder', () => {
 
   it('records its version and skills in scaffold.json', () => {
     ensureAgentScaffolding(root)
-    expect(readState(root)).toMatchObject({ version: SCAFFOLD_VERSION, skills: ['plan', 'frame', 'component', 'optimize'] })
+    expect(readState(root)).toMatchObject({ version: SCAFFOLD_VERSION, skills: ['plan', 'sketch', 'frame', 'component', 'sculpt', 'optimize'] })
   })
 
   it('preserves human content in the shared files', () => {
@@ -237,7 +243,7 @@ describe('scaffolder', () => {
   it('emits only unmanaged files it can recognize as its own', () => {
     for (const file of emitAll(SKILLS).filter((f) => !f.managed)) {
       // Every command Sleipnir writes drives one of its own vendored CLIs.
-      expect(file.content.includes(PLAN_CLI) || file.content.includes(CANVAS_CLI) || file.content.includes(ANALYZE_CLI), file.path).toBe(true)
+      expect(file.content.includes(PLAN_CLI) || file.content.includes(CANVAS_CLI) || file.content.includes(ANALYZE_CLI) || file.content.includes(MODEL_CLI), file.path).toBe(true)
     }
   })
 
@@ -339,5 +345,49 @@ describe('the canvas CLI', () => {
     const { buildOnBoard } = await import('./vendor/canvas.mjs')
     expect(() => buildOnBoard('/tmp/x', { spec: '{not json' })).toThrow(/valid JSON/)
     expect(() => buildOnBoard('/tmp/x', { spec: { children: [{ type: 'sparkle' }] } })).toThrow(/Unknown node type/)
+  })
+})
+
+describe('sketches and environments', () => {
+  it('builds designs into Sketch documents, never an Environment, and says where to go instead', async () => {
+    const { buildOnBoard, listBoards } = await import('./vendor/canvas.mjs')
+    const root = mkdtempSync(join(tmpdir(), 'sleipnir-kinds-'))
+    try {
+      const dir = join(root, '.components', '.boards')
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'room.json'), JSON.stringify({ id: 'room', name: 'Room', kind: 'environment', nodes: [], components: [], updatedAt: 9e12 }))
+      // Named: refused, with the command that does it.
+      expect(() => buildOnBoard(root, { spec: { name: 'Card' }, board: 'Room' })).toThrow(/is an Environment.*model\.mjs place/)
+      // Unnamed: the environment is the most recent thing edited, and is still passed over.
+      buildOnBoard(root, { spec: { name: 'Card' } })
+      const boards = listBoards(root)
+      expect(boards.find((b: { name: string }) => b.name === 'AI designs')).toMatchObject({ kind: 'sketch', nodes: 1 })
+      expect(boards.find((b: { name: string }) => b.name === 'Room')).toMatchObject({ kind: 'environment', nodes: 0 })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps /sculpt small, its commands in help, and /sketch the same as /frame', () => {
+    const model = SKILLS.find((s) => s.id === 'sculpt')!.command
+    // About four characters a token: the skill must stay cheap to load.
+    expect(model.length / 4).toBeLessThan(800)
+    expect(model).toContain('describe')
+    expect(SKILLS.find((s) => s.id === 'sketch')!.command).toBe(SKILLS.find((s) => s.id === 'frame')!.command)
+  })
+})
+
+describe('the vendored model commands', () => {
+  it('ship in every project, and the bundle runs: an environment made and listed from a bare folder', async () => {
+    expect(scaffoldPaths()).toContain(MODEL_CLI)
+    const { execFileSync } = await import('node:child_process')
+    const cli = join(__dirname, 'vendor', 'model.mjs')
+    const root = mkdtempSync(join(tmpdir(), 'sleipnir-model-'))
+    try {
+      expect(execFileSync(process.execPath, [cli, 'env', 'create', '--name', 'Desk', '--root', root], { encoding: 'utf8' })).toContain('Made the environment "Desk"')
+      expect(execFileSync(process.execPath, [cli, 'list', '--root', root], { encoding: 'utf8' })).toContain('Desk — empty')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

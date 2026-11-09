@@ -57,6 +57,11 @@
       "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/edit-mode-vertices-edges-faces-1793281214066",
       "comment": "Overlaps the 'Sketches and Objects' plan (2026-11-02), which reframes this as Onshape-style sketches on planes/faces plus objects with a feature list, named faces/edges/points and Blender select modes. Build it there, or reconcile before starting this one.",
       "agent": "claude"
+    },
+    {
+      "at": 1793838090475,
+      "stepId": "plan/3d-creation-sketch-planes-to-shaded-scenes-1793281213388/studio-the-analytics-slot-becomes-lighting-materials-and-animation-1793281722512",
+      "comment": "The user's name for this is the Lightroom widget: sketches, images and parts brought in for materials and high-quality renders, with /render as its skill. Takes over Prompt to scene steps 9 and 10 (stills, MP4 export, the /render skill)."
     }
   ]
 }

@@ -30,7 +30,6 @@ import {
 import type { PanZoomHandle } from './usePanZoom'
 import { type Guide, SNAP_THRESHOLD, snapRect } from '../../document/align'
 import {
-  ancestorsOf,
   boardAngleOf,
   boardMatrixOf,
   boardRectOf,
@@ -76,7 +75,6 @@ import {
   refit,
   vectorContains,
 } from '../../document/vectorEdit'
-import { type ProjectedSurface, solidAt } from '../../modeling/scene3d/sceneMeshes'
 import { CLICK_DRAG_THRESHOLD } from '../../utils/pointer'
 
 export interface BoardPointerDeps {
@@ -97,7 +95,6 @@ export interface BoardPointerDeps {
   pathSlideStart: React.MutableRefObject<{ gesture: { x: number; y: number }; offset: number } | null>
   penCursor: ValueStore<{ x: number; y: number } | null>
   penRef: React.MutableRefObject<PenDraft | null>
-  projectedSolids: Map<string, ProjectedSurface[]>
   scopeId: string | null
   selectedIds: Set<string>
   selectedPoints: ReadonlySet<number>
@@ -116,7 +113,7 @@ export interface BoardPointerDeps {
   tool: CanvasTool
 }
 
-export function useBoardPointer({ apply, applyDragFrame, doc, drag, dropIntent, editingNode, editingVectorId, enterPlaneEdit, enterVectorEdit, exitVectorEdit, finishPen, insertPreview, measured, panZoom, pathSlideStart, penCursor, penRef, projectedSolids, scopeId, selectedIds, selectedPoints, setDrag, setDropIntent, setEditingTextId, setGuides, setHoverId, setPen, setScopeId, setSelectedHandle, setSelectedIds, setSelectedPoints, setTool, snapDisabled, tool }: BoardPointerDeps) {
+export function useBoardPointer({ apply, applyDragFrame, doc, drag, dropIntent, editingNode, editingVectorId, enterPlaneEdit, enterVectorEdit, exitVectorEdit, finishPen, insertPreview, measured, panZoom, pathSlideStart, penCursor, penRef, scopeId, selectedIds, selectedPoints, setDrag, setDropIntent, setEditingTextId, setGuides, setHoverId, setPen, setScopeId, setSelectedHandle, setSelectedIds, setSelectedPoints, setTool, snapDisabled, tool }: BoardPointerDeps) {
 
   /**
    * How deep a plain click reaches.
@@ -139,23 +136,10 @@ export function useBoardPointer({ apply, applyDragFrame, doc, drag, dropIntent, 
     return findParent(doc, only)?.id ?? null
   }, [doc, selectedIds, scopeId])
 
-  /**
-   * The chain of layers under a board point, outermost first (document/doc.ts
-   * hitPath) — with the board's projected solids in it: a solid covers more of
-   * the board than its sketch does, so a press on any of it is a press on it,
-   * unless a layer painted above it was hit.
-   */
+  /** The chain of layers under a board point, outermost first (document/doc.ts hitPath). */
   const boardPath = useCallback(
-    (x: number, y: number): CanvasNode[] => {
-      if (!doc) return []
-      const path = hitPath(doc, x, y, { measured, tolerance: OUTLINE_TOLERANCE_PX / panZoom.getCamera().k })
-      const solid = solidAt(projectedSolids, doc.nodes.map((n) => n.id), x, y)
-      if (!solid) return path
-      const hitTop = path[0] ? doc.nodes.indexOf(path[0]) : -1
-      const node = doc.nodes.findIndex((n) => n.id === solid.layer) >= hitTop ? findNode(doc, solid.id) : null
-      return node && !node.locked ? [...ancestorsOf(doc, node.id), node] : path
-    },
-    [doc, measured, panZoom, projectedSolids],
+    (x: number, y: number): CanvasNode[] => (doc ? hitPath(doc, x, y, { measured, tolerance: OUTLINE_TOLERANCE_PX / panZoom.getCamera().k }) : []),
+    [doc, measured, panZoom],
   )
 
   /** What a press (or hover) at this board point resolves to. */

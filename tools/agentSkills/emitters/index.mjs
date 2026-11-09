@@ -44,7 +44,8 @@ export function emitAgentsMd(skills) {
 
 function titleFor(skill) {
   if (skill.id === 'plan') return 'Planning with Sleipnir'
-  if (skill.id === 'frame') return 'Designing on the Sleipnir Canvas'
+  if (skill.id === 'sketch') return 'Designing on the Sleipnir Canvas'
+  if (skill.id === 'sculpt') return 'Sculpting in Sleipnir'
   return `Sleipnir: ${skill.id}`
 }
 

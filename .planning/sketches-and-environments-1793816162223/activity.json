@@ -1,0 +1,955 @@
+{
+  "events": [
+    {
+      "at": 1793816323386,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-word-per-concept-1793816213052",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793816464079,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-word-per-concept-1793816213052",
+      "status": "completed",
+      "note": "LAYOUT.md opens with the vocabulary table (Sketch, Environment, Part, Feature, Plane, Place/Unlink, Sketch mode); Objects → Parts, Placed freely → Custom plane in the UI; picker and toggle wording move with steps 2–3",
+      "since": 1793816323386,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/planeRefs.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793816464251,
+      "stepId": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793816740993,
+      "stepId": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "comment": "Splitting UI frames out of existing environments into linked sketches is deferred to step 4 (placements): this step only classifies documents, so nothing on a board moves yet."
+    },
+    {
+      "at": 1793816741078,
+      "stepId": "plan/sketches-and-environments-1793816162223/two-document-kinds-sketch-and-environment-1793816213155",
+      "status": "completed",
+      "note": "CanvasDoc.kind (sketch|environment); legacy boards read from contents; createDoc/parseDoc/listDocs carry it; 4 tests",
+      "since": 1793816464251,
+      "changes": [
+        {
+          "path": "src/canvas/io/store.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/doc.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/documentKind.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/documentKind.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/types.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793816787945,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-picker-for-sketches-and-environments-the-document-decides-the-view-1793816213264",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793817201511,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-picker-for-sketches-and-environments-the-document-decides-the-view-1793816213264",
+      "status": "testing"
+    },
+    {
+      "at": 1793817687074,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-picker-for-sketches-and-environments-the-document-decides-the-view-1793816213264",
+      "status": "completed",
+      "note": "Picker groups Sketches/Environments with New sketch + New environment; kind icons on tabs; 2D/3D toggle gone (sketch → 2D, environment → 3D, sketch mode = its 2D); ⋯ menu deletes; Sketch has a flat layer list, no + Sketch or 3D tools; checked in the app",
+      "since": 1793816787945,
+      "changes": [
+        {
+          "path": "src/app/WorkspaceTabStrip/TabPicker.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/app/WorkspaceTabStrip/TabPicker.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasBoards.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/useBoardTabs.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3DBoundary.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793826579573,
+      "stepId": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793826896343,
+      "stepId": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "status": "testing"
+    },
+    {
+      "at": 1793827499201,
+      "stepId": "plan/sketches-and-environments-1793816162223/place-a-sketch-into-an-environment-linked-1793816213387",
+      "status": "completed",
+      "note": "SketchSpec.link + document/placements.ts (copy with stable ids, refresh, unlink); + Sketch › From a sketch; links refresh on open and on outside changes; inspector Linked to · Open · Unlink; Sketch lists where it's used; checked in the app",
+      "since": 1793826579573,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasBoards.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/io/store.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CreateBar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/placements.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/placements.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/document/types.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/planeRefs.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793828225084,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-environment-lists-parts-first-1793816213532",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793828624430,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-environment-lists-parts-first-1793816213532",
+      "status": "testing"
+    },
+    {
+      "at": 1793829246094,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-environment-lists-parts-first-1793816213532",
+      "status": "completed",
+      "note": "Environment panel: Parts → unused Sketches (plane as grey text, link glyph + 'from Card') → Planes (closed, eye + add); no '· empty'; quieter headings; sketch mode says it's filtered; Sketch keeps the plain tree",
+      "since": 1793828225084,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.test.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793829321694,
+      "stepId": "plan/sketches-and-environments-1793816162223/broken-links-and-broken-features-flagged-not-deleted-1793816213656",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793829588273,
+      "stepId": "plan/sketches-and-environments-1793816162223/broken-links-and-broken-features-flagged-not-deleted-1793816213656",
+      "status": "testing"
+    },
+    {
+      "at": 1793830005136,
+      "stepId": "plan/sketches-and-environments-1793816162223/broken-links-and-broken-features-flagged-not-deleted-1793816213656",
+      "status": "completed",
+      "note": "pruneObjects gone: broken features/face sketches/dead links stay, marked with why (red, --danger token); feature menu Re-pick sketch/path + Delete; right panel Re-pick face or pick a plane; checked in the app",
+      "since": 1793829321694,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/io/parseObjects.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/planeRefs.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/planeRefs.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/themes/light.css",
+          "change": "modified"
+        },
+        {
+          "path": "src/themes/tactical.css",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793830180229,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-right-panel-follows-what-is-selected-1793816213795",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793830367895,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-right-panel-follows-what-is-selected-1793816213795",
+      "status": "testing"
+    },
+    {
+      "at": 1793830618032,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-right-panel-follows-what-is-selected-1793816213795",
+      "status": "completed",
+      "note": "Environment right panel: Sketch name · Part (rename, built by) · Plane (Edit in sketch / Unlink) · feature settings titled by feature · Size · shape · Fill/Stroke; no layout/spacing/clip/effects/target/component tools; linked layers read-only; Sketch docs keep Figma's panel",
+      "since": 1793830180229,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/PlaneSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793830646723,
+      "stepId": "plan/sketches-and-environments-1793816162223/toolbox-and-controls-follow-the-document-1793816213939",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793830995916,
+      "stepId": "plan/sketches-and-environments-1793816162223/toolbox-and-controls-follow-the-document-1793816213939",
+      "status": "testing"
+    },
+    {
+      "at": 1793831097514,
+      "stepId": "plan/sketches-and-environments-1793816162223/toolbox-and-controls-follow-the-document-1793816213939",
+      "status": "completed",
+      "note": "Environment toolbox: Select · Sketch (plane/face/from a sketch) · shaping · starters · Move/Rotate/Scale; sketch mode: drawing + shaping; Blender G/R/S in 3D, Figma keys in 2D; one Fit (top bar) for both views; % hidden in 3D; ? sheet per document",
+      "since": 1793830646723,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasToolbar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasShortcuts.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CreateBar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/sketchMenu.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793831136491,
+      "stepId": "plan/sketches-and-environments-1793816162223/smoothness-for-curved-solids-1793816214053",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793831265963,
+      "stepId": "plan/sketches-and-environments-1793816162223/smoothness-for-curved-solids-1793816214053",
+      "status": "testing"
+    },
+    {
+      "at": 1793831465401,
+      "stepId": "plan/sketches-and-environments-1793816162223/smoothness-for-curved-solids-1793816214053",
+      "status": "completed",
+      "note": "Feature.smoothness (Low/Medium/High → flattening tolerance + revolve steps), used by both the 3D mesh and the picked body; Smoothness segment beside the triangle count; edits keep smoothness/direction/hidden; Polygon starter points at its sides",
+      "since": 1793831136491,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/toolbox.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/geometry/body.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/geometry/smoothness.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/sceneMeshes.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793831791222,
+      "stepId": "plan/sketches-and-environments-1793816162223/sketch-mode-inside-an-environment-1793816214193",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793832279979,
+      "stepId": "plan/sketches-and-environments-1793816162223/sketch-mode-inside-an-environment-1793816214193",
+      "status": "completed",
+      "note": "Sketch mode draws over the live 3D scene: a transparent board on top, an orthographic camera facing the plane that follows the board's pan/zoom (sketchCameraPose, tested); the open sketch hidden in 3D; ghost dropped; Finish sketch returns to the 3D view",
+      "since": 1793831791222,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/SketchInScene.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/cameraViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/sketchCamera.test.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793832304928,
+      "stepId": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793832527449,
+      "stepId": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "status": "testing"
+    },
+    {
+      "at": 1793832632025,
+      "stepId": "plan/sketches-and-environments-1793816162223/what-editing-a-face-edge-or-point-changes-1793816214345",
+      "status": "completed",
+      "note": "geometry/editBody.ts: face/edge/corner + scene move → depth (end cap), sketch offset (start cap), outline segment (side, rim) or one point (corner, side-side edge), matched by where the pick lies; placed sketches and revolves/sweeps say why; body.sceneToLayer inverse; 6 tests. No UI yet — selection modes and G/R/S wire it",
+      "since": 1793832304928,
+      "changes": [
+        {
+          "path": "src/modeling/geometry/body.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/geometry/editBody.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/geometry/editBody.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793832779644,
+      "stepId": "plan/sketches-and-environments-1793816162223/display-modes-shaded-edges-wireframe-x-ray-1793831786457",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793832987816,
+      "stepId": "plan/sketches-and-environments-1793816162223/display-modes-shaded-edges-wireframe-x-ray-1793831786457",
+      "status": "completed",
+      "note": "3D view bar: Shaded / Edges / Wire / X-ray (remembered per machine); Edges draws every facet's outline, Wire the triangles in the part's colour, X-ray see-through with light edges; checked in the app",
+      "since": 1793832779644,
+      "changes": [
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/cameraViews.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793833259760,
+      "stepId": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793833732279,
+      "stepId": "plan/sketches-and-environments-1793816162223/selection-modes-and-hotkeys-1793816214502",
+      "status": "completed",
+      "note": "Edit mode in 3D: Tab, 1/2/3 points/edges/faces (also a bar beside Shaded…), click picks the nearest element on the surface, Shift adds, A/Alt+A, B box; faint dots/edges for the mode, picked in blue, hover in white; selectionModes.ts pure + 5 tests; checked in the app",
+      "since": 1793833259760,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasToolbar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasShortcuts.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/selectionModes.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/selectionModes.ts",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "at": 1793837925211,
+      "stepId": "plan/sketches-and-environments-1793816162223/agents-and-files-speak-sketches-and-environments-1793816215041",
+      "comment": "Replaced by the 'Prompt to scene' plan (its model commands, describe, and /model + /sketch skills steps). Skip this step when that plan lands."
+    },
+    {
+      "at": 1793838189474,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-home-per-control-in-3d-1793837925093",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793838629342,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-home-per-control-in-3d-1793837925093",
+      "status": "testing"
+    },
+    {
+      "at": 1793838890506,
+      "stepId": "plan/sketches-and-environments-1793816162223/one-home-per-control-in-3d-1793837925093",
+      "status": "completed",
+      "note": "Views from the axis gizmo (6 axis ends + middle = perspective; a drag leaves a drafting view); Persp/Front/Top/Side, display and select-mode bars gone from the 3D corner; select modes + Edit points in the toolbox; right panel: feature settings + Remove (no kind picker), Smoothness after Fill/Stroke, View → Display with nothing selected; checked in the app",
+      "since": 1793838189474,
+      "changes": [
+        {
+          "path": "src/app/UIKit/Icon/Icon.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasToolbar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/cameraViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/sketchCamera.test.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793895902124,
+      "stepId": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793897970198,
+      "stepId": "plan/sketches-and-environments-1793816162223/grab-rotate-scale-and-push-pull-1793816214631",
+      "status": "completed",
+      "note": "G/R/S modal (X/Y/Z locks, typed amounts, Ctrl snap, Enter/click keep, Esc/right-click put back, one undo step) in modalTransform.ts + 9 tests; parts move as a whole by CanvasObject.placement (bodies, picking, bounds, sketch mode follow; sketch keeps its plane); faces/edges/points go through editBody, a lone face pushes/pulls along its normal; picks survive the edit; handles make the same moves; checked in the app",
+      "since": 1793895902124,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasToolbar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/toolbox.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useCanvasShortcuts.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/placement.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/geometry/body.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/planeRefs.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/TransformGizmo.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/cameraViews.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/modalTransform.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/modalTransform.ts",
+          "change": "added"
+        },
+        {
+          "path": "vite.config.ts.timestamp-1793895902011-882cbfb32bb8b8.mjs",
+          "change": "deleted"
+        }
+      ]
+    },
+    {
+      "at": 1793900299691,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-feature-inspector-1793816214773",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793901037528,
+      "stepId": "plan/sketches-and-environments-1793816162223/the-feature-inspector-1793816214773",
+      "status": "completed",
+      "note": "FeatureSection: Onshape-style dialog (depth + One way/Reverse/Both sides, axis/angle/steps, path, Add/Subtract/Intersect after the first), live preview, OK/Enter keeps as one undo, Cancel/Esc puts back, other picks keep; feature rows pick the dialog and drag to reorder (moveFeature); part row menu deletes (removeObject); Part shows 'Moved as a whole' + Reset; SolidSection's old panel removed; checked in the app",
+      "since": 1793900299691,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.test.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/io/parseObjects.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasInspector.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/FeatureSection.tsx",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/panels/SolidSection.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793901523502,
+      "stepId": "plan/sketches-and-environments-1793816162223/retire-the-board-s-front-view-of-the-scene-1793816214907",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793901906984,
+      "stepId": "plan/sketches-and-environments-1793816162223/retire-the-board-s-front-view-of-the-scene-1793816214907",
+      "status": "completed",
+      "note": "Board draws every layer as itself: projectedSolidsOf/drawsAsSolid/solidAt, frontFaces/frontShade/frontTransform, ProjectedSolid.tsx, PlacedNodeView and the measurer's placed-plane branch removed (~330 lines, 3 tests); plane-to-board math, plane edit and the ghost kept; 497→496 files, 1666→1653 imports",
+      "since": 1793901523502,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasNodeView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/ProjectedSolid.tsx",
+          "change": "deleted"
+        },
+        {
+          "path": "src/canvas/hooks/useBoardPointer.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useMeasuredRects.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/frontView.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/geometry/body.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/frontView.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/sceneMeshes.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793903744514,
+      "stepId": "plan/sketches-and-environments-1793816162223/verify-in-the-running-app-1793816215163",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793903777945,
+      "stepId": "plan/sketches-and-environments-1793816162223/agents-and-files-speak-sketches-and-environments-1793816215041",
+      "comment": "Skipped: the Prompt to scene plan (plan/prompt-to-scene-1793837965047) covers this with its model commands, describe read-back and /model + /sketch skills."
+    },
+    {
+      "at": 1793905197777,
+      "stepId": "plan/sketches-and-environments-1793816162223/verify-in-the-running-app-1793816215163",
+      "status": "completed",
+      "note": "Walked the whole list in the app: new sketch → placed linked on Top → extruded; source edit flowed through (400 wide), Unlink stopped it; deleted sketch left the part flagged, undo restored; Box + Cylinder (44/124/312 tris); face G Y 0.2 deepened 1→1.2; pre-kinds board opened as an environment with its frame kept as a sketch. Re-scored 22→31/40; 5 papercuts found (duplicate Untitled names, outside files need reload, starters off-screen, unrounded fields, dark frame fill)",
+      "since": 1793903744514,
+      "changes": []
+    }
+  ]
+}

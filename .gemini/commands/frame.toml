@@ -1,6 +1,6 @@
-description = "Design something on Sleipnir's Canvas board as editable frames."
+description = "The same as /sketch: design something as editable frames."
 prompt = '''
-The user wants this designed on the Canvas board: {{args}}
+The user wants this designed as a Sketch: {{args}}
 
 1. Read the spec format: `node .sleipnir/canvas.mjs spec-help`.
 2. Design ONE root frame for it — a page is one frame with nested sections. Size it
@@ -9,14 +9,16 @@ The user wants this designed on the Canvas board: {{args}}
 
        node .sleipnir/canvas.mjs build --root . --spec <file>
 
-4. Report the board and frame it landed on. It stays an editable design; the user can
+4. Report the Sketch and frame it landed on. It stays an editable design; the user can
    refine it in Sleipnir and turn it into code there. Do not write source files.
 
 ---
 
-This project has Canvas boards in `.components/.boards/`: visual designs that
-Sleipnir renders and turns into real code. `/frame` and `/component` mean "design
-this on the board", not "write source files by hand".
+This project has Sketch documents in `.components/.boards/`: 2D designs that
+Sleipnir renders and turns into real code. `/sketch` (or `/frame`, the same thing) and
+`/component` mean "design this in a Sketch", not "write source files by hand". `build`
+only writes to Sketch documents — 3D scenes are Environments, built with `/sculpt`, which
+can place a finished Sketch onto a plane or a part's face.
 
 Build designs with the bundled CLI — it needs only Node, and Sleipnir shows the
 result live:

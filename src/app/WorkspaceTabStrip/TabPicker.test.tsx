@@ -46,6 +46,33 @@ describe('TabPicker search', () => {
     expect(onPick).not.toHaveBeenCalled()
   })
 
+  it('offers each create row after the matches, typed name and all', () => {
+    const sketch = vi.fn()
+    const environment = vi.fn()
+    render(
+      <TabPicker
+        noun="Sketches"
+        icon="canvas"
+        items={[{ id: 'a', label: 'Checkout' }]}
+        openIds={[]}
+        activeId={null}
+        onPick={() => {}}
+        create={[
+          { icon: 'canvas', label: (q) => 'New sketch ' + q, onCreate: sketch },
+          { icon: 'box', label: (q) => 'New environment ' + q, onCreate: environment },
+        ]}
+      />,
+    )
+    const field = screen.getByRole('combobox')
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: 'Room' } })
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['New sketch Room', 'New environment Room'])
+    fireEvent.keyDown(field, { key: 'ArrowDown' })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(environment).toHaveBeenCalledWith('Room')
+    expect(sketch).not.toHaveBeenCalled()
+  })
+
   it('asks nothing until something is typed', () => {
     const search = vi.fn(() => [])
     render(<TabPicker noun="Boards" icon="canvas" items={[]} openIds={[]} activeId={null} onPick={() => {}} search={search} />)

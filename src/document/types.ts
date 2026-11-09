@@ -30,6 +30,7 @@
 import type { LanguageId } from '../planning/graph/architectures'
 import type { Placement3D } from './sceneTypes'
 import type { CanvasObject, SketchSpec } from './objects'
+import type { DocumentKind } from './documentKind'
 
 export type CanvasDocId = string
 export type NodeId = string
@@ -637,6 +638,12 @@ export interface CanvasDoc {
   version: number
   id: CanvasDocId
   name: string
+  /**
+   * A Sketch (2D: frames, layers, components) or an Environment (3D: sketches
+   * on planes, parts) — document/documentKind.ts. Absent on documents saved
+   * before the kinds; read from their contents.
+   */
+  kind?: DocumentKind
   nodes: CanvasNode[]
   components: CanvasComponent[]
   /**
@@ -664,9 +671,13 @@ export interface CanvasDoc {
 export interface CanvasDocSummary {
   id: CanvasDocId
   name: string
+  /** Sketch or Environment, so the picker can group them without opening each. */
+  kind: DocumentKind
   updatedAt: number
   /** filePath of every written component in this board — lets "which board has this file" be answered from the already-loaded doc list, no extra read. */
   componentFilePaths: string[]
+  /** The Sketch documents this one places, linked — so a sketch can say where it's used without opening every environment. */
+  links: CanvasDocId[]
 }
 
 // ── Narrowing helpers ──────────────────────────────────────────────────────

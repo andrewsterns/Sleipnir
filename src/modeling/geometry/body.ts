@@ -10,16 +10,17 @@
 // an edge is wherever two faces meet (a box has twelve, a cylinder two
 // circles), and a vertex is where edges end (a box has eight, a cylinder none).
 
-import { nodeMatrix, multiply, apply, IDENTITY, type Mat } from '../../document/rotation'
+import { nodeMatrix, multiply, apply, invert, IDENTITY, type Mat } from '../../document/rotation'
 import { ancestorsOf, findNode } from '../../document/doc'
 import { isVectorNode, type CanvasDoc, type CanvasNode, type NodeId } from '../../document/types'
-import { profilesOf, type CanvasObject, type FaceName, type Feature, type ObjectId } from '../../document/objects'
+import { partPlacementFor, partPlacementOf, profilesOf, type CanvasObject, type FaceName, type Feature, type ObjectId, toleranceOf } from '../../document/objects'
 import { guidePolyline } from '../../document/pathGuide'
-import { placementOf, planeToWorld, rotate } from '../../document/placement'
+import { placeInScene, placeNormal, placementOf, planeToWorld, rotate, unplaceFromScene, worldToPlane } from '../../document/placement'
 import { PX_PER_METER, type Placement3D, type Vec3 } from '../../document/sceneTypes'
 import { shapeOf } from './shape'
 import type { Mesh } from './mesh'
 import { extrude, revolve, sweep } from './modifiers'
+import { extrudeShift, tweakMesh } from './cornerTweaks'
 
 export interface BodyFace {
   name: FaceName
@@ -42,7 +43,7 @@ export interface BodyVertex {
 
 export interface Body {
   objectId: ObjectId
-  /** Scene meters, y up — ready for the 3D view, and for the front view to project. */
+  /** Scene meters, y up — ready for the 3D view. */
   mesh: Mesh
   faces: BodyFace[]
   /** The body face each mesh triangle belongs to. */
@@ -99,7 +100,7 @@ function buildBody(doc: CanvasDoc, object: CanvasObject): Body {
     if (feature.op === 'subtract' || feature.op === 'intersect') notes.push(`${feature.name}: ${feature.op} is shown as an added body until booleans land`)
     for (const profileId of profilesOf(feature)) {
       const profile = findNode(doc, profileId)
-      const built = profile ? featureMesh(doc, feature, profile) : null
+      const built = profile ? featureMesh(doc, object, feature, profile) : null
       if (!built) continue
       parts.push({ feature: feature.id, profile: profileId, first: faceOfTriangle.length, count: built.mesh.indices.length / 3 })
       append(mesh, faces, faceOfTriangle, built.mesh, built.toScene, feature, profileId)
@@ -110,24 +111,24 @@ function buildBody(doc: CanvasDoc, object: CanvasObject): Body {
 }
 
 /** The feature's mesh in its layer's plane (px, y up), and the map from there into the scene. */
-function featureMesh(doc: CanvasDoc, feature: Exclude<Feature, { kind: 'loft' }>, profile: CanvasNode): { mesh: Mesh; toScene: PlaneToScene } | null {
-  const shape = shapeOf(profile)
+function featureMesh(doc: CanvasDoc, object: CanvasObject, feature: Exclude<Feature, { kind: 'loft' }>, profile: CanvasNode): { mesh: Mesh; toScene: PlaneToScene } | null {
+  const shape = shapeOf(profile, toleranceOf(feature, Math.max(profile.rect.w, profile.rect.h)))
   if (!shape) return null
   const box = { w: profile.rect.w, h: profile.rect.h }
   if (feature.kind === 'extrude') {
     const depth = feature.depth * PX_PER_METER
-    const mesh = extrude(shape, box, depth)
+    const mesh = tweakMesh(extrude(shape, box, depth), profile, depth, feature.tweaks)
     // Backwards pushes the same solid behind the plane; both ways centers it on the plane.
-    const shift = feature.direction === 'reverse' ? -depth : feature.direction === 'symmetric' ? -depth / 2 : 0
-    return { mesh, toScene: planeToScene(doc, profile, shift) }
+    const shift = extrudeShift(feature, depth)
+    return { mesh, toScene: planeToScene(doc, profile, shift, partPlacementFor(doc, object, profile.id)) }
   }
-  if (feature.kind === 'revolve') return { mesh: revolve(shape, box, feature.axis, feature.angle, feature.steps), toScene: planeToScene(doc, profile, 0) }
+  if (feature.kind === 'revolve') return { mesh: revolve(shape, box, feature.axis, feature.angle, feature.steps), toScene: planeToScene(doc, profile, 0, partPlacementFor(doc, object, profile.id)) }
   const path = findNode(doc, feature.pathId)
   if (!path || !isVectorNode(path)) return null
   const { points, closed } = guidePolyline(path)
   const local = points.map((p) => ({ x: p.x - path.rect.x, y: p.y - path.rect.y }))
   // A sweep's tube lives in its path's plane.
-  return { mesh: sweep(shape, box, local, closed), toScene: planeToScene(doc, path, 0) }
+  return { mesh: sweep(shape, box, local, closed), toScene: planeToScene(doc, path, 0, partPlacementFor(doc, object, path.id)) }
 }
 
 interface PlaneToScene {
@@ -138,9 +139,10 @@ interface PlaneToScene {
 /**
  * From a layer's own space (its mesh: px, y up, top-left at the origin) to the
  * scene: through its own and its ancestors' 2D rotations and offsets within
- * the plane, then the plane's placement — exactly how the 3D view stands it up.
+ * the plane, then the plane's placement — exactly how the 3D view stands it up
+ * — and last the part's own placement, when it has moved as a whole.
  */
-function planeToScene(doc: CanvasDoc, node: CanvasNode, outShift: number): PlaneToScene {
+function planeToScene(doc: CanvasDoc, node: CanvasNode, outShift: number, part: Placement3D | null): PlaneToScene {
   const chain = [...ancestorsOf(doc, node.id), node]
   const top = chain[0]
   const placement: Placement3D = placementOf(top)
@@ -151,16 +153,61 @@ function planeToScene(doc: CanvasDoc, node: CanvasNode, outShift: number): Plane
   return {
     point: (x, yUp, z) => {
       const on = apply(m, { x, y: -yUp })
-      return planeToWorld(placement, on.x, on.y, z + outShift)
+      const w = planeToWorld(placement, on.x, on.y, z + outShift)
+      return part ? placeInScene(part, w) : w
     },
     normal: ([nx, ny, nz]) => {
       // Turned like the plane's own axes: in-plane by the 2D rotations (y down), then out into the scene.
       const u = nx * m.a - ny * m.c
       const v = -(nx * m.b - ny * m.d)
       const len = Math.hypot(u, v, nz) || 1
-      return rotate([u / len, v / len, nz / len], placement.rotation)
+      const n = rotate([u / len, v / len, nz / len], placement.rotation)
+      return part ? placeNormal(part, n) : n
     },
   }
+}
+
+/**
+ * The other way: a scene point in a layer's own px (x right, y down, from its
+ * top-left — where its outline's points live) and how far out of its plane
+ * (px). What turns a drag in 3D into an edit of the sketch (editBody.ts).
+ */
+export function sceneToLayer(doc: CanvasDoc, node: CanvasNode): (world: Vec3) => { x: number; y: number; out: number } {
+  return layerFromScene(doc, node, partPlacementOf(doc, node.id))
+}
+
+function layerFromScene(doc: CanvasDoc, node: CanvasNode, part: Placement3D | null): (world: Vec3) => { x: number; y: number; out: number } {
+  const chain = [...ancestorsOf(doc, node.id), node]
+  const placement: Placement3D = placementOf(chain[0])
+  let m: Mat = IDENTITY
+  chain.forEach((n, i) => {
+    m = multiply(m, nodeMatrix(i === 0 ? { ...n.rect, x: 0, y: 0 } : n.rect, n.style.rotate))
+  })
+  const back = invert(m)
+  return (world) => {
+    const { u, v, out } = worldToPlane(placement, part ? unplaceFromScene(part, world) : world)
+    const p = apply(back, { x: u, y: v })
+    return { x: p.x, y: p.y, out }
+  }
+}
+
+/**
+ * What the 3D view sets on a layer's own mesh (px, y up, as it draws it inside
+ * its plane) so it stands where its part's placement moved it: the map from
+ * the layer's space to the scene, the part's placement, and back — a 4×4,
+ * column-major, as three.js reads it. Null when the layer's part hasn't moved.
+ */
+export function partMeshMatrix(doc: CanvasDoc, node: CanvasNode, part: Placement3D | null): number[] | null {
+  if (!part) return null
+  const to = planeToScene(doc, node, 0, null)
+  const back = layerFromScene(doc, node, null)
+  const f = (x: number, y: number, z: number): Vec3 => {
+    const q = back(placeInScene(part, to.point(x, y, z)))
+    return [q.x, -q.y, q.out]
+  }
+  const o = f(0, 0, 0)
+  const col = (p: Vec3) => [p[0] - o[0], p[1] - o[1], p[2] - o[2], 0]
+  return [...col(f(1, 0, 0)), ...col(f(0, 1, 0)), ...col(f(0, 0, 1)), o[0], o[1], o[2], 1]
 }
 
 /** Adds a feature's mesh to the body, in the scene, its faces named and grouped the CAD way. */
@@ -207,16 +254,20 @@ function append(body: Mesh, faces: BodyFace[], faceOfTriangle: number[], mesh: M
 function groupSmoothSides(mesh: Mesh): number[] {
   const faces = mesh.faces ?? []
   const lead = faces.map((_, i) => i)
+  // A face's normal from its first triangle with any area: a revolve's strip at a pole starts
+  // with triangles pinched to a point, which have none, and would split the pole off as a face.
   const normal = (face: number): Vec3 | null => {
-    const t = mesh.faceOf?.indexOf(face) ?? -1
-    if (t < 0) return null
-    const [a, b, c] = [mesh.indices[t * 3] * 3, mesh.indices[t * 3 + 1] * 3, mesh.indices[t * 3 + 2] * 3]
     const p = mesh.positions
-    const u: Vec3 = [p[b] - p[a], p[b + 1] - p[a + 1], p[b + 2] - p[a + 2]]
-    const v: Vec3 = [p[c] - p[a], p[c + 1] - p[a + 1], p[c + 2] - p[a + 2]]
-    const n: Vec3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
-    const len = Math.hypot(...n)
-    return len ? [n[0] / len, n[1] / len, n[2] / len] : null
+    for (let t = 0; t < (mesh.faceOf?.length ?? 0); t += 1) {
+      if (mesh.faceOf![t] !== face) continue
+      const [a, b, c] = [mesh.indices[t * 3] * 3, mesh.indices[t * 3 + 1] * 3, mesh.indices[t * 3 + 2] * 3]
+      const u: Vec3 = [p[b] - p[a], p[b + 1] - p[a + 1], p[b + 2] - p[a + 2]]
+      const v: Vec3 = [p[c] - p[a], p[c + 1] - p[a + 1], p[c + 2] - p[a + 2]]
+      const n: Vec3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+      const len = Math.hypot(...n)
+      if (len > 1e-12) return [n[0] / len, n[1] / len, n[2] / len]
+    }
+    return null
   }
   // Sides by contour, in segment order.
   const byContour = new Map<number, number[]>()

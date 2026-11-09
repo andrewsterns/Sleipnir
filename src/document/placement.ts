@@ -161,3 +161,73 @@ export function onPlane(placement: Placement3D, dx: number, dy: number): { u: nu
   // Rank one: the pseudo-inverse is the transpose over the squared norm.
   return { u: (a * dx + b * dy) / size, v: (c * dx + d * dy) / size }
 }
+
+// ── Parts in the scene ─────────────────────────────────────────────────────
+//
+// A part's own placement (document/objects.ts CanvasObject.placement) carries
+// the finished part after its features, about the scene origin: scaled along
+// its own axes, turned, then moved — the same order a plane's placement
+// stands a sketch up in, in meters throughout.
+
+/** `v` turned `deg` about the unit `axis`, counterclockwise as seen looking down the axis at its origin. */
+export function rotateAbout(v: Vec3, axis: Vec3, deg: number): Vec3 {
+  const len = Math.hypot(...axis) || 1
+  const [kx, ky, kz] = [axis[0] / len, axis[1] / len, axis[2] / len]
+  const c = Math.cos(deg * RAD)
+  const s = Math.sin(deg * RAD)
+  const along = (kx * v[0] + ky * v[1] + kz * v[2]) * (1 - c)
+  return [
+    v[0] * c + (ky * v[2] - kz * v[1]) * s + kx * along,
+    v[1] * c + (kz * v[0] - kx * v[2]) * s + ky * along,
+    v[2] * c + (kx * v[1] - ky * v[0]) * s + kz * along,
+  ]
+}
+
+/**
+ * The 'XYZ' Euler rotation (degrees, as placements store it) that turns X, Y
+ * and Z onto these three scene directions — the inverse of rotate(), read off
+ * its matrix the way three.js does.
+ */
+export function eulerOf(right: Vec3, up: Vec3, normal: Vec3): Vec3 {
+  const m13 = Math.max(-1, Math.min(1, normal[0]))
+  const y = Math.asin(m13)
+  if (Math.abs(m13) < 0.9999999) return [Math.atan2(-normal[1], normal[2]) / RAD, y / RAD, Math.atan2(-up[0], right[0]) / RAD]
+  return [Math.atan2(up[2], up[1]) / RAD, y / RAD, 0]
+}
+
+/** A scene point carried by a part's placement. */
+export function placeInScene(placement: Placement3D, p: Vec3): Vec3 {
+  const [sx, sy, sz] = placement.scale ?? [1, 1, 1]
+  const [x, y, z] = rotate([p[0] * sx, p[1] * sy, p[2] * sz], placement.rotation)
+  return [x + placement.position[0], y + placement.position[1], z + placement.position[2]]
+}
+
+/** The inverse of placeInScene(): where a scene point was before the part moved. */
+export function unplaceFromScene(placement: Placement3D, p: Vec3): Vec3 {
+  const [x, y, z] = unrotate([p[0] - placement.position[0], p[1] - placement.position[1], p[2] - placement.position[2]], placement.rotation)
+  const [sx, sy, sz] = placement.scale ?? [1, 1, 1]
+  return [x / (sx || 1), y / (sy || 1), z / (sz || 1)]
+}
+
+/** A surface normal carried by a part's placement (inverse-scaled, so it stays square to a stretched face). */
+export function placeNormal(placement: Placement3D, n: Vec3): Vec3 {
+  const [sx, sy, sz] = placement.scale ?? [1, 1, 1]
+  const r = rotate([n[0] / (sx || 1), n[1] / (sy || 1), n[2] / (sz || 1)], placement.rotation)
+  const len = Math.hypot(...r) || 1
+  return [r[0] / len, r[1] / len, r[2] / len]
+}
+
+/**
+ * A plane's placement as the part carrying it moves: the plane's own
+ * placement, then the part's. Exact for a part scaled evenly (or not turned);
+ * an uneven stretch of a turned plane would shear it, which a placement can't say.
+ */
+export function composePlacement(outer: Placement3D, inner: Placement3D): Placement3D {
+  const axes = ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[]).map((e) => rotate(rotate(e, inner.rotation), outer.rotation))
+  const [ox, oy, oz] = outer.scale ?? [1, 1, 1]
+  const [ix, iy, iz] = inner.scale ?? [1, 1, 1]
+  const even = Math.abs(ox - oy) < 1e-9 && Math.abs(oy - oz) < 1e-9
+  const scale: Vec3 = even ? [ix * ox, iy * ox, iz * ox] : [ix * ox, iy * oy, iz * oz]
+  const out: Placement3D = { position: placeInScene(outer, inner.position), rotation: eulerOf(axes[0], axes[1], axes[2]) }
+  return scale.every((s) => s === 1) ? out : { ...out, scale }
+}

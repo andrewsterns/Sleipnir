@@ -15,9 +15,11 @@ The user wants this built as a component: {{args}}
 
 ---
 
-This project has Canvas boards in `.components/.boards/`: visual designs that
-Sleipnir renders and turns into real code. `/frame` and `/component` mean "design
-this on the board", not "write source files by hand".
+This project has Sketch documents in `.components/.boards/`: 2D designs that
+Sleipnir renders and turns into real code. `/sketch` (or `/frame`, the same thing) and
+`/component` mean "design this in a Sketch", not "write source files by hand". `build`
+only writes to Sketch documents — 3D scenes are Environments, built with `/sculpt`, which
+can place a finished Sketch onto a plane or a part's face.
 
 Build designs with the bundled CLI — it needs only Node, and Sleipnir shows the
 result live:

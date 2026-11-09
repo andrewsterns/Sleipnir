@@ -295,6 +295,222 @@
       "stepId": "plan/sketches-and-objects-1793676967972/layers-sketches-and-objects-with-their-feature-list-1793677058165",
       "comment": "Started early (requested 2026-11-03): the layers panel now groups top-level layers into Front / Top / Side sections (always shown; offsets file under their base plane), plus 'On faces' and 'Placed freely' when used. Each section has + (new sketch there) and an eye for all of it (panels/planeGroups.ts). Still to do here: the Objects list with its feature tree.",
       "agent": "claude"
+    },
+    {
+      "at": 1793807340019,
+      "stepId": "plan/sketches-and-objects-1793676967972/the-toolbox-in-3d-shaping-tools-and-starter-shapes-1793726031365",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793808170088,
+      "stepId": "plan/sketches-and-objects-1793676967972/the-toolbox-in-3d-shaping-tools-and-starter-shapes-1793726031365",
+      "comment": "Built in the new layout: registry at src/canvas/board/toolbox.ts; starter shapes at src/modeling/scene3d/starterShapes.ts (not document/, since Top-plane shapes need the plane resolver). Starter shapes land clear of the scene, standing on the ground. Loft is listed but disabled ('Lofts aren't built yet'); the E hotkey waits for the hotkeys step.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793808170145,
+      "stepId": "plan/sketches-and-objects-1793676967972/the-toolbox-in-3d-shaping-tools-and-starter-shapes-1793726031365",
+      "status": "completed",
+      "note": "One toolbox in 2D and 3D: Extrude/Revolve/Sweep/Loft act on the selection (disabled ones say why); Box, Cylinder, Sphere, Cone, Torus, Polygon as sketch + feature; Move/Rotate/Scale moved in from the 3D bar; checked in the app",
+      "since": 1793807340019,
+      "changes": [
+        {
+          "path": "src/app/UIKit/Icon/Icon.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/LAYOUT.md",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasToolbar.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/toolbox.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/starterShapes.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/starterShapes.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/viewport/Viewport3D.tsx",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793809643118,
+      "stepId": "plan/sketches-and-objects-1793676967972/layers-sketches-and-objects-with-their-feature-list-1793677058165",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793809957664,
+      "stepId": "plan/sketches-and-objects-1793676967972/layers-sketches-and-objects-with-their-feature-list-1793677058165",
+      "comment": "Not done here: dragging features to reorder (it needs rebuild ordering, worth doing with the feature inspector step), renaming an object, and a delete-object menu item.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793809957749,
+      "stepId": "plan/sketches-and-objects-1793676967972/layers-sketches-and-objects-with-their-feature-list-1793677058165",
+      "status": "completed",
+      "note": "Left panel: Front/Top/Side sections plus Objects, each object opening to its features with the sketch each uses (used sketches leave their plane section); object eye hides the part, feature eye suppresses the step; double-click opens a sketch; checked in the app",
+      "since": 1793809643118,
+      "changes": [
+        {
+          "path": ".components/.boards/canvas-mvtn9lbn-1.json",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/hooks/useModelingTools.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/CanvasLayersPanel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.test.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/panels/planeGroups.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/document/objects.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793811726338,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketch-mode-figma-on-the-sketch-s-plane-1793677058267",
+      "status": "in_progress"
+    },
+    {
+      "at": 1793812104741,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketch-mode-figma-on-the-sketch-s-plane-1793677058267",
+      "comment": "Not done here: snapping drawn points to the backdrop's edges and corners (they're shown, not snapped to yet), and 'features rebuild on Finish' needed nothing new since features already rebuild on every edit. Kept the internal name planeEdit; only the UI says sketch mode.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793812104811,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketch-mode-figma-on-the-sketch-s-plane-1793677058267",
+      "status": "completed",
+      "note": "Sketch mode: bodies flattened onto the open sketch's plane as a faint silhouette plus edges (scene3d/sketchGhost.ts); the open sketch draws flat; sketch bar shows name, plane, Finish sketch; guides use real anchors; checked in the app",
+      "since": 1793811726338,
+      "changes": [
+        {
+          "path": "src/canvas/CanvasView.ViewModel.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/CanvasView.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/canvas/board/CanvasBoard.tsx",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/geometry/body.ts",
+          "change": "modified"
+        },
+        {
+          "path": "src/modeling/scene3d/sketchGhost.test.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/sketchGhost.ts",
+          "change": "added"
+        },
+        {
+          "path": "src/modeling/scene3d/sketchPlane.ts",
+          "change": "modified"
+        }
+      ]
+    },
+    {
+      "at": 1793816225657,
+      "stepId": "plan/sketches-and-objects-1793676967972/sketch-mode-in-3d-the-board-laid-over-the-scene-1793677058374",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793816225741,
+      "stepId": "plan/sketches-and-objects-1793676967972/what-editing-a-face-edge-or-point-changes-1793677066141",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793816225826,
+      "stepId": "plan/sketches-and-objects-1793676967972/selection-modes-and-hotkeys-1793677066279",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793816225915,
+      "stepId": "plan/sketches-and-objects-1793676967972/grab-rotate-scale-and-push-pull-1793677066405",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793816226010,
+      "stepId": "plan/sketches-and-objects-1793676967972/3d-tools-and-the-feature-inspector-1793677066558",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793816226109,
+      "stepId": "plan/sketches-and-objects-1793676967972/the-front-view-draws-objects-from-their-bodies-1793677066672",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793816226204,
+      "stepId": "plan/sketches-and-objects-1793676967972/agents-and-files-speak-sketches-and-objects-1793677066788",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
+    },
+    {
+      "at": 1793816226291,
+      "stepId": "plan/sketches-and-objects-1793676967972/verify-in-the-running-app-1793677066924",
+      "comment": "Carried into the 'Sketches and Environments' plan (2026-11-04, after the canvas critique): build it there, where sketches and environments are separate documents.",
+      "agent": "claude"
     }
   ]
 }

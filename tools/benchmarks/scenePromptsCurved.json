@@ -1,0 +1,229 @@
+{
+  "note": "Round parts: revolves and circles, where three.js needs its own lathe and cylinder arithmetic. Each stage lists its exact boxes.",
+  "where": {
+    "plain": "Write it as scene.mjs in this folder: its default export is a function taking no arguments that returns a three.js Object3D holding one named Mesh per part (three is installed; import it from 'three'). Name each mesh exactly as the part is named below. Node can import scene.mjs, so check your work by running it.",
+    "sleipnir": "Build it in a new Environment called \"Bench\", using the instructions in .claude/commands/sculpt.md. Name each part exactly as it is named below."
+  },
+  "followUp": {
+    "plain": "Update scene.mjs.",
+    "sleipnir": "Update the Environment \"Bench\"."
+  },
+  "stages": [
+    {
+      "name": "build",
+      "prompt": "Model a round table with things on it. Y is up, the floor is Y = 0, and it is centered on X = 0 and Z = 0.\n- \"Table\": a disc of radius 0.5 and thickness 0.04, its top surface at Y = 0.75.\n- \"Stem\": a cylinder of radius 0.04 from the floor up to the underside of the Table.\n- \"Bowl\": a solid of revolution about the vertical line X = 0, Z = 0, standing on the table. Its outline is straight: radius 0.06 at the bottom, widening to radius 0.15 at the top, 0.08 tall.\n- \"Cone lamp\": a solid cone standing on the table with its axis at X = 0.3, Z = 0, base radius 0.1, height 0.25, point up.\nCurves should be smooth enough that the extents are right to within a millimeter.",
+      "boxes": {
+        "Table": {
+          "min": [
+            -0.5,
+            0.71,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.75,
+            0.5
+          ]
+        },
+        "Stem": {
+          "min": [
+            -0.04,
+            0,
+            -0.04
+          ],
+          "max": [
+            0.04,
+            0.71,
+            0.04
+          ]
+        },
+        "Bowl": {
+          "min": [
+            -0.15,
+            0.75,
+            -0.15
+          ],
+          "max": [
+            0.15,
+            0.83,
+            0.15
+          ]
+        },
+        "Cone lamp": {
+          "min": [
+            0.19999999999999998,
+            0.75,
+            -0.1
+          ],
+          "max": [
+            0.4,
+            1,
+            0.1
+          ]
+        }
+      }
+    },
+    {
+      "name": "wider table",
+      "prompt": "Make the Table radius 0.6. Its thickness and height stay the same.",
+      "boxes": {
+        "Table": {
+          "min": [
+            -0.6,
+            0.71,
+            -0.6
+          ],
+          "max": [
+            0.6,
+            0.75,
+            0.6
+          ]
+        },
+        "Stem": {
+          "min": [
+            -0.04,
+            0,
+            -0.04
+          ],
+          "max": [
+            0.04,
+            0.71,
+            0.04
+          ]
+        },
+        "Bowl": {
+          "min": [
+            -0.15,
+            0.75,
+            -0.15
+          ],
+          "max": [
+            0.15,
+            0.83,
+            0.15
+          ]
+        },
+        "Cone lamp": {
+          "min": [
+            0.19999999999999998,
+            0.75,
+            -0.1
+          ],
+          "max": [
+            0.4,
+            1,
+            0.1
+          ]
+        }
+      }
+    },
+    {
+      "name": "taller bowl",
+      "prompt": "Make the Bowl 0.1 tall instead of 0.08, its base staying on the table and its radii unchanged.",
+      "boxes": {
+        "Table": {
+          "min": [
+            -0.6,
+            0.71,
+            -0.6
+          ],
+          "max": [
+            0.6,
+            0.75,
+            0.6
+          ]
+        },
+        "Stem": {
+          "min": [
+            -0.04,
+            0,
+            -0.04
+          ],
+          "max": [
+            0.04,
+            0.71,
+            0.04
+          ]
+        },
+        "Bowl": {
+          "min": [
+            -0.15,
+            0.75,
+            -0.15
+          ],
+          "max": [
+            0.15,
+            0.85,
+            0.15
+          ]
+        },
+        "Cone lamp": {
+          "min": [
+            0.19999999999999998,
+            0.75,
+            -0.1
+          ],
+          "max": [
+            0.4,
+            1,
+            0.1
+          ]
+        }
+      }
+    },
+    {
+      "name": "move lamp",
+      "prompt": "Move the Cone lamp so its axis is at X = -0.3. Nothing else moves.",
+      "boxes": {
+        "Table": {
+          "min": [
+            -0.6,
+            0.71,
+            -0.6
+          ],
+          "max": [
+            0.6,
+            0.75,
+            0.6
+          ]
+        },
+        "Stem": {
+          "min": [
+            -0.04,
+            0,
+            -0.04
+          ],
+          "max": [
+            0.04,
+            0.71,
+            0.04
+          ]
+        },
+        "Bowl": {
+          "min": [
+            -0.15,
+            0.75,
+            -0.15
+          ],
+          "max": [
+            0.15,
+            0.85,
+            0.15
+          ]
+        },
+        "Cone lamp": {
+          "min": [
+            -0.4,
+            0.75,
+            -0.1
+          ],
+          "max": [
+            -0.19999999999999998,
+            1,
+            0.1
+          ]
+        }
+      }
+    }
+  ]
+}

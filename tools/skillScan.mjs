@@ -25,7 +25,7 @@ export const CLI_TARGETS = {
   canvas: { file: '.sleipnir/canvas.mjs', writes: ['.components'] },
   analyze: { file: '.sleipnir/analyze.mjs', writes: [] },
 }
-const CLI_MENTION = /\.sleipnir[\\/](plan|canvas|analyze)\.mjs/g
+const CLI_MENTION = /\.sleipnir[\\/](plan|canvas|analyze|model)\.mjs/g
 
 // The in-app agent's built-in commands (electron/agent/systemPrompt.cjs).
 const SLEIPNIR_AGENT_SKILLS = ['plan', 'frame', 'component', 'optimize']

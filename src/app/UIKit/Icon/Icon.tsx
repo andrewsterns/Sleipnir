@@ -71,7 +71,23 @@ export type IconName =
   | 'vector'
   | 'chevron-down'
   | 'eye'
-  | 'eye-off';
+  | 'eye-off'
+  | 'extrude'
+  | 'revolve'
+  | 'sweep'
+  | 'loft'
+  | 'box'
+  | 'cylinder'
+  | 'sphere'
+  | 'cone'
+  | 'torus'
+  | 'prism'
+  | 'move'
+  | 'rotate'
+  | 'scale'
+  | 'select-vertex'
+  | 'select-edge'
+  | 'select-face';
 
 interface IconProps {
   name: IconName;
@@ -112,6 +128,63 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 24 }) => {
       // Shown / hidden — every visibility toggle in the app (UIKit/VisibilityToggle).
       case 'eye':
         return <path d="M10 12C10 12.5304 10.2107 13.0391 10.5858 13.4142C10.9609 13.7893 11.4696 14 12 14C12.5304 14 13.0391 13.7893 13.4142 13.4142C13.7893 13.0391 14 12.5304 14 12C14 11.4696 13.7893 10.9609 13.4142 10.5858C13.0391 10.2107 12.5304 10 12 10C11.4696 10 10.9609 10.2107 10.5858 10.5858C10.2107 10.9609 10 11.4696 10 12ZM21 12C18.6 16 15.6 18 12 18C8.4 18 5.4 16 3 12C5.4 8 8.4 6 12 6C15.6 6 18.6 8 21 12Z" />;
+      // The 3D toolbox (src/canvas/board/toolbox.ts): shaping tools, starter shapes, transforms.
+      case 'extrude':
+        return <>
+          <rect x="5" y="15" width="14" height="5" rx="1" />
+          <path d="M12 12V4M8.5 7.5L12 4L15.5 7.5" />
+        </>;
+      case 'revolve':
+        return <>
+          <ellipse cx="12" cy="16" rx="8" ry="3" />
+          <path d="M12 4V16M16.5 7A6 2.5 0 1 1 7.5 7M16.5 7L18.5 5.5M16.5 7L18.5 8.5" />
+        </>;
+      case 'sweep':
+        return <>
+          <path d="M5 19C10 19 9 6 19 6" />
+          <circle cx="5" cy="19" r="2" />
+          <circle cx="19" cy="6" r="2" />
+        </>;
+      case 'loft':
+        return <>
+          <ellipse cx="12" cy="6" rx="7" ry="2.5" />
+          <ellipse cx="12" cy="18" rx="4" ry="1.5" />
+          <path d="M5 6L8 18M19 6L16 18" />
+        </>;
+      // The 3D select modes (modeling/viewport/selectionModes.ts): a square's corners, one side, its face.
+      case 'select-vertex':
+        return <><path d="M6 6H18V18H6Z" strokeOpacity="0.35" /><circle cx="6" cy="6" r="1.8" fill="currentColor" /><circle cx="18" cy="6" r="1.8" fill="currentColor" /><circle cx="18" cy="18" r="1.8" fill="currentColor" /><circle cx="6" cy="18" r="1.8" fill="currentColor" /></>;
+      case 'select-edge':
+        return <><path d="M6 6H18V18H6Z" strokeOpacity="0.35" /><path d="M18 6V18" strokeWidth="3" /></>;
+      case 'select-face':
+        return <path d="M6 6H18V18H6Z" fill="currentColor" fillOpacity="0.35" />;
+      case 'box':
+        return <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3ZM12 12L20 7.5M12 12V21M12 12L4 7.5" />;
+      case 'cylinder':
+        return <>
+          <ellipse cx="12" cy="6" rx="7" ry="2.5" />
+          <path d="M5 6V18C5 19.4 8.1 20.5 12 20.5C15.9 20.5 19 19.4 19 18V6" />
+        </>;
+      case 'sphere':
+        return <>
+          <circle cx="12" cy="12" r="8" />
+          <ellipse cx="12" cy="12" rx="8" ry="3" />
+        </>;
+      case 'cone':
+        return <path d="M12 3L5 18M12 3L19 18M5 18C5 19.4 8.1 20.5 12 20.5C15.9 20.5 19 19.4 19 18C19 16.6 15.9 15.5 12 15.5C8.1 15.5 5 16.6 5 18Z" />;
+      case 'torus':
+        return <>
+          <ellipse cx="12" cy="12" rx="9" ry="5" />
+          <ellipse cx="12" cy="11.5" rx="3.5" ry="1.5" />
+        </>;
+      case 'prism':
+        return <path d="M8 4H16L20 12L16 20H8L4 12L8 4Z" />;
+      case 'move':
+        return <path d="M12 3V21M3 12H21M9 6L12 3L15 6M9 18L12 21L15 18M6 9L3 12L6 15M18 9L21 12L18 15" />;
+      case 'rotate':
+        return <path d="M19.5 11A7.5 7.5 0 1 0 17.5 17M19.5 5V11H13.5" />;
+      case 'scale':
+        return <path d="M4 20L20 4M14 4H20V10M4 14V20H10" />;
       case 'eye-off':
         return <path d="M10.5851 10.5869C10.21 10.9621 9.99942 11.4708 9.99951 12.0013C9.99961 12.5317 10.2104 13.0404 10.5856 13.4154C10.9607 13.7904 11.4695 14.0011 11.9999 14.001C12.5304 14.0009 13.039 13.7901 13.4141 13.4149M16.681 16.673C16.6794 16.6741 16.6777 16.6751 16.6761 16.6761M16.6761 16.6761C15.2745 17.5518 13.6527 18.0109 12 18C8.4 18 5.4 16 3 12C4.272 9.88003 5.712 8.32203 7.32 7.32603M16.6761 16.6761L3 3M16.6761 16.6761L21 21M10.18 6.18003C10.779 6.05876 11.3888 5.99845 12 6.00003C15.6 6.00003 18.6 8.00003 21 12C20.334 13.11 19.621 14.067 18.862 14.87" />;
       // Four diamonds — the main-component mark. Used wherever a canvas
@@ -163,7 +236,8 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 24 }) => {
       case 'arrow-left':
         return <path d="M5 12H19M5 12L9 8M5 12L9 16" />;
       case 'cursor':
-        return <path d="M7.904 2.803a.5 .5 0 0 1 .636 .357l3 12a.5 .5 0 0 1 -.47 .634l-2.573 -.11l-1.997 2.808a.5 .5 0 0 1 -.897 -.184l-3 -12a.5 .5 0 0 1 .716 -.583l4.585 2.085z" />;
+        // The select tool's pointer arrow: a tip at top left, its tail notched at the bottom.
+        return <path d="M6 3.5V18.5L10.2 14.6L12.9 20.5L15.3 19.4L12.6 13.6H18.2L6 3.5Z" />;
       case 'wire':
         return <>
           <circle cx="5" cy="6" r="2" />

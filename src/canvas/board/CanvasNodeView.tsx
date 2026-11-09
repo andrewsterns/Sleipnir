@@ -7,7 +7,7 @@
 // once emitting became real, because emitting <Frame> would force the user's own
 // project to depend on Sleipnir's UIKit — see toCss.ts's header.)
 
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
 import { paintOverlays, type ImageUrlResolver } from '../../document/paint'
 import { vectorSvg } from '../../document/vector'
 import { renderSvgEl } from './svgElements'
@@ -16,7 +16,6 @@ import { resolveVariant } from '../../document/variants'
 import { normalizeRelPath } from '../../document/paths'
 import { variantValuesOf } from '../io/clipboard'
 import type { LinkedComponents } from '../hooks/useLinkedComponents'
-import { frontMatrix, frontTransform } from '../../document/frontView'
 import {
   childrenOf,
   isExternalNode,
@@ -215,21 +214,4 @@ export const CanvasNodeView = memo(function CanvasNodeView({
   }
 
   return null
-})
-
-/**
- * A top-level layer placed in 3D, drawn where the front camera sees its plane
- * (document/frontView.ts): the wrapper carries the projection, and the layer
- * draws inside it at the plane's origin, its own 2D rotation still turning it
- * within the plane. Board-only — the emitted code never sees `space`.
- */
-export const PlacedNodeView = memo(function PlacedNodeView(props: CanvasNodeViewProps) {
-  const { node } = props
-  const atOrigin = useMemo(() => ({ ...node, rect: { ...node.rect, x: 0, y: 0 } }), [node])
-  if (node.hidden || !node.space) return null
-  return (
-    <div data-canvas-plane={node.id} style={{ position: 'absolute', left: 0, top: 0, transformOrigin: '0 0', transform: frontTransform(frontMatrix(node.space)) }}>
-      <CanvasNodeView {...props} node={atOrigin} />
-    </div>
-  )
 })

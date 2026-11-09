@@ -5,8 +5,8 @@ import type { TerminalProps } from './iTerminal'
 
 const UI_FONT: React.CSSProperties = { fontFamily: 'var(--font-ui)' }
 
-export const Terminal: React.FC<TerminalProps> = ({ onExit }) => {
-  const { containerRef, exitCode } = useTerminalViewModel({ onExit })
+export const Terminal: React.FC<TerminalProps> = ({ onExit, sessionId, onSession }) => {
+  const { containerRef, exitCode } = useTerminalViewModel({ onExit, sessionId, onSession })
 
   return (
     <Frame flow="vertical" h="fill" w="fill" fill={{ solid: 'bg-1' }} padding={8}>

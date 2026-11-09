@@ -32,6 +32,8 @@ import {
   sweepOrphanStagedFiles,
 } from '../io/store'
 import type { CanvasComponent, CanvasDoc, CanvasDocSummary, NodeId } from '../../document/types'
+import type { DocumentKind } from '../../document/documentKind'
+import { linkedDocIds, refreshLinks } from '../../document/placements'
 
 const AUTOSAVE_MS = 400
 
@@ -211,6 +213,23 @@ export function useCanvasBoards({
     [],
   )
 
+  /** A board as it is on disk now — a sketch an environment places, read without opening it. */
+  const readDoc = useCallback(async (id: string) => (await loadDoc(id)) ?? null, [])
+
+  /**
+   * Pulls every linked sketch in an environment up to date (document/placements.ts):
+   * the sketches it places are read fresh, and their layers rewritten. The same
+   * doc back when nothing changed.
+   */
+  const withFreshLinks = useCallback(async (target: CanvasDoc): Promise<CanvasDoc> => {
+    const ids = linkedDocIds(target)
+    if (ids.length === 0) return target
+    const sources = new Map<string, CanvasDoc | null>()
+    await Promise.all(ids.map(async (id) => sources.set(id, (await loadDoc(id).catch(() => null)) ?? null)))
+    const { doc: next } = refreshLinks(target, (id) => sources.get(id))
+    return next === target ? target : resolvePlanes(next)
+  }, [])
+
   const openDoc = useCallback(
     async (id: string) => {
       await flushSave()
@@ -221,7 +240,9 @@ export function useCanvasBoards({
       }
       const { doc: marked, relocated } = await markVanishedComponents(raw)
       // A board saved before 2D and 3D shared one position may disagree; the placement wins.
-      const loaded = resolvePlanes(syncPlacements(null, marked))
+      const opened = resolvePlanes(syncPlacements(null, marked))
+      // The sketches it places, as they are now — edited since, they flow in and are saved here.
+      const loaded = await withFreshLinks(opened)
       if (relocated.size > 0) {
         // Persist only the relink, never the "gone" flags riding along with it.
         try {
@@ -230,16 +251,19 @@ export function useCanvasBoards({
           // Unsaved is fine — the relink is re-found on the next open.
         }
       }
-      lastWrittenHash.current = hashContent(serializeDoc(loaded))
+      lastWrittenHash.current = hashContent(serializeDoc(opened))
+      dirty.current = loaded !== opened
       setHistory(initHistory(loaded))
       setSelectedIds(new Set())
       // A board saved before the camera moved out still carries one; it is the
       // fallback until this machine has its own.
       const camera = readStoredCamera(cameraKey(activeProjectPath, loaded.id)) ?? loaded.camera
       if (camera) panZoom.setCamera(camera)
+      // Which environments place which sketches moves with every save; the list says so on each switch.
+      void refreshDocs()
       return loaded
     },
-    [panZoom, markVanishedComponents, activeProjectPath, flushSave, setError, setHistory, setSelectedIds],
+    [panZoom, markVanishedComponents, activeProjectPath, flushSave, setError, setHistory, setSelectedIds, withFreshLinks, refreshDocs],
   )
 
   /** Closes the open board without opening another — its last tab was closed. */
@@ -250,9 +274,9 @@ export function useCanvasBoards({
   }, [flushSave, setHistory, setSelectedIds])
 
   const createBoard = useCallback(
-    async (name: string) => {
+    async (name: string, kind: DocumentKind = 'sketch') => {
       await flushSave()
-      const next = createDoc(name.trim() || 'Untitled')
+      const next = createDoc(name.trim() || 'Untitled', kind)
       lastWrittenHash.current = await saveDoc(next)
       setHistory(initHistory(next))
       setSelectedIds(new Set())
@@ -492,22 +516,23 @@ export function useCanvasBoards({
       // Stage-tag batches never touch a board; ignoring them keeps a planning
       // stage toggle from reloading the canvas mid-edit.
       if (payload?.stagesOnly) return
-      if (!doc) {
-        await refreshDocs()
-        return
-      }
+      // A document added, renamed or removed from outside (an agent writing a board) shows in the picker straight away.
+      await refreshDocs()
+      if (!doc) return
       const read = await loadDoc(doc.id)
       if (!read) return
-      const fresh = resolvePlanes(syncPlacements(null, read))
+      // A sketch this environment places may be what changed: pull it in too.
+      const onDisk = resolvePlanes(syncPlacements(null, read))
+      const fresh = await withFreshLinks(onDisk)
       const freshHash = hashContent(serializeDoc({ ...fresh, camera: undefined }))
       const ourHash = hashContent(serializeDoc({ ...doc, camera: undefined }))
       // Our own autosave echoing back — nothing to do.
       if (freshHash === ourHash) return
       if (dirty.current) return // local edits in flight win; the next save reconciles
+      if (fresh !== onDisk) dirty.current = true
       setHistory(reset(fresh))
-      await refreshDocs()
     })
-  }, [doc, refreshDocs, setHistory])
+  }, [doc, refreshDocs, setHistory, withFreshLinks])
 
   return {
     docs,
@@ -522,5 +547,6 @@ export function useCanvasBoards({
     createBoard,
     removeBoard,
     renameBoard,
+    readDoc,
   }
 }

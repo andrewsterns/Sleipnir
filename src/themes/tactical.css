@@ -46,6 +46,7 @@
   --nominal:        #9ab4c4;
   --nominal-dim:    rgba(154,180,196,0.10);
   --caution:        #a8bccc;           /* caution: muted grey */
+  --danger:         #e5484d;           /* broken: a feature or sketch that can't be built — the one colour in the status set */
 
   /* ── Gradient stroke presets — white only ────────────────────────────── */
   --stroke-default:  135deg, rgba(229,227,237,0.28), rgba(229,227,237,0.03);

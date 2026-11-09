@@ -3,15 +3,17 @@ import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import type { TerminalProps } from './iTerminal'
+import { isNewChunk } from './terminalSessions'
 
-export function useTerminalViewModel({ onExit }: Pick<TerminalProps, 'onExit'>) {
+export function useTerminalViewModel({ onExit, sessionId: attachTo, onSession }: Pick<TerminalProps, 'onExit' | 'sessionId' | 'onSession'>) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [exitCode, setExitCode] = useState<number | null>(null)
+  // Held across this effect re-running (a hot reload of this very file), so the same shell comes back.
+  const session = useRef<string | null>(attachTo ?? null)
 
-  // Mounted exactly once for the app's lifetime (see TerminalDock) — this
-  // effect spawning one session on mount and killing it on unmount is what
-  // makes "survives hiding the panel, dies on app quit" correct, since the
-  // component itself is never unmounted just to hide the dock.
+  // The shell belongs to the main process, not to this component: unmounting
+  // only lets go of it, and a page reload or hot reload picks it back up. Only
+  // closing its tab ends it (TerminalDock).
   useEffect(() => {
     const container = containerRef.current
     const api = window.terminalAPI
@@ -31,6 +33,7 @@ export function useTerminalViewModel({ onExit }: Pick<TerminalProps, 'onExit'>) 
       fontSize: 13,
       lineHeight: 1.2,
       cursorBlink: true,
+      scrollback: 10_000,
       theme: {
         background: bg1,
         foreground: fg1,
@@ -134,15 +137,53 @@ export function useTerminalViewModel({ onExit }: Pick<TerminalProps, 'onExit'>) 
     let unsubData: (() => void) | null = null
     let unsubExit: (() => void) | null = null
 
-    api.spawn(term.cols, term.rows).then(({ id }) => {
-      if (disposed) {
-        api.kill(id)
+    const startNew = () =>
+      api.spawn(term.cols, term.rows).then(({ id }) => {
+        // Let go of before anyone knew its id: nothing else could ever end it.
+        if (disposed) {
+          api.kill(id)
+          return
+        }
+        sessionId = id
+        session.current = id
+        onSession?.(id)
+        unsubData = api.onData(id, (data) => term.write(data))
+        unsubExit = api.onExit(id, (code) => setExitCode(code))
+      })
+
+    const reattach = async (id: string) => {
+      // Listening first, so nothing printed during the replay is missed; what the replay covers is dropped below.
+      let replayEnd: number | null = null
+      const waiting: { data: string; end: number }[] = []
+      unsubData = api.onData(id, (data, end) => {
+        if (replayEnd === null) waiting.push({ data, end })
+        else if (isNewChunk(end, replayEnd)) term.write(data)
+      })
+      unsubExit = api.onExit(id, (code) => setExitCode(code))
+      const replay = await api.attach(id)
+      if (disposed) return
+      if (!replay) {
+        // Gone (the app restarted): a fresh shell in its place.
+        unsubData?.()
+        unsubExit?.()
+        session.current = null
+        void startNew()
         return
       }
+      term.write(replay.data)
+      replayEnd = replay.end
+      for (const chunk of waiting) if (isNewChunk(chunk.end, replay.end)) term.write(chunk.data)
       sessionId = id
-      unsubData = api.onData(id, (data) => term.write(data))
-      unsubExit = api.onExit(id, (code) => setExitCode(code))
-    })
+      onSession?.(id)
+      // Nudge the size so a full-screen program (Claude, an editor) redraws itself at once.
+      api.resize(id, term.cols, Math.max(1, term.rows - 1))
+      setTimeout(() => {
+        if (!disposed) api.resize(id, term.cols, term.rows)
+      }, 60)
+    }
+
+    if (session.current) void reattach(session.current)
+    else void startNew()
 
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit()
@@ -158,7 +199,6 @@ export function useTerminalViewModel({ onExit }: Pick<TerminalProps, 'onExit'>) 
       dataListenerDisposable.dispose()
       unsubData?.()
       unsubExit?.()
-      if (sessionId) api.kill(sessionId)
       term.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

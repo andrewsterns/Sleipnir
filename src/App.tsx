@@ -10,6 +10,7 @@ import { ThemeController, useAppTheme } from './themes/ThemeController'
 import { KeybindingsController } from './keybindings/KeybindingsController'
 import { Frame } from './app/UIKit/Frame/Frame'
 import { NavRail, type NavRailItem } from './app/NavRail/NavRail'
+import { readShell, writeShell } from './app/sessionState'
 import { TerminalDock } from './app/TerminalDock/TerminalDock'
 import { UpgradePrompt } from './app/License/UpgradePrompt'
 import { AgentDock } from './app/AgentDock/AgentDock'
@@ -71,6 +72,10 @@ const NAV_ITEMS: NavRailItem[] = [
   { id: 'source-control', tag: 'Git', title: 'Source Control', icon: 'git-branch' },
 ]
 
+// What a reload may come back to. 'settings' is a full page, not on the rail.
+const SPACE_IDS = [...NAV_ITEMS.map((n) => n.id), 'settings']
+const DOCK_IDS: DockId[] = ['terminal', 'agent', 'problems', 'run']
+
 // The boot screen stays up until the restored project's info and plans are in
 // (or there's no project to load), so the first frame isn't an empty board.
 const projectLoaded = bootSignal()
@@ -88,14 +93,16 @@ function App() {
   // only grows: a category, once visited, stays mounted-but-hidden so its
   // state (open tabs, scroll position, ...) survives switching away and
   // back, without ever showing two categories' content side by side.
-  const [activeCategory, setActiveCategory] = useState('planning')
+  // Started from what this window was showing, so a reload (the agent editing Sleipnir itself) comes back to it.
+  const [restoredShell] = useState(() => readShell(SPACE_IDS, DOCK_IDS, 'planning'))
+  const [activeCategory, setActiveCategory] = useState(restoredShell.active)
   // Set by the title bar's PRO / Upgrade badge to open Settings on its License section.
   const [settingsRequest, setSettingsRequest] = useState<{ id: string } | null>(null)
   // Ctrl/Cmd-clicking a NavRail item opens it in a second, side-by-side pane
   // instead of replacing the primary one (see switchTo) — null means no
   // split is open, in which case the primary pane fills the whole width.
-  const [secondaryCategory, setSecondaryCategory] = useState<string | null>(null)
-  const [mountedCategories, setMountedCategories] = useState<string[]>(['planning'])
+  const [secondaryCategory, setSecondaryCategory] = useState<string | null>(restoredShell.secondary)
+  const [mountedCategories, setMountedCategories] = useState<string[]>(() => [...new Set(['planning', restoredShell.active, ...(restoredShell.secondary ? [restoredShell.secondary] : [])])])
   // Bumped on every in-app save (see onSave/onSaveAll) so Source Control —
   // which stays mounted-but-hidden like every other category and therefore
   // never remounts on a plain category switch — re-reads `git status` the
@@ -150,7 +157,10 @@ function App() {
   // only one can be open at a time, or their panels would fully overlap. Their
   // toggles are the status bar's tabs. Settings is a full page (see 'settings'
   // in renderCategory), not part of this family.
-  const [activeDock, setActiveDock] = useState<DockId | null>(null)
+  const [activeDock, setActiveDock] = useState<DockId | null>(restoredShell.dock as DockId | null)
+  useEffect(() => {
+    writeShell({ active: activeCategory, secondary: secondaryCategory, dock: activeDock })
+  }, [activeCategory, secondaryCategory, activeDock])
   const toggleDock = useCallback((id: DockId) => setActiveDock((cur) => (cur === id ? null : id)), [])
   // ProblemsDock polls the open editors; the status bar shows what it found.
   const [problemsSummary, setProblemsSummary] = useState<ProblemsSummary>({ total: 0, text: null, color: null, rest: 0 })
