@@ -1,7 +1,7 @@
 {
   "name": "sleipnir",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A canvas and 3D modeling workbench for vibe coding, with AI agents and git built in.",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Andrew Sterns",

@@ -9,6 +9,51 @@ breaking changes. Pre-`1.0.0` signals "early, expect change."
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-09
+
+### Added
+- Canvas documents come in two kinds: Sketches (2D frames and components) and
+  Environments (3D scenes). One picker lists both, and the document decides the
+  view, replacing the 2D/3D toggle.
+- Place a Sketch in an Environment on a plane or a part's face, linked, so edits
+  to the Sketch show in 3D. Unlink makes the copy local.
+- 3D parts built from sketches: extrude, revolve and sweep, starter shapes, a
+  parts list with each part's features, and a settings dialog per feature with
+  live preview, OK and Cancel. Drag features to reorder them.
+- Edit parts directly: pick points, edges or faces (Tab, 1 / 2 / 3, A, B for a
+  box). G, R and S move them, with X / Y / Z locks, typed amounts and Ctrl to
+  snap; Enter keeps a move and Esc puts it back. Points and edges move freely in
+  3D, one face pushes or pulls along itself, and E grows new material out of a
+  face.
+- Parts move, turn and scale as a whole while their sketches stay on their planes.
+- Display modes (shaded, edges, wireframe, X-ray) and a smoothness setting for
+  curved parts. Click the axis gizmo to look straight down an axis.
+- Sketch mode draws over the live 3D scene, facing the sketch's plane.
+- Agents can build 3D scenes from the command line with `.sleipnir/model.mjs`,
+  including whole builds in one batch, and read a scene back in a few hundred
+  tokens with `describe`. New `/sculpt` and `/sketch` commands teach them how.
+- Terminals survive a page reload, keeping their output and whatever was running.
+  They now scroll back 10,000 lines.
+- After a reload the app comes back to the same space, dock, split and open files.
+- When developing Sleipnir itself: a Restart to apply button that restarts the
+  app and resumes each terminal's Claude conversation.
+
+### Changed
+- Deleting a sketch or face that something depends on no longer deletes that
+  thing: it stays, marked broken with the reason, to re-pick or remove.
+- Each 3D control has one home: shaping tools and select modes in the toolbox,
+  feature settings and appearance in the right panel, views on the axis gizmo.
+- New documents are named "Untitled sketch" and "Untitled environment", numbered
+  when taken, and documents added from outside appear in the picker at once.
+- Number fields show rounded values instead of long decimals.
+- `canvas.mjs` only writes to Sketch documents.
+
+### Fixed
+- Small curved parts are as round as large ones.
+- Reversed and both-sides extrudes are drawn the way they are set.
+- Sketches stood on a turned part's face land on the face.
+- An extruded frame with the default fill no longer renders black.
+
 ## [0.1.0] - 2026-10-28
 
 ### Added
